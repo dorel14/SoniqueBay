@@ -8,4 +8,4 @@ from ui.pages import accueil, recherche
 
 ui.run(title='SoniqueBay',
         reload=True,
-        favicon='ui/static/favicon.jpg',)
+        favicon='https://emojiapi.dev/api/v1/headphones/64.png')

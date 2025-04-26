@@ -1,7 +1,20 @@
+[build-system]
+requires = [
+    "setuptools>=61",
+    "setuptools-scm>=8"  # Assure-toi d'avoir une version récente
+]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "soniquebay-app"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Add your description here"
+authors = [{ name = "David orel", email = "d.orel@free.fr" }]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[tool.setuptools_scm]
+version_scheme = "post-release"   # Génère style "1.0.0.post1"
+local_scheme = "no-local-version" # Pas d'info locale type "+githash"
+write_to = "soniquebay-app/_version.py" # Crée un fichier pour pouvoir lire la version dans le code
