@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=61",
+    "wheel",
     "setuptools-scm>=8"  # Assure-toi d'avoir une version récente
 ]
 build-backend = "setuptools.build_meta"
@@ -16,5 +17,5 @@ dependencies = []
 
 [tool.setuptools_scm]
 version_scheme = "post-release"   # Génère style "1.0.0.post1"
-local_scheme = "no-local-version" # Pas d'info locale type "+githash"
-write_to = "soniquebay-app/_version.py" # Crée un fichier pour pouvoir lire la version dans le code
+local_scheme = "node-and-date" # Pas d'info locale type "+githash"
+write_to = "./_version.py" # Crée un fichier pour pouvoir lire la version dans le code
