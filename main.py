@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from router import Router
 from nicegui import ui
-from ._version import version
+from src.soniquebay_app._version_ import version
 
 
 # Import de toutes les pages
