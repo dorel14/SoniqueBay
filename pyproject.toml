@@ -18,4 +18,4 @@ dependencies = []
 [tool.setuptools_scm]
 version_scheme = "post-release"   # Génère style "1.0.0.post1"
 local_scheme = "node-and-date" # Pas d'info locale type "+githash"
-write_to = "./_version.py" # Crée un fichier pour pouvoir lire la version dans le code
+write_to = "/SoniqueBay-app/_version.py" # Crée un fichier pour pouvoir lire la version dans le code
