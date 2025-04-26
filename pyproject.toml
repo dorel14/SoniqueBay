@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "soniquebay-app"
 dynamic = ["version"]
-description = "Add your description here"
+description = "Music server with in app playback"
 authors = [{ name = "David orel", email = "d.orel@free.fr" }]
 readme = "README.md"
 requires-python = ">=3.12"
