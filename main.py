@@ -1,6 +1,11 @@
-def main():
-    print("Hello from soniquebay-app!")
+#!/usr/bin/env python3
+from router import Router
+from nicegui import ui
 
 
-if __name__ == "__main__":
-    main()
+# Import de toutes les pages
+from ui.pages import accueil, recherche
+
+ui.run(title='SoniqueBay',
+        reload=True,
+        favicon='ui/static/favicon.jpg',)
