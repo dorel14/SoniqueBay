@@ -1,62 +1,58 @@
 from contextlib import contextmanager
+from turtle import color
 
 from .menu import menu
-
+from ...theme.colors import apply_theme, set_background
 from nicegui import ui
 
 
 
 @contextmanager
 def frame(navigation_title: str):
-    ui.add_css('''.soniquebay-gradient {
-            background: linear-gradient(to bottom right, #4A148C, #000000); /* Du violet foncé vers le noir */
-        }
-
-        /* Variante avec une teinte plus douce */
-        .soniquebay-gradient-soft {
-  background: linear-gradient(to bottom right, #6A1B9A, #38006B); /* Nuances de violet plus douces */
-}
-
-/* Variante plus vive */
-.soniquebay-gradient-vibrant {
-  background: linear-gradient(to bottom right, #7B1FA2, #1A237E); /* Violet plus vif vers un bleu foncé */
-}
-
-/* Variante avec une direction différente */
-.soniquebay-gradient-top {
-  background: linear-gradient(to top, #4A148C, #000000); /* Du violet foncé vers le noir, de bas en haut */
-}''')
+    apply_theme()
+    set_background('#0D1B2A')
     """Custom page frame to share the same styling and behavior across all pages"""
-    ui.colors(primary='#4A148C', secondary='#9C27B0', accent='#00BCD4', positive='#53B689')
+    #ui.colors(primary='#4A148C', secondary='#9C27B0', accent='#00BCD4', positive='#53B689')
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">')
     #ui.add_head_html('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">')
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.css">')
     ui.add_head_html('<link href="https://unpkg.com/eva-icons@1.1.3/style/eva-icons.css" rel="stylesheet" />')
     ui.add_head_html('<link href="https://cdn.jsdelivr.net/themify-icons/0.1.2/css/themify-icons.css" rel="stylesheet" />')
     ui.add_head_html("""<script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>""")
-    #ui.add_head_html("""<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>""")
+    ui.add_head_html("""<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>""")
+    ui.add_head_html('<link rel="stylesheet" href="/static/style.css">')
     #use_theme('bootstrap4') #tabulator theme for all tables
-    with ui.dialog() as about, ui.card().classes('items-center'):
+    with ui.dialog() as about, ui.card().classes('items-center sonique-background sonique-surface'):
         ui.label('Informations').classes('text-lg')
         #ui.label(f'Version {__version__}')
         ui.label('Made with ❤️ by David Orel')
         ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto ')
 
-    with ui.header().classes(replace='row items-center soniquebay-gradient-soft') as header:
-        ui.button(on_click=lambda: left_drawer.toggle(), icon='menu').props('flat color=white')
+    with ui.header().classes(replace='row items-center sonique-surface') as header:
+        with ui.row().classes('text-white items-center'):
+            with ui.button(icon='menu'):
+                menu()
         ui.space()
-        ui.label(navigation_title).classes('font-bold') 
+        ui.label('SoniqueBay').classes('text-2xl font-bold mb-4')
         ui.space()
         ui.button(on_click=about.open, icon='info').props('flat color=white')
 
     with ui.footer() as footer:
         with ui.row().classes('w-full items-center flex-wrap soniquebay-gradient-soft'):
             ui.icon('copyright')
-            ui.label('Tout droits réservés').classes('text-xs')
+            ui.label('All rights reserved').classes('text-xs')
+    ldrawer_open = False
+    toggle_button = ui.button(icon='chevron_left').props('flat').classes('text-sm inline-flex items-center')
 
-    with ui.left_drawer().classes('soniquebay-gradient-vibrant') as left_drawer:
-        with ui.column():
-            menu()
+    def toggle_left_drawer():
+        nonlocal ldrawer_open
+        left_drawer.toggle()
+        ldrawer_open = not ldrawer_open
+        toggle_button.set_icon('chevron_right' if ldrawer_open else 'chevron_left')
+    toggle_button.on('click', toggle_left_drawer)
+    with ui.left_drawer().classes('sonique-surface') as left_drawer:
+        with ui.column().classes('items-center'):
+            ui.label('left drawer')
     with ui.column().classes('absolute-center items-center'):
         ui.row().classes('items-center')
         yield

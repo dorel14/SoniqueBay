@@ -1,0 +1,25 @@
+/* ui/static/style.css */
+
+.sonique-surface {
+    background-color: #1B263B;
+    color: #E0E1DD;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.sonique-button {
+    background-color: #00B4D8;
+    color: #E0E1DD;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.sonique-primary-text {
+    color: #00B4D8;
+}
+
+.sonique-background {
+    background-color: #0D1B2A;
+    color: #E0E1DD;
+}
