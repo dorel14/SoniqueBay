@@ -16,6 +16,9 @@ requires-python = ">=3.12"
 dependencies = []
 
 [tool.setuptools_scm]
-version_scheme = "post-release"   # Génère style "1.0.0.post1"
-local_scheme = "node-and-date" # Pas d'info locale type "+githash"
-write_to = "src/soniquebay_app/_version_.py" # Crée un fichier pour pouvoir lire la version dans le code
+version_scheme = "guess-next-dev"  # Changement du scheme pour mieux gérer les versions de dev
+local_scheme = "dirty-tag"  # Meilleure détection des changements
+write_to = "src/soniquebay_app/_version_.py"
+fallback_version = "0.0.1"  # Version par défaut si git n'est pas disponible
+version_file = "src/soniquebay_app/_version_.py"
+git_describe_command = ["git describe --dirty --tags --long --match v*"]  # Commande git plus précise

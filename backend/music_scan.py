@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-from annotated_types import T
 from mutagen import File
 from .helpers.logging import logger
 
