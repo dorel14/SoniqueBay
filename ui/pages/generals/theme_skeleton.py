@@ -1,8 +1,6 @@
 from contextlib import contextmanager
-from turtle import color
-
 from .menu import menu
-from ...theme.colors import apply_theme, set_background
+from ...theme.colors import apply_theme
 from nicegui import ui
 
 
@@ -10,9 +8,7 @@ from nicegui import ui
 @contextmanager
 def frame(navigation_title: str):
     apply_theme()
-    set_background('#0D1B2A')
     """Custom page frame to share the same styling and behavior across all pages"""
-    #ui.colors(primary='#4A148C', secondary='#9C27B0', accent='#00BCD4', positive='#53B689')
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">')
     #ui.add_head_html('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">')
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.css">')
@@ -22,23 +18,24 @@ def frame(navigation_title: str):
     ui.add_head_html("""<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>""")
     ui.add_head_html('<link rel="stylesheet" href="/static/style.css">')
     #use_theme('bootstrap4') #tabulator theme for all tables
-    with ui.dialog() as about, ui.card().classes('items-center sonique-background sonique-surface'):
+    with ui.dialog() as about, ui.card().classes('items-center sonique-background rounded-lg'):
         ui.label('Informations').classes('text-lg')
-        #ui.label(f'Version {__version__}')
+        #ui.label(f'Version {version}')
         ui.label('Made with ❤️ by David Orel')
-        ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto ')
+        ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto')
 
     with ui.header().classes(replace='row items-center sonique-surface') as header:
         with ui.row().classes('text-white items-center'):
-            with ui.button(icon='menu'):
+            with ui.button(icon='menu').classes('px-3 py-2 text-xs sonique-button').props('flat'):
                 menu()
         ui.space()
-        ui.label('SoniqueBay').classes('text-2xl font-bold mb-4')
+        ui.label('SoniqueBay').classes('text-2xl font-bold mb-4 sonique-title')
         ui.space()
+        ui.switch('Dark mode').bind_value(ui.dark_mode())
         ui.button(on_click=about.open, icon='info').props('flat color=white')
 
-    with ui.footer() as footer:
-        with ui.row().classes('w-full items-center flex-wrap soniquebay-gradient-soft'):
+    with ui.footer().classes('sonique-background') as footer:
+        with ui.row().classes('w-full items-center flex-wrap'):
             ui.icon('copyright')
             ui.label('All rights reserved').classes('text-xs')
     ldrawer_open = False
@@ -53,7 +50,7 @@ def frame(navigation_title: str):
     with ui.left_drawer().classes('sonique-surface') as left_drawer:
         with ui.column().classes('items-center'):
             ui.label('left drawer')
-    with ui.column().classes('absolute-center items-center'):
+    with ui.column().classes('absolute-center items-center rounded-lg p-4 shadow-lg sonique-background'):
         ui.row().classes('items-center')
         yield
     with ui.right_drawer() as right_drawer:

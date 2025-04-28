@@ -1,25 +1,45 @@
-/* ui/static/style.css */
+/* --- SoniqueBay Theme --- */
+
+/* LIGHT MODE - par défaut */
+.sonique-background {
+    background-color: #E0E1DD;
+    color: #0D1B2A;
+}
 
 .sonique-surface {
-    background-color: #1B263B;
-    color: #E0E1DD;
-    padding: 20px;
-    border-radius: 10px;
+    background-color: #FFFFFF;
+    color: #0D1B2A;
 }
 
-.sonique-button {
+.sonique-primary {
+    background-color: #0077B6;
+    color: #E0E1DD;
+}
+
+.sonique-accent {
     background-color: #00B4D8;
     color: #E0E1DD;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: bold;
 }
 
-.sonique-primary-text {
-    color: #00B4D8;
-}
+/* DARK MODE */
+@media (prefers-color-scheme: dark) {
+    .sonique-background {
+        background-color: #0D1B2A;
+        color: #E0E1DD;
+    }
 
-.sonique-background {
-    background-color: #0D1B2A;
-    color: #E0E1DD;
+    .sonique-surface {
+        background-color: #1B263B;
+        color: #E0E1DD;
+    }
+
+    .sonique-primary {
+        background-color: #00B4D8;
+        color: #0D1B2A;
+    }
+
+    .sonique-accent {
+        background-color: #0077B6;
+        color: #E0E1DD;
+    }
 }

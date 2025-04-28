@@ -38,6 +38,7 @@ def apply_theme():
             background_text=theme['on_background'],
             surface_text=theme['on_surface'],
         )
+        set_background(theme['background'])
 
     ui.dark_mode().bind_value_to(lambda: set_colors(ui.dark_mode().value))
     set_colors(ui.dark_mode().value)

@@ -1,0 +1,15 @@
+2025-04-28 11:47:54,002 :: WARNING :: http://127.0.0.1:8080/api not found
+2025-04-28 11:49:39,432 :: WARNING :: http://127.0.0.1:8080/docs not found
+2025-04-28 11:49:46,616 :: WARNING :: http://127.0.0.1:8080/api/docs not found
+2025-04-28 11:49:56,550 :: WARNING :: http://127.0.0.1:8080/docs not found
+2025-04-28 11:53:00,116 :: WARNING :: http://127.0.0.1:8080/api not found
+2025-04-28 11:53:22,376 :: WARNING :: http://127.0.0.1:8080/api/docs not found
+2025-04-28 11:59:25,021 :: WARNING :: http://127.0.0.1:8080/api/docs not found
+2025-04-28 12:01:57,008 :: WARNING :: http://127.0.0.1:8080/v1/scan not found
+2025-04-28 12:02:10,863 :: WARNING :: http://127.0.0.1:8080/scan not found
+2025-04-28 12:02:37,667 :: WARNING :: http://127.0.0.1:8080/v1/scan not found
+2025-04-28 12:02:37,702 :: WARNING :: http://127.0.0.1:8080/scan not found
+2025-04-28 12:03:06,954 :: WARNING :: http://127.0.0.1:8080/scan not found
+2025-04-28 12:03:06,990 :: WARNING :: http://127.0.0.1:8080/v1/scan not found
+2025-04-28 12:03:24,865 :: WARNING :: http://127.0.0.1:8080/scan not found
+2025-04-28 12:03:24,914 :: WARNING :: http://127.0.0.1:8080/v1/scan not found
