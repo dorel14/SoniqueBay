@@ -6,6 +6,9 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
+# Créer Base avant toute autre opération
+Base = declarative_base()
+
 def get_database_url():
     db_type = os.getenv('DB_TYPE', 'sqlite').lower()
 
@@ -18,24 +21,26 @@ def get_database_url():
                 f"{os.getenv('DB_HOST', 'localhost')}:"
                 f"{os.getenv('DB_PORT', '5432')}/"
                 f"{os.getenv('DB_NAME', 'musicdb')}")
-    
+
     elif db_type == 'mariadb':
         return (f"mysql+pymysql://{os.getenv('DB_USER', 'root')}:"
                 f"{os.getenv('DB_PASS', '')}@"
                 f"{os.getenv('DB_HOST', 'localhost')}:"
                 f"{os.getenv('DB_PORT', '3306')}/"
                 f"{os.getenv('DB_NAME', 'musicdb')}")
-    
+
     raise ValueError(f"Base de données non supportée: {db_type}")
 
+# Créer l'engine après la définition de l'URL
 engine = create_engine(get_database_url())
-Session = sessionmaker(bind=engine)
-session = Session()
-Base = declarative_base()
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
-    db = Session()
+    db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+# Exporter les éléments nécessaires
+__all__ = ['Base', 'SessionLocal', 'get_db', 'engine']

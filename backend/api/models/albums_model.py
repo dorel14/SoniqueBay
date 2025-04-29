@@ -1,11 +1,12 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
-from sqlalchemy.orm import  relationship
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from backend.database import Base
 
 class Album(Base):
     __tablename__ = 'albums'
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True)
     title = Column(String)

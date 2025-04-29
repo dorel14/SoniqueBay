@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .artists_schema import Artist
+    from .tracks_schema import Track
 
 class AlbumsBase(BaseModel):
     title: str
@@ -24,7 +28,9 @@ class Album(AlbumsBase):
         from_attributes = True
 
 class AlbumWithRelations(Album):
-    album_artist: "Artist"
-    tracks: List["Track"] = []
-
-from backend.schemas import Artist, Track  # noqa: E402
+    if TYPE_CHECKING:
+        album_artist: "Artist"
+        tracks: List["Track"]
+    else:
+        album_artist: object
+        tracks: List = []
