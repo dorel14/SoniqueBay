@@ -1,10 +1,10 @@
-from nicegui import app, APIRouter
-from fastapi import HTTPException, status
+
+from fastapi import APIRouter, HTTPException, status
 from backend.music_scan import scan_music_files
 
 
-router = APIRouter()
-@app.post("/scan", status_code=status.HTTP_201_CREATED,tags=["scan"])
+router = APIRouter(prefix="/api", tags=["scan"])
+@router.post("/scan", status_code=status.HTTP_201_CREATED,tags=["scan"])
 async def launch_scan(directory: str):
     """Lance un scan sur le dossier spécifié."""
 

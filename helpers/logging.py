@@ -4,7 +4,11 @@ import logging
 import pathlib
 import stat
 from datetime import datetime
-from logging.handlers import RotatingFileHandler
+from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
+import multiprocessing
+
+# Créer une queue pour la communication inter-processus
+log_queue = multiprocessing.Queue(-1)
 
 date_format = "%Y%m%d"
 currentdir = os.path.dirname(os.path.realpath(__file__))
@@ -36,24 +40,44 @@ if not os.path.exists(logfiles):
 logger = logging.getLogger()
 # on met le niveau du logger à DEBUG, comme ça il écrit tout
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+logger.setLevel(getattr(logging, log_level))
 
 # création d'un formateur qui va ajouter le temps, le niveau
 # de chaque message quand on écrira un message dans le log
 formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
-# création d'un handler qui va rediriger une écriture du log vers
-# un fichier en mode 'append', avec 1 backup et une taille max de 1Mo
+
+# Création des handlers pour le QueueListener
 file_handler = RotatingFileHandler(filename=logfiles,
-                                    mode='a',
-                                    maxBytes=1000000,
-                                    backupCount=5)
-# on lui met le niveau sur DEBUG, on lui dit qu'il doit utiliser le formateur
-# créé précédement et on ajoute ce handler au logger
+                                   mode='a',
+                                   maxBytes=1000000,
+                                   backupCount=5)
 file_handler.setLevel(getattr(logging, log_level))
 file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
-# création d'un second handler qui va rediriger chaque écriture de log
-# sur la console
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(getattr(logging, log_level))
-logger.addHandler(stream_handler)
+stream_handler.setFormatter(formatter)
+
+# Configurer le QueueListener avec les handlers
+listener = QueueListener(log_queue, file_handler, stream_handler)
+listener.start()
+
+# Configurer le logger principal pour utiliser un QueueHandler
+queue_handler = QueueHandler(log_queue)
+logger.addHandler(queue_handler)
+
+# Fonction pour configurer le logging dans les processus enfants
+def configure_worker_logging():
+    """
+    Configure logging for worker processes.
+    This should be called at the start of each worker process.
+    """
+    # Supprimer tous les handlers existants
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
+    # Ajouter un QueueHandler qui envoie les logs à la queue partagée
+    handler = QueueHandler(log_queue)
+    logger.addHandler(handler)
+    logger.setLevel(getattr(logging, log_level))
+    return logger

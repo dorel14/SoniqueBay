@@ -1,7 +1,9 @@
-from nicegui import ui
+from nicegui import ui, APIRouter as ng_apirouter
 from .generals import theme_skeleton
 
-@ui.page('/recherche')
+router=ng_apirouter(prefix='/search')
+
+@router.page('/')
 def recherche():
     with theme_skeleton.frame('Recherche'):
         ui.label('SoniqueBay').classes('text-2xl font-bold')

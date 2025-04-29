@@ -8,10 +8,10 @@ load_dotenv()
 
 def get_database_url():
     db_type = os.getenv('DB_TYPE', 'sqlite').lower()
-    
+
     if db_type == 'sqlite':
         return 'sqlite:///music.db'
-    
+
     elif db_type == 'postgres':
         return (f"postgresql://{os.getenv('DB_USER', 'postgres')}:"
                 f"{os.getenv('DB_PASS', '')}@"
@@ -32,3 +32,10 @@ engine = create_engine(get_database_url())
 Session = sessionmaker(bind=engine)
 session = Session()
 Base = declarative_base()
+
+def get_db():
+    db = Session()
+    try:
+        yield db
+    finally:
+        db.close()

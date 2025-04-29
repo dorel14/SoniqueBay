@@ -14,11 +14,11 @@ def menu() -> None:
             with ui.item_section():
                 ui.label('Recherche')
 
-        with ui.menu_item(on_click=lambda: ui.navigate.to('/lecture')):
+        with ui.menu_item(on_click=lambda: ui.navigate.to('/api_docs')):
             with ui.item_section().props('avatar'):
-                ui.icon('play_arrow')
+                ui.icon('description')
             with ui.item_section():
-                ui.label('Lecture')
+                ui.label('API Docs')
 
         with ui.menu_item(text='Paramètres', auto_close=False):
             with ui.item_section().props('side'):

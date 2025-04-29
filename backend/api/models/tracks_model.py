@@ -13,8 +13,9 @@ class Track(Base):
     album = Column(Integer, ForeignKey('albums.id'))  # Foreign key to the albums table
     duration = Column(Integer)  # Duration in seconds
     release_date = Column(String)  # Release date in YYYY-MM-DD format
-    musicbrain_id = Column(String, unique=True)  # Unique identifier from MusicBrainz
-    cover_url = Column(String)  # URL to the cover image
+    musicbrain_id = Column(String, unique=True, nullable=True)  # Unique identifier from MusicBrainz
+    acoustid_fingerprint = Column(String, nullable=True)  # AcoustID fingerprint
+    cover_url = Column(String, nullable=True)  # URL to the cover image
     date_added = Column(DateTime, default=datetime.utcnow)  # Date when the track was added to the database
     date_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)  # Date when the track was last modified
     artist_id = Column(Integer, ForeignKey('artists.id'))  # Foreign key to the artists table
