@@ -8,6 +8,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.soniquebay_app._version_ import version
 from frontend.pages import homepage, api_docs, search
 from frontend.pages.generals import theme_skeleton
+from frontend.websocket.ws_client import ws_client
 
 app.add_middleware(
         CORSMiddleware,
@@ -22,11 +23,11 @@ app.include_router(search.router)
 
 
 @ui.page('/')
-def index_page() -> None:
+async def index_page() -> None:
+    await ws_client.connect()
     with theme_skeleton.frame('Homepage'):
         homepage.content()
     ui.page_title("SoniqueBay - Accueil")
-
 
 
 ui.run(host='0.0.0.0',
