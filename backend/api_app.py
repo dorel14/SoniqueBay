@@ -7,7 +7,7 @@ from backend.database import Base, engine
 Base.metadata.create_all(bind=engine)
 
 # Importer les routes après l'initialisation de la base
-from backend.api import api_router
+from backend.api import api_router  # noqa: E402
 
 app = FastAPI(title="SoniqueBay API",
             version="1.0.0",
