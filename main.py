@@ -10,8 +10,8 @@ def launch_ui():
 def launch_api():
         return subprocess.Popen(["python", "./backend/start_api.py"])
 
-# def launch_celery():
-#     return subprocess.Popen(["celery", "-A", "backend.celery_app.celery", "worker", "--loglevel=info"])
+def launch_celery():
+    return subprocess.Popen(["celery", "-A", "backend.celery_app.celery", "worker", "--loglevel=info"])
 
 if __name__ == "__main__":
         logger.info("Démarrage du Frontend NiceGUI...")
