@@ -3,7 +3,9 @@ from .albums_api import router as albums_router
 from .tracks_api import router as tracks_router
 from .genres_api import router as genres_router
 from .scan_api import router as scan_router
+from .playqueue_api import router as playqueue_router
 from .search_api import router as search_router
+from .settings_api import router as settings_router
 
 __all__ = [
     "artists_router",
@@ -12,4 +14,6 @@ __all__ = [
     "genres_router",
     "search_router",
     "scan_router",
+    "playqueue_router",
+    "settings_router",
 ]
