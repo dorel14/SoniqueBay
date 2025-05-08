@@ -1,8 +1,8 @@
 # -*- coding: UTF-8 -*-
-from fastapi import FastAPI
+from fastapi import FastAPI,  WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import Base, engine
-
+from backend.websocket_manager.manager import connect, disconnect, broadcast_message
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
@@ -21,6 +21,21 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
 )
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            print(f"Message reçu: {data}")
+            # Vous pouvez traiter les messages reçus ici
+    except WebSocketDisconnect:
+        await disconnect(websocket)
+    except Exception as e:
+        print(f"Erreur WebSocket: {e}")
+        await disconnect(websocket)
+
 
 app.include_router(api_router)
 def create_api():

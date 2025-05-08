@@ -1,7 +1,8 @@
+from nicegui import ui
 from contextlib import contextmanager
 from .menu import menu
 from frontend.theme.colors import apply_theme
-from nicegui import ui
+
 
 @contextmanager
 def frame(navigation_title: str):
@@ -23,35 +24,41 @@ def frame(navigation_title: str):
         ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto')
 
 
-    with ui.header().classes(replace='row items-center') as header:
+    with ui.header().classes(replace='sonique-header row items-center') as header:
         with ui.row().classes('text-white items-center'):
-            with ui.button(icon='menu').classes('px-3 py-2 text-xs').props('flat'):
+            with ui.button(icon='menu').classes('text-xs sonique-primary').props('dense flat'):
                 menu()
         ui.space()
-        ui.label('SoniqueBay').classes('text-2xl font-bold mb-4')
+        ui.label('SoniqueBay').classes(
+            'text-2xl font-bold').style(
+                'color: #00bcd4;' if ui.dark_mode().value else 'color: #0077B6;')
         ui.space()
-        ui.switch('Dark mode').bind_value(ui.dark_mode())
+        ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
         ui.button(on_click=about.open, icon='info').props('flat color=white')
 
     with ui.footer().classes('sonique-background') as footer:
         with ui.row().classes('w-full items-center flex-wrap'):
             ui.icon('copyright')
             ui.label('All rights reserved').classes('text-xs')
-    with ui.left_drawer().classes('items-center') as left_drawer:
+    with ui.left_drawer().classes('sonique-drawer p-4') as left_drawer:
         with ui.column().classes('items-center'):
             ui.label('left drawer')
     with ui.column().classes('absolute-center items-center rounded-lg p-4 shadow-lg w-full h-full'):
         ui.row().classes('items-center')
         yield
     ldrawer_open = False
-    toggle_button = ui.button(icon='chevron_left').props('flat').classes('text-sm inline-flex items-center')
 
-    def toggle_left_drawer():
+    def toggle_left_drawer(event):
         nonlocal ldrawer_open
         left_drawer.toggle()
         ldrawer_open = not ldrawer_open
-        toggle_button.set_icon('chevron_right' if ldrawer_open else 'chevron_left')
-    toggle_button.on('click', toggle_left_drawer)
+        if event.sender._props['icon'] == 'chevron_left':
+            print('coucou')
+            event.sender.props('icon=chevron_right')
+        else:
+            print('coucou2')
+            event.sender.props('icon=chevron_left')
+    ui.button(icon='chevron_left', on_click=toggle_left_drawer).props('flat').classes('text-sm inline-flex items-center')
 
 
 

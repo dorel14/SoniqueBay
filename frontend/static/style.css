@@ -1,45 +1,102 @@
 /* --- SoniqueBay Theme --- */
 
-/* LIGHT MODE - par défaut */
+/* === LIGHT MODE === */
 .sonique-background {
-    background-color: #E0E1DD;
-    color: #0D1B2A;
+    background-color: #eaf7fa;        /* Fond doux et lumineux */
+    color: #041b2d;                   /* Texte bleu très foncé */
 }
 
 .sonique-surface {
-    background-color: #FFFFFF;
-    color: #0D1B2A;
+    background-color: #ffffff;
+    color: #041b2d;
 }
 
 .sonique-primary {
-    background-color: #0077B6;
-    color: #E0E1DD;
+    background-color: #0077B6;        /* Bleu soutenu */
+    color: #ffffff;
 }
 
 .sonique-accent {
-    background-color: #00B4D8;
-    color: #E0E1DD;
+    background-color: #00BCD4;        /* Cyan SoniqueBay */
+    color: #ffffff;
 }
 
-/* DARK MODE */
+.sonique-text-title {
+    color: #0077B6;
+    font-weight: bold;
+}
+
+.sonique-text-muted {
+    color: #546e7a;
+}
+
+
+/* === DARK MODE === */
 @media (prefers-color-scheme: dark) {
     .sonique-background {
-        background-color: #0D1B2A;
-        color: #E0E1DD;
+        background-color: #041b2d;
+        color: #f8fafc;
     }
 
     .sonique-surface {
-        background-color: #1B263B;
-        color: #E0E1DD;
+        background-color: #052635;
+        color: #f8fafc;
     }
 
     .sonique-primary {
-        background-color: #00B4D8;
-        color: #0D1B2A;
+        background-color: #00BCD4;
+        color: #041b2d;
     }
 
     .sonique-accent {
         background-color: #0077B6;
-        color: #E0E1DD;
+        color: #ffffff;
+    }
+
+    .sonique-text-title {
+        color: #00BCD4;
+        font-weight: bold;
+    }
+
+    .sonique-text-muted {
+        color: #94a3b8;
+    }
+}
+
+/* HEADER */
+.sonique-header {
+    background-color: #eaf7fa;
+    color: #0077B6;
+    border-bottom: 1px solid #c2d3df;
+}
+@media (prefers-color-scheme: dark) {
+    .sonique-header {
+        background-color: #041b2d;
+        color: #00BCD4;
+        border-bottom: 1px solid #1c3a52;
+    }
+}
+
+/* LEFT DRAWER */
+.sonique-drawer {
+    background-color: #043c69;
+    border-right: 1px solid #c2d3df;
+    color: #041b2d;
+}
+@media (prefers-color-scheme: dark) {
+    .sonique-drawer {
+        background-color: #0a2238;
+        border-right: 1px solid #1c3a52;
+        color: #eaf7fa;
+    }
+}
+
+/* MENU ITEMS */
+.sonique-drawer-item:hover {
+    background-color: #d8ecf1;
+}
+@media (prefers-color-scheme: dark) {
+    .sonique-drawer-item:hover {
+        background-color: #15364c;
     }
 }

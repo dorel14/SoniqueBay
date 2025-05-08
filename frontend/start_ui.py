@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from src.soniquebay_app._version_ import version
 from frontend.pages import homepage, api_docs, search
 from frontend.pages.generals import theme_skeleton
-from frontend.websocket.ws_client import ws_client
+from frontend.websocket_manager.ws_client import connect_websocket
 
 app.add_middleware(
         CORSMiddleware,
@@ -21,10 +21,17 @@ app.add_static_files('/static', './frontend/static')
 app.include_router(api_docs.router)
 app.include_router(search.router)
 
+@app.on_startup
+async def startup():
+    try:
+        await connect_websocket()
+        print("WebSocket connecté avec succès")
+    except Exception as e:
+        print(f"Erreur de connexion WebSocket (l'application continuera sans WebSocket): {str(e)}")
+        pass
 
 @ui.page('/')
 async def index_page() -> None:
-    await ws_client.connect()
     with theme_skeleton.frame('Homepage'):
         homepage.content()
     ui.page_title("SoniqueBay - Accueil")
@@ -33,5 +40,5 @@ async def index_page() -> None:
 ui.run(host='0.0.0.0',
         title=f'SoniqueBay v{version}',
                 favicon='./frontend/static/favicon.ico',
-                reload=False,
+                reload=True,
                 uvicorn_reload_dirs='./frontend',)

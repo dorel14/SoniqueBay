@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 from whoosh.index import create_in
 from whoosh.fields import Schema, TEXT, ID
-from whoosh.qparser import OperatorsPlugin, scoring, sorting
+from whoosh.qparser import OperatorsPlugin
+from whoosh import scoring, sorting
 import os
 
 def create_search_index(directory):
