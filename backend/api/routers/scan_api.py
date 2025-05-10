@@ -1,6 +1,6 @@
-
 from fastapi import APIRouter, HTTPException, status
-from backend.music_scan import scan_music_files
+from backend.indexing.music_scan import scan_music_files
+from backend.celery_tasks.tasks import scan_and_index_music
 
 
 router = APIRouter(prefix="/api", tags=["scan"])
@@ -10,7 +10,13 @@ async def launch_scan(directory: str):
 
     try:
         scan_results = scan_music_files(directory)  # Appel de la fonction de scan
-        return scan_results
+        # Lancer la tâche Celery en arrière-plan avec delay()
+        scan_and_index_music.delay(directory)
+        return {
+            "status": "success",
+            "message": "Scan lancé en arrière-plan",
+            "files_found": scan_results
+        }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 

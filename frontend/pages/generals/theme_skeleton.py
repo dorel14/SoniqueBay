@@ -17,7 +17,7 @@ def frame(navigation_title: str):
     ui.add_head_html("""<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>""")
     ui.add_head_html('<link rel="stylesheet" href="/static/style.css">')
     #use_theme('bootstrap4') #tabulator theme for all tables
-    with ui.dialog() as about, ui.card().classes('items-center  rounded-lg'):
+    with ui.dialog() as about, ui.card().classes('items-center rounded-lg sonique-surface sonique-text-muted'):
         ui.label('Informations').classes('text-lg')
         #ui.label(f'Version {version}')
         ui.label('Made with ❤️ by David Orel')
@@ -33,7 +33,7 @@ def frame(navigation_title: str):
             'text-2xl font-bold').style(
                 'color: #00bcd4;' if ui.dark_mode().value else 'color: #0077B6;')
         ui.space()
-        ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
+        #ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
         ui.button(on_click=about.open, icon='info').props('flat color=white')
 
     with ui.footer().classes('sonique-background') as footer:

@@ -5,7 +5,7 @@ from whoosh.qparser import OperatorsPlugin
 from whoosh import scoring, sorting
 import os
 
-def create_search_index(directory):
+def create_search_index(directory:str):
     schema = Schema(title=TEXT(stored=True),
                     artist=TEXT(stored=True),
                     album=TEXT(stored=True),

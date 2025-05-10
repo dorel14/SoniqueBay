@@ -14,7 +14,9 @@ description = "Music server with in app playback"
 authors = [{ name = "David orel", email = "d.orel@free.fr" }]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "alembic>=1.15.2",
+]
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"

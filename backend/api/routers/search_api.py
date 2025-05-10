@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from backend.search import create_search_index, search_index
+from backend.indexing.search import create_search_index, search_index
 from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet
 import os
 

@@ -1,15 +1,21 @@
 from fastapi import APIRouter, HTTPException, Depends, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List
 from backend.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
+from datetime import datetime
 
 router = APIRouter(prefix="/api/artists", tags=["artists"])
 
 @router.post("/", response_model=Artist, status_code=status.HTTP_201_CREATED)
 def create_artist(artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db)):
-    db_artist = ArtistModel(**artist.dict())
+    db_artist = ArtistModel(
+        **artist.model_dump(exclude_unset=True),
+        date_added=func.now(),
+        date_modified=func.now()
+    )
     db.add(db_artist)
     db.commit()
     db.refresh(db_artist)
@@ -33,8 +39,9 @@ def update_artist(artist_id: int, artist: ArtistCreate, db: SQLAlchemySession = 
     if db_artist is None:
         raise HTTPException(status_code=404, detail="Artiste non trouvé")
     
-    for key, value in artist.dict().items():
+    for key, value in artist.model_dump(exclude_unset=True).items():
         setattr(db_artist, key, value)
+    db_artist.date_modified = func.now()  # Mise à jour compatible cross-DB
     
     db.commit()
     db.refresh(db_artist)

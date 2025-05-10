@@ -11,6 +11,6 @@ def api_docs():
         ui.label('Bienvenue sur la documentation de l\'API SoniqueBay !').classes('text-3xl font-bold')
         ui.label('Cette API vous permet d\'interagir avec notre plateforme de musique en ligne.').classes('text-lg')
         ui.label('Vous pouvez effectuer des opérations telles que le scan de fichiers musicaux, la recherche de musique, etc.').classes('text-lg')
-        ui.html('''
-        <iframe src="http://localhost:8001/api/docs" style="width:100%; height:90vh; border:none; border-radius:8px; box-shadow:0 4px 8px rgba(0,0,0,0.3);"></iframe>
-        ''').classes('w-full')
+        with ui.card().classes('bg-white p-4 w-full').style('border-radius: 12px;'):
+            ui.html('''<iframe src="http://localhost:8001/api/docs"
+            style="width:100%; height:80vh; border:none; border-radius:8px;"></iframe>''').classes('w-full')

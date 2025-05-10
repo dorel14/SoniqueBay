@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
@@ -8,24 +8,26 @@ if TYPE_CHECKING:
     from .genres_schema import Genre
 
 class TrackBase(BaseModel):
-    title: str
-    duration: Optional[int] = None
-    release_date: Optional[str] = None
-    musicbrain_id: Optional[str] = None
+    title: str = Field(..., description="Titre de la piste")
+    path: str = Field(..., description="Chemin du fichier")
+    duration: Optional[int] = Field(0, description="Durée en secondes")
+    track_number: Optional[str] = None
+    disc_number: Optional[str] = None
+    musicbrainz_id: Optional[str] = None
+    acoustid_fingerprint: Optional[str] = None
     cover_url: Optional[str] = None
 
 class TrackCreate(TrackBase):
-    album_id: int
-    artist_id: int
-    date_added: datetime = datetime.now()
-    date_modified: datetime = datetime.now()
+    artist_id: int = Field(..., description="ID de l'artiste")
+    album_id: Optional[int] = Field(None, description="ID de l'album")
+    genres: Optional[List[int]] = []  # Liste des IDs de genres
 
 class Track(TrackBase):
     id: int
-    date_added: datetime
-    date_modified: datetime
     artist_id: int
     album_id: int
+    date_added: datetime
+    date_modified: datetime
 
     class Config:
         from_attributes = True
@@ -34,8 +36,8 @@ class TrackWithRelations(Track):
     if TYPE_CHECKING:
         artist: "Artist"
         album: "Album"
-        genrelist: List["Genre"]
+        genres: List["Genre"]
     else:
         artist: object
         album: object
-        genrelist: List = []
+        genres: List = []

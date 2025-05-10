@@ -3,4 +3,6 @@
 import os
 import glob
 __all__ = [os.path.basename(f)[:-3] for f in glob.glob(os.path.dirname(__file__) + "/*.py")]
-from .celery_app import celery
+from .tasks import scan_and_index_music
+
+__all__ = ['scan_and_index_music']

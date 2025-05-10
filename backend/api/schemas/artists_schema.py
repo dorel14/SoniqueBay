@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
 
@@ -10,18 +10,18 @@ class ArtistBase(BaseModel):
     name: str
     genre: Optional[str] = None
     musicbrain_id: Optional[str] = None
-    date_added: Optional[str] = datetime.now()
-    date_modified: Optional[str] = datetime.now()
     cover_url: Optional[str] = None
 
 class ArtistCreate(ArtistBase):
+    # Les dates seront automatiquement gérées par SQLAlchemy
     pass
 
 class Artist(ArtistBase):
     id: int
+    date_added: datetime
+    date_modified: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ArtistWithRelations(Artist):
     if TYPE_CHECKING:

@@ -42,5 +42,7 @@ def get_db():
     finally:
         db.close()
 
+
+
 # Exporter les éléments nécessaires
 __all__ = ['Base', 'SessionLocal', 'get_db', 'engine']
