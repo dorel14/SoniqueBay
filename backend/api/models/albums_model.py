@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 
 from backend.database import Base
 from .genre_links import album_genre_links

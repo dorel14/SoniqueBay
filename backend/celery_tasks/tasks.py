@@ -76,11 +76,17 @@ def scan_and_index_music(self, directory: str):
                 logger.error("ID artiste manquant pour la piste: %s", file.get('path'))
                 return
 
-            # Envoi des données validées
+            # Envoi des données validées avec gestion des codes HTTP
             response = await client.post("http://localhost:8001/api/tracks/", json=track_data)
-            if response.status_code not in (200, 201):
+            
+            if response.status_code == 409:
+                logger.info(f"La piste existe déjà: {file.get('title')} - ignorée")
+                return
+            elif response.status_code not in (200, 201):
                 logger.error(f"Erreur API pour {file.get('title')}: {response.text}")
                 return
+                
+            logger.info(f"Piste créée/mise à jour avec succès: {file.get('title')}")
 
             # Index Whoosh avec tous les champs requis
             whoosh_doc = {

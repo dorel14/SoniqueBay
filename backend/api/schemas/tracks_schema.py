@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 
@@ -20,17 +20,16 @@ class TrackBase(BaseModel):
 class TrackCreate(TrackBase):
     artist_id: int = Field(..., description="ID de l'artiste")
     album_id: Optional[int] = Field(None, description="ID de l'album")
-    genres: Optional[List[int]] = []  # Liste des IDs de genres
+    genres: list[int] = []  # Liste des IDs de genres
 
 class Track(TrackBase):
     id: int
     artist_id: int
-    album_id: int
+    album_id: Optional[int] = None  # Permet album_id null
     date_added: datetime
     date_modified: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class TrackWithRelations(Track):
     if TYPE_CHECKING:

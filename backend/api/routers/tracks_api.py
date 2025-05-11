@@ -1,24 +1,79 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.exc import IntegrityError
+
 from typing import List
 from backend.database import get_db
 from backend.api.schemas.tracks_schema import TrackCreate, Track, TrackWithRelations
 from backend.api.models.tracks_model import Track as TrackModel
+from backend.api.models.artists_model import Artist as ArtistModel
+from helpers.logging import logger
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
 
-@router.post("/", response_model=Track, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=Track)
 async def create_track(track: TrackCreate, db: SQLAlchemySession = Depends(get_db)):
-    db_track = TrackModel(**track.dict())
-    db.add(db_track)
-    db.commit()
-    db.refresh(db_track)
-    return db_track
+    try:
+        # Vérifier si la piste existe déjà
+        existing_track = db.query(TrackModel).filter(TrackModel.path == track.path).first()
+        if existing_track:
+            logger.info(f"Piste existante trouvée: {track.path}")
+            return Track.model_validate(existing_track)
+
+        # Vérifier que l'artiste existe
+        artist = db.query(ArtistModel).filter(ArtistModel.id == track.artist_id).first()
+        if not artist:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Artiste {track.artist_id} non trouvé"
+            )
+
+        # Créer la nouvelle piste
+        track_data = track.model_dump(exclude_unset=True)
+        db_track = TrackModel(**track_data)
+        
+        try:
+            db.add(db_track)
+            db.commit()
+            db.refresh(db_track)
+            logger.info(f"Nouvelle piste créée: {track.path}")
+            return Track.model_validate(db_track)
+        except IntegrityError as e:
+            db.rollback()
+            logger.error(f"Erreur d'intégrité: {str(e)}")
+            if "UNIQUE constraint" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cette piste existe déjà"
+                )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur inattendue: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @router.get("/", response_model=List[Track])
-async def read_tracks(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
-    tracks = db.query(TrackModel).offset(skip).limit(limit).all()
-    return tracks
+async def read_tracks(
+    skip: int = 0,
+    limit: int = 100,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    try:
+        tracks = db.query(TrackModel).offset(skip).limit(limit).all()
+        return tracks
+    except Exception as e:
+        logger.error(f"Erreur lecture pistes: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @router.get("/{track_id}", response_model=TrackWithRelations)
 async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):

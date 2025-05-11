@@ -1,11 +1,11 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List
 from backend.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
-from datetime import datetime
+
 
 router = APIRouter(prefix="/api/artists", tags=["artists"])
 
@@ -56,3 +56,26 @@ def delete_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
     db.delete(artist)
     db.commit()
     return {"ok": True}
+
+@router.get("/search", response_model=List[Artist])
+async def search_artists(
+    name: str = Query(None, description="Nom de l'artiste"),
+    musicbrain_id: str = Query(None, description="MusicBrainz ID"),
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Recherche des artistes par nom ou MusicBrainz ID."""
+    query = db.query(ArtistModel)
+
+    if not name and not musicbrain_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Un critère de recherche est requis (name ou musicbrain_id)"
+        )
+
+    if name:
+        query = query.filter(func.lower(ArtistModel.name) == func.lower(name))
+    if musicbrain_id:
+        query = query.filter(ArtistModel.musicbrain_id == musicbrain_id)
+
+    artists = query.all()
+    return artists

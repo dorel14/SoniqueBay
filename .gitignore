@@ -4,10 +4,26 @@ __pycache__/
 build/
 dist/
 wheels/
+data/
 *.egg-info
-*.db
+
 *.exchange
 
+*.toc
+*.*db
+*.sqlite
+*.sqlite3
+*.log
+*.db
+
+# Database files
+*.db
+music.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite3-journal
 
 # Virtual environments
 .venv
