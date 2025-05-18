@@ -1,34 +1,33 @@
 # -*- coding: utf-8 -*-
-from whoosh.index import create_in
-from whoosh.fields import Schema, TEXT, ID
+from whoosh.index import create_in, open_dir, exists_in
+from whoosh.fields import Schema, TEXT, ID, DATETIME, KEYWORD
 from whoosh.qparser import OperatorsPlugin
 from whoosh import scoring, sorting
 import os
 
-def create_search_index(directory:str):
-    schema = Schema(title=TEXT(stored=True),
-                    artist=TEXT(stored=True),
-                    album=TEXT(stored=True),
-                    path=ID(stored=True),
-                    genre=TEXT(stored=True),
-                    year=TEXT(stored=True),
-                    decade=TEXT(stored=True),
-                    disc_number=TEXT(stored=True),
-                    track_number=TEXT(stored=True),
-                    acoustid_fingerprint=TEXT(stored=True),
-                    duration=TEXT(stored=True),
-                    musicbrain_id=TEXT(stored=True),
-                    musicbrain_albumid=TEXT(stored=True),
-                    musicbrain_artistid=TEXT(stored=True),
-                    musicbrain_albumartistid=TEXT(stored=True),
-                    musicbrain_genre=TEXT(stored=True),
-                    cover=TEXT(stored=True))
-    # Create the index directory if it doesn't exist
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    # Create the index
-    index = create_in(directory, schema)
-    return index
+def get_or_create_index(index_dir: str):
+    """Récupère l'index existant ou en crée un nouveau."""
+    # Créer le répertoire s'il n'existe pas
+    os.makedirs(index_dir, exist_ok=True)
+
+    # Définition du schéma
+    schema = Schema(
+        path=ID(stored=True, unique=True),
+        title=TEXT(stored=True),
+        artist=TEXT(stored=True),
+        album=TEXT(stored=True),
+        genre=KEYWORD(stored=True, commas=True),
+        year=ID(stored=True),
+        added=DATETIME(stored=True)
+    )
+
+    # Vérifier si l'index existe
+    if exists_in(index_dir):
+        return open_dir(index_dir)
+    
+    # Créer un nouvel index si nécessaire
+    return create_in(index_dir, schema)
+
 def add_to_index(index, track):
     writer = index.writer()
 

@@ -41,4 +41,5 @@ ui.run(host='0.0.0.0',
         title=f'SoniqueBay v{version}',
                 favicon='./frontend/static/favicon.ico',
                 reload=True,
-                uvicorn_reload_dirs='./frontend',)
+                uvicorn_reload_dirs='./frontend',
+                show=False,)

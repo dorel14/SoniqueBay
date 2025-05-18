@@ -2,10 +2,96 @@
 
 from pathlib import Path
 from mutagen import File
+import mimetypes
 from mutagen.id3 import ID3, ID3NoHeaderError
+from mutagen.mp3 import MP3
+from mutagen.flac import FLAC
 from helpers.logging import logger
 
 
+def get_file_type(file_path: str) -> str:
+    """Détermine le type de fichier à partir de son extension."""
+    try:
+        mime_type, encoding = mimetypes.guess_type(file_path)
+        if mime_type is None:
+            logger.warning("Type de fichier inconnu pour %s", file_path)
+            return "unknown"
+        return mime_type
+    except Exception as e:
+        logger.error("Erreur lors de la détermination du type de fichier %s: %s", file_path, str(e))
+        return "unknown"
+
+def get_cover_art(file_path: str):
+    """Récupère la pochette d'album d'un fichier audio."""
+    try:
+        audio = File(file_path, easy=True)
+        if audio is None:
+            logger.warning("Impossible de lire le fichier: %s", file_path)
+            return None
+        else:
+            filetype = get_file_type(file_path)
+            if filetype == "audio/mpeg":
+                # Pour les fichiers MP3, utiliser mutagen
+                tags = ID3(file_path)
+                if tags and tags.get('APIC:'):
+                    cover_data = tags.get('APIC:').data
+                    mime_type = tags.get('APIC:').mime
+                    return cover_data, mime_type
+            elif filetype in ["audio/flac", "audio/x-flac"]:
+                # Pour les fichiers FLAC, utiliser mutagen
+                if hasattr(audio, 'pictures'):
+                    picture = audio.pictures[0]
+                    cover_data = picture.data
+                    mime_type = picture.mime
+                    return cover_data, mime_type
+            else:
+                logger.warning("Type de fichier non supporté pour la pochette: %s", file_path)
+                return None
+    except Exception as e:
+        logger.error("Erreur lors de la récupération de la pochette pour %s: %s", file_path, str(e))
+        return None
+def get_file_bitrate(file_path: str) -> int:
+    """Récupère le bitrate d'un fichier audio."""
+    try:
+        filetype = get_file_type(file_path)
+        
+        if filetype == "audio/mpeg":
+            audio = MP3(file_path)
+            return int(audio.info.bitrate / 1000)  # Convertir en kbps
+            
+        elif filetype in ["audio/flac", "audio/x-flac"]:
+            audio = FLAC(file_path)
+            if hasattr(audio.info, 'bits_per_sample') and hasattr(audio.info, 'sample_rate'):
+                # Pour FLAC, calculer le bitrate approximatif
+                return int((audio.info.bits_per_sample * audio.info.sample_rate) / 1000)
+            
+        return 0
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération du bitrate pour {file_path}: {str(e)}")
+        return 0
+def extract_audio_features(audio, tags):
+    """Extrait les caractéristiques audio avancées."""
+    features = {}
+    
+    # Extraction des tags AcoustID
+    for key in ['ab:hi:danceability:danceable', 'ab:lo:rhythm:bpm', 
+                'ab:lo:tonal:key_key', 'ab:lo:tonal:key_scale',
+                'ab:hi:mood_happy:happy', 'ab:hi:mood_aggressive:aggressive',
+                'ab:hi:mood_party:party', 'ab:hi:mood_relaxed:relaxed',
+                'ab:hi:voice_instrumental:instrumental', 
+                'ab:hi:mood_acoustic:acoustic',
+                'ab:hi:tonal_atonal:tonal']:
+        if key in tags:
+            value = tags.get(key)[0]
+            features[key.split(':')[-1]] = float(value) if value.replace('.','').isdigit() else value
+
+    # Extraction des tags de genre et mood
+    features['genre_tags'] = tags.get('ab:genre', [])
+    features['mood_tags'] = tags.get('ab:mood', [])
+    features['genre_main'] = tags.get('genre', [''])[0]
+
+    return features
 
 def scan_music_files(directory: str):
     """Scan les fichiers musicaux d'un répertoire."""
@@ -39,7 +125,8 @@ def scan_music_files(directory: str):
                     if audio is None:
                         logger.warning("Impossible de lire les métadonnées: %s", str(file_path))
                         continue
-
+                    cover_data, mime_type = get_cover_art(file_path) if tags else (None, None)
+                    bitrate = get_file_bitrate(file_path)
                     metadata = {
                         "path": str(file_path),
                         "title": get_tag(audio, "title") or file_path.stem,
@@ -58,8 +145,13 @@ def scan_music_files(directory: str):
                         "musicbrain_genre": get_tag(audio, "musicbrainz_genre"),
                         "acoustid_fingerprint": get_tag(audio, "acoustid_fingerprint"),
                         # Cover art
-                        "cover": tags.get('APIC:').data if tags and tags.get('APIC:') else None
+                        "cover_data": cover_data,
+                        "cover_mime_type": mime_type,
+                        "file_type": get_file_type(file_path),
+                        "bitrate": bitrate
                     }
+
+                    metadata.update(extract_audio_features(audio, audio.tags if audio else {}))
 
                     files_data.append(metadata)
                     logger.debug("Métadonnées extraites pour: %s", str(file_path))
@@ -78,15 +170,35 @@ def scan_music_files(directory: str):
 def extract_metadata(audio, file_path):
     """Extrait les métadonnées d'un fichier audio."""
     try:
-        # Extraction sécurisée des métadonnées
+        cover_data, mime_type = get_cover_art(str(file_path))
+        bitrate = get_file_bitrate(str(file_path))
+        audio_features = extract_audio_features(audio, audio.tags if audio else {})
+
         metadata = {
             "path": str(file_path),
             "title": get_tag(audio, "title") or file_path.stem,
             "artist": get_tag(audio, "artist"),
             "album": get_tag(audio, "album"),
+            "genre": get_tag(audio, "genre"),
+            "year": get_tag(audio, "date"),
+            "track_number": get_tag(audio, "tracknumber"),
+            "disc_number": get_tag(audio, "discnumber"),
             "duration": int(audio.info.length if hasattr(audio.info, 'length') else 0),
-            # ...other metadata...
+            "musicbrainz_id": get_tag(audio, "musicbrainz_trackid"),
+            "musicbrainz_albumid": get_tag(audio, "musicbrainz_albumid"),
+            "musicbrainz_artistid": get_tag(audio, "musicbrainz_artistid"),
+            "musicbrainz_albumartistid": get_tag(audio, "musicbrainz_albumartistid"),
+            "musicbrainz_genre": get_tag(audio, "musicbrainz_genre"),
+            "acoustid_fingerprint": get_tag(audio, "acoustid_fingerprint"),
+            "cover_data": cover_data,
+            "cover_mime_type": mime_type,
+            "file_type": get_file_type(str(file_path)),
+            "bitrate": bitrate
         }
+        
+        # Ajouter les caractéristiques audio
+        metadata.update(audio_features)
+        
         return metadata
     except Exception as e:
         logger.error("Erreur d'extraction des métadonnées pour %s: %s", file_path, str(e))

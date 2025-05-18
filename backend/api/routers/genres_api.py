@@ -1,11 +1,26 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session as SQLAlchemySession
-from typing import List
+from typing import List, Optional
 from backend.database import get_db
 from backend.api.schemas.genres_schema import GenreCreate, Genre, GenreWithTracks
 from backend.api.models.genres_model import Genre as GenreModel
 
 router = APIRouter(prefix="/api/genres", tags=["genres"])
+
+@router.get("/search", response_model=List[Genre])
+async def search_genres(
+    name: Optional[str] = Query(None, description="Nom du genre à rechercher"),
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Recherche des genres par nom."""
+    query = db.query(GenreModel)
+
+    if name:
+        query = query.filter(func.lower(GenreModel.name).like(f"%{name.lower()}%"))
+
+    return query.all()
+
 
 @router.post("/", response_model=Genre, status_code=status.HTTP_201_CREATED)
 def create_genre(genre: GenreCreate, db: SQLAlchemySession = Depends(get_db)):
@@ -49,3 +64,4 @@ def delete_genre(genre_id: int, db: SQLAlchemySession = Depends(get_db)):
     db.delete(genre)
     db.commit()
     return {"ok": True}
+

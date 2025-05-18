@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from backend.indexing.search import create_search_index, search_index
+from backend.indexing.search import get_or_create_index, search_index
 from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet
 import os
 
@@ -10,7 +10,7 @@ async def search(query: SearchQuery):
     try:
         # Initialiser l'index
         index_dir = os.path.join(os.getcwd(), "search_index")
-        index = create_search_index(index_dir)
+        index = get_or_create_index(index_dir)
 
         # Effectuer la recherche
         total, artist_facet, genre_facet, decade_facet, results = search_index(index, query.query)

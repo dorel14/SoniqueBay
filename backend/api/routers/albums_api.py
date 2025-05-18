@@ -1,40 +1,97 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
-from typing import List
-from backend.database import get_db
-from backend.api.schemas.albums_shema import AlbumCreate, Album, AlbumWithRelations
+from backend.api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
 from backend.api.models.albums_model import Album as AlbumModel
+from sqlalchemy import func
+from datetime import datetime
+from typing import List, Optional
+from backend.database import get_db
+from sqlalchemy.exc import IntegrityError
 
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
-@router.post("/", response_model=Album, status_code=status.HTTP_201_CREATED)
-async def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
-    # Filtrer uniquement les champs autorisés et ajouter les dates
-    album_data = album.model_dump(
-        exclude_unset=True,
-        include={'title', 'release_year', 'musicbrainz_albumid', 'cover_url', 'album_artist_id'}
-    )
+# Déplacer la route search AVANT les routes avec paramètres
+@router.get("/search", response_model=List[Album])
+async def search_albums(
+    title: Optional[str] = Query(None),
+    artist_id: Optional[int] = Query(None),
+    musicbrainz_albumid: Optional[str] = Query(None),
+    musicbrainz_albumartistid: Optional[str] = Query(None),
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Recherche des albums avec critères MusicBrainz."""
+    query = db.query(AlbumModel)
 
+    if title:
+        query = query.filter(func.lower(AlbumModel.title).like(f"%{title.lower()}%"))
+    if artist_id:
+        query = query.filter(AlbumModel.album_artist_id == artist_id)
+    if musicbrainz_albumid:
+        query = query.filter(AlbumModel.musicbrainz_albumid == musicbrainz_albumid)
+    if musicbrainz_albumartistid:
+        query = query.filter(AlbumModel.musicbrainz_albumartistid == musicbrainz_albumartistid)
+
+    albums = query.all()
+    return [Album.model_validate(album) for album in albums]
+
+@router.post("/", response_model=Album, status_code=status.HTTP_201_CREATED)
+def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
     try:
-        db_album = AlbumModel(**album_data)
+        # Vérifier si l'album existe déjà par musicbrainz_id
+        if album.musicbrainz_albumid:
+            existing_album = db.query(AlbumModel).filter(
+                AlbumModel.musicbrainz_albumid == album.musicbrainz_albumid
+            ).first()
+            if existing_album:
+                return Album.model_validate(existing_album)
+
+        # Vérifier par titre et artiste
+        existing_album = db.query(AlbumModel).filter(
+            AlbumModel.title == album.title,
+            AlbumModel.album_artist_id == album.album_artist_id
+        ).first()
+        if existing_album:
+            return Album.model_validate(existing_album)
+
+        # Créer le nouvel album
+        db_album = AlbumModel(
+            **album.model_dump(exclude={"date_added", "date_modified"}),
+            date_added=func.now(),
+            date_modified=func.now()
+        )
         db.add(db_album)
         db.commit()
         db.refresh(db_album)
-        return db_album
-    except IntegrityError:
+        return Album.model_validate(db_album)
+
+    except IntegrityError as e:
         db.rollback()
+        if "UNIQUE constraint failed: albums.musicbrainz_albumid" in str(e):
+            # Double vérification en cas de race condition
+            existing = db.query(AlbumModel).filter(
+                AlbumModel.musicbrainz_albumid == album.musicbrainz_albumid
+            ).first()
+            if existing:
+                return Album.model_validate(existing)
         raise HTTPException(
-            status_code=409,
-            detail="Un album avec cet identifiant MusicBrainz existe déjà"
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Un album avec cet identifiant existe déjà"
         )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/", response_model=List[Album])
 def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
     albums = db.query(AlbumModel).offset(skip).limit(limit).all()
-    return albums
+    # Convertir les dates None en datetime.now()
+    return [Album.model_validate(
+        {**album.__dict__,
+        "date_added": album.date_added or datetime.utcnow(),
+        "date_modified": album.date_modified or datetime.utcnow()
+        }
+    ) for album in albums]
 
 @router.get("/{album_id}", response_model=AlbumWithRelations)
 def read_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):

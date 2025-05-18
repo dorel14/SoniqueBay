@@ -1,25 +1,77 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, status
-from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession
-from typing import List
+from typing import List, Optional
 from backend.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
+from helpers.logging import logger
 
 
 router = APIRouter(prefix="/api/artists", tags=["artists"])
 
-@router.post("/", response_model=Artist, status_code=status.HTTP_201_CREATED)
+# Déplacer la route search AVANT les routes avec paramètres
+@router.get("/search", response_model=List[Artist])
+async def search_artists(
+    name: Optional[str] = Query(None),
+    musicbrainz_artistid: Optional[str] = Query(None),
+    genre: Optional[str] = Query(None),
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Recherche des artistes par nom, genre ou ID MusicBrainz."""
+    query = db.query(ArtistModel)
+
+    if name:
+        query = query.filter(func.lower(ArtistModel.name).like(f"%{name.lower()}%"))
+    if musicbrainz_artistid:
+        query = query.filter(ArtistModel.musicbrainz_artistid == musicbrainz_artistid)
+    if genre:
+        query = query.filter(func.lower(ArtistModel.genre).like(f"%{genre.lower()}%"))
+
+    return query.all()
+
+@router.post("/", response_model=Artist)
 def create_artist(artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db)):
-    db_artist = ArtistModel(
-        **artist.model_dump(exclude_unset=True),
-        date_added=func.now(),
-        date_modified=func.now()
-    )
-    db.add(db_artist)
-    db.commit()
-    db.refresh(db_artist)
-    return db_artist
+    """Crée un nouvel artiste."""
+    try:
+        # Vérifier si l'artiste existe déjà
+        if artist.musicbrainz_artistid:
+            existing = db.query(ArtistModel).filter(
+                ArtistModel.musicbrainz_artistid == artist.musicbrainz_artistid
+            ).first()
+            if existing:
+                return existing
+
+        existing_artist = db.query(ArtistModel).filter(
+            func.lower(ArtistModel.name) == func.lower(artist.name)
+        ).first()
+
+        if existing_artist:
+            return existing_artist
+
+        db_artist = ArtistModel(
+            **artist.model_dump(exclude_unset=True),
+            date_added=func.now(),
+            date_modified=func.now()
+        )
+        db.add(db_artist)
+        db.commit()
+        db.refresh(db_artist)
+        return db_artist
+    except IntegrityError as e:
+        db.rollback()
+        # Double vérification en cas de race condition
+        if "UNIQUE constraint failed: artists.musicbrainz_artistid" in str(e):
+            existing = db.query(ArtistModel).filter(
+                ArtistModel.musicbrainz_artistid == artist.musicbrainz_artistid
+            ).first()
+            if existing:
+                return existing
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Un artiste avec cet identifiant existe déjà"
+        )
 
 @router.get("/", response_model=List[Artist])
 def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
@@ -56,26 +108,3 @@ def delete_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
     db.delete(artist)
     db.commit()
     return {"ok": True}
-
-@router.get("/search", response_model=List[Artist])
-async def search_artists(
-    name: str = Query(None, description="Nom de l'artiste"),
-    musicbrain_id: str = Query(None, description="MusicBrainz ID"),
-    db: SQLAlchemySession = Depends(get_db)
-):
-    """Recherche des artistes par nom ou MusicBrainz ID."""
-    query = db.query(ArtistModel)
-
-    if not name and not musicbrain_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Un critère de recherche est requis (name ou musicbrain_id)"
-        )
-
-    if name:
-        query = query.filter(func.lower(ArtistModel.name) == func.lower(name))
-    if musicbrain_id:
-        query = query.filter(ArtistModel.musicbrain_id == musicbrain_id)
-
-    artists = query.all()
-    return artists
