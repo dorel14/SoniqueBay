@@ -1,63 +1,106 @@
 # -*- coding: utf-8 -*-
 from whoosh.index import create_in, open_dir, exists_in
-from whoosh.fields import Schema, TEXT, ID, DATETIME, KEYWORD
+from whoosh.fields import Schema, ID, TEXT, NUMERIC, STORED
 from whoosh.qparser import OperatorsPlugin
 from whoosh import scoring, sorting
+from helpers.logging import logger
 import os
+import shutil
 
-def get_or_create_index(index_dir: str):
-    """Récupère l'index existant ou en crée un nouveau."""
-    # Créer le répertoire s'il n'existe pas
-    os.makedirs(index_dir, exist_ok=True)
-
-    # Définition du schéma
-    schema = Schema(
+def get_schema():
+    """Définit le schéma d'indexation."""
+    return Schema(
+        id=STORED,  # ID de la base de données
         path=ID(stored=True, unique=True),
         title=TEXT(stored=True),
         artist=TEXT(stored=True),
         album=TEXT(stored=True),
-        genre=KEYWORD(stored=True, commas=True),
-        year=ID(stored=True),
-        added=DATETIME(stored=True)
+        genre=TEXT(stored=True),
+        year=TEXT(stored=True),
+        decade=TEXT(stored=True),  # Pour le filtrage par décennie
+        duration=NUMERIC(stored=True),
+        track_number=STORED,
+        disc_number=STORED,
+        # Ajout des champs MusicBrainz pour faciliter la recherche
+        musicbrainz_id=STORED,
+        musicbrainz_albumid=STORED,
+        musicbrainz_artistid=STORED,
+        musicbrainz_genre=TEXT(stored=True)
     )
 
-    # Vérifier si l'index existe
+def migrate_index(index_dir: str) -> bool:
+    """Vérifie si l'index nécessite une migration et le recrée si nécessaire."""
+    try:
+        if exists_in(index_dir):
+            index = open_dir(index_dir)
+            current_schema = index.schema
+            new_schema = get_schema()
+
+            # Vérifier si les champs sont différents
+            if set(current_schema.names()) != set(new_schema.names()):
+                logger.warning("Schéma d'index obsolète détecté. Migration nécessaire...")
+
+                # Sauvegarder l'ancien répertoire
+                backup_dir = f"{index_dir}_backup"
+                if os.path.exists(index_dir):
+                    shutil.copytree(index_dir, backup_dir, dirs_exist_ok=True)
+
+                # Supprimer et recréer l'index
+                shutil.rmtree(index_dir)
+                os.makedirs(index_dir, exist_ok=True)
+                return True
+
+        return False
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification/migration de l'index: {str(e)}")
+        return False
+
+def get_or_create_index(index_dir: str):
+    """Récupère l'index existant ou en crée un nouveau."""
+    os.makedirs(index_dir, exist_ok=True)
+
+    # Vérifier si une migration est nécessaire
+    if migrate_index(index_dir):
+        logger.info("Création d'un nouvel index avec le schéma mis à jour")
+        return create_in(index_dir, get_schema())
+
+    # Utiliser l'index existant ou en créer un nouveau
     if exists_in(index_dir):
         return open_dir(index_dir)
-    
-    # Créer un nouvel index si nécessaire
-    return create_in(index_dir, schema)
+
+    return create_in(index_dir, get_schema())
 
 def add_to_index(index, track):
+    """Ajoute une piste à l'index Whoosh."""
     writer = index.writer()
-
-    #Caculate decade
-    if track['year'] is not None and track['year'].isdigit():
-        # Convert year to integer and calculate decade  
-        decade = str(int(track['year']) // 10 * 10)
-    else:
+    try:
+        # Calcul de la décennie
         decade = None
+        if track.get('year') and str(track.get('year')).isdigit():
+            decade = str(int(track['year']) // 10 * 10)
 
-    writer.add_document(
-        title=track['title'],
-        artist=track['artist'],
-        album=track['album'],
-        path=track['path'],
-        genre=track['genre'],
-        year=track['year'],
-        decade=decade,
-        disc_number=track['disc_number'],
-        track_number=track['track_number'],
-        acoustid_fingerprint=track['acoustid_fingerprint'],
-        duration=str(track['duration']),
-        musicbrain_id=track['musicbrain_id'],
-        musicbrain_albumid=track['musicbrain_albumid'],
-        musicbrain_artistid=track['musicbrain_artistid'],
-        musicbrain_albumartistid=track['musicbrain_albumartistid'],
-        musicbrain_genre=track['musicbrain_genre'],
-        cover=str(track['cover'])
-    )
-    writer.commit()
+        writer.add_document(
+            id=track.get('id'),
+            path=track.get('path'),
+            title=track.get('title'),
+            artist=track.get('artist'),
+            album=track.get('album'),
+            genre=track.get('genre'),
+            year=track.get('year'),
+            decade=decade,
+            duration=track.get('duration', 0),
+            track_number=track.get('track_number'),
+            disc_number=track.get('disc_number'),
+            musicbrainz_id=track.get('musicbrainz_id'),
+            musicbrainz_albumid=track.get('musicbrainz_albumid'),
+            musicbrainz_artistid=track.get('musicbrainz_artistid'),
+            musicbrainz_genre=track.get('musicbrainz_genre')
+        )
+        writer.commit()
+    except Exception as e:
+        writer.cancel()
+        raise e
+
 def search_index(index, query):
     from whoosh.qparser import QueryParser
     with index.searcher(weighting=scoring.TF_IDF()) as searcher:

@@ -27,11 +27,11 @@ def has_table(name: str) -> bool:
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # 1. Nettoyer toutes les tables temporaires
+    # Nettoyer les tables temporaires
     for table in ['_alembic_tmp_artists', 'artists_new', '_alembic_tmp_tracks', 'tracks_new']:
         op.execute(f"DROP TABLE IF EXISTS {table}")
 
-    # 2. Créer les nouvelles tables temporaires
+    # Créer la table artists_new
     op.execute("""
         CREATE TABLE artists_new (
             id INTEGER PRIMARY KEY,
@@ -44,6 +44,18 @@ def upgrade() -> None:
         )
     """)
 
+    # Copier les données artists avec le mapping correct de musicbrain_id vers musicbrainz_artistid
+    op.execute("""
+        INSERT INTO artists_new 
+        SELECT id, name, genre, musicbrain_id, cover_url, date_added, date_modified 
+        FROM artists
+    """)
+
+    # Remplacer la table artists
+    op.execute("DROP TABLE artists")
+    op.execute("ALTER TABLE artists_new RENAME TO artists")
+
+    # Créer la nouvelle table tracks
     op.execute("""
         CREATE TABLE tracks_new (
             id INTEGER PRIMARY KEY,
@@ -60,32 +72,25 @@ def upgrade() -> None:
             bitrate INTEGER,
             date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
             date_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(track_artist_id) REFERENCES artists_new(id)
+            FOREIGN KEY(track_artist_id) REFERENCES artists(id),
+            FOREIGN KEY(album_id) REFERENCES albums(id)
         )
     """)
 
-    # 3. Copier les données
-    op.execute("""
-        INSERT INTO artists_new 
-        SELECT id, name, genre, musicbrain_id, cover_url, date_added, date_modified 
-        FROM artists
-    """)
-
+    # Copier les données tracks avec le bon mapping track_artist_id
     op.execute("""
         INSERT INTO tracks_new (
             id, title, track_artist_id, album_id, path, duration,
             date_added, date_modified
         )
         SELECT 
-            id, title, artist_id, album_id, path, duration,
+            id, title, track_artist_id, album_id, path, duration,
             date_added, date_modified
         FROM tracks
     """)
 
-    # 4. Remplacer les tables
+    # Remplacer la table tracks
     op.execute("DROP TABLE tracks")
-    op.execute("DROP TABLE artists")
-    op.execute("ALTER TABLE artists_new RENAME TO artists")
     op.execute("ALTER TABLE tracks_new RENAME TO tracks")
 
 

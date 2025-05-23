@@ -21,9 +21,17 @@ class TrackBase(BaseModel):
     musicbrainz_albumartistid: Optional[str] = Field(None, description="MusicBrainz Album Artist ID")
     musicbrainz_genre: Optional[str] = Field(None, description="Genre MusicBrainz")
     acoustid_fingerprint: Optional[str] = Field(None, description="AcoustID Fingerprint")
-    cover_data: Optional[str] = Field(None, description="Données de l'image de couverture en Base64")
+    cover_data: Optional[str] = Field(
+        None, 
+        description="Données de l'image de couverture en Base64",
+        example="data:image/jpeg;base64,/9j/4AAQSkZJRg..."
+    )
     file_type: Optional[str] = Field(None, description="Type MIME du fichier")
-    cover_mime_type: Optional[str] = Field(None, description="Type MIME de la pochette")
+    cover_mime_type: Optional[str] = Field(
+        None, 
+        pattern="^image/[a-z]+$",
+        description="Type MIME de la pochette (ex: image/jpeg, image/png)"
+    )
     bitrate: Optional[int] = Field(None, description="Bitrate en kbps")
     featured_artists: Optional[str] = Field(None, description="Artistes en featuring")
     bpm: Optional[float] = Field(None, description="Tempo en BPM")
@@ -40,6 +48,28 @@ class TrackBase(BaseModel):
     genre_main: Optional[str] = None
     genre_tags: List[str] = Field(default_factory=list)
     mood_tags: List[str] = Field(default_factory=list)
+
+    @field_validator('cover_data')
+    @classmethod
+    def validate_cover_data(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            return None
+        if not v.startswith('data:image/'):
+            return None
+        return v
+
+    @field_validator('cover_mime_type')
+    @classmethod
+    def validate_mime_type(cls, v):
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            return None
+        if not v.startswith('image/'):
+            return None
+        return v
 
 class TrackCreate(TrackBase):
     track_artist_id: int = Field(..., description="ID de l'artiste principal")

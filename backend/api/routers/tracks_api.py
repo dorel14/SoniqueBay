@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
-from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func
+from sqlalchemy import func, and_
 
 from typing import List, Optional
 from backend.database import get_db
@@ -21,10 +21,12 @@ async def search_tracks(
     year: Optional[str] = Query(None),
     path: Optional[str] = Query(None),
     musicbrainz_id: Optional[str] = Query(None),
+    genre_tags: Optional[List[str]] = Query(None),
+    mood_tags: Optional[List[str]] = Query(None),
     db: SQLAlchemySession = Depends(get_db)
 ):
     """Recherche avancée de pistes."""
-    query = db.query(TrackModel)
+    query = db.query(TrackModel).distinct()
 
     if title:
         query = query.filter(func.lower(TrackModel.title).like(f"%{title.lower()}%"))
@@ -36,61 +38,104 @@ async def search_tracks(
         query = query.filter(TrackModel.year == year)
     if musicbrainz_id:
         query = query.filter(TrackModel.musicbrainz_id == musicbrainz_id)
+    if genre_tags:
+        query = query.join(TrackModel.genre_tags).filter(
+            TrackModel.genre_tags.any(name=tag) for tag in genre_tags
+        )
+    if mood_tags:
+        query = query.join(TrackModel.mood_tags).filter(
+            TrackModel.mood_tags.any(name=tag) for tag in mood_tags
+        )
 
     return query.all()
 
 @router.post("/", response_model=Track)
 async def create_track(track: TrackCreate, db: SQLAlchemySession = Depends(get_db)):
+    """Création d'une nouvelle piste avec gestion des tags."""
     try:
+        from backend.api.models.tracks_model import Track as TrackModel, GenreTag, MoodTag
+
         # Vérifier si la piste existe
         existing_track = db.query(TrackModel).filter(TrackModel.path == track.path).first()
         if existing_track:
-            # Mettre à jour les infos manquantes
-            updated = False
-            for key, value in track.model_dump(exclude_unset=True).items():
-                if value and not getattr(existing_track, key):
+            # Extraire les tags
+            genre_tags = track.genre_tags if hasattr(track, 'genre_tags') else []
+            mood_tags = track.mood_tags if hasattr(track, 'mood_tags') else []
+            
+            # Mettre à jour les infos de base
+            track_data = track.model_dump(exclude={'genre_tags', 'mood_tags'})
+            for key, value in track_data.items():
+                if value and hasattr(existing_track, key):
                     setattr(existing_track, key, value)
-                    updated = True
             
-            if updated:
-                existing_track.date_modified = func.now()
-                db.commit()
-                db.refresh(existing_track)
-            
+            # Mettre à jour les genre_tags si fournis
+            if genre_tags:
+                existing_track.genre_tags = []
+                for tag_name in genre_tags:
+                    tag = db.query(GenreTag).filter_by(name=tag_name).first()
+                    if not tag:
+                        tag = GenreTag(name=tag_name)
+                        db.add(tag)
+                    existing_track.genre_tags.append(tag)
+
+            # Mettre à jour les mood_tags si fournis
+            if mood_tags:
+                existing_track.mood_tags = []
+                for tag_name in mood_tags:
+                    tag = db.query(MoodTag).filter_by(name=tag_name).first()
+                    if not tag:
+                        tag = MoodTag(name=tag_name)
+                        db.add(tag)
+                    existing_track.mood_tags.append(tag)
+
+            existing_track.date_modified = func.now()
+            db.commit()
+            db.refresh(existing_track)
             return Track.model_validate(existing_track)
 
-        # Vérifier que l'artiste existe
-        artist = db.query(ArtistModel).filter(ArtistModel.id == track.artist_id).first()
-        if not artist:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Artiste {track.artist_id} non trouvé"
-            )
-
-        # Créer la nouvelle piste
-        track_data = track.model_dump(exclude_unset=True)
-        db_track = TrackModel(**track_data)
+        # Créer une nouvelle piste
+        # Extraire les tags avant la création
+        genre_tags = track.genre_tags if hasattr(track, 'genre_tags') else []
+        mood_tags = track.mood_tags if hasattr(track, 'mood_tags') else []
         
-        try:
-            db.add(db_track)
-            db.commit()
-            db.refresh(db_track)
-            logger.info(f"Nouvelle piste créée: {track.path}")
-            return Track.model_validate(db_track)
-        except IntegrityError as e:
-            db.rollback()
-            logger.error(f"Erreur d'intégrité: {str(e)}")
-            if "UNIQUE constraint" in str(e):
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Cette piste existe déjà"
-                )
+        # Créer la piste sans les tags
+        track_data = track.model_dump(exclude={'genre_tags', 'mood_tags'})
+        db_track = TrackModel(**track_data)
+
+        # Ajouter les genre_tags
+        for tag_name in genre_tags:
+            tag = db.query(GenreTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = GenreTag(name=tag_name)
+                db.add(tag)
+            db_track.genre_tags.append(tag)
+
+        # Ajouter les mood_tags
+        for tag_name in mood_tags:
+            tag = db.query(MoodTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = MoodTag(name=tag_name)
+                db.add(tag)
+            db_track.mood_tags.append(tag)
+
+        db.add(db_track)
+        db.commit()
+        db.refresh(db_track)
+        logger.info(f"Nouvelle piste créée: {track.path}")
+        return Track.model_validate(db_track)
+
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Erreur d'intégrité: {str(e)}")
+        if "UNIQUE constraint" in str(e):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cette piste existe déjà"
             )
-    except HTTPException:
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Erreur inattendue: {str(e)}")
         raise HTTPException(
@@ -116,20 +161,120 @@ async def read_tracks(
 
 @router.get("/{track_id}", response_model=TrackWithRelations)
 async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
-    track = db.query(TrackModel).filter(TrackModel.id == track_id).first()
+    """Récupère une piste avec ses relations."""
+    track = (
+        db.query(TrackModel)
+        .filter(TrackModel.id == track_id)
+        .options(
+            joinedload(TrackModel.track_artist),
+            joinedload(TrackModel.album),
+            joinedload(TrackModel.genres),
+            joinedload(TrackModel.genre_tags),
+            joinedload(TrackModel.mood_tags)
+        )
+        .first()
+    )
+    
     if track is None:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
-    return track
+    
+    # Convertir en dict pour la sérialisation
+    track_dict = {
+        **track.__dict__,
+        "track_artist": track.track_artist.__dict__ if track.track_artist else None,
+        "album": track.album.__dict__ if track.album else None,
+        "genres": [genre.__dict__ for genre in track.genres] if track.genres else [],
+        "genre_tags": [tag.name for tag in track.genre_tags] if track.genre_tags else [],
+        "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else []
+    }
+    
+    # Nettoyer les attributs SQLAlchemy
+    for dict_obj in [track_dict, track_dict["track_artist"], track_dict["album"], *track_dict["genres"]]:
+        if dict_obj and "_sa_instance_state" in dict_obj:
+            del dict_obj["_sa_instance_state"]
+    
+    return track_dict
 
 @router.put("/{track_id}", response_model=Track)
 async def update_track(track_id: int, track: TrackCreate, db: SQLAlchemySession = Depends(get_db)):
+    """Mise à jour d'une piste."""
+    from backend.api.models.tracks_model import Track as TrackModel, GenreTag, MoodTag
+    
     db_track = db.query(TrackModel).filter(TrackModel.id == track_id).first()
     if db_track is None:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
     
-    for key, value in track.dict().items():
-        setattr(db_track, key, value)
+    # Extraire les tags avant la mise à jour
+    genre_tags = track.genre_tags if hasattr(track, 'genre_tags') else []
+    mood_tags = track.mood_tags if hasattr(track, 'mood_tags') else []
     
+    # Mettre à jour les attributs simples
+    track_data = track.dict(exclude={'genre_tags', 'mood_tags'})
+    for key, value in track_data.items():
+        if hasattr(db_track, key):
+            setattr(db_track, key, value)
+    
+    # Mettre à jour les genre_tags
+    if genre_tags is not None:
+        db_track.genre_tags = []
+        for tag_name in genre_tags:
+            tag = db.query(GenreTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = GenreTag(name=tag_name)
+                db.add(tag)
+            db_track.genre_tags.append(tag)
+    
+    # Mettre à jour les mood_tags
+    if mood_tags is not None:
+        db_track.mood_tags = []
+        for tag_name in mood_tags:
+            tag = db.query(MoodTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = MoodTag(name=tag_name)
+                db.add(tag)
+            db_track.mood_tags.append(tag)
+    
+    db.commit()
+    db.refresh(db_track)
+    return db_track
+
+@router.put("/{track_id}/tags", response_model=Track)
+async def update_track_tags(
+    track_id: int,
+    genre_tags: Optional[List[str]] = None,
+    mood_tags: Optional[List[str]] = None,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Mise à jour des tags d'une piste."""
+    from backend.api.models.tracks_model import GenreTag, MoodTag
+    
+    db_track = db.query(TrackModel).filter(TrackModel.id == track_id).first()
+    if db_track is None:
+        raise HTTPException(status_code=404, detail="Piste non trouvée")
+    
+    if genre_tags is not None:
+        # Supprimer les anciens tags
+        db_track.genre_tags = []
+        # Ajouter les nouveaux tags
+        for tag_name in genre_tags:
+            tag = db.query(GenreTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = GenreTag(name=tag_name)
+                db.add(tag)
+            db_track.genre_tags.append(tag)
+    
+    if mood_tags is not None:
+        # Supprimer les anciens tags
+        db_track.mood_tags = []
+        # Ajouter les nouveaux tags
+        for tag_name in mood_tags:
+            tag = db.query(MoodTag).filter_by(name=tag_name).first()
+            if not tag:
+                tag = MoodTag(name=tag_name)
+                db.add(tag)
+            db_track.mood_tags.append(tag)
+    
+    db_track.date_modified = func.now()
     db.commit()
     db.refresh(db_track)
     return db_track

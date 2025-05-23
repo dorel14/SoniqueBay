@@ -44,7 +44,7 @@ logger.setLevel(getattr(logging, log_level))
 
 # création d'un formateur qui va ajouter le temps, le niveau
 # de chaque message quand on écrira un message dans le log
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
+formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s')
 
 # Création des handlers pour le QueueListener
 file_handler = RotatingFileHandler(filename=logfiles,
