@@ -8,17 +8,17 @@ data/
 *.egg-info
 
 *.exchange
-
+*.env
 *.toc
 *.*db
 *.sqlite
 *.sqlite3
-*.log
+*.log*
 *.db
 
 # Database files
 *.db
-music.db
+./music.db
 *.db-*
 *.sqlite
 *.sqlite3

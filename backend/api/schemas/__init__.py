@@ -1,7 +1,7 @@
 """
 Schémas Pydantic pour la validation des données
 """
-from .base_schemas import BaseSchema
+from .base_schema import BaseSchema
 from typing import TYPE_CHECKING
 
 # Imports des schémas

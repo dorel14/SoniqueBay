@@ -1,22 +1,42 @@
-from sqlalchemy import Column, String, Integer
+from sqlalchemy import Column, String, Integer, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship
-
 from backend.database import Base
-from .genre_links import track_genre_links, artist_genre_links, album_genre_links
+from datetime import datetime
+
+# Tables d'association
+artist_genres = Table(
+    'artist_genres',
+    Base.metadata,
+    Column('artist_id', Integer, ForeignKey('artists.id', ondelete='CASCADE')),
+    Column('genre_id', Integer, ForeignKey('genres.id', ondelete='CASCADE'))
+)
+
+album_genres = Table(
+    'album_genres',
+    Base.metadata,
+    Column('album_id', Integer, ForeignKey('albums.id', ondelete='CASCADE')),
+    Column('genre_id', Integer, ForeignKey('genres.id', ondelete='CASCADE'))
+)
+
+track_genres = Table(
+    'track_genres',
+    Base.metadata,
+    Column('track_id', Integer, ForeignKey('tracks.id', ondelete='CASCADE')),
+    Column('genre_id', Integer, ForeignKey('genres.id', ondelete='CASCADE'))
+)
 
 class Genre(Base):
     __tablename__ = 'genres'
-
+    
     id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)  # Genre name
-    description = Column(String)  # Description of the genre
-    date_added = Column(String)  # Date when the genre was added to the database
-    date_modified = Column(String)  # Date when the genre was last modified
+    name = Column(String, unique=True, nullable=False)
+    date_added = Column(DateTime, default=datetime.utcnow, nullable=True)
+    date_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
 
-    # Bidirectional relationships
-    tracks = relationship("Track", secondary=track_genre_links, back_populates="genres")
-    artists = relationship("Artist", secondary=artist_genre_links, back_populates="genres")
-    albums = relationship("Album", secondary=album_genre_links, back_populates="genres")
+    # Relations
+    artists = relationship("Artist", secondary=artist_genres, back_populates="genres")
+    albums = relationship("Album", secondary=album_genres, back_populates="genres")
+    tracks = relationship("Track", secondary=track_genres, back_populates="genres")
 
     def __repr__(self):
-        return f"<Genre(name='{self.name}', description='{self.description}')>"
+        return f"<Genre(name='{self.name}')>"

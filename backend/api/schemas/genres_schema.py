@@ -1,28 +1,26 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Any
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .tracks_schema import Track
+from .base_schema import TimestampedSchema
 
 class GenreBase(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(..., description="Nom du genre musical")
+
+    model_config = ConfigDict(from_attributes=True)
 
 class GenreCreate(GenreBase):
-    date_added: datetime = datetime.now()
-    date_modified: datetime = datetime.now()
+    pass
 
-class Genre(GenreBase):
+class Genre(GenreBase, TimestampedSchema):
     id: int
-    date_added: str
-    date_modified: str
 
-    class Config:
-        from_attributes = True
+class GenreWithRelations(Genre):
+    tracks: List[Any] = Field(default_factory=list)
+    albums: List[Any] = Field(default_factory=list)
 
-class GenreWithTracks(Genre):
-    if TYPE_CHECKING:
-        tracklist: List["Track"]
-    else:
-        tracklist: List = []
+    model_config = ConfigDict(
+        from_attributes=True,
+        arbitrary_types_allowed=True
+    )
+# Add the missing GenreWithTracks alias or class
+GenreWithTracks = GenreWithRelations

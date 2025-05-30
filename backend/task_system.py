@@ -2,7 +2,6 @@
 
 import asyncio
 import uuid
-import inspect
 import json
 from datetime import datetime
 from typing import Callable, Optional, Dict, Any
@@ -18,12 +17,29 @@ running_tasks: Dict[str, dict] = {}
 
 # --- Wrapper retourné par le décorateur --- #
 class AsyncTaskRunner:
-    def __init__(self, task_name: str, wrapper_func: Callable):
+    def __init__(self, task_name: str, wrapper_func: Callable, max_retries: int = 3, retry_delay: float = 1.0):
         self.task_name = task_name
-        self._wrapped = wrapper_func  # coroutine async
+        self._wrapped = wrapper_func
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
     async def run(self, *args, **kwargs):
-        await self._wrapped(*args, **kwargs)
+        attempts = 0
+        last_error = None
+
+        while attempts < self.max_retries:
+            try:
+                return await self._wrapped(*args, **kwargs)
+            except Exception as e:
+                attempts += 1
+                last_error = e
+                if "connection attempts failed" in str(e).lower():
+                    if attempts < self.max_retries:
+                        await asyncio.sleep(self.retry_delay * attempts)
+                        continue
+                raise
+
+        raise last_error or Exception(f"Task {self.task_name} failed after {self.max_retries} attempts")
 
 # --- DÉCORATEUR --- #
 class AsyncTask:
@@ -96,9 +112,9 @@ async def register_ws(websocket: WebSocket):
             connected_clients.remove(websocket)
 
 # --- Planification différée --- #
-async def schedule_task(task_name: str, delay_sec: int = 0, **kwargs):
+async def schedule_task(task_name: str, delay_sec: int = 0, max_retries: int = 3, retry_delay: float = 1.0, **kwargs):
     await asyncio.sleep(delay_sec)
     task = AsyncTask.registry.get(task_name)
     if task:
-        runner = AsyncTaskRunner(task.name, task._run_coroutine)
+        runner = AsyncTaskRunner(task.name, task.run, max_retries=max_retries, retry_delay=retry_delay)
         await runner.run(**kwargs)

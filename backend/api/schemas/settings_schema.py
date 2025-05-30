@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
+from .base_schema import TimestampedSchema
 
 class SettingBase(BaseModel):
     key: str
@@ -11,7 +12,7 @@ class SettingBase(BaseModel):
 class SettingCreate(SettingBase):
     pass
 
-class Setting(SettingBase):
+class Setting(SettingBase, TimestampedSchema):
     id: int
     date_added: datetime
     date_modified: datetime

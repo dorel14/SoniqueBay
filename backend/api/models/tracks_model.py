@@ -1,10 +1,11 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, Float, Boolean
-from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.orm import relationship, foreign
+
 
 from backend.database import Base
 from .genre_links import track_genre_links
 from .tags_model import track_mood_tags, track_genre_tags
+from .genres_model import track_genres
 
 class Track(Base):
     __tablename__ = 'tracks'
@@ -48,15 +49,14 @@ class Track(Base):
     genre_main = Column(String, nullable=True)
 
     # Relations
-    track_artist = relationship(
-        "Artist",
-        foreign_keys=[track_artist_id],
-        back_populates="tracks"
-    )
+    track_artist = relationship("Artist", back_populates="tracks")
     album = relationship("Album", back_populates="tracks")
-    genres = relationship("Genre", secondary=track_genre_links, back_populates="tracks")
-    mood_tags = relationship("MoodTag", secondary=track_mood_tags)
-    genre_tags = relationship("GenreTag", secondary=track_genre_tags)
+    genres = relationship("Genre", secondary="track_genres", back_populates="tracks")
+    mood_tags = relationship("MoodTag", secondary=track_mood_tags, back_populates="tracks")
+    genre_tags = relationship("GenreTag", secondary=track_genre_tags, back_populates="tracks")
+    covers = relationship(
+        "Cover",
+        primaryjoin="and_(Cover.entity_type=='track', foreign(Cover.entity_id)==Track.id)",
+        viewonly=True
+    )
 
-    def __repr__(self):
-        return f"<Track(title='{self.title}')>"

@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 from backend.database import get_db
 from sqlalchemy.exc import IntegrityError
-
+from helpers.logging import logger
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
@@ -94,11 +94,41 @@ def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends
     ) for album in albums]
 
 @router.get("/{album_id}", response_model=AlbumWithRelations)
-def read_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def read_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):
+    """Récupère un album par son ID."""
     album = db.query(AlbumModel).filter(AlbumModel.id == album_id).first()
-    if album is None:
+    if not album:
         raise HTTPException(status_code=404, detail="Album non trouvé")
-    return album
+    
+    # Créer un dictionnaire avec tous les champs nécessaires
+    result = {
+        "id": album.id,
+        "title": album.title,
+        "album_artist_id": album.album_artist_id,
+        "release_year": album.release_year,
+        "musicbrainz_albumid": album.musicbrainz_albumid,
+        "musicbrainz_albumartistid": album.musicbrainz_albumartistid,
+        "genre": album.genre,
+        "cover_url": album.cover_url,
+        "date_added": album.date_added,
+        "date_modified": album.date_modified,
+        "album_artist": {
+            "id": album.album_artist.id,
+            "name": album.album_artist.name,
+            # autres champs artiste si nécessaire
+        } if album.album_artist else None,
+        "tracks": [{
+            "id": track.id,
+            "title": track.title,
+            # autres champs track si nécessaire
+        } for track in album.tracks] if album.tracks else [],
+        "genres": [{
+            "id": genre.id,
+            "name": genre.name
+        } for genre in album.genres] if album.genres else []
+    }
+    
+    return result
 
 @router.put("/{album_id}", response_model=Album)
 def update_album(album_id: int, album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
