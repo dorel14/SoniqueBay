@@ -12,6 +12,7 @@ class ArtistCreate(ArtistBase):
 
 class Artist(ArtistBase, TimestampedSchema):
     id: int
+    covers: List[Cover] = []
     
     model_config = ConfigDict(from_attributes=True)
 

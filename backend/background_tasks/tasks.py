@@ -50,14 +50,17 @@ async def index_music_task(update_progress, directory: str):
 async def process_file_entities(client: httpx.AsyncClient, file_data: Dict):
     """Traite les entités en base de données."""
     try:
-        # Préparer les données artiste
+        # Préparer les données artiste avec l'ID MusicBrainz
         artist_data = {
             "name": file_data.get("artist"),
-            "musicbrainz_artistid": file_data.get("musicbrainz_artistid"),
+            "musicbrainz_artistid": (
+                file_data.get("musicbrainz_artistid") or 
+                file_data.get("musicbrainz_albumartistid")
+            ),
             "artist_path": file_data.get("artist_path"),
         }
 
-        logger.info(f"Traitement artiste {artist_data['name']}")
+        logger.info(f"Traitement artiste avec MusicBrainz ID: {artist_data['musicbrainz_artistid']}")
         artist = await create_or_get_artist(client, artist_data)
         if not artist:
             return

@@ -1,8 +1,8 @@
-"""Correct covers model 2
+"""2nd  mligration
 
-Revision ID: 8c902ff3911d
-Revises: 946ee9dfb744
-Create Date: 2025-05-30 17:55:03.618632
+Revision ID: 2d26be6a3a82
+Revises: baccf0659204
+Create Date: 2025-05-31 18:50:25.291303
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '8c902ff3911d'
-down_revision: Union[str, None] = '946ee9dfb744'
+revision: str = '2d26be6a3a82'
+down_revision: Union[str, None] = 'baccf0659204'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

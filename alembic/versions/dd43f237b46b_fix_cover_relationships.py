@@ -1,8 +1,8 @@
-"""Add covers model
+"""fix_cover_relationships
 
-Revision ID: 3c54acbe949f
-Revises: f8da41b6ee5d
-Create Date: 2025-05-24 18:38:28.974248
+Revision ID: dd43f237b46b
+Revises: 456a421e083a
+Create Date: 2025-05-31 19:32:31.734446
 
 """
 from typing import Sequence, Union
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3c54acbe949f'
-down_revision: Union[str, None] = 'f8da41b6ee5d'
+revision: str = 'dd43f237b46b'
+down_revision: Union[str, None] = '456a421e083a'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

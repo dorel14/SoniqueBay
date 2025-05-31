@@ -1,50 +1,29 @@
-from sqlalchemy import Column, String, Integer, DateTime, Enum as SQLEnum, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum, func, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
+import enum
 from backend.database import Base
-from datetime import datetime
-from enum import Enum
 
-class CoverType(str, Enum):
-    ARTIST = "artist"
-    ALBUM = "album"
+class CoverType(str, enum.Enum):
     TRACK = "track"
+    ALBUM = "album"
+    ARTIST = "artist"
 
 class Cover(Base):
-    __tablename__ = 'covers'
-
+    __tablename__ = "covers"
+    
     id = Column(Integer, primary_key=True)
-    entity_type = Column(SQLEnum(CoverType), nullable=False)
+    entity_type = Column(Enum(CoverType), nullable=False)  # Utiliser l'enum ici
     entity_id = Column(Integer, nullable=False)
-    cover_data = Column(String, nullable=True)
-    mime_type = Column(String, nullable=True)
-    url = Column(String, nullable=True)
-    date_added = Column(DateTime, default=datetime.utcnow)
-    date_modified = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    cover_data = Column(String)  # Base64
+    mime_type = Column(String)
+    url = Column(String)
+    date_added = Column(DateTime(timezone=True), server_default=func.now())
+    date_modified = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # Relations avec overlaps et viewonly
-    artist = relationship(
-        "Artist",
-        primaryjoin="and_(Cover.entity_type=='artist', Cover.entity_id==Artist.id)",
-        foreign_keys=[entity_id],
-        back_populates="covers",
-        viewonly=True,
-        overlaps="album,track"
+    __table_args__ = (
+        UniqueConstraint('entity_type', 'entity_id', name='uq_entity_cover'),
+        Index('idx_entity_lookup', 'entity_type', 'entity_id')
     )
 
-    album = relationship(
-        "Album",
-        primaryjoin="and_(Cover.entity_type=='album', Cover.entity_id==Album.id)",
-        foreign_keys=[entity_id],
-        back_populates="covers",
-        viewonly=True,
-        overlaps="artist,track"
-    )
-
-    track = relationship(
-        "Track",
-        primaryjoin="and_(Cover.entity_type=='track', Cover.entity_id==Track.id)",
-        foreign_keys=[entity_id],
-        back_populates="covers",
-        viewonly=True,
-        overlaps="artist,album"
-    )
+    def __repr__(self):
+        return f"<Cover(id={self.id}, type={self.entity_type}, entity_id={self.entity_id})>"

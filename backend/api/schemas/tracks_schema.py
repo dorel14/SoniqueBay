@@ -28,9 +28,10 @@ class TrackBase(BaseModel):
     mood_aggressive: Optional[float] = Field(None, ge=0, le=1)
     mood_party: Optional[float] = Field(None, ge=0, le=1)
     mood_relaxed: Optional[float] = Field(None, ge=0, le=1)
-    instrumental: Optional[bool] = None
-    acoustic: Optional[bool] = None
-    tonal: Optional[bool] = None
+    instrumental: Optional[float] = None
+    acoustic: Optional[float] = None
+    tonal: Optional[float] = None
+    camelot_key: Optional[str] = Field(None, description="Clé Camelot pour la tonalité")
     
     # Tags as lists of strings for input
     genre_tags: Optional[List[str]] = None
@@ -48,7 +49,8 @@ class TrackCreate(TrackBase):
 
 class Track(TrackBase, TimestampedSchema):
     id: int
-    
+    covers: List[Cover] = []  # Ajouter le champ covers
+
     # Override tags to accept both strings and Tag objects for output
     genre_tags: Optional[List[Union[str, Tag]]] = None
     mood_tags: Optional[List[Union[str, Tag]]] = None

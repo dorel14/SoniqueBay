@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover
@@ -14,8 +14,10 @@ class AlbumCreate(AlbumBase):
 
 class Album(AlbumBase, TimestampedSchema):
     id: int
-    
-    model_config = ConfigDict(from_attributes=True)
+    covers: List[Cover] = []
+
+    class Config:
+        from_attributes = True
 
 class AlbumWithRelations(Album):
     covers: Optional[List[Cover]] = []

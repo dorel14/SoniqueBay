@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func
-from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
 from backend.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
@@ -78,12 +78,48 @@ def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depend
     artists = db.query(ArtistModel).offset(skip).limit(limit).all()
     return artists
 
-@router.get("/{artist_id}", response_model=ArtistWithRelations)
-def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
-    artist = db.query(ArtistModel).filter(ArtistModel.id == artist_id).first()
-    if artist is None:
-        raise HTTPException(status_code=404, detail="Artiste non trouvé")
-    return artist
+@router.get("/{artist_id}", response_model=Artist)
+async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
+    try:
+        artist = (
+            db.query(ArtistModel)
+            .options(
+                joinedload(ArtistModel.covers),  # Charger explicitement les covers
+                joinedload(ArtistModel.albums),
+                joinedload(ArtistModel.tracks)
+            )
+            .filter(ArtistModel.id == artist_id)
+            .first()
+        )
+        
+        if artist is None:
+            raise HTTPException(status_code=404, detail="Artist not found")
+
+        # Convertir en dictionnaire avec les covers
+        return {
+            "id": artist.id,
+            "name": artist.name,
+            "musicbrainz_artistid": artist.musicbrainz_artistid,
+            "date_added": artist.date_added,
+            "date_modified": artist.date_modified,
+            "covers": [
+                {
+                    "id": cover.id,
+                    "entity_type": cover.entity_type,
+                    "entity_id": cover.entity_id,
+                    "cover_data": cover.cover_data,
+                    "mime_type": cover.mime_type,
+                    "url": cover.url,
+                    "date_added": cover.date_added,
+                    "date_modified": cover.date_modified
+                }
+                for cover in artist.covers
+            ] if artist.covers else []
+        }
+
+    except Exception as e:
+        logger.error(f"Error reading artist: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{artist_id}", response_model=Artist)
 def update_artist(artist_id: int, artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db)):

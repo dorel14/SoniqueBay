@@ -2,6 +2,7 @@ from typing import Dict, Optional, List, Tuple
 from cachetools import TTLCache
 import httpx 
 from pathlib import Path
+from backend.services.audio_features_service import extract_audio_features
 
 from helpers.logging import logger
 from backend.services.image_service import process_image_data, read_image_file, process_artist_image
@@ -124,10 +125,10 @@ def update_missing_info(entity: Dict, new_data: Dict) -> bool:
 async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> Optional[Dict]:
     """Créer ou récupérer un artiste."""
     try:
-        logger.info(f"Données artiste reçues: {artist_data.get('name', 'Inconnu')}")
+        logger.info(f"Données artiste reçues: {artist_data}")
         name = artist_data.get("name")
         musicbrainz_artistid = artist_data.get("musicbrainz_artistid")
-        
+
         if not name:
             logger.error(f"Nom d'artiste manquant dans les données")
             return None
@@ -165,14 +166,27 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
             artists = response.json()
             if artists:
                 artist = artists[0]
+                # Mettre à jour l'ID MusicBrainz si nécessaire
+                if musicbrainz_artistid and not artist.get("musicbrainz_artistid"):
+                    logger.info(f"Mise à jour MusicBrainz ID pour artiste {name}")
+                    update_data = {
+                        **artist,
+                        "musicbrainz_artistid": musicbrainz_artistid
+                    }
+                    response = await client.put(
+                        f"http://localhost:8001/api/artists/{artist['id']}", 
+                        json=update_data
+                    )
+                    if response.status_code == 200:
+                        artist = response.json()
                 return artist
 
         # Pour la création d'un nouvel artiste
-        logger.info(f"Création d'un nouvel artiste: {name}")
         artist_create = {
             "name": name,
-            "musicbrainz_artistid": musicbrainz_artistid
+            "musicbrainz_artistid": musicbrainz_artistid  # S'assurer que l'ID est bien transmis
         }
+        logger.info(f"Création artiste avec données: {artist_create}")
 
         response = await client.post(
             "http://localhost:8001/api/artists/",
@@ -335,11 +349,44 @@ def clean_track_data(file: Dict) -> Dict:
     genre_tags = file.get("genre_tags", [])
     mood_tags = file.get("mood_tags", [])
 
-    if genre_tags and isinstance(genre_tags[0], (dict, object)):
-        genre_tags = [str(tag.get('name', tag) if isinstance(tag, dict) else tag) for tag in genre_tags]
+    # Gestion spécifique des tags
+    if isinstance(file.get("genre_tags"), str):
+        genre_tags = [tag.strip() for tag in file["genre_tags"].split(",")]
+    else:
+        genre_tags = file.get("genre_tags", [])
 
-    if mood_tags and isinstance(mood_tags[0], (dict, object)):
-        mood_tags = [str(tag.get('name', tag) if isinstance(tag, dict) else tag) for tag in mood_tags]
+    if isinstance(file.get("mood_tags"), str):
+        mood_tags = [tag.strip() for tag in file["mood_tags"].split(",")]
+    else:
+        mood_tags = file.get("mood_tags", [])
+
+    def convert_to_bool(value) -> Optional[bool]:
+        """Convertit une valeur en booléen selon un seuil."""
+        try:
+            if value is None:
+                return None
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                try:
+                    float_val = float(value)
+                    # Conversion explicite en bool
+                    return bool(float_val > 0.5)
+                except:
+                    return None
+            return None
+        except:
+            return None
+
+    def safe_float(value) -> Optional[float]:
+        """Convertit une valeur en float de manière sécurisée."""
+        try:
+            return float(value) if value is not None else None
+        except:
+            return None
+
+    # Correction du mapping MusicBrainz avec les bonnes clés
+    mb_data = file.get("musicbrainz_data", {}) or {}  # Récupérer les données MusicBrainz
 
     track_data = {
         # Champs obligatoires pour la création de piste
@@ -358,47 +405,58 @@ def clean_track_data(file: Dict) -> Dict:
         "bitrate": file.get("bitrate"),
         "featured_artists": file.get("featured_artists", ""),
 
-        # Correction du mapping MusicBrainz
-        "musicbrainz_id": file.get("musicbrain_id"),
-        "musicbrainz_albumid": file.get("musicbrain_albumid"),
-        "musicbrainz_artistid": mb_artistid,
-        "musicbrainz_albumartistid": mb_albumartistid,
-        "musicbrainz_genre": file.get("musicbrain_genre"),
+        # Correction du mapping MusicBrainz avec les bonnes clés
+        "musicbrainz_id": mb_data.get("musicbrainz_id") or file.get("musicbrainz_id"),
+        "musicbrainz_albumid": mb_data.get("musicbrainz_albumid") or file.get("musicbrainz_albumid"),
+        "musicbrainz_artistid": mb_data.get("musicbrainz_artistid") or file.get("musicbrainz_artistid"),
+        "musicbrainz_albumartistid": mb_data.get("musicbrainz_albumartistid") or file.get("musicbrainz_albumartistid"),
+        "musicbrainz_genre": mb_data.get("musicbrainz_genre") or file.get("musicbrainz_genre"),
+        "acoustid_fingerprint": mb_data.get("acoustid_fingerprint") or file.get("acoustid_fingerprint"),
         
-        # Correction du mapping des caractéristiques audio
-        "bpm": float(file.get("bpm")) if file.get("bpm") is not None else None,
-        "key": file.get("key") if file.get("key") is not None else None,  # Déjà extrait par extract_audio_features
-        "scale": file.get("scale") if file.get("scale") is not None else None,  # Déjà extrait par extract_audio_features
-        "danceability": float(file.get("danceability")) if file.get("danceability") is not None else None,
-        "mood_happy": float(file.get("mood_happy")) if file.get("mood_happy") is not None else None,
-        "mood_aggressive": float(file.get("mood_aggressive")) if file.get("mood_aggressive") is not None else None,
-        "mood_party": float(file.get("mood_party")) if file.get("mood_party") is not None else None,
-        "mood_relaxed": float(file.get("mood_relaxed")) if file.get("mood_relaxed") is not None else None,
-        "instrumental": bool(float(file.get("instrumental", 0)) > 0.5) if file.get("instrumental") is not None else None,
-        "acoustic": bool(float(file.get("acoustic", 0)) > 0.5) if file.get("acoustic") is not None else None,
-        "tonal": bool(float(file.get("tonal", 0)) > 0.5) if file.get("tonal") is not None else None,
-        "genre_main": file.get("genre"),  # Utiliser le genre principal comme genre_main
+        # Caractéristiques audio avec conversion appropriée
+        "bpm": safe_float(file.get("bpm")),
+        "key": file.get("key"),
+        "scale": file.get("scale"),
+        "danceability": safe_float(file.get("danceability")),
+        "mood_happy": safe_float(file.get("mood_happy")),
+        "mood_aggressive": safe_float(file.get("mood_aggressive")),
+        "mood_party": safe_float(file.get("mood_party")),
+        "mood_relaxed": safe_float(file.get("mood_relaxed")),
+        
+        # Garder les valeurs flottantes telles quelles
+        "instrumental": safe_float(file.get("instrumental")),
+        "acoustic": safe_float(file.get("acoustic")),
+        "tonal": safe_float(file.get("tonal")),
+        
+        # S'assurer que les tags sont des listes
         "genre_tags": genre_tags,
         "mood_tags": mood_tags,
-        "acoustid_fingerprint": file.get("acoustid_fingerprint"),
-
-        # Gestion des covers
-        "cover_data": file.get("cover_data"),
-        "cover_mime_type": file.get("cover_mime_type")
     }
 
-    # Nettoyage et filtrage des valeurs None
-    cleaned_data = {k: v for k, v in track_data.items() if v is not None}
-    
-    # S'assurer que track_artist_id est présent
-    if "track_artist_id" not in cleaned_data:
-        logger.error("track_artist_id manquant dans les données de piste")
-        return {}  # Retourner un dict vide si le champ requis est manquant
+    # Log pour debug
+    logger.debug(f"Valeurs booléennes avant nettoyage: {file.get('instrumental')}, {file.get('acoustic')}, {file.get('tonal')}")
+    logger.debug(f"Valeurs booléennes après conversion: {track_data['instrumental']}, {track_data['acoustic']}, {track_data['tonal']}")
+
+    # Nettoyer les valeurs invalides
+    cleaned_data = {
+        k: v for k, v in track_data.items() 
+        if v is not None and (
+            isinstance(v, bool) or 
+            isinstance(v, (int, float)) or 
+            (isinstance(v, str) and v.strip()) or
+            (isinstance(v, list) and v)
+        )
+    }
+
+    # Ajouter un log pour les IDs MusicBrainz
+    mb_ids = {k: v for k, v in cleaned_data.items() if k.startswith('musicbrainz_') and v}
+    if mb_ids:
+        logger.info(f"IDs MusicBrainz trouvés: {mb_ids}")
 
     return cleaned_data
 
 async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Optional[Dict]:
-    """Créer ou récupérer une piste avec mise à jour."""
+    """Créer ou récupérer une piste."""
     try:
         path = track_data.get("path")
         
@@ -428,11 +486,19 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
             tracks = response.json()
             if tracks:
                 track = tracks[0]
-                merged_data = {**track}
-                for key, value in cleaned_data.items():
-                    if value is not None:
-                        merged_data[key] = value
+                track_id = track["id"]
+
+                # Extraire les caractéristiques audio avec l'ID
+                audio_features = await extract_audio_features(
+                    audio=track_data.get("audio"),
+                    tags=track_data.get("tags", {}),
+                    file_path=track_data["path"],
+                    track_id=track_id
+                )
                 
+                # Fusionner toutes les données
+                merged_data = {**track, **cleaned_data, **audio_features}
+
                 # Log des données avant mise à jour
                 logger.debug(f"Données à mettre à jour pour {track['id']}: {merged_data}")
                 
@@ -470,7 +536,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                     )
                 return track
 
-        # Créer nouvelle piste
+        # Pour nouvelle piste
         response = await client.post(
             "http://localhost:8001/api/tracks/",
             json=cleaned_data
@@ -478,8 +544,26 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
 
         if response.status_code in (200, 201):
             track = response.json()
-            track_cache[path] = track
-            
+            track_id = track["id"]
+
+            # Extraire les caractéristiques audio avec track_id
+            audio_features = await extract_audio_features(
+                audio=track_data.get("audio"),
+                tags=track_data.get("tags", {}),
+                file_path=track_data["path"],
+                track_id=track_id
+            )
+
+            # Mettre à jour avec les nouvelles caractéristiques
+            if any(v for v in audio_features.values()):
+                update_data = {**track, **audio_features}
+                response = await client.put(
+                    f"http://localhost:8001/api/tracks/{track_id}",
+                    json=update_data
+                )
+                if response.status_code == 200:
+                    track = response.json()
+
             # Gérer la cover après la création
             if track_data.get("cover_data"):
                 logger.info(f"Création/mise à jour cover pour track {track['id']}")
@@ -492,6 +576,23 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 )
                 if cover_result:
                     logger.info(f"Cover mise à jour pour track {track['id']}")
+
+            # Mise à jour explicite des tags
+            if track_data.get("genre_tags") or track_data.get("mood_tags"):
+                tags_update = {
+                    "genre_tags": track_data.get("genre_tags", []),
+                    "mood_tags": track_data.get("mood_tags", [])
+                }
+                logger.info(f"Mise à jour des tags pour track {track_id}")
+                
+                # Appel explicite pour mettre à jour les tags
+                response = await client.put(
+                    f"http://localhost:8001/api/tracks/{track_id}/tags",
+                    json=tags_update
+                )
+                if response.status_code == 200:
+                    track = response.json()
+                    logger.info(f"Tags mis à jour pour track {track_id}")
 
             logger.info(f"Nouvelle piste créée: {track['id']} - {track['title']}")
             return track

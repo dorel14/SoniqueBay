@@ -12,6 +12,7 @@ from backend.api.services.settings_service import SettingsService, ALBUM_COVER_F
 import json
 import aiofiles
 from backend.services.path_variables import PathVariables
+from backend.services.audio_features_service import extract_audio_features
 
 settings_service = SettingsService()
 
@@ -122,39 +123,114 @@ def get_file_bitrate(file_path: str) -> int:
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du bitrate pour {file_path}: {str(e)}")
         return 0
-def extract_audio_features(audio, tags):
-    """Extrait les caractéristiques audio avancées."""
-    features = {}
-
-    # Mapping des clés AcoustID vers les noms de champs de la base de données
-    tag_mapping = {
-        'ab:hi:danceability:danceable': 'danceability',
-        'ab:lo:rhythm:bpm': 'bpm',
-        'ab:lo:tonal:key_key': 'key',
-        'ab:lo:tonal:key_scale': 'scale',
-        'ab:hi:mood_happy:happy': 'mood_happy',
-        'ab:hi:mood_aggressive:aggressive': 'mood_aggressive',
-        'ab:hi:mood_party:party': 'mood_party',
-        'ab:hi:mood_relaxed:relaxed': 'mood_relaxed',
-        'ab:hi:voice_instrumental:instrumental': 'instrumental',
-        'ab:hi:mood_acoustic:acoustic': 'acoustic',
-        'ab:hi:tonal_atonal:tonal': 'tonal'
+def get_musicbrainz_tags(audio):
+    """Extrait les IDs MusicBrainz."""
+    mb_data = {
+        "musicbrainz_id": None,
+        "musicbrainz_albumid": None,
+        "musicbrainz_artistid": None,
+        "musicbrainz_albumartistid": None,
+        "acoustid_fingerprint": None
     }
+    
+    try:
+        if not audio or not audio.tags:
+            return mb_data
 
-    # Conversion des valeurs
-    for acoustid_key, field_name in tag_mapping.items():
-        if acoustid_key in tags:
-            try:
-                value = float(tags.get(acoustid_key)[0])
-                features[field_name] = value
-            except (ValueError, TypeError, IndexError):
-                features[field_name] = None
+        # Mapping des tags MusicBrainz
+        mb_mapping = {
+            "musicbrainz_id": ["UFID:http://musicbrainz.org", "MUSICBRAINZ_TRACKID"],
+            "musicbrainz_albumid": ["MUSICBRAINZ_ALBUMID", "TXXX:MusicBrainz Album Id"],
+            "musicbrainz_artistid": ["MUSICBRAINZ_ARTISTID", "TXXX:MusicBrainz Artist Id"],
+            "musicbrainz_albumartistid": ["MUSICBRAINZ_ALBUMARTISTID", "TXXX:MusicBrainz Album Artist Id"],
+            "acoustid_fingerprint": ["ACOUSTID_FINGERPRINT", "TXXX:Acoustid Fingerprint"]
+        }
 
-    # Extraction des tags
-    features['genre_tags'] = tags.get('ab:genre', [])
-    features['mood_tags'] = tags.get('ab:mood', [])
+        for field, tags in mb_mapping.items():
+            for tag in tags:
+                value = None
+                if hasattr(audio.tags, "getall"):  # ID3
+                    frames = audio.tags.getall(tag)
+                    if frames:
+                        value = str(frames[0])
+                elif hasattr(audio.tags, "get"):  # Autres formats
+                    value = audio.tags.get(tag, [None])[0]
+                
+                if value:
+                    mb_data[field] = str(value)
+                    break
 
-    return features
+        return mb_data
+        
+    except Exception as e:
+        logger.error(f"Erreur extraction MusicBrainz: {str(e)}")
+        return mb_data
+
+
+async def extract_metadata(audio, file_path):
+    """Extrait les métadonnées d'un fichier audio."""
+    try:
+        # Extractions de base
+        cover_data, mime_type = await get_cover_art(str(file_path))
+        bitrate = get_file_bitrate(str(file_path))
+        
+        # Extraire les métadonnées musicales de base
+        metadata = {
+            "path": str(file_path),
+            "title": get_tag(audio, "title") or Path(file_path).stem,
+            "artist": get_tag(audio, "artist") or get_tag(audio, "TPE1") or get_tag(audio, "TPE2"),
+            "album": get_tag(audio, "album") or Path(file_path).parent.name,
+            "genre": get_tag(audio, "genre"),
+            "year": get_tag(audio, "date") or get_tag(audio, "TDRC"),
+            "track_number": get_tag(audio, "tracknumber") or get_tag(audio, "TRCK"),
+            "disc_number": get_tag(audio, "discnumber") or get_tag(audio, "TPOS"),
+            "duration": int(audio.info.length if hasattr(audio.info, 'length') else 0),
+            "file_type": get_file_type(str(file_path)),
+            "bitrate": bitrate,
+            "cover_data": cover_data,
+            "cover_mime_type": mime_type,
+            "audio": audio,  # Ajouter l'objet audio
+            "tags": audio.tags if audio and hasattr(audio, "tags") else {},  # Ajouter les tags
+        }
+
+        # La logique des tags est maintenant gérée par extract_audio_features
+        metadata.update(await extract_audio_features(
+            audio=audio,
+            tags=audio.tags if audio and hasattr(audio, "tags") else {},
+            file_path=file_path
+        ))
+
+        if metadata["genre_tags"]:
+            logger.info(f"Genre tags trouvés: {metadata['genre_tags']}")
+        if metadata["mood_tags"]:
+            logger.info(f"Mood tags trouvés: {metadata['mood_tags']}")
+        
+        # Extraire les données MusicBrainz
+        mb_data = get_musicbrainz_tags(audio)
+        
+        metadata.update({
+            # S'assurer que les IDs sont au bon endroit
+            "musicbrainz_artistid": mb_data.get("musicbrainz_artistid"),
+            "musicbrainz_albumartistid": mb_data.get("musicbrainz_albumartistid"),
+            "musicbrainz_albumid": mb_data.get("musicbrainz_albumid"),
+            "musicbrainz_id": mb_data.get("musicbrainz_id"),
+            "acoustid_fingerprint": mb_data.get("acoustid_fingerprint")
+        })
+
+        # Log des IDs trouvés
+        mb_ids = {k: v for k, v in mb_data.items() if v}
+        if mb_ids:
+            logger.info(f"IDs MusicBrainz trouvés pour {file_path}: {mb_ids}")
+
+        # Ne pas filtrer les valeurs numériques à 0 ou booléennes False
+        metadata = {k: v for k, v in metadata.items() if v is not None}
+        
+        logger.debug(f"Métadonnées complètes pour {file_path}")
+        return metadata
+
+    except Exception as e:
+        logger.error(f"Erreur d'extraction des métadonnées pour {file_path}: {str(e)}")
+        return {"path": str(file_path), "error": str(e)}
 
 async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
     """Récupère les images d'artiste dans le dossier artiste."""
@@ -190,52 +266,6 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
     except Exception as e:
         logger.error(f"Erreur recherche images artiste dans {artist_path}: {str(e)}")
         return []
-
-async def extract_metadata(audio, file_path):
-    """Extrait les métadonnées d'un fichier audio."""
-    try:
-        # Extraire la cover de manière asynchrone
-        cover_data, mime_type = await get_cover_art(str(file_path))
-        bitrate = get_file_bitrate(str(file_path))
-        
-        # Get artist name
-        artist_name = get_tag(audio, "artist") or get_tag(audio, "TPE1") or get_tag(audio, "TPE2")
-        if not artist_name:
-            artist_name = Path(file_path).parent.parent.name
-            logger.info(f"Utilisation du nom d'artiste depuis le dossier: {artist_name}")
-
-        metadata = {
-            "path": str(file_path),
-            "title": get_tag(audio, "title") or Path(file_path).stem,
-            "artist": artist_name,
-            "album": get_tag(audio, "album") or Path(file_path).parent.name,
-            "genre": get_tag(audio, "genre"),
-            "year": get_tag(audio, "date"),
-            "track_number": get_tag(audio, "tracknumber"),
-            "disc_number": get_tag(audio, "discnumber"),
-            "duration": int(audio.info.length if hasattr(audio.info, 'length') else 0),
-            "musicbrainz_id": get_tag(audio, "musicbrainz_trackid"),
-            "musicbrainz_albumid": get_tag(audio, "musicbrainz_albumid"),
-            "musicbrainz_artistid": get_tag(audio, "musicbrainz_artistid"),
-            "musicbrainz_albumartistid": get_tag(audio, "musicbrainz_albumartistid"),
-            "musicbrainz_genre": get_tag(audio, "musicbrainz_genre"),
-            "acoustid_fingerprint": get_tag(audio, "acoustid_fingerprint"),
-            "cover_data": cover_data,
-            "cover_mime_type": mime_type,
-            "file_type": get_file_type(str(file_path)),
-            "bitrate": bitrate
-        }
-
-        # Ajouter les caractéristiques audio
-        audio_features = extract_audio_features(audio, audio.tags if audio else {})
-        metadata.update(audio_features)
-
-        logger.debug(f"Métadonnées extraites pour {file_path}: artiste={artist_name}")
-        return metadata
-
-    except Exception as e:
-        logger.error(f"Erreur d'extraction des métadonnées pour {file_path}: {str(e)}")
-        return {"path": str(file_path), "error": str(e)}
 
 async def scan_music_files(directory: str):
     """Scan les fichiers musicaux d'un répertoire."""
@@ -293,15 +323,69 @@ async def scan_music_files(directory: str):
         logger.error(f"Erreur scan répertoire: {str(e)}")
         return []
 
+def get_tag_list(audio, tag_name: str) -> list:
+    """Récupère une liste de tags."""
+    try:
+        values = set()  # Utiliser un set pour éviter les doublons
+        
+        if not audio or not audio.tags:
+            return []
+
+        # 1. Essayer les tags ID3
+        if hasattr(audio.tags, "getall"):
+            frames = audio.tags.getall(tag_name)
+            for frame in frames:
+                if hasattr(frame, "text"):  # ID3v2
+                    values.update(str(t).strip() for t in frame.text if t)
+                else:  # Autres formats
+                    values.add(str(frame).strip())
+
+        # 2. Essayer les tags génériques
+        elif hasattr(audio.tags, "get"):
+            tag_values = audio.tags.get(tag_name, [])
+            if isinstance(tag_values, list):
+                for value in tag_values:
+                    if isinstance(value, str):
+                        values.update(v.strip() for v in value.split(","))
+                    else:
+                        values.add(str(value).strip())
+            elif tag_values:
+                values.update(str(tag_values).split(","))
+
+        result = [v for v in values if v]
+        if result:
+            logger.debug(f"Tags {tag_name} trouvés: {result}")
+        return result
+
+    except Exception as e:
+        logger.debug(f"Erreur lecture tag liste {tag_name}: {str(e)}")
+        return []
+
 def get_tag(audio, tag_name):
     """Récupère une tag de manière sécurisée."""
     try:
+        if not hasattr(audio, 'tags') or not audio.tags:
+            return None
+            
+        # ID3 tags
+        if hasattr(audio.tags, 'getall'):
+            frames = audio.tags.getall(tag_name)
+            if frames:
+                value = str(frames[0])
+                logger.debug(f"Tag ID3 trouvé {tag_name}: {value}")
+                return value
+                
+        # Tags génériques
         if hasattr(audio.tags, 'get'):
             value = audio.tags.get(tag_name, [""])[0]
-            if isinstance(value, bytes):
-                return value.decode('utf-8')
-            return str(value)
-        return ""
-    except (AttributeError, KeyError, IndexError, UnicodeDecodeError) as e:
+            if value:
+                if isinstance(value, bytes):
+                    value = value.decode('utf-8')
+                logger.debug(f"Tag générique trouvé {tag_name}: {value}")
+                return str(value)
+                
+        return None
+        
+    except Exception as e:
         logger.debug(f"Erreur lecture tag {tag_name}: {str(e)}")
-        return ""
+        return None

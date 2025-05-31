@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Integer, DateTime, func
 from sqlalchemy.orm import relationship, foreign
 from datetime import datetime
 from .genre_links import artist_genre_links
-
+from .covers_model import Cover
 from backend.database import Base
 from .genres_model import artist_genres
 
@@ -20,8 +20,9 @@ class Artist(Base):
     tracks = relationship("Track", back_populates="track_artist")
     covers = relationship(
         "Cover",
-        primaryjoin="and_(Cover.entity_type=='artist', "
-                   "Artist.id==foreign(Cover.entity_id))",
+        primaryjoin="and_(Cover.entity_type=='artist', Artist.id==Cover.entity_id)",
+        lazy="selectin",
+        foreign_keys=[Cover.entity_id],
         viewonly=True
     )
     # Ajout de la relation avec les genres

@@ -6,6 +6,8 @@ from backend.database import Base
 from .genre_links import track_genre_links
 from .tags_model import track_mood_tags, track_genre_tags
 from .genres_model import track_genres
+from ..models.covers_model import Cover
+from ..models.tags_model import GenreTag, MoodTag
 
 class Track(Base):
     __tablename__ = 'tracks'
@@ -43,10 +45,11 @@ class Track(Base):
     mood_aggressive = Column(Float, nullable=True)
     mood_party = Column(Float, nullable=True)
     mood_relaxed = Column(Float, nullable=True)
-    instrumental = Column(Boolean, nullable=True)
-    acoustic = Column(Boolean, nullable=True)
-    tonal = Column(Boolean, nullable=True)
+    instrumental = Column(Float, nullable=True)
+    acoustic = Column(Float, nullable=True)
+    tonal = Column(Float, nullable=True)
     genre_main = Column(String, nullable=True)
+    camelot_key = Column(String, nullable=True)  # Clé Camelot pour la tonalité
 
     # Relations
     track_artist = relationship("Artist", back_populates="tracks")
@@ -56,7 +59,9 @@ class Track(Base):
     genre_tags = relationship("GenreTag", secondary=track_genre_tags, back_populates="tracks")
     covers = relationship(
         "Cover",
-        primaryjoin="and_(Cover.entity_type=='track', foreign(Cover.entity_id)==Track.id)",
+        primaryjoin="and_(Cover.entity_type=='track', Track.id==Cover.entity_id)",
+        lazy="selectin",
+        foreign_keys=[Cover.entity_id],
         viewonly=True
     )
 

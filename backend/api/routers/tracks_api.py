@@ -214,7 +214,8 @@ async def read_tracks(
                 joinedload(TrackModel.genre_tags),
                 joinedload(TrackModel.mood_tags),
                 joinedload(TrackModel.album),
-                joinedload(TrackModel.genres)
+                joinedload(TrackModel.genres),
+                joinedload(TrackModel.covers)  # Ajouter le chargement des covers
             )
             .offset(skip)
             .limit(limit)
@@ -257,7 +258,17 @@ async def read_tracks(
                 "date_added": track.date_added,
                 "date_modified": track.date_modified,
                 "genre_tags": [tag.name for tag in track.genre_tags] if track.genre_tags else [],
-                "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else []
+                "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else [],
+                "covers": [{
+                    "id": cover.id,
+                    "entity_type": cover.entity_type,
+                    "entity_id": cover.entity_id,
+                    "cover_data": cover.cover_data,
+                    "mime_type": cover.mime_type,
+                    "url": cover.url,
+                    "date_added": cover.date_added,
+                    "date_modified": cover.date_modified
+                } for cover in track.covers] if track.covers else []
             }
             
             # Add genres if available
@@ -277,21 +288,21 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
     try:
         track = (
             db.query(TrackModel)
-            .filter(TrackModel.id == track_id)
             .options(
-                joinedload(TrackModel.track_artist),
-                joinedload(TrackModel.album),
-                joinedload(TrackModel.genres),
                 joinedload(TrackModel.genre_tags),
-                joinedload(TrackModel.mood_tags)
+                joinedload(TrackModel.mood_tags),
+                joinedload(TrackModel.covers),  # S'assurer que covers est chargé
+                joinedload(TrackModel.album),
+                joinedload(TrackModel.genres)
             )
+            .filter(TrackModel.id == track_id)
             .first()
         )
         
         if track is None:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
         
-        # Convert to dict for serialization
+        # Convertir en dict pour la sérialisation
         track_dict = {
             "id": track.id,
             "title": track.title,
@@ -326,23 +337,37 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
             "date_modified": track.date_modified,
             "genre_tags": [tag.name for tag in track.genre_tags] if track.genre_tags else [],
             "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else [],
-            "covers": []
+            "covers": [{
+                "id": cover.id,
+                "entity_type": cover.entity_type,
+                "entity_id": cover.entity_id,
+                "cover_data": cover.cover_data,
+                "mime_type": cover.mime_type,
+                "url": cover.url,
+                "date_added": cover.date_added,
+                "date_modified": cover.date_modified
+            } for cover in track.covers] if track.covers else []
         }
         
         # Add related data
         if track.track_artist:
             track_dict["track_artist"] = {
                 "id": track.track_artist.id,
-                "name": track.track_artist.name
+                "name": track.track_artist.name,
+                "musicbrainz_artistid": track.track_artist.musicbrainz_artistid
             }
         
         if track.album:
             track_dict["album"] = {
                 "id": track.album.id,
-                "title": track.album.title
+                "title": track.album.title,
+                "musicbrainz_albumid": track.album.musicbrainz_albumid
             }
+            
+        return track_dict
+            
     except Exception as e:
-        logger.error(f"Erreur lecture pistes: {str(e)}")
+        logger.error(f"Erreur lecture piste: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{track_id}", response_model=Track)
@@ -438,34 +463,42 @@ async def update_track_tags(
     genre_tags: Optional[List[str]] = None,
     mood_tags: Optional[List[str]] = None,
     db: SQLAlchemySession = Depends(get_db)
-):
+) -> Track:
     """Mise à jour des tags d'une piste."""
     db_track = db.query(TrackModel).filter(TrackModel.id == track_id).first()
     if db_track is None:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
     
-    if genre_tags is not None:
-        db_track.genre_tags = []
-        for tag_name in genre_tags:
-            tag = db.query(GenreTag).filter_by(name=tag_name).first()
-            if not tag:
-                tag = GenreTag(name=tag_name)
-                db.add(tag)
-            db_track.genre_tags.append(tag)
-    
-    if mood_tags is not None:
-        db_track.mood_tags = []
-        for tag_name in mood_tags:
-            tag = db.query(MoodTag).filter_by(name=tag_name).first()
-            if not tag:
-                tag = MoodTag(name=tag_name)
-                db.add(tag)
-            db_track.mood_tags.append(tag)
-    
-    db_track.date_modified = func.now()
-    db.commit()
-    db.refresh(db_track)
-    return db_track
+    try:
+        # Mise à jour des genre tags
+        if genre_tags is not None:
+            db_track.genre_tags = []
+            for tag_name in genre_tags:
+                tag = db.query(GenreTag).filter_by(name=tag_name).first()
+                if not tag:
+                    tag = GenreTag(name=tag_name)
+                    db.add(tag)
+                db_track.genre_tags.append(tag)
+        
+        # Mise à jour des mood tags
+        if mood_tags is not None:
+            db_track.mood_tags = []
+            for tag_name in mood_tags:
+                tag = db.query(MoodTag).filter_by(name=tag_name).first()
+                if not tag:
+                    tag = MoodTag(name=tag_name)
+                    db.add(tag)
+                db_track.mood_tags.append(tag)
+        
+        db_track.date_modified = func.now()
+        db.commit()
+        db.refresh(db_track)
+        return db_track
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erreur mise à jour tags: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):

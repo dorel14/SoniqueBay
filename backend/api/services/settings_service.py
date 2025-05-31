@@ -121,11 +121,11 @@ class SettingsService:
         return default_value
 
     async def initialize_default_settings(self):
-        """Initialise les paramètres par défaut de manière synchrone."""
+        """Initialise les paramètres par défaut uniquement s'ils n'existent pas."""
         if self.initialized:
             return
 
-        logger.info("Démarrage de l'initialisation des settings...")
+        logger.info("Vérification des settings existants...")
         
         # Attendre que l'API soit prête via le healthcheck
         if not await self._wait_for_healthcheck():
@@ -134,48 +134,35 @@ class SettingsService:
             self.initialized = True
             return
 
-        # Initialiser les paramètres de manière synchrone
-        for key, value in DEFAULT_SETTINGS.items():
-            try:
-                logger.info(f"Création/Mise à jour du paramètre: {key}")
-                setting = SettingCreate(
-                    key=key,
-                    value=value,
-                    description=f"System setting: {key}",
-                    is_encrypted=False
-                )
+        # Vérifier d'abord les paramètres existants
+        try:
+            response = await self._make_request("get", self.api_settings_url)
+            if response and response.status_code == 200:
+                existing_settings = {s["key"]: s["value"] for s in response.json()}
                 
-                # Vérifier si le paramètre existe déjà
-                try:
-                    response = await self._make_request("get", f"{self.api_settings_url}/{key}")
-                    exists = response.status_code == 200
-                except:
-                    exists = False
+                # Ne créer que les paramètres manquants
+                for key, default_value in DEFAULT_SETTINGS.items():
+                    if key not in existing_settings:
+                        logger.info(f"Création du paramètre manquant: {key}")
+                        setting = SettingCreate(
+                            key=key,
+                            value=default_value,
+                            description=f"System setting: {key}",
+                            is_encrypted=False
+                        )
+                        await self._make_request(
+                            "post",
+                            self.api_settings_url,
+                            json=setting.model_dump()
+                        )
+                    else:
+                        # Utiliser la valeur existante
+                        self._cache[key] = existing_settings[key]
+                        logger.debug(f"Paramètre existant conservé: {key}")
 
-                if exists:
-                    logger.info(f"Mise à jour du paramètre existant: {key}")
-                    response = await self._make_request(
-                        "put",
-                        f"{self.api_settings_url}/{key}",
-                        json=setting.model_dump()
-                    )
-                else:
-                    logger.info(f"Création du nouveau paramètre: {key}")
-                    response = await self._make_request(
-                        "post",
-                        self.api_settings_url,
-                        json=setting.model_dump()
-                    )
-
-                if response and response.status_code in (200, 201):
-                    self._cache[key] = value
-                    logger.info(f"Paramètre {key} enregistré avec succès")
-                else:
-                    logger.error(f"Échec de l'enregistrement du paramètre {key}: {response.status_code}")
-                    
-            except Exception as e:
-                logger.error(f"Erreur lors de l'initialisation de {key}: {e}")
-                self._cache[key] = value
+        except Exception as e:
+            logger.error(f"Erreur lors de la vérification des settings: {e}")
+            self._cache = DEFAULT_SETTINGS.copy()
 
         self.initialized = True
         logger.info("Initialisation des settings terminée")

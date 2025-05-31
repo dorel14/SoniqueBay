@@ -1,17 +1,17 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship, foreign
 from backend.database import Base
-
+from .covers_model import Cover
 class Album(Base):
     __tablename__ = 'albums'
 
     id = Column(Integer, primary_key=True)
     title = Column(String, nullable=False)
     album_artist_id = Column(Integer, ForeignKey('artists.id'), nullable=False)
-    release_year = Column(String)
-    musicbrainz_albumid = Column(String)
-    date_added = Column(DateTime)
-    date_modified = Column(DateTime)
+    release_year = Column(String, nullable=True)
+    musicbrainz_albumid = Column(String, nullable=True)
+    date_added = Column(DateTime(timezone=True), server_default=func.now())
+    date_modified = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relations
     album_artist = relationship("Artist", back_populates="albums")
@@ -19,8 +19,9 @@ class Album(Base):
     genres = relationship("Genre", secondary="album_genres", back_populates="albums")
     covers = relationship(
         "Cover",
-        primaryjoin="and_(Cover.entity_type=='album', "
-                   "Album.id==foreign(Cover.entity_id))",
+        primaryjoin="and_(Cover.entity_type=='album', Album.id==Cover.entity_id)",
+        lazy="selectin",
+        foreign_keys=[Cover.entity_id],
         viewonly=True
     )
 
