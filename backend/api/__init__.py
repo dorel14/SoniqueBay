@@ -11,6 +11,7 @@ from .routers.tags_api import router as tags_router
 from .routers.playqueue_api import router as playqueue_router
 from .routers.search_api import router as search_router
 from .routers.covers_api import router as covers_router
+from .routers.library_api import router as library_router
 
 # Créer le router principal
 api_router = APIRouter()
@@ -26,7 +27,8 @@ ROUTERS = [
     settings_router,
     tags_router,
     playqueue_router,
-    search_router
+    search_router,
+    library_router
 ]
 
 # Inclure tous les routers

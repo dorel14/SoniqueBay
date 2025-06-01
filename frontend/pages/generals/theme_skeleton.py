@@ -41,11 +41,13 @@ def frame(navigation_title: str):
             ui.icon('copyright')
             ui.label('All rights reserved').classes('text-xs')
     with ui.left_drawer().classes('sonique-drawer p-4') as left_drawer:
-        with ui.column().classes('items-center'):
-            ui.label('left drawer')
+        with ui.column().classes('items-center') as drawer_content:
+            ui.label('Bibliothèque').classes('text-lg font-bold sonique-primary-text')
+        yield drawer_content
     with ui.column().classes('absolute-center items-center rounded-lg p-4 shadow-lg w-full h-full'):
         ui.row().classes('items-center')
-        yield
+
+
     ldrawer_open = False
 
     def toggle_left_drawer(event):
@@ -53,10 +55,10 @@ def frame(navigation_title: str):
         left_drawer.toggle()
         ldrawer_open = not ldrawer_open
         if event.sender._props['icon'] == 'chevron_left':
-            print('coucou')
+            #print('coucou')
             event.sender.props('icon=chevron_right')
         else:
-            print('coucou2')
+            #print('coucou2')
             event.sender.props('icon=chevron_left')
     ui.button(icon='chevron_left', on_click=toggle_left_drawer).props('flat').classes('text-sm inline-flex items-center')
 

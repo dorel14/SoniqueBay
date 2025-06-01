@@ -16,6 +16,11 @@
     color: #ffffff;
 }
 
+.sonique-primary-text {
+    background-color: #041b2d;        /* Bleu soutenu */
+    color: #ffffff;    
+}
+
 .sonique-accent {
     background-color: #00BCD4;        /* Cyan SoniqueBay */
     color: #ffffff;
@@ -79,15 +84,16 @@
 
 /* LEFT DRAWER */
 .sonique-drawer {
-    background-color: #043c69;
-    border-right: 1px solid #c2d3df;
-    color: #041b2d;
+    background-color: #1a0270;
+    color: #e5e6e7;
+    border-right: 1px solid #d0d0d0;
 }
+
 @media (prefers-color-scheme: dark) {
     .sonique-drawer {
-        background-color: #0a2238;
-        border-right: 1px solid #1c3a52;
-        color: #eaf7fa;
+        background-color: #121B30;
+        color: #E0E1DD;
+        border-right: 1px solid #2b3c55;
     }
 }
 
@@ -99,4 +105,45 @@
     .sonique-drawer-item:hover {
         background-color: #15364c;
     }
+}
+
+
+/* --- Style corrigé pour SoniqueBay TreeView (Dark Mode) --- */
+
+.sonique-tree {
+    --tree-bg: #0D1B2A;
+    --tree-text: #E0E1DD;
+    --tree-hover: #112A3C;
+    --tree-selected: #0077B6;
+    font-size: 0.875rem;
+}
+
+.sonique-tree .q-tree__node {
+    background-color: var(--tree-bg);
+    color: var(--tree-text) !important;
+    padding: 4px 10px;
+    margin: 1px 0;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.sonique-tree .q-tree__node:hover {
+    background-color: var(--tree-hover);
+}
+
+.sonique-tree .q-tree__node--selected {
+    background-color: var(--tree-selected);
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+.sonique-tree .q-tree__label {
+    color: var(--tree-text) !important;
+    font-size: 0.85rem;
+    padding-left: 4px;
+}
+
+.sonique-tree .q-icon {
+    color: var(--tree-text) !important;
+    font-size: 1rem;
 }

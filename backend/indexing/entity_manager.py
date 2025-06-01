@@ -5,9 +5,8 @@ from pathlib import Path
 from backend.services.audio_features_service import extract_audio_features
 
 from helpers.logging import logger
-from backend.services.image_service import process_image_data, read_image_file, process_artist_image
-from backend.services.path_service import get_artist_path, find_local_images, find_cover_in_directory
-from backend.services.settings_service import SettingsService, ARTIST_IMAGE_FILES
+from backend.services.image_service import  process_artist_image
+from backend.services.settings_service import SettingsService
 from backend.api.schemas.covers_schema import CoverCreate, CoverType
 from backend.services.lastfm_service import get_lastfm_artist_image
 from backend.services.coverart_service import get_coverart_image

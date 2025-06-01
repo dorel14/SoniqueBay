@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
-from fastapi import FastAPI,  WebSocket, WebSocketDisconnect, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import Base, engine
-from backend.websocket_manager.manager import connect, disconnect, broadcast_message
 from backend.api.services.settings_service import SettingsService
+from backend.task_system import register_ws  # Importer depuis task_system
 from helpers.logging import logger
 import asyncio
 
@@ -17,6 +17,16 @@ app = FastAPI(title="SoniqueBay API",
             version="1.0.0",
             docs_url="/api/docs",
             openapi_url="/api/openapi.json")
+
+# Configuration CORS pour permettre les WebSocket
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En production, spécifiez les origines exactes
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],  # Important pour les redirections
+)
 
 # Inclure le router AVANT de créer le service
 app.include_router(api_router)
@@ -39,29 +49,21 @@ def perform_healthcheck():
     '''
     return {'healthcheck': 'Webapp OK!'}
 
-# Ajouter le middleware CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # En production, spécifiez les origines exactes
-    allow_credentials=True,
-    allow_methods=["*"],
-)
-
-@app.websocket("/ws")
+@app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await connect(websocket)
+    """Point d'entrée WebSocket pour les mises à jour."""
     try:
+        await websocket.accept()
         while True:
-            data = await websocket.receive_text()
-            print(f"Message reçu: {data}")
-            # Vous pouvez traiter les messages reçus ici
-    except WebSocketDisconnect:
-        await disconnect(websocket)
+            try:
+                data = await websocket.receive_json()
+                # Traiter les messages reçus si nécessaire
+                await websocket.send_json({"status": "received"})
+            except WebSocketDisconnect:
+                logger.info("Client WebSocket déconnecté")
+                break
     except Exception as e:
-        print(f"Erreur WebSocket: {e}")
-        await disconnect(websocket)
-
-
+        logger.error(f"Erreur WebSocket: {e}")
 
 # Créer l'instance après avoir inclus les routes
 settings_service = SettingsService()

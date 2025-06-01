@@ -27,6 +27,6 @@ if __name__ == "__main__":
     uvicorn.run("backend.api_app:app",
                 host="0.0.0.0",
                 port=8001,
-                #reload=True,
-                #reload_dirs=["backend"]
+                forwarded_allow_ips="*",  # Permettre les en-têtes forwarded
+                proxy_headers=True  # Activer le support des proxy headers
                 )

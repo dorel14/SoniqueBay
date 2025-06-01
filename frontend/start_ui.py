@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 from src.soniquebay_app._version_ import version
-from frontend.pages import homepage, api_docs, search
+from frontend.pages import homepage, api_docs, search, library
 from frontend.pages.generals import theme_skeleton
 from frontend.websocket_manager.ws_client import connect_websocket
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.add_static_files('/static', './frontend/static')
 app.include_router(api_docs.router)
 app.include_router(search.router)
+app.include_router(library.router)
 
 @app.on_startup
 async def startup():
@@ -40,6 +41,6 @@ async def index_page() -> None:
 ui.run(host='0.0.0.0',
         title=f'SoniqueBay v{version}',
                 favicon='./frontend/static/favicon.ico',
-                reload=True,
+                reload=False,
                 uvicorn_reload_dirs='./frontend',
                 show=False,)
