@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
 from nicegui import ui
+from .generals.theme_skeleton import frame
 
 
 def content() -> None:
+    """Contenu de la page d'accueil."""
     ui.label('SoniqueBay').classes('text-2xl font-bold sonique-text-muted')
     ui.label('🎵 Votre plateforme de musique en ligne 🎵').classes('text-lg sonique-primary-text')
     ui.separator()

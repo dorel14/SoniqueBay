@@ -18,14 +18,20 @@ app = FastAPI(title="SoniqueBay API",
             docs_url="/api/docs",
             openapi_url="/api/openapi.json")
 
-# Configuration CORS pour permettre les WebSocket
+# Configuration CORS avec origins explicites
+origins = [
+    "http://localhost:8080",  # Frontend NiceGUI
+    "http://127.0.0.1:8080",
+    "ws://localhost:8080",
+    "ws://127.0.0.1:8080"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En production, spécifiez les origines exactes
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],  # Important pour les redirections
 )
 
 # Inclure le router AVANT de créer le service
@@ -51,19 +57,32 @@ def perform_healthcheck():
 
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Point d'entrée WebSocket pour les mises à jour."""
+    """Point d'entrée WebSocket."""
     try:
         await websocket.accept()
+        await websocket.send_json({"type": "connected"})
+
         while True:
             try:
-                data = await websocket.receive_json()
-                # Traiter les messages reçus si nécessaire
-                await websocket.send_json({"status": "received"})
+                msg = await websocket.receive_json()
+                # Broadcaster le message à tous les clients connectés
+                if msg.get('type') == 'library_update':
+                    await broadcast_to_clients({"type": "library_update"})
+                elif msg.get('type') == 'ping':
+                    await websocket.send_json({"type": "pong"})
             except WebSocketDisconnect:
                 logger.info("Client WebSocket déconnecté")
                 break
+            except Exception as e:
+                logger.error(f"Erreur traitement message: {e}")
+                break
     except Exception as e:
         logger.error(f"Erreur WebSocket: {e}")
+
+async def broadcast_to_clients(message: dict):
+    """Diffuse un message à tous les clients WebSocket."""
+    # Implémentation du broadcast à ajouter ici
+    pass
 
 # Créer l'instance après avoir inclus les routes
 settings_service = SettingsService()

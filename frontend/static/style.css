@@ -1,9 +1,9 @@
 /* --- SoniqueBay Theme --- */
 
 /* === LIGHT MODE === */
-.sonique-background {
-    background-color: #eaf7fa;        /* Fond doux et lumineux */
-    color: #041b2d;                   /* Texte bleu très foncé */
+body.sonique-light { 
+    background-color: #eaf7fa; 
+    color: #041b2d; 
 }
 
 .sonique-surface {
@@ -12,17 +12,17 @@
 }
 
 .sonique-primary {
-    background-color: #0077B6;        /* Bleu soutenu */
+    background-color: #0077B6;
     color: #ffffff;
 }
 
 .sonique-primary-text {
-    background-color: #041b2d;        /* Bleu soutenu */
-    color: #ffffff;    
+    color: #041b2d;
+    font-weight: 600;
 }
 
 .sonique-accent {
-    background-color: #00BCD4;        /* Cyan SoniqueBay */
+    background-color: #00BCD4;
     color: #ffffff;
 }
 
@@ -35,12 +35,11 @@
     color: #546e7a;
 }
 
-
 /* === DARK MODE === */
 @media (prefers-color-scheme: dark) {
-    .sonique-background {
-        background-color: #041b2d;
-        color: #f8fafc;
+    body.sonique-dark { 
+        background-color: #041b2d; 
+        color: #f8fafc; 
     }
 
     .sonique-surface {
@@ -51,6 +50,11 @@
     .sonique-primary {
         background-color: #00BCD4;
         color: #041b2d;
+    }
+
+    .sonique-primary-text {
+        color: #ffffff;
+        font-weight: 600;
     }
 
     .sonique-accent {
@@ -74,6 +78,7 @@
     color: #0077B6;
     border-bottom: 1px solid #c2d3df;
 }
+
 @media (prefers-color-scheme: dark) {
     .sonique-header {
         background-color: #041b2d;
@@ -84,66 +89,59 @@
 
 /* LEFT DRAWER */
 .sonique-drawer {
-    background-color: #1a0270;
-    color: #e5e6e7;
-    border-right: 1px solid #d0d0d0;
+    background-color: #eaf7fa; /* fond clair plus lisible */
+    color: #041b2d;
+    border-right: 1px solid #cfd8dc;
 }
 
 @media (prefers-color-scheme: dark) {
     .sonique-drawer {
-        background-color: #121B30;
+        background-color: #0B1C2F; /* bleu nuit foncé */
         color: #E0E1DD;
         border-right: 1px solid #2b3c55;
     }
 }
 
-/* MENU ITEMS */
+/* MENU ITEMS HOVER */
 .sonique-drawer-item:hover {
     background-color: #d8ecf1;
 }
 @media (prefers-color-scheme: dark) {
     .sonique-drawer-item:hover {
-        background-color: #15364c;
+        background-color: #18334f;
     }
 }
 
-
-/* --- Style corrigé pour SoniqueBay TreeView (Dark Mode) --- */
-
+/* === TREEVIEW === */
 .sonique-tree {
-    --tree-bg: #0D1B2A;
-    --tree-text: #E0E1DD;
-    --tree-hover: #112A3C;
-    --tree-selected: #0077B6;
     font-size: 0.875rem;
 }
 
 .sonique-tree .q-tree__node {
-    background-color: var(--tree-bg);
-    color: var(--tree-text) !important;
+    background-color: transparent;
+    color: inherit;
     padding: 4px 10px;
-    margin: 1px 0;
     border-radius: 4px;
     transition: background-color 0.2s ease;
 }
 
 .sonique-tree .q-tree__node:hover {
-    background-color: var(--tree-hover);
+    background-color: rgba(0, 119, 182, 0.1); /* hover light cyan */
 }
 
 .sonique-tree .q-tree__node--selected {
-    background-color: var(--tree-selected);
-    color: #ffffff !important;
-    font-weight: 500;
+    background-color: #00BCD4;
+    color: #ffffff;
+    font-weight: 600;
 }
 
 .sonique-tree .q-tree__label {
-    color: var(--tree-text) !important;
+    color: inherit;
     font-size: 0.85rem;
     padding-left: 4px;
 }
 
 .sonique-tree .q-icon {
-    color: var(--tree-text) !important;
+    color: inherit;
     font-size: 1rem;
 }

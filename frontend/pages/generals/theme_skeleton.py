@@ -1,7 +1,10 @@
-from nicegui import ui
+from nicegui import ui, app
 from contextlib import contextmanager
+import asyncio
 from .menu import menu
 from frontend.theme.colors import apply_theme
+from .library_tree import library_tree
+
 
 
 @contextmanager
@@ -9,7 +12,7 @@ def frame(navigation_title: str):
     apply_theme()
     """Custom page frame to share the same styling and behavior across all pages"""
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">')
-    #ui.add_head_html('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">')
+    ui.add_head_html('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css">')
     ui.add_head_html('<link rel="stylesheet" href="https://cdn.datatables.net/2.1.8/css/dataTables.bootstrap5.css">')
     ui.add_head_html('<link href="https://unpkg.com/eva-icons@1.1.3/style/eva-icons.css" rel="stylesheet" />')
     ui.add_head_html('<link href="https://cdn.jsdelivr.net/themify-icons/0.1.2/css/themify-icons.css" rel="stylesheet" />')
@@ -28,40 +31,43 @@ def frame(navigation_title: str):
         with ui.row().classes('text-white items-center'):
             with ui.button(icon='menu').classes('text-xs sonique-primary').props('dense flat'):
                 menu()
+                # Créer le bouton toggle avec position absolue
+            toggle_button = ui.button(icon='chevron_left').classes('text-sm inline-flex items-center').props('flat dense')
         ui.space()
         ui.label('SoniqueBay').classes(
             'text-2xl font-bold').style(
                 'color: #00bcd4;' if ui.dark_mode().value else 'color: #0077B6;')
         ui.space()
-        #ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
+        ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
         ui.button(on_click=about.open, icon='info').props('flat color=white')
 
     with ui.footer().classes('sonique-background') as footer:
         with ui.row().classes('w-full items-center flex-wrap'):
             ui.icon('copyright')
             ui.label('All rights reserved').classes('text-xs')
-    with ui.left_drawer().classes('sonique-drawer p-4') as left_drawer:
-        with ui.column().classes('items-center') as drawer_content:
+    # Configurer le drawer
+    with ui.left_drawer().classes('sonique-drawer p-4 z-40') as left_drawer:
+        with ui.column().classes('items-center w-full') as drawer_content:
             ui.label('Bibliothèque').classes('text-lg font-bold sonique-primary-text')
-        yield drawer_content
-    with ui.column().classes('absolute-center items-center rounded-lg p-4 shadow-lg w-full h-full'):
-        ui.row().classes('items-center')
+            ui.separator().classes('w-full')
+            
+            # Appeler library_tree avec le conteneur parent
+            asyncio.create_task(library_tree(drawer_content))
 
-
-    ldrawer_open = False
-
-    def toggle_left_drawer(event):
-        nonlocal ldrawer_open
+    def toggle_drawer():
+        """Gestion du toggle avec changement d'icône."""
         left_drawer.toggle()
-        ldrawer_open = not ldrawer_open
-        if event.sender._props['icon'] == 'chevron_left':
-            #print('coucou')
-            event.sender.props('icon=chevron_right')
-        else:
-            #print('coucou2')
-            event.sender.props('icon=chevron_left')
-    ui.button(icon='chevron_left', on_click=toggle_left_drawer).props('flat').classes('text-sm inline-flex items-center')
+        current_icon = toggle_button._props.get('icon', 'chevron_left')
+        new_icon = 'chevron_right' if current_icon == 'chevron_left' else 'chevron_left'
+        toggle_button.props(f'icon={new_icon}')
 
+    toggle_button.on('click', toggle_drawer)
+
+    with ui.column().classes('ml-16 items-center rounded-lg p-4 w-full h-full') as main_slot:
+        with ui.row().classes('items-center w-full'):
+            ui.space()
+
+    yield main_slot
 
 
     # with ui.right_drawer() as right_drawer:
