@@ -1,0 +1,7 @@
+{
+    "githooks.directory": ".git/hooks",
+    "githooks.autoInstall": true,
+    "githooks.supported": [
+        "pre-commit"
+    ]
+}
