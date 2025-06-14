@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
-from src.soniquebay_app._version_ import version
+from _version_ import __version__ as version
 from frontend.pages import homepage, api_docs, search, library
 from frontend.pages.generals import theme_skeleton
 from frontend.websocket_manager.ws_client import connect_websocket
