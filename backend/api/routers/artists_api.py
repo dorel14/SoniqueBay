@@ -3,9 +3,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
+from pathlib import Path
 from backend.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
+from backend.api.schemas.covers_schema import Cover, CoverType
 from helpers.logging import logger
 
 
@@ -78,48 +80,61 @@ def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depend
     artists = db.query(ArtistModel).offset(skip).limit(limit).all()
     return artists
 
-@router.get("/{artist_id}", response_model=Artist)
+@router.get("/{artist_id}", response_model=ArtistWithRelations)
 async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
     try:
-        artist = (
-            db.query(ArtistModel)
-            .options(
-                joinedload(ArtistModel.covers),  # Charger explicitement les covers
-                joinedload(ArtistModel.albums),
-                joinedload(ArtistModel.tracks)
-            )
-            .filter(ArtistModel.id == artist_id)
-            .first()
-        )
+        # Modifier la requête pour inclure explicitement les covers
+        artist = db.query(ArtistModel)\
+                  .options(joinedload(ArtistModel.covers))\
+                  .filter(ArtistModel.id == artist_id)\
+                  .first()
         
-        if artist is None:
-            raise HTTPException(status_code=404, detail="Artist not found")
+        if not artist:
+            raise HTTPException(status_code=404, detail="Artiste non trouvé")
 
-        # Convertir en dictionnaire avec les covers
-        return {
+        # Debug log pour vérifier les covers
+        logger.debug(f"Covers trouvées pour l'artiste {artist_id}: {artist.covers}")
+
+        # Traiter les covers
+        artist_covers = []
+        if hasattr(artist, 'covers') and artist.covers:
+            for cover in artist.covers:
+                try:
+                    cover_data = {
+                        "id": cover.id,
+                        "entity_type": CoverType.ARTIST,
+                        "entity_id": artist.id,
+                        "url": cover.url,
+                        "cover_data": cover.cover_data,
+                        "created_at": cover.date_added,
+                        "updated_at": cover.date_modified
+                    }
+                    artist_covers.append(Cover(**cover_data))
+                except Exception as e:
+                    logger.error(f"Erreur lors du traitement de la cover {cover.id}: {str(e)}")
+                    continue
+
+        # Créer la réponse avec toutes les données de l'artiste
+        response_data = {
             "id": artist.id,
             "name": artist.name,
             "musicbrainz_artistid": artist.musicbrainz_artistid,
             "date_added": artist.date_added,
             "date_modified": artist.date_modified,
-            "covers": [
-                {
-                    "id": cover.id,
-                    "entity_type": cover.entity_type,
-                    "entity_id": cover.entity_id,
-                    "cover_data": cover.cover_data,
-                    "mime_type": cover.mime_type,
-                    "url": cover.url,
-                    "date_added": cover.date_added,
-                    "date_modified": cover.date_modified
-                }
-                for cover in artist.covers
-            ] if artist.covers else []
+            "covers": artist_covers
         }
+        
+        # Debug log pour vérifier la réponse
+        logger.debug(f"Réponse pour l'artiste {artist_id}: {response_data}")
+        
+        return response_data
 
     except Exception as e:
-        logger.error(f"Error reading artist: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Erreur lors de la récupération de l'artiste {artist_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération de l'artiste: {str(e)}"
+        )
 
 @router.put("/{artist_id}", response_model=Artist)
 def update_artist(artist_id: int, artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db)):

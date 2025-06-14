@@ -5,7 +5,7 @@ from helpers.logging import logger
 
 class PendingAnalysisService:
     def __init__(self):
-        data_dir = Path("data")
+        data_dir = Path("./backend/data")
         data_dir.mkdir(exist_ok=True)
         self.db = TinyDB(data_dir / "pending_analysis.json")
         self.tracks = self.db.table('tracks')

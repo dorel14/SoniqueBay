@@ -4,11 +4,17 @@ from utils.music_tree_data import get_library_tree
 from frontend.websocket_manager.ws_client import connect_websocket, send_message
 import asyncio
 
+def show_library_page(e):
+    artist_id = e.split("_")[1]
+    ui.navigate.to(f"/library/{artist_id}")
+
+
+
 async def library_tree(container) -> None:
     """Crée et initialise le tree dans le conteneur spécifié."""
     with container:
         # Un seul tree centralisé
-        tree = ui.tree([]).classes('sonique-tree w-full')
+        tree = ui.tree([], on_select=lambda e: show_library_page(e.value)).classes('w-full').props('no-connectors icon=audiotrack dense no-transition accordion text-color=grey-2')
         app.storage.library_tree = tree
 
         # Chargement immédiat

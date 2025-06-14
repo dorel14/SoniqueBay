@@ -10,7 +10,7 @@ from backend.indexing.search import get_or_create_index, add_to_index
 from helpers.logging import logger
 
 class MusicIndexer:
-    def __init__(self, index_dir="./data/whoosh_index"):
+    def __init__(self, index_dir="./backend/data/whoosh_index"):
         self.index_dir = index_dir
         self.index = get_or_create_index(index_dir)
 

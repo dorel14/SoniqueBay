@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
-from whoosh.index import create_in, open_dir, exists_in
-from whoosh.fields import Schema, ID, TEXT, NUMERIC, STORED
-from whoosh.qparser import OperatorsPlugin
-from whoosh import scoring, sorting
-from helpers.logging import logger
-import os
-import shutil
+from utils.search_config import configure_whoosh_warnings
+configure_whoosh_warnings()
+from whoosh.index import create_in, open_dir, exists_in  # noqa: E402
+from whoosh.fields import Schema, ID, TEXT, NUMERIC, STORED  # noqa: E402
+from whoosh.qparser import OperatorsPlugin  # noqa: E402
+from whoosh import scoring, sorting  # noqa: E402
+from helpers.logging import logger  # noqa: E402
+
+import os  # noqa: E402
+import shutil  # noqa: E402
+
 
 def get_schema():
     """Définit le schéma d'indexation."""

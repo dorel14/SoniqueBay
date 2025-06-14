@@ -1,147 +1,16 @@
-/* --- SoniqueBay Theme --- */
+/* --- Police globale --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
 
-/* === LIGHT MODE === */
-body.sonique-light { 
-    background-color: #eaf7fa; 
-    color: #041b2d; 
+@font-face {
+    font-family: 'Poppins';
+    font-style: normal;
+    font-weight: 400;
+    src: url(https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJnecmNE.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-.sonique-surface {
-    background-color: #ffffff;
-    color: #041b2d;
-}
-
-.sonique-primary {
-    background-color: #0077B6;
-    color: #ffffff;
-}
-
-.sonique-primary-text {
-    color: #041b2d;
-    font-weight: 600;
-}
-
-.sonique-accent {
-    background-color: #00BCD4;
-    color: #ffffff;
-}
-
-.sonique-text-title {
-    color: #0077B6;
-    font-weight: bold;
-}
-
-.sonique-text-muted {
-    color: #546e7a;
-}
-
-/* === DARK MODE === */
-@media (prefers-color-scheme: dark) {
-    body.sonique-dark { 
-        background-color: #041b2d; 
-        color: #f8fafc; 
-    }
-
-    .sonique-surface {
-        background-color: #052635;
-        color: #f8fafc;
-    }
-
-    .sonique-primary {
-        background-color: #00BCD4;
-        color: #041b2d;
-    }
-
-    .sonique-primary-text {
-        color: #ffffff;
-        font-weight: 600;
-    }
-
-    .sonique-accent {
-        background-color: #0077B6;
-        color: #ffffff;
-    }
-
-    .sonique-text-title {
-        color: #00BCD4;
-        font-weight: bold;
-    }
-
-    .sonique-text-muted {
-        color: #94a3b8;
-    }
-}
-
-/* HEADER */
-.sonique-header {
-    background-color: #eaf7fa;
-    color: #0077B6;
-    border-bottom: 1px solid #c2d3df;
-}
-
-@media (prefers-color-scheme: dark) {
-    .sonique-header {
-        background-color: #041b2d;
-        color: #00BCD4;
-        border-bottom: 1px solid #1c3a52;
-    }
-}
-
-/* LEFT DRAWER */
-.sonique-drawer {
-    background-color: #eaf7fa; /* fond clair plus lisible */
-    color: #041b2d;
-    border-right: 1px solid #cfd8dc;
-}
-
-@media (prefers-color-scheme: dark) {
-    .sonique-drawer {
-        background-color: #0B1C2F; /* bleu nuit foncé */
-        color: #E0E1DD;
-        border-right: 1px solid #2b3c55;
-    }
-}
-
-/* MENU ITEMS HOVER */
-.sonique-drawer-item:hover {
-    background-color: #d8ecf1;
-}
-@media (prefers-color-scheme: dark) {
-    .sonique-drawer-item:hover {
-        background-color: #18334f;
-    }
-}
-
-/* === TREEVIEW === */
-.sonique-tree {
-    font-size: 0.875rem;
-}
-
-.sonique-tree .q-tree__node {
-    background-color: transparent;
-    color: inherit;
-    padding: 4px 10px;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.sonique-tree .q-tree__node:hover {
-    background-color: rgba(0, 119, 182, 0.1); /* hover light cyan */
-}
-
-.sonique-tree .q-tree__node--selected {
-    background-color: #00BCD4;
-    color: #ffffff;
-    font-weight: 600;
-}
-
-.sonique-tree .q-tree__label {
-    color: inherit;
-    font-size: 0.85rem;
-    padding-left: 4px;
-}
-
-.sonique-tree .q-icon {
-    color: inherit;
-    font-size: 1rem;
+@import "tailwindcss";
+@theme {
+    --font-display: 'Poppins', sans-serif;
+    --font-poppins: Poppins, sans-serif;
 }

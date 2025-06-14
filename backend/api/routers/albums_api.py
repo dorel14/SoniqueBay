@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
 from backend.api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
 from backend.api.models.albums_model import Album as AlbumModel
+from backend.api.schemas.covers_schema import Cover, CoverType
 from sqlalchemy import func
 from datetime import datetime
 from typing import List, Optional
@@ -9,6 +10,7 @@ from backend.database import get_db
 from sqlalchemy.exc import IntegrityError
 from helpers.logging import logger
 from sqlalchemy.orm import joinedload
+from pathlib import Path
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
@@ -83,7 +85,7 @@ def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/", response_model=List[Album])
+@router.get("/", response_model=List[AlbumWithRelations])
 def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
     albums = db.query(AlbumModel).offset(skip).limit(limit).all()
     # Convertir les dates None en datetime.now()
@@ -95,48 +97,52 @@ def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends
     ) for album in albums]
 
 @router.get("/{album_id}", response_model=Album)
-async def read_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def read_album(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1),
+    db: SQLAlchemySession = Depends(get_db)
+):
     try:
-        album = (
-            db.query(AlbumModel)
-            .options(
-                joinedload(AlbumModel.covers),
-                joinedload(AlbumModel.album_artist),
-                joinedload(AlbumModel.genres)
-            )
-            .filter(AlbumModel.id == album_id)
-            .first()
-        )
+        albums = db.query(AlbumModel).offset(skip).limit(limit).all()
+        
+        result = []
+        for album in albums:
+            # Convertir les chemins en format compatible
+            album_covers = []
+            if album.covers:
+                for cover in album.covers:
+                    try:
+                        # Utiliser le validateur existant de Cover
+                        cover_data = {
+                            "id": cover.id,
+                            "entity_type": CoverType.ALBUM,
+                            "entity_id": album.id,
+                            "url": str(Path(cover.url).absolute()),
+                            "mime_type": cover.mime_type,
+                            "created_at": cover.created_at,
+                            "updated_at": cover.updated_at
+                        }
+                        album_covers.append(Cover(**cover_data))
+                    except Exception as e:
+                        logger.warning(f"Erreur lors de la validation de la cover pour l'album {album.id}: {str(e)}")
+                        continue
 
-        if album is None:
-            raise HTTPException(status_code=404, detail="Album not found")
+            # Créer l'objet album avec les covers validées
+            album_data = {
+                **album.__dict__,
+                "covers": album_covers,
+                "cover_url": album_covers[0].url if album_covers else None
+            }
+            result.append(AlbumWithRelations(**album_data))
 
-        return {
-            "id": album.id,
-            "title": album.title,
-            "album_artist_id": album.album_artist_id,
-            "release_year": album.release_year,
-            "musicbrainz_albumid": album.musicbrainz_albumid,
-            "date_added": album.date_added,
-            "date_modified": album.date_modified,
-            "covers": [
-                {
-                    "id": cover.id,
-                    "entity_type": cover.entity_type,
-                    "entity_id": cover.entity_id,
-                    "cover_data": cover.cover_data,
-                    "mime_type": cover.mime_type,
-                    "url": cover.url,
-                    "date_added": cover.date_added,
-                    "date_modified": cover.date_modified
-                }
-                for cover in album.covers
-            ] if album.covers else []
-        }
+        return result
 
     except Exception as e:
-        logger.error(f"Erreur lecture album: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Erreur lors de la récupération des albums: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erreur lors de la récupération des albums"
+        )
 
 @router.put("/{album_id}", response_model=Album)
 def update_album(album_id: int, album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):

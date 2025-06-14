@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 from backend.api.schemas.settings_schema import SettingCreate
 from backend.services.path_variables import PathVariables
 from helpers.logging import logger
+import os
 
 # Clés des paramètres système
 MUSIC_PATH_TEMPLATE = "music_path_template"
@@ -20,7 +21,7 @@ DEFAULT_SETTINGS = {
 }
 
 class SettingsService:
-    def __init__(self, api_url: str = "http://localhost:8001", max_retries: int = 5):
+    def __init__(self, api_url: str = os.getenv('API_URL', 'http://localhost:8001/api') , max_retries: int = 5):
         self.base_url = api_url.rstrip('/')  # Supprimer le slash final s'il existe
         self.api_settings_url = f"{self.base_url}/api/settings"  # URL unique pour les settings
         self.max_retries = max_retries

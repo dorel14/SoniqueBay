@@ -41,6 +41,6 @@ async def index_page() -> None:
 ui.run(host='0.0.0.0',
         title=f'SoniqueBay v{version}',
                 favicon='./frontend/static/favicon.ico',
-                reload=False,
+                reload=True,
                 uvicorn_reload_dirs='./frontend',
                 show=False,)

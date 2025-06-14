@@ -21,7 +21,9 @@ def get_database_url():
     db_type = os.getenv('DB_TYPE', 'sqlite').lower()
 
     if db_type == 'sqlite':
-        return 'sqlite:///music.db'
+        data_dir = os.path.join(os.path.dirname(__file__), 'data')
+        os.makedirs(data_dir, exist_ok=True)
+        return f'sqlite:///{os.path.join(data_dir, "music.db")}'
 
     elif db_type == 'postgres':
         return (f"postgresql://{os.getenv('DB_USER', 'postgres')}:"

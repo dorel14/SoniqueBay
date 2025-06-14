@@ -1,7 +1,8 @@
 import requests
 from typing import Optional
+import os
 
-API_BASE_URL = "http://localhost:8001/api"
+API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api')
 
 def get_setting(key: str) -> Optional[str]:
     try:

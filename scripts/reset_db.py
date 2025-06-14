@@ -6,7 +6,7 @@ def reset_database():
     """Réinitialise complètement la base de données."""
     try:
         # 1. Supprimer la base de données
-        db_path = Path("soniquebay.db")
+        db_path = Path("music.db")
         if db_path.exists():
             os.remove(db_path)
             print("Base de données supprimée")

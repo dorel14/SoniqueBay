@@ -9,7 +9,7 @@ from tinydb import TinyDB, Query
 from fastapi.websockets import WebSocket
 
 # Base de stockage des tâches planifiées et exécutées
-db = TinyDB('./data/task_log.json')
+db = TinyDB('./backend/data/task_log.json')
 TaskEntry = Query()
 
 connected_clients: list[WebSocket] = []

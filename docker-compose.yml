@@ -1,0 +1,54 @@
+services:
+    backend:
+        build:
+            context: .
+            dockerfile: ./backend/Dockerfile
+        ports:
+            - "8001:8001"
+        hostname: backend
+        restart: unless-stopped
+        env_file:
+            - .env
+        volumes:
+            - backend-dir:/backend
+            - db-data:/backend/data
+        healthcheck:
+            test: ["CMD-SHELL", "/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+    frontend:
+        build:
+            context: .
+            dockerfile: ./frontend/Dockerfile
+        ports:
+            - "8080:8080"
+        depends_on:
+            backend:
+                condition: service_healthy
+        env_file:
+            - .env
+        volumes:
+            - frontend-dir:/frontend
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+volumes:
+    backend-dir:
+        driver: local
+        driver_opts:
+            type: none
+            device: .
+            o: bind
+    db-data:
+        driver: local
+    frontend-dir:
+        driver: local
+        driver_opts:
+            type: none
+            device: .
+            o: bind

@@ -1,6 +1,7 @@
 import json
 import httpx
 from typing import Any
+import os
 
 # Clés des paramètres système
 MUSIC_PATH_TEMPLATE = "music_path_template"
@@ -15,7 +16,7 @@ DEFAULT_SETTINGS = {
 }
 
 class SettingsService:
-    def __init__(self, api_url: str = "http://localhost:8001"):
+    def __init__(self, api_url: str = os.getenv('API_URL', 'http://localhost:8001')):
         self.api_url = f"{api_url}/api/settings"
 
     async def get_setting(self, key: str) -> Any:

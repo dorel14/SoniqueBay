@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import Base, engine
 from backend.api.services.settings_service import SettingsService
@@ -34,6 +34,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"URL demandée: {request.url}")
+    logger.info(f"Base URL: {request.base_url}")
+    logger.info(f"Path params: {request.path_params}")
+    response = await call_next(request)
+    return response
+
+
 # Inclure le router AVANT de créer le service
 app.include_router(api_router)
 
@@ -53,7 +62,7 @@ def perform_healthcheck():
         'healtcheck': 'Everything OK!'
     }
     '''
-    return {'healthcheck': 'Webapp OK!'}
+    return {"status": "healthy"}
 
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):

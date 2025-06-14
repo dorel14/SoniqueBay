@@ -19,19 +19,14 @@ class CoverBase(BaseModel):
 
     @validator('url')
     def validate_url(cls, v):
-        if v is None:
+        if not v:
             return v
-        # Accepter les chemins Windows absolus
+        # Convertir le chemin Windows en chemin absolu avec forward slashes
         try:
-            path = Path(v)
-            if path.is_absolute():
-                return str(path)
-        except:
-            pass
-        # Validation URL standard
-        if not v.startswith(('http://', 'https://')):
-            raise ValueError("L'URL doit être une URL web valide ou un chemin absolu")
-        return v
+            path = str(Path(v).absolute()).replace('\\', '/')
+            return path
+        except Exception:
+            return v
 
 class CoverCreate(CoverBase):
     """Schéma pour la création d'une cover."""

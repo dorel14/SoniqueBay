@@ -28,5 +28,6 @@ if __name__ == "__main__":
                 host="0.0.0.0",
                 port=8001,
                 forwarded_allow_ips="*",  # Permettre les en-têtes forwarded
-                proxy_headers=True  # Activer le support des proxy headers
+                proxy_headers=True,  # Activer le support des proxy headers
+                reload=True,  # Recharger l'application automatiquement en cas de modification du code
                 )

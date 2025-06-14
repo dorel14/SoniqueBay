@@ -20,7 +20,7 @@ async def get_artist_path(artist_name: str, full_path: str) -> Optional[str]:
     return await path_service.get_artist_path(artist_name, full_path)
 
 class PathService:
-    def __init__(self, api_url: str = "http://localhost:8001"):
+    def __init__(self, api_url: str = os.getenv('API_URL', 'http://localhost:8001')):
         self.api_url = api_url
         self.settings_service = SettingsService(api_url)
 
