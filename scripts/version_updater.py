@@ -18,15 +18,15 @@ def get_git_tag():
 def update_version_file():
     print("Début de la mise à jour de version...")
     version = get_git_tag()
-    
+
     version_file = Path(__file__).parent.parent / "_version_.py"
     print(f"Chemin du fichier version : {version_file}")
-    
+
     content = f'''"""Version information."""
 
 __version__ = "{version}"
 '''
-    
+
     try:
         version_file.write_text(content, encoding='utf-8')
         print(f"Version mise à jour : {version}")
