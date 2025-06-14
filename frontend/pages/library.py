@@ -45,6 +45,7 @@ async def artist_container(artist_id: int):
                     with ui.row().classes('gap-4 text-sm mt-2'):
                         albums_count = ui.label()
                         tracks_count = ui.label()
+                        albums_count.set_text(f"Albums: {len(artist_data.get('albums', []))}")
 
 
 @ui.page('/library/{artist_id}')
