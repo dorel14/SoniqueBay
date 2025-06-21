@@ -3,6 +3,7 @@ import os
 import logging
 import pathlib
 import stat
+import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
 import multiprocessing
@@ -28,7 +29,7 @@ except Exception as e:
 if not os.path.exists(logfiles):
     try:
         # Créer un fichier vide
-        with open(logfiles, 'a'):
+        with open(logfiles, 'a', encoding='utf-8') as f:
             pass
         # Définir les permissions du fichier (666 = rw-rw-rw-)
         os.chmod(logfiles, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # équivalent à 0o666
@@ -42,19 +43,31 @@ logger = logging.getLogger()
 log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
 logger.setLevel(getattr(logging, log_level))
 
+
 # création d'un formateur qui va ajouter le temps, le niveau
 # de chaque message quand on écrira un message dans le log
 formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s')
 
 # Création des handlers pour le QueueListener
 file_handler = RotatingFileHandler(filename=logfiles,
-                                   mode='a',
-                                   maxBytes=1000000,
-                                   backupCount=5)
+                                    mode='a',
+                                    maxBytes=1000000,
+                                    backupCount=5,
+                                    encoding='utf-8',)
 file_handler.setLevel(getattr(logging, log_level))
 file_handler.setFormatter(formatter)
 
-stream_handler = logging.StreamHandler()
+# Handler console avec encodage utf-8
+class Utf8StreamHandler(logging.StreamHandler):
+    def __init__(self, stream=None):
+        if stream is None:
+            stream = sys.stdout
+        # Force le stream en utf-8 si possible
+        if hasattr(stream, "encoding") and stream.encoding and stream.encoding.lower() != "utf-8":
+            stream = open(stream.fileno(), mode='w', encoding='utf-8', buffering=1)
+        super().__init__(stream)
+
+stream_handler = Utf8StreamHandler()
 stream_handler.setLevel(getattr(logging, log_level))
 stream_handler.setFormatter(formatter)
 

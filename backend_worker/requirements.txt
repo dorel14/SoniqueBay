@@ -1,17 +1,8 @@
-# Web Framework et ASGI
-fastapi>=0.100.0
-uvicorn[standard]>=0.22.0
-
-# Base de données et ORM
-sqlalchemy>=2.0.0
-alembic>=1.11.0
-# Drivers de base de données
-psycopg2-binary>=2.9.6  # PostgreSQL
-pymysql>=1.0.2  # MariaDB/MySQL
-aiosqlite>=0.19.0  # SQLite async
-
 #Gestion des tâches
 celery>=5.5.3
+# Gestion des fichiers audio et métadonnées
+mutagen>=1.46.0
+librosa>=0.10.0
 
 # HTTP et WebSocket
 httpx>=0.24.0

@@ -1,7 +1,8 @@
-from backend.task_system import AsyncTask
-from backend.indexing.indexer import MusicIndexer
-from backend.indexing.music_scan import scan_music_files
-from backend.indexing.entity_manager import (
+
+from celery_app import celery
+from backend_worker.indexing.indexer import MusicIndexer
+from backend_worker.indexing.music_scan import scan_music_files
+from backend_worker.indexing.entity_manager import (
     create_or_get_artist, 
     create_or_get_album, 
     create_or_get_track,
@@ -13,36 +14,30 @@ from typing import Dict
 from helpers.logging import logger
 
 
-# Création de l'instance AsyncTask avant le décorateur
-index_music = AsyncTask(name="index_music", description="Indexation des fichiers musicaux")
 
-@index_music
-async def index_music_task(update_progress, directory: str):
+
+@celery.task("scan_music_task")
+async def index_music_task(directory: str):
     """Tâche d'indexation avec monitoring de la progression."""
     try:
         logger.info(f"Démarrage de l'indexation de: {directory}")
-        
-        # 1. Scanner et traiter les fichiers en BDD
-        update_progress(0, "Scan des fichiers...")
+
         files = await scan_music_files(directory)
-        
-        # 2. Traiter les entités en BDD avec entity_manager
-        total = len(files)
+
+
         async with httpx.AsyncClient() as client:
             for i, file_data in enumerate(files, 1):
-                progress = (i / total) * 50  # Première moitié pour BDD
-                update_progress(progress, "Traitement en base de données...")
+
                 await process_file_entities(client, file_data)
-        
+
         # 3. Indexer dans Whoosh
         indexer = MusicIndexer()
         await indexer.index_directory(
-            directory,
-            lambda p: update_progress(50 + p/2, "Indexation recherche...")  # Seconde moitié pour Whoosh
+            directory, # Seconde moitié pour Whoosh
         )
-        
-        update_progress(100, "Indexation terminée")
-        
+
+
+
     except Exception as e:
         logger.error(f"Erreur d'indexation: {str(e)}", exc_info=True)
         raise

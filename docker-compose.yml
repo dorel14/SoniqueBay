@@ -1,4 +1,8 @@
 services:
+    redis:
+        image: redis:7
+        ports:
+            - "6379:6379"
     backend:
         build:
             context: .
@@ -9,11 +13,42 @@ services:
         restart: unless-stopped
         env_file:
             - .env
+        environment:
+            - PLATFORM=${PLATFORM:-windows}
+            - MUSIC_PATH=/music
+            - NAS_USER=djdmd14
+            - NAS_PASS=mc30314500
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
         volumes:
             - backend-dir:/backend
             - db-data:/backend/data
+            - music-share:/music:ro
         healthcheck:
             test: ["CMD-SHELL", "/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+    worker:
+        build:
+            context: .
+            dockerfile: ./backend_worker/Dockerfile
+        depends_on:
+            - redis
+        env_file:
+            - .env
+        environment:
+            - PLATFORM=${PLATFORM:-windows}
+            - MUSIC_PATH=/music
+            - NAS_USER=djdmd14
+            - NAS_PASS=mc30314500
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+        volumes:
+            - music-share:/music:ro
+        healthcheck:
+            test: ["CMD", "celery", "-A", "celery_app.celery", "status", ]
             interval: 30s
             timeout: 5s
             retries: 5
@@ -52,3 +87,8 @@ volumes:
             type: none
             device: .
             o: bind
+    music-share:
+        driver_opts:
+            type: cifs
+            device: //SRV_NAS/music
+            o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=3.0

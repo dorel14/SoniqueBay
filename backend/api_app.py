@@ -2,10 +2,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database import Base, engine
-from backend.api.services.settings_service import SettingsService
-from backend.task_system import register_ws  # Importer depuis task_system
 from helpers.logging import logger
-import asyncio
 
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
@@ -93,8 +90,6 @@ async def broadcast_to_clients(message: dict):
     # Implémentation du broadcast à ajouter ici
     pass
 
-# Créer l'instance après avoir inclus les routes
-settings_service = SettingsService()
 
 @app.on_event("startup")
 async def startup_event():
@@ -106,15 +101,7 @@ async def startup_event():
             logger.info(f"Route enregistrée: {route.path} [{route.methods}]")
         else:
             logger.info(f"WebSocket route enregistrée: {route.path}")
-    # Lancer l'initialisation des settings en tâche de fond
-    asyncio.create_task(initialize_settings())
 
-async def initialize_settings():
-    """Initialise les settings en tâche de fond."""
-    try:
-        await settings_service.initialize_default_settings()
-    except Exception as e:
-        logger.error(f"Erreur lors de l'initialisation des settings: {e}")
 
 def create_api():
     """

@@ -1,12 +1,9 @@
 # music/indexer.py
-
-import httpx
 import os
 import shutil
-from pathlib import Path
 from typing import Callable, Optional, Dict
-from backend.indexing.music_scan import scan_music_files
-from backend.indexing.search import get_or_create_index, add_to_index
+from backend_worker.indexing.music_scan import scan_music_files
+from backend_worker.indexing.search import get_or_create_index, add_to_index
 from helpers.logging import logger
 
 class MusicIndexer:

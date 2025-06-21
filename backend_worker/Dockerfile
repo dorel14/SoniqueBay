@@ -12,12 +12,12 @@ RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/opt/venv/bin:$PATH"
-WORKDIR /backend
+WORKDIR /backend_worker
 
 ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
 RUN /install.sh && rm /install.sh
 
-COPY ./backend/requirements.txt /backend/requirements.txt
+COPY ./backend_worker/requirements.txt /backend_worker/requirements.txt
 RUN /root/.local/bin/uv venv /opt/venv && \
     /root/.local/bin/uv pip install --no-cache-dir -r requirements.txt
 
@@ -53,10 +53,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 COPY --from=builder /opt/venv /opt/venv
 
-WORKDIR /backend
-COPY scripts/healthcheck.sh /healthcheck.sh
-RUN chmod +x /healthcheck.sh
+WORKDIR /backend_worker
 
-CMD ["python", "./backend/start_api.py"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD /healthcheck.sh

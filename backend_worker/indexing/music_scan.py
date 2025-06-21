@@ -3,16 +3,15 @@
 from pathlib import Path
 from mutagen import File
 import mimetypes
-from mutagen.id3 import ID3, ID3NoHeaderError
+from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
 from helpers.logging import logger
 import base64
-from backend.api.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
+from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
 import json
 import aiofiles
-from backend.services.path_variables import PathVariables
-from backend.services.audio_features_service import extract_audio_features
+from backend_worker.services.audio_features_service import extract_audio_features
 
 settings_service = SettingsService()
 
@@ -289,9 +288,14 @@ async def scan_music_files(directory: str):
 
         for file_path in path.rglob('*'):
             try:
+                file_path.encode('utf-8')  # Vérifier si le chemin est encodable en UTF-8
+            except UnicodeEncodeError:
+                logger.error(f"Chemin non encodable en UTF-8: {file_path}")
+                continue
+            try:
                 if file_path.suffix.lower() in music_extensions:
                     logger.info(f"Traitement du fichier: {str(file_path)}")
-                    
+
                     # Extraction explicite du chemin artiste
                     artist_path = str(file_path.parent.parent)  # Remonter de deux niveaux
                     logger.info(f"Chemin artiste déterminé: {artist_path}")

@@ -1,15 +1,14 @@
 from typing import Dict, Optional, List, Tuple
 from cachetools import TTLCache
-import httpx 
+import httpx
 from pathlib import Path
-from backend.services.audio_features_service import extract_audio_features
+from backend_worker.services.audio_features_service import extract_audio_features
 
 from helpers.logging import logger
-from backend.services.image_service import  process_artist_image
-from backend.services.settings_service import SettingsService
-from backend.api.schemas.covers_schema import CoverCreate, CoverType
-from backend.services.lastfm_service import get_lastfm_artist_image
-from backend.services.coverart_service import get_coverart_image
+from backend_worker.services.image_service import  process_artist_image
+from backend_worker.services.settings_service import SettingsService
+from backend_worker.services.lastfm_service import get_lastfm_artist_image
+from backend_worker.services.coverart_service import get_coverart_image, get_cover_schema, get_cover_types
 
 
 settings_service = SettingsService()
@@ -20,8 +19,22 @@ album_cache = TTLCache(maxsize=100, ttl=3600)
 genre_cache = TTLCache(maxsize=50, ttl=3600)
 track_cache = TTLCache(maxsize=1000, ttl=3600)
 
-async def create_or_update_cover(client: httpx.AsyncClient, entity_type: CoverType, entity_id: int, 
-                            cover_data: str = None, mime_type: str = None, url: str = None) -> Optional[Dict]:
+
+async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, entity_id: int,
+                            cover_data: str = None, mime_type: str = None, url: str = None,
+                            cover_schema: dict = None) -> Optional[Dict]:
+    try:
+        if not cover_schema:
+            # Récupérer le schéma de cover si non fourni
+            cover_schema = await get_cover_schema()
+    except Exception as e:
+        logger.error(f"Erreur récupération schéma cover: {str(e)}")
+        return 
+    covertype = await get_cover_types()
+    if entity_type not in covertype:
+        logger.error(f"Type de cover non supporté: {entity_type}")
+        return None
+
     """Crée ou met à jour une cover pour une entité."""
     try:
         if not cover_data:
@@ -29,14 +42,15 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: CoverTy
             return None
 
         logger.info(f"Traitement cover pour {entity_type} {entity_id}")
-        cover_create = CoverCreate(
-            entity_type=entity_type.value,  # Utiliser la valeur str du enum
-            entity_id=entity_id,
-            cover_data=cover_data,
-            mime_type=mime_type,
-            url=url
-        ).model_dump()
-
+        all_args = {
+            "entity_type": entity_type.value if hasattr(entity_type, "value") else entity_type,
+            "entity_id": entity_id,
+            "cover_data": cover_data,
+            "mime_type": mime_type,
+            "url": url,
+        }
+        properties = cover_schema.get("properties", {})
+        cover_create = {field: all_args[field] for field in properties if field in all_args and all_args[field] is not None}
         try:
             # Essayer directement le PUT
             response = await client.put(
@@ -129,9 +143,9 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
         musicbrainz_artistid = artist_data.get("musicbrainz_artistid")
 
         if not name:
-            logger.error(f"Nom d'artiste manquant dans les données")
+            logger.error(f"Nom d'artiste manquant dans les données {name}")
             return None
-            
+
         logger.info(f"Traitement artiste - Nom: {name}, MusicBrainz ID: {musicbrainz_artistid}")
 
         # Vérifier le cache d'abord
@@ -204,7 +218,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
                 cover_data = await process_artist_image(artist_data["artist_path"])
                 if cover_data:
                     await create_or_update_cover(
-                        client, CoverType.ARTIST, artist["id"],
+                        client, "ARTIST", artist["id"],
                         cover_data=cover_data[0],
                         mime_type=cover_data[1],
                         url=artist_data["artist_path"]
@@ -217,7 +231,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
                 lastfm_cover = await get_lastfm_artist_image(client, name)
                 if lastfm_cover:
                     await create_or_update_cover(
-                        client, CoverType.ARTIST, artist["id"],
+                        client, "ARTIST", artist["id"],
                         cover_data=lastfm_cover[0],
                         mime_type=lastfm_cover[1],
                         url=f"lastfm://{name}"
@@ -303,7 +317,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
             if album_data.get("cover_data"):
                 await create_or_update_cover(
                     client=client,
-                    entity_type=CoverType.ALBUM,
+                    entity_type="ALBUM",
                     entity_id=album["id"],
                     cover_data=album_data["cover_data"],
                     mime_type=album_data.get("cover_mime_type"),
@@ -313,18 +327,18 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
             
             # 2. Si pas de cover locale, essayer Cover Art Archive
             if not cover_added and album_data.get("musicbrainz_albumid"):
-                logger.info(f"Tentative récupération cover depuis Cover Art Archive")
+                logger.info( f"Tentative récupération cover depuis Cover Art Archive")
                 cover_data = await get_coverart_image(client, album_data["musicbrainz_albumid"])
                 if cover_data:
                     await create_or_update_cover(
                         client=client,
-                        entity_type=CoverType.ALBUM,
+                        entity_type="ALBUM",
                         entity_id=album["id"],
                         cover_data=cover_data[0],
                         mime_type=cover_data[1],
                         url=f"coverart://{album_data['musicbrainz_albumid']}"
                     )
-                    
+
             return album
         else:
             logger.error(f"Erreur création album: {response.status_code} - {response.text}")
@@ -393,7 +407,7 @@ def clean_track_data(file: Dict) -> Dict:
         "path": file.get("path"),
         "track_artist_id": file.get("track_artist_id"),  # Champ requis
         "album_id": file.get("album_id"),  # Optionnel mais important
-        
+
         # Autres champs
         "duration": file.get("duration", 0),
         "track_number": file.get("track_number"),
@@ -527,7 +541,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 if cover_data:
                     await create_or_update_cover(
                         client=client,
-                        entity_type=CoverType.TRACK,
+                        entity_type="TRACK",
                         entity_id=track["id"],
                         cover_data=cover_data,
                         mime_type=cover_mime_type,
@@ -568,7 +582,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 logger.info(f"Création/mise à jour cover pour track {track['id']}")
                 cover_result = await create_or_update_cover(
                     client,
-                    CoverType.TRACK,
+                    "TRACK",
                     track["id"],
                     cover_data=track_data["cover_data"],
                     mime_type=track_data.get("cover_mime_type")
@@ -604,13 +618,13 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
         return None
 
 async def process_artist_covers(client: httpx.AsyncClient, artist_id: int, 
-                              artist_path: str, artist_images: List[Tuple[str, str]]) -> None:
+                            artist_path: str, artist_images: List[Tuple[str, str]]) -> None:
     """Traite toutes les covers d'un artiste."""
     try:
         for cover_data, mime_type in artist_images:
             await create_or_update_cover(
                 client=client,
-                entity_type=CoverType.ARTIST,
+                entity_type="ARTIST",
                 entity_id=artist_id,
                 cover_data=cover_data,
                 mime_type=mime_type,
