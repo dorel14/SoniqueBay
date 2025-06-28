@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
 from backend.api.models.covers_model import Cover as CoverModel, CoverType
 from helpers.logging import logger
@@ -14,7 +14,7 @@ async def create_cover(cover: CoverCreate, db: SQLAlchemySession = Depends(get_d
     try:
         # Vérifier si une cover existe déjà
         existing = db.query(CoverModel).filter(
-            CoverModel.entity_type == cover.entity_type,
+            CoverModel.entity_type == cover.entity_type.lower(),
             CoverModel.entity_id == cover.entity_id
         ).first()
 
@@ -127,3 +127,14 @@ async def update_cover(
     except Exception as e:
         logger.error(f"Erreur mise à jour cover: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/schema")
+async def get_cover_schema():
+    """Retourne le schéma JSON attendu pour CoverCreate."""
+    return CoverCreate.schema()
+
+@router.get("/types")
+async def get_cover_types():
+    """Retourne les types de couverture disponibles."""
+    return [cover_type.value for cover_type in CoverType]

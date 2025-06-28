@@ -1,29 +1,36 @@
 from helpers.logging import logger
 import librosa
+import httpx
+import os
 import numpy as np
 from .key_service import key_to_camelot
-from .pending_analysis_service import PendingAnalysisService
+from backend_worker.celery_app import celery
+from tinydb import TinyDB
+import pathlib
 
-pending_service = PendingAnalysisService()
+FAILED_UPDATES_DB_PATH = os.getenv("FAILED_UPDATES_DB_PATH", "./backend_worker/data/failed_updates.json")
+pathlib.Path(os.path.dirname(FAILED_UPDATES_DB_PATH)).mkdir(parents=True, exist_ok=True)
+failed_updates_db = TinyDB(FAILED_UPDATES_DB_PATH)
 
-async def analyze_audio_with_librosa(file_path: str) -> dict:
+
+async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
     """Analyse un fichier audio avec Librosa."""
     try:
         logger.info(f"Analyse Librosa pour: {file_path}")
         y, sr = librosa.load(file_path, mono=True, duration=120)
-        
+
         # Analyse du tempo/BPM
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
-        
+
         # Analyse de la tonalité
         chroma = librosa.feature.chroma_stft(y=y, sr=sr)
         key_index = int(chroma.mean(axis=1).argmax())  # Convertir en int
         keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-        
+
         # Autres caractéristiques
         spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
-        
+
         # Calculer et convertir les caractéristiques en types Python standards
         features = {
             "bpm": int(float(tempo)),  # Double conversion pour éviter l'erreur
@@ -31,12 +38,32 @@ async def analyze_audio_with_librosa(file_path: str) -> dict:
             "danceability": float(np.mean(tempo > 120).item()),  # Convertir en float Python
             "acoustic": float(np.mean(spectral_centroids < sr/4).item()),
             "instrumental": float(np.mean(spectral_rolloff > sr/3).item()),
-            "tonal": float(np.std(chroma).item())  # Convertir en float Python
+            "tonal": float(np.std(chroma).item()),  # Convertir en float Python
+            "camelot_key": key_to_camelot(keys[key_index]),
+            "scale": 'major' if keys[key_index] in ['C', 'D', 'E', 'F', 'G', 'A'] else 'minor'
         }
-        
+
         logger.info(f"Analyse Librosa terminée: {features}")
+        # Appel direct à l'API pour mettre à jour la track
+        API_URL = os.getenv("API_URL", "http://localhost:8000")
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(f"{API_URL}/api/tracks/update_features", json={
+                    "track_id": track_id ,  # Remplacer par l'ID de la piste si disponible
+                    "features": features
+                })
+                response.raise_for_status()
+                logger.info(f"Track mise à jour avec succès: {response.json()}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Erreur lors de la mise à jour de la track: {str(e)}")
+            # Stocker localement pour retry ultérieur
+            failed_updates_db.insert({
+                "track_id": track_id,
+                "features": features,
+                "error": str(e)
+            })
         return features
-        
+
     except Exception as e:
         logger.error(f"Erreur analyse Librosa: {str(e)}")
         return {}
@@ -91,7 +118,7 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
                     features[ab_mapping[tag_name]] = value
                 except (ValueError, IndexError):
                     continue
-            
+
             # Tags genre et mood (filtrer les valeurs numériques)
             tag_name_lower = tag_name.lower()
             if tag_name_lower.startswith('ab:'):
@@ -121,4 +148,21 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
 
     except Exception as e:
         logger.error(f"Erreur extraction caractéristiques: {str(e)}")
+        logger.debug(f"extract_audio_features returns: {type(features)}")
         return features
+
+async def retry_failed_updates():
+    """Tente de rejouer les mises à jour échouées stockées localement."""
+    API_URL = os.getenv("API_URL", "http://localhost:8000")
+    for doc in failed_updates_db.all():
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(f"{API_URL}/api/tracks/update_features", json={
+                    "track_id": doc["track_id"],
+                    "features": doc["features"]
+                })
+                response.raise_for_status()
+                logger.info(f"Retry réussi pour track {doc['track_id']}")
+                failed_updates_db.remove(doc_ids=[doc.doc_id])
+        except Exception as e:
+            logger.error(f"Retry échoué pour track {doc['track_id']}: {str(e)}")

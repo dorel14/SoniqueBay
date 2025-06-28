@@ -1,9 +1,9 @@
 from typing import Dict, Optional, List, Tuple
 from cachetools import TTLCache
 import httpx
+import os
 from pathlib import Path
 from backend_worker.services.audio_features_service import extract_audio_features
-
 from helpers.logging import logger
 from backend_worker.services.image_service import  process_artist_image
 from backend_worker.services.settings_service import SettingsService
@@ -18,8 +18,7 @@ artist_cache = TTLCache(maxsize=100, ttl=3600)
 album_cache = TTLCache(maxsize=100, ttl=3600)
 genre_cache = TTLCache(maxsize=50, ttl=3600)
 track_cache = TTLCache(maxsize=1000, ttl=3600)
-
-
+api_url = os.getenv("API_URL", "http://backend:8001")
 async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, entity_id: int,
                             cover_data: str = None, mime_type: str = None, url: str = None,
                             cover_schema: dict = None) -> Optional[Dict]:
@@ -31,6 +30,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
         logger.error(f"Erreur récupération schéma cover: {str(e)}")
         return 
     covertype = await get_cover_types()
+    logger.debug(f"Types de cover disponibles: {covertype}")
     if entity_type not in covertype:
         logger.error(f"Type de cover non supporté: {entity_type}")
         return None
@@ -54,7 +54,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
         try:
             # Essayer directement le PUT
             response = await client.put(
-                f"http://localhost:8001/api/covers/{entity_type.value}/{entity_id}",
+                f"{api_url}/api/covers/{entity_type.value}/{entity_id}",
                 json=cover_create
             )
             if response.status_code in (200, 201):
@@ -66,7 +66,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
         # Si le PUT échoue, essayer le POST
         try:
             response = await client.post(
-                "http://localhost:8001/api/covers",
+                f"{api_url}/api/covers",
                 json=cover_create,
                 follow_redirects=True  # Important: suivre les redirections
             )
@@ -94,7 +94,7 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
 
         # Rechercher le genre par nom
         response = await client.get(
-            "http://localhost:8001/api/genres/search",
+            f"{api_url}/api/genres/search",
             params={"name": genre_name}
         )
 
@@ -109,7 +109,7 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         # Créer le genre s'il n'existe pas
         create_data = {"name": genre_name}
         response = await client.post(
-            "http://localhost:8001/api/genres/",
+            f"{api_url}/api/genres/",
             json=create_data
         )
 
@@ -157,7 +157,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
         # Recherche par MusicBrainz ID si disponible
         if musicbrainz_artistid:
             response = await client.get(
-                "http://localhost:8001/api/artists/search",
+                f"{api_url}/api/artists/search",
                 params={"musicbrainz_artistid": musicbrainz_artistid}
             )
             if response.status_code == 200:
@@ -170,7 +170,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
 
         # Si pas trouvé par MusicBrainz ID, rechercher par nom
         response = await client.get(
-            "http://localhost:8001/api/artists/search",
+            f"{api_url}/api/artists/search",
             params={"name": name}
         )
 
@@ -187,7 +187,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
                         "musicbrainz_artistid": musicbrainz_artistid
                     }
                     response = await client.put(
-                        f"http://localhost:8001/api/artists/{artist['id']}", 
+                        f"{api_url}/api/artists/{artist['id']}", 
                         json=update_data
                     )
                     if response.status_code == 200:
@@ -202,7 +202,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
         logger.info(f"Création artiste avec données: {artist_create}")
 
         response = await client.post(
-            "http://localhost:8001/api/artists/",
+            f"{api_url}/api/artists/",
             json=artist_create
         )
 
@@ -218,7 +218,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
                 cover_data = await process_artist_image(artist_data["artist_path"])
                 if cover_data:
                     await create_or_update_cover(
-                        client, "ARTIST", artist["id"],
+                        client, "artist", artist["id"],
                         cover_data=cover_data[0],
                         mime_type=cover_data[1],
                         url=artist_data["artist_path"]
@@ -231,7 +231,7 @@ async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> 
                 lastfm_cover = await get_lastfm_artist_image(client, name)
                 if lastfm_cover:
                     await create_or_update_cover(
-                        client, "ARTIST", artist["id"],
+                        client, "artist", artist["id"],
                         cover_data=lastfm_cover[0],
                         mime_type=lastfm_cover[1],
                         url=f"lastfm://{name}"
@@ -255,7 +255,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
 
         # Rechercher l'album par titre et artist_id
         response = await client.get(
-            "http://localhost:8001/api/albums/search",
+            f"{api_url}/api/albums/search",
             params={
                 "title": album_data["title"],
                 "artist_id": artist_id
@@ -275,7 +275,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
                     # Mise à jour si nécessaire
                     update_data = {**album}
                     response = await client.put(
-                        f"http://localhost:8001/api/albums/{album['id']}", 
+                        f"{api_url}/api/albums/{album['id']}", 
                         json=update_data
                     )
                     if response.status_code == 200:
@@ -303,7 +303,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
 
         logger.info(f"Création d'un nouvel album: {create_data['title']} (artist_id: {artist_id})")
         response = await client.post(
-            "http://localhost:8001/api/albums/",
+            f"{api_url}/api/albums/",
             json=create_data
         )
 
@@ -317,7 +317,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
             if album_data.get("cover_data"):
                 await create_or_update_cover(
                     client=client,
-                    entity_type="ALBUM",
+                    entity_type="album",
                     entity_id=album["id"],
                     cover_data=album_data["cover_data"],
                     mime_type=album_data.get("cover_mime_type"),
@@ -332,7 +332,7 @@ async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artis
                 if cover_data:
                     await create_or_update_cover(
                         client=client,
-                        entity_type="ALBUM",
+                        entity_type="album",
                         entity_id=album["id"],
                         cover_data=cover_data[0],
                         mime_type=cover_data[1],
@@ -490,7 +490,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
 
         # Rechercher par chemin unique
         response = await client.get(
-            "http://localhost:8001/api/tracks/search",
+            f"{api_url}/api/tracks/search",
             params={"path": path}
         )
 
@@ -516,7 +516,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 logger.debug(f"Données à mettre à jour pour {track['id']}: {merged_data}")
                 
                 response = await client.put(
-                    f"http://localhost:8001/api/tracks/{track['id']}", 
+                    f"{api_url}/api/tracks/{track['id']}", 
                     json=merged_data
                 )
                 
@@ -529,7 +529,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 if any(merged_data[k] != track[k] for k in merged_data if k in track):
                     logger.info(f"Mise à jour de la piste: {track['id']} - {track['title']}")
                     response = await client.put(
-                        f"http://localhost:8001/api/tracks/{track['id']}", 
+                        f"{api_url}/api/tracks/{track['id']}", 
                         json=merged_data
                     )
                     if response.status_code == 200:
@@ -541,7 +541,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 if cover_data:
                     await create_or_update_cover(
                         client=client,
-                        entity_type="TRACK",
+                        entity_type="track",
                         entity_id=track["id"],
                         cover_data=cover_data,
                         mime_type=cover_mime_type,
@@ -551,7 +551,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
 
         # Pour nouvelle piste
         response = await client.post(
-            "http://localhost:8001/api/tracks/",
+            f"{api_url}/api/tracks/",
             json=cleaned_data
         )
 
@@ -571,7 +571,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
             if any(v for v in audio_features.values()):
                 update_data = {**track, **audio_features}
                 response = await client.put(
-                    f"http://localhost:8001/api/tracks/{track_id}",
+                    f"{api_url}/api/tracks/{track_id}",
                     json=update_data
                 )
                 if response.status_code == 200:
@@ -582,7 +582,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 logger.info(f"Création/mise à jour cover pour track {track['id']}")
                 cover_result = await create_or_update_cover(
                     client,
-                    "TRACK",
+                    "track",
                     track["id"],
                     cover_data=track_data["cover_data"],
                     mime_type=track_data.get("cover_mime_type")
@@ -600,7 +600,7 @@ async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Op
                 
                 # Appel explicite pour mettre à jour les tags
                 response = await client.put(
-                    f"http://localhost:8001/api/tracks/{track_id}/tags",
+                    f"{api_url}/api/tracks/{track_id}/tags",
                     json=tags_update
                 )
                 if response.status_code == 200:
@@ -624,7 +624,7 @@ async def process_artist_covers(client: httpx.AsyncClient, artist_id: int,
         for cover_data, mime_type in artist_images:
             await create_or_update_cover(
                 client=client,
-                entity_type="ARTIST",
+                entity_type="artist",
                 entity_id=artist_id,
                 cover_data=cover_data,
                 mime_type=mime_type,

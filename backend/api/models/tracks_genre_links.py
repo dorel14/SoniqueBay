@@ -2,7 +2,7 @@ from sqlalchemy import Column,  Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
-from backend.database import Base
+from backend.utils.database import Base
 
 class genre_links(Base):
     __tablename__ = 'genre_links'

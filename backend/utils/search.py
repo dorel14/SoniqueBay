@@ -59,20 +59,20 @@ def migrate_index(index_dir: str) -> bool:
         logger.error(f"Erreur lors de la vérification/migration de l'index: {str(e)}")
         return False
 
-def get_or_create_index(index_dir: str):
+def get_or_create_index(index_dir: str, indexname: str = "music_index"):
     """Récupère l'index existant ou en crée un nouveau."""
     os.makedirs(index_dir, exist_ok=True)
 
     # Vérifier si une migration est nécessaire
     if migrate_index(index_dir):
         logger.info("Création d'un nouvel index avec le schéma mis à jour")
-        return create_in(index_dir, get_schema())
+        return create_in(index_dir, get_schema(), indexname=indexname)
 
     # Utiliser l'index existant ou en créer un nouveau
-    if exists_in(index_dir):
+    if exists_in(index_dir, indexname=indexname):
         return open_dir(index_dir)
 
-    return create_in(index_dir, get_schema())
+    return create_in(index_dir, get_schema(),indexname=indexname)
 
 def add_to_index(index, track):
     """Ajoute une piste à l'index Whoosh."""

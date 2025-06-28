@@ -46,9 +46,10 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
         volumes:
+            - worker-dir:/backend_worker
             - music-share:/music:ro
         healthcheck:
-            test: ["CMD", "celery", "-A", "celery_app.celery", "status", ]
+            test: ["CMD", "celery", "-A", "backend_worker.celery_app.celery", "status"]
             interval: 30s
             timeout: 5s
             retries: 5
@@ -74,6 +75,12 @@ services:
             start_period: 10s
 volumes:
     backend-dir:
+        driver: local
+        driver_opts:
+            type: none
+            device: .
+            o: bind
+    worker-dir:
         driver: local
         driver_opts:
             type: none

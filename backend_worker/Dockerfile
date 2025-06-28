@@ -54,5 +54,5 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /backend_worker
-
+CMD ["celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=info", "-E"]
 

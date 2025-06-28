@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship, foreign
-from backend.database import Base
+from backend.utils.database import Base
 from .covers_model import Cover
 class Album(Base):
     __tablename__ = 'albums'

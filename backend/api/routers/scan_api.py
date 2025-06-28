@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
 from backend.utils.celery_app import celery
-#from backend.background_tasks.tasks import index_music_task
 from helpers.logging import logger
 import os
 

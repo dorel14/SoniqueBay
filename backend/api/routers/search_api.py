@@ -1,9 +1,24 @@
-from fastapi import APIRouter, HTTPException
-from backend.indexing.search import get_or_create_index, search_index
-from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet
+from venv import logger
+from fastapi import APIRouter, Body, HTTPException
+from backend.utils.search import get_or_create_index, search_index, add_to_index
+from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet, AddToIndexRequest
+
 import os
 
 router = APIRouter(prefix="/api/search", tags=["search"])
+
+@router.post("/index")
+def api_get_or_create_index(index_dir: str = Body(...)):
+    # Ici tu peux initialiser ou vérifier l'index côté serveur
+    get_or_create_index(index_dir)
+    return {"index_name": "music_index", "index_dir": index_dir}
+
+@router.post("/add")
+def api_add_to_index(body: AddToIndexRequest):
+    logger.info(f"Adding data to index: {body.index_dir}, data: {body.whoosh_data}")
+    index = get_or_create_index(body.index_dir, body.index_name)
+    add_to_index(index, body.whoosh_data)
+    return {"status": "ok"}
 
 @router.post("/", response_model=SearchResult)
 async def search(query: SearchQuery):

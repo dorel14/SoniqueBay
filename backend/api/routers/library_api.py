@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
 

@@ -6,7 +6,7 @@ from backend.api.schemas.covers_schema import Cover, CoverType
 from sqlalchemy import func
 from datetime import datetime
 from typing import List, Optional
-from backend.database import get_db
+from backend.utils.database import get_db
 from sqlalchemy.exc import IntegrityError
 from helpers.logging import logger
 from sqlalchemy.orm import joinedload

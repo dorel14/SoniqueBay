@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, Floa
 from sqlalchemy.orm import relationship, foreign
 
 
-from backend.database import Base
+from backend.utils.database import Base
 from .genre_links import track_genre_links
 from .tags_model import track_mood_tags, track_genre_tags
 from .genres_model import track_genres

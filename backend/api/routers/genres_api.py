@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.schemas.genres_schema import GenreCreate, Genre, GenreWithRelations
 from backend.api.models.genres_model import Genre as GenreModel
 from datetime import datetime

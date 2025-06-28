@@ -12,6 +12,7 @@ from .routers.playqueue_api import router as playqueue_router
 from .routers.search_api import router as search_router
 from .routers.covers_api import router as covers_router
 from .routers.library_api import router as library_router
+from .routers.celery_tasks_api import router as celery_tasks_router
 
 # Créer le router principal
 api_router = APIRouter()
@@ -28,7 +29,8 @@ ROUTERS = [
     tags_router,
     playqueue_router,
     search_router,
-    library_router
+    library_router,
+    celery_tasks_router
 ]
 
 # Inclure tous les routers

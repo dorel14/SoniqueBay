@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum, func, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 import enum
-from backend.database import Base
+from backend.utils.database import Base
 
 class CoverType(str, enum.Enum):
     TRACK = "track"

@@ -1,39 +1,30 @@
-import json
 import httpx
-from typing import Any
 import os
-
-# Clés des paramètres système
-MUSIC_PATH_TEMPLATE = "music_path_template"
-ARTIST_IMAGE_FILES = "artist_image_files"
+from typing import Any
+# Définition locale des clés de settings
 ALBUM_COVER_FILES = "album_cover_files"
-
-# Valeurs par défaut
-DEFAULT_SETTINGS = {
-    MUSIC_PATH_TEMPLATE: "{album_artist}/{album_title}/{track}",
-    ARTIST_IMAGE_FILES: json.dumps(["folder.jpg", "fanart.jpg"]),
-    ALBUM_COVER_FILES: json.dumps(["cover.jpg", "folder.jpg"])
-}
-
+ARTIST_IMAGE_FILES = "artist_image_files"
+MUSIC_PATH_TEMPLATE = "music_path_template"
 class SettingsService:
     def __init__(self, api_url: str = os.getenv('API_URL', 'http://localhost:8001')):
         self.api_url = f"{api_url}/api/settings"
 
     async def get_setting(self, key: str) -> Any:
-        """Récupère un paramètre avec fallback sur la valeur par défaut."""
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.api_url}/{key}")
             if response.status_code == 200:
                 data = response.json()
-                if data["value"] is None:
-                    # Créer avec la valeur par défaut
-                    await self.update_setting(key, DEFAULT_SETTINGS.get(key))
-                    return DEFAULT_SETTINGS.get(key)
-                return data["value"]
-            return DEFAULT_SETTINGS.get(key)
+                return data.get("value")
+            return None
 
     async def update_setting(self, key: str, value: str) -> bool:
-        """Met à jour un paramètre."""
         async with httpx.AsyncClient() as client:
             response = await client.put(f"{self.api_url}/{key}", params={"value": value})
             return response.status_code == 200
+
+    async def get_path_variables(self) -> dict:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.api_url}/path_variables")
+            if response.status_code == 200:
+                return response.json()
+            return {}

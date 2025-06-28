@@ -1,8 +1,10 @@
 # -*- coding: UTF-8 -*-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from backend.database import Base, engine
+from backend.api.services import settings_service
+from backend.utils.database import Base, engine
 from helpers.logging import logger
+from backend.api.services.settings_service import SettingsService
 
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
@@ -95,6 +97,7 @@ async def broadcast_to_clients(message: dict):
 async def startup_event():
     """Initialisation au démarrage."""
     logger.info("Démarrage de l'API...")
+    await SettingsService().initialize_default_settings()
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):

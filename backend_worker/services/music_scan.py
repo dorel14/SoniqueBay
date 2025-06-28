@@ -13,6 +13,8 @@ import json
 import aiofiles
 from backend_worker.services.audio_features_service import extract_audio_features
 
+
+
 settings_service = SettingsService()
 
 def get_file_type(file_path: str) -> str:
@@ -87,6 +89,7 @@ async def get_cover_art(file_path: str):
             logger.info(f"Cover extraite avec succès - Type: {mime_type}")
         else:
             logger.warning(f"Aucune cover trouvée pour: {file_path}")
+        logger.debug(f"get_cover_art returns: {type(cover_data)}")
         return cover_data, mime_type
 
     except Exception as e:
@@ -172,7 +175,8 @@ async def extract_metadata(audio, file_path):
         # Extractions de base
         cover_data, mime_type = await get_cover_art(str(file_path))
         bitrate = get_file_bitrate(str(file_path))
-        
+        logger.info(f"Typof audio : {type(audio)}")
+        logger.debug(f"Audio tags pour {file_path}: {audio} kbps")
         # Extraire les métadonnées musicales de base
         metadata = {
             "path": str(file_path),
@@ -188,16 +192,19 @@ async def extract_metadata(audio, file_path):
             "bitrate": bitrate,
             "cover_data": cover_data,
             "cover_mime_type": mime_type,
-            "audio": audio,  # Ajouter l'objet audio
-            "tags": audio.tags if audio and hasattr(audio, "tags") else {},  # Ajouter les tags
+            #"audio": audio,  # Ajouter l'objet audio
+            "tags": serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},  # Ajouter les tags
         }
 
         # La logique des tags est maintenant gérée par extract_audio_features
-        metadata.update(await extract_audio_features(
+        results = await extract_audio_features(
             audio=audio,
-            tags=audio.tags if audio and hasattr(audio, "tags") else {},
+            tags=serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
             file_path=file_path
-        ))
+        )
+        logger.debug(f"Résultats de l'extraction des caractéristiques audio: {results}")
+        logger.debug(f"extract_audio_features type: {type(results)}")  # Doit être <class 'dict'>
+        metadata.update(results)
 
         if metadata["genre_tags"]:
             logger.info(f"Genre tags trouvés: {metadata['genre_tags']}")
@@ -225,6 +232,7 @@ async def extract_metadata(audio, file_path):
         metadata = {k: v for k, v in metadata.items() if v is not None}
         
         logger.debug(f"Métadonnées complètes pour {file_path}")
+        logger.debug(f"extract_metadata returns: {type(metadata)}")
         return metadata
 
     except Exception as e:
@@ -259,7 +267,7 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
                 except Exception as e:
                     logger.error(f"Erreur lecture image artiste {image_path}: {str(e)}")
                     continue
-
+        logger.debug(f"get_artist_images returns: {type(artist_images)}")
         return artist_images
 
     except Exception as e:
@@ -288,7 +296,7 @@ async def scan_music_files(directory: str):
 
         for file_path in path.rglob('*'):
             try:
-                file_path.encode('utf-8')  # Vérifier si le chemin est encodable en UTF-8
+                str(file_path).encode('utf-8')  # Vérifier si le chemin est encodable en UTF-8
             except UnicodeEncodeError:
                 logger.error(f"Chemin non encodable en UTF-8: {file_path}")
                 continue
@@ -393,3 +401,23 @@ def get_tag(audio, tag_name):
     except Exception as e:
         logger.debug(f"Erreur lecture tag {tag_name}: {str(e)}")
         return None
+def serialize_tags(tags):
+    """Convertit un objet tags Mutagen en dict simple JSON-serializable."""
+    if tags is None:
+        return {}
+    # Pour ID3 (MP3)
+    if hasattr(tags, "keys"):
+        result = {}
+        for key in tags.keys():
+            value = tags.get(key)
+            # value peut être une liste, un objet, etc.
+            if isinstance(value, list):
+                result[key] = [str(v) for v in value]
+            else:
+                result[key] = str(value)
+        return result
+    # Pour d'autres formats
+    try:
+        return dict(tags)
+    except Exception:
+        return str(tags)

@@ -4,7 +4,7 @@ from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
 from pathlib import Path
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
 from backend.api.schemas.covers_schema import Cover, CoverType

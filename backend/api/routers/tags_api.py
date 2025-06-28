@@ -1,7 +1,7 @@
 from fastapi import APIRouter,  Depends
 from sqlalchemy.orm import Session
 from typing import List
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.schemas.tags_schema import Tag, TagCreate
 from backend.api.models.tags_model import GenreTag, MoodTag
 

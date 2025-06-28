@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship, foreign
 from datetime import datetime
 from .genre_links import artist_genre_links
 from .covers_model import Cover
-from backend.database import Base
+from backend.utils.database import Base
 from .genres_model import artist_genres
 
 class Artist(Base):

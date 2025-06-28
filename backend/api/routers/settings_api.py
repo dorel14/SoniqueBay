@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List
-from backend.database import get_db
+from backend.utils.database import get_db
 from backend.api.schemas.settings_schema import SettingCreate, Setting
 from backend.api.models.settings_model import Setting as SettingModel
 from backend.utils.crypto import encrypt_value, decrypt_value

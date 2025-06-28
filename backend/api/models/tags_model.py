@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Table, ForeignKey
 from sqlalchemy.orm import relationship
-from backend.database import Base
+from backend.utils.database import Base
 
 # Tables de liaison
 track_genre_tags = Table(
