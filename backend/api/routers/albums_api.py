@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from backend.api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
 from backend.api.models.albums_model import Album as AlbumModel
 from backend.api.schemas.covers_schema import Cover, CoverType
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime
 from typing import List, Optional
 from backend.utils.database import get_db
@@ -37,6 +37,102 @@ async def search_albums(
 
     albums = query.all()
     return [Album.model_validate(album) for album in albums]
+
+@router.post("/batch", response_model=List[AlbumWithRelations])
+def create_albums_batch(albums: List[AlbumCreate], db: SQLAlchemySession = Depends(get_db)):
+    """Crée ou récupère plusieurs albums en une seule fois (batch)."""
+    try:
+        # Clés pour identifier les albums : (titre, artist_id) ou mbid
+        keys_to_find = set()
+        mbids_to_find = set()
+        for album_data in albums:
+            if album_data.musicbrainz_albumid:
+                mbids_to_find.add(album_data.musicbrainz_albumid)
+            elif album_data.title and album_data.album_artist_id:
+                keys_to_find.add((album_data.title.lower(), album_data.album_artist_id))
+
+        # 1. Récupérer les albums existants en une seule requête
+        existing_albums_query = db.query(AlbumModel)
+        if mbids_to_find:
+            existing_albums_query = existing_albums_query.filter(AlbumModel.musicbrainz_albumid.in_(mbids_to_find))
+        
+        # Construction d'une condition OR pour les paires (titre, artist_id)
+        if keys_to_find:
+            or_conditions = []
+            for title, artist_id in keys_to_find:
+                or_conditions.append(
+                    (func.lower(AlbumModel.title) == title) & (AlbumModel.album_artist_id == artist_id)
+                )
+            existing_albums_query = existing_albums_query.filter(or_(*or_conditions))
+
+        existing_albums = existing_albums_query.options(joinedload(AlbumModel.covers)).all()
+
+
+        # Dictionnaires pour un accès rapide
+        existing_by_mbid = {a.musicbrainz_albumid: a for a in existing_albums if a.musicbrainz_albumid}
+        existing_by_key = {(a.title.lower(), a.album_artist_id): a for a in existing_albums}
+
+        # 2. Identifier les nouveaux albums à créer
+        new_albums_to_create = []
+        final_album_map = {}
+
+        for album_data in albums:
+            key = album_data.musicbrainz_albumid or (album_data.title.lower(), album_data.album_artist_id)
+            if key in final_album_map:
+                continue
+
+            existing = None
+            if album_data.musicbrainz_albumid:
+                existing = existing_by_mbid.get(album_data.musicbrainz_albumid)
+            if not existing and album_data.title and album_data.album_artist_id:
+                existing = existing_by_key.get((album_data.title.lower(), album_data.album_artist_id))
+
+            if existing:
+                final_album_map[key] = existing
+            else:
+                # Éviter les doublons dans la liste de création
+                if key not in [a.musicbrainz_albumid or (a.title.lower(), a.album_artist_id) for a in new_albums_to_create]:
+                    new_albums_to_create.append(album_data)
+
+        # 3. Créer les nouveaux albums en une seule fois
+        if new_albums_to_create:
+            new_db_albums = [
+                AlbumModel(**album.model_dump(exclude_unset=True), date_added=func.now(), date_modified=func.now())
+                for album in new_albums_to_create
+            ]
+            db.add_all(new_db_albums)
+            db.commit()
+            for db_album in new_db_albums:
+                db.refresh(db_album, ["covers"]) # Rafraîchir pour charger les relations
+                key = db_album.musicbrainz_albumid or (db_album.title.lower(), db_album.album_artist_id)
+                final_album_map[key] = db_album
+
+        # Valider explicitement la sortie avec le schéma Pydantic
+        result = []
+        for album_in in albums:
+            key = album_in.musicbrainz_albumid or (album_in.title.lower(), album_in.album_artist_id)
+            album = final_album_map[key]
+            covers = []
+            if hasattr(album, "covers"):
+                covers = [Cover.model_validate(c) for c in album.covers]
+            album_data = {
+                **album.__dict__,
+                "covers": covers,
+                "date_added": album.date_added or datetime.utcnow(),
+                "date_modified": album.date_modified or datetime.utcnow(),
+            }
+            # On crée l'objet Pydantic puis on le "dump" en dict
+            result.append(AlbumWithRelations.model_validate(album_data).model_dump())
+        return result
+
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Erreur d'intégrité lors de la création en batch d'albums: {e}")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflit de données lors de la création en batch.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erreur inattendue lors de la création en batch d'albums: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erreur interne du serveur.")
 
 @router.post("/", response_model=Album, status_code=status.HTTP_201_CREATED)
 def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
@@ -89,12 +185,12 @@ def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
 def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
     albums = db.query(AlbumModel).offset(skip).limit(limit).all()
     # Convertir les dates None en datetime.now()
-    return [Album.model_validate(
+    return [AlbumWithRelations.model_validate(
         {**album.__dict__,
-        "date_added": album.date_added or datetime.utcnow(),
-        "date_modified": album.date_modified or datetime.utcnow()
+         "date_added": album.date_added or datetime.utcnow(),
+         "date_modified": album.date_modified or datetime.utcnow()
         }
-    ) for album in albums]
+    ).model_dump() for album in albums]
 
 @router.get("/{album_id}", response_model=Album)
 async def read_album(
@@ -119,8 +215,8 @@ async def read_album(
                             "entity_id": album.id,
                             "url": str(Path(cover.url).absolute()),
                             "mime_type": cover.mime_type,
-                            "created_at": cover.created_at,
-                            "updated_at": cover.updated_at
+                            "date_added": cover.date_added,
+                            "date_modified": cover.date_modified
                         }
                         album_covers.append(Cover(**cover_data))
                     except Exception as e:

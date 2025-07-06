@@ -43,7 +43,13 @@ RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.
     nfs-common \
     cifs-utils \
     unixodbc \
-    unixodbc-dev && \
+    unixodbc-dev \
+    locales && \
+    # Générer la locale UTF-8
+    sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
+    update-locale LANG=${LANG} && \
+    # Nettoyage
     rm -rf /var/lib/apt/lists/* && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
@@ -54,5 +60,5 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /backend_worker
-CMD ["celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=info", "-E"]
+CMD ["celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=debug", "-E"]
 

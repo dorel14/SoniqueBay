@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
+from datetime import datetime
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover
 
@@ -10,6 +11,8 @@ class AlbumBase(BaseModel):
     musicbrainz_albumid: Optional[str] = Field(None, description="ID MusicBrainz de l'album")
 
 class AlbumCreate(AlbumBase):
+    date_added: Optional[datetime] = datetime.now()
+    date_modified : Optional[datetime] = datetime.now()
     pass
 
 class Album(AlbumBase, TimestampedSchema):

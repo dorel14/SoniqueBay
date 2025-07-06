@@ -4,10 +4,9 @@ import httpx
 import os
 import numpy as np
 from .key_service import key_to_camelot
-from backend_worker.celery_app import celery
 from tinydb import TinyDB
 import pathlib
-
+import asyncio
 FAILED_UPDATES_DB_PATH = os.getenv("FAILED_UPDATES_DB_PATH", "./backend_worker/data/failed_updates.json")
 pathlib.Path(os.path.dirname(FAILED_UPDATES_DB_PATH)).mkdir(parents=True, exist_ok=True)
 failed_updates_db = TinyDB(FAILED_UPDATES_DB_PATH)
@@ -17,7 +16,8 @@ async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
     """Analyse un fichier audio avec Librosa."""
     try:
         logger.info(f"Analyse Librosa pour: {file_path}")
-        y, sr = librosa.load(file_path, mono=True, duration=120)
+        loop = asyncio.get_running_loop()
+        y, sr = await loop.run_in_executor(None, lambda: librosa.load(file_path, mono=True, duration=120))
 
         # Analyse du tempo/BPM
         tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
@@ -51,7 +51,7 @@ async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
                 response = await client.post(f"{API_URL}/api/tracks/update_features", json={
                     "track_id": track_id ,  # Remplacer par l'ID de la piste si disponible
                     "features": features
-                })
+                }, timeout=10)
                 response.raise_for_status()
                 logger.info(f"Track mise à jour avec succès: {response.json()}")
         except httpx.HTTPStatusError as e:
@@ -140,9 +140,9 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
 
         # Log des résultats
         if genre_tags or mood_tags:
-            logger.info(f"Tags nettoyés pour {file_path}:")
-            logger.info(f"- Genres: {features['genre_tags']}")
-            logger.info(f"- Moods: {features['mood_tags']}")
+            logger.debug(f"Tags nettoyés pour {file_path}:")
+            logger.debug(f"- Genres: {features['genre_tags']}")
+            logger.debug(f"- Moods: {features['mood_tags']}")
 
         return features
 
@@ -160,7 +160,7 @@ async def retry_failed_updates():
                 response = await client.post(f"{API_URL}/api/tracks/update_features", json={
                     "track_id": doc["track_id"],
                     "features": doc["features"]
-                })
+                }, timeout=10)
                 response.raise_for_status()
                 logger.info(f"Retry réussi pour track {doc['track_id']}")
                 failed_updates_db.remove(doc_ids=[doc.doc_id])

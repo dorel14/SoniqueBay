@@ -11,7 +11,7 @@ async def get_coverart_image(client: httpx.AsyncClient, mb_release_id: str) -> O
             return None
 
         url = f"https://coverartarchive.org/release/{mb_release_id}/front"
-        response = await client.get(url)
+        response = await client.get(url, timeout=10)
 
         if response.status_code == 200:
             image_data = response.content

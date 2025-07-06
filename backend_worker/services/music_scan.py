@@ -6,11 +6,13 @@ import mimetypes
 from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
+import os
 from helpers.logging import logger
 import base64
 from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
 import json
 import aiofiles
+import asyncio
 from backend_worker.services.audio_features_service import extract_audio_features
 
 
@@ -30,45 +32,38 @@ def get_file_type(file_path: str) -> str:
         return "unknown"
 
 
-async def get_cover_art(file_path: str):
-    """Récupère la pochette d'album d'un fichier audio."""
+async def get_cover_art(file_path_str: str, audio):
+    """Récupère la pochette d'album d'un objet audio Mutagen."""
     try:
-        logger.info(f"Extraction de la cover pour: {file_path}")
-        audio = File(file_path, easy=True)
         if audio is None:
-            logger.warning(f"Impossible de lire le fichier: {file_path}")
+            logger.warning(f"Objet audio non valide pour: {file_path_str}")
             return None, None
 
-        filetype = get_file_type(file_path)
         cover_data = None
         mime_type = None
 
         # 1. Essayer d'abord d'extraire la cover intégrée
-        if filetype == "audio/mpeg":
-            try:
-                tags = ID3(file_path)
-                if tags and tags.get('APIC:'):
-                    apic = tags.get('APIC:')
-                    mime_type = apic.mime
-                    cover_data = await convert_to_base64(apic.data, mime_type)
-                    logger.debug(f"Cover MP3 extraite: {file_path}")
-            except Exception as e:
-                logger.error(f"Erreur lecture cover MP3: {str(e)}")
-
-        elif filetype in ["audio/flac", "audio/x-flac"]:
+        # Pour MP3 (ID3)
+        if 'APIC:' in audio:
+            apic = audio['APIC:']
+            mime_type = apic.mime
+            cover_data = await convert_to_base64(apic.data, mime_type)
+            logger.debug(f"Cover MP3 extraite de {file_path_str}")
+        # Pour FLAC et autres
+        elif hasattr(audio, 'pictures') and audio.pictures:
             try:
                 if hasattr(audio, 'pictures') and audio.pictures:
                     picture = audio.pictures[0]
                     mime_type = picture.mime
                     cover_data = await convert_to_base64(picture.data, mime_type)
-                    logger.debug(f"Cover FLAC extraite: {file_path}")
+                    logger.debug(f"Cover FLAC extraite: {file_path_str}")
             except Exception as e:
                 logger.error(f"Erreur lecture cover FLAC: {str(e)}")
 
         # 2. Si pas de cover intégrée, chercher dans le dossier
         if not cover_data:
             try:
-                dir_path = Path(file_path).parent
+                dir_path = Path(file_path_str).parent
                 # Récupérer la liste des noms de fichiers de cover depuis les paramètres
                 cover_files_json = await settings_service.get_setting(ALBUM_COVER_FILES)
                 cover_files = json.loads(cover_files_json)
@@ -88,7 +83,7 @@ async def get_cover_art(file_path: str):
         if cover_data:
             logger.info(f"Cover extraite avec succès - Type: {mime_type}")
         else:
-            logger.warning(f"Aucune cover trouvée pour: {file_path}")
+            logger.warning(f"Aucune cover trouvée pour: {file_path_str}")
         logger.debug(f"get_cover_art returns: {type(cover_data)}")
         return cover_data, mime_type
 
@@ -125,6 +120,7 @@ def get_file_bitrate(file_path: str) -> int:
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du bitrate pour {file_path}: {str(e)}")
         return 0
+
 def get_musicbrainz_tags(audio):
     """Extrait les IDs MusicBrainz."""
     mb_data = {
@@ -157,63 +153,60 @@ def get_musicbrainz_tags(audio):
                         value = str(frames[0])
                 elif hasattr(audio.tags, "get"):  # Autres formats
                     value = audio.tags.get(tag, [None])[0]
-                
+
                 if value:
                     mb_data[field] = str(value)
                     break
 
         return mb_data
-        
+
     except Exception as e:
         logger.error(f"Erreur extraction MusicBrainz: {str(e)}")
         return mb_data
 
 
-async def extract_metadata(audio, file_path):
-    """Extrait les métadonnées d'un fichier audio."""
+async def extract_metadata(audio, file_path_str: str):
+    """Extrait les métadonnées d'un objet audio Mutagen."""
     try:
-        # Extractions de base
-        cover_data, mime_type = await get_cover_art(str(file_path))
-        bitrate = get_file_bitrate(str(file_path))
-        logger.info(f"Typof audio : {type(audio)}")
-        logger.debug(f"Audio tags pour {file_path}: {audio} kbps")
+        # L'objet 'audio' est déjà chargé, on l'utilise directement
+        cover_data, mime_type = await get_cover_art(file_path_str, audio=audio)
+        
         # Extraire les métadonnées musicales de base
         metadata = {
-            "path": str(file_path),
-            "title": get_tag(audio, "title") or Path(file_path).stem,
+            "path": file_path_str,
+            "title": get_tag(audio, "title") or Path(file_path_str).stem,
             "artist": get_tag(audio, "artist") or get_tag(audio, "TPE1") or get_tag(audio, "TPE2"),
-            "album": get_tag(audio, "album") or Path(file_path).parent.name,
+            "album": get_tag(audio, "album") or Path(file_path_str).parent.name,
             "genre": get_tag(audio, "genre"),
             "year": get_tag(audio, "date") or get_tag(audio, "TDRC"),
             "track_number": get_tag(audio, "tracknumber") or get_tag(audio, "TRCK"),
             "disc_number": get_tag(audio, "discnumber") or get_tag(audio, "TPOS"),
-            "duration": int(audio.info.length if hasattr(audio.info, 'length') else 0),
-            "file_type": get_file_type(str(file_path)),
-            "bitrate": bitrate,
+            "duration": int(audio.info.length) if hasattr(audio.info, 'length') else 0,
+            "file_type": get_file_type(file_path_str),
+            "bitrate": int(audio.info.bitrate / 1000) if hasattr(audio.info, 'bitrate') and audio.info.bitrate else 0,
             "cover_data": cover_data,
             "cover_mime_type": mime_type,
-            #"audio": audio,  # Ajouter l'objet audio
-            "tags": serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},  # Ajouter les tags
+            "tags": serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
         }
 
         # La logique des tags est maintenant gérée par extract_audio_features
         results = await extract_audio_features(
             audio=audio,
             tags=serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
-            file_path=file_path
+            file_path=file_path_str
         )
         logger.debug(f"Résultats de l'extraction des caractéristiques audio: {results}")
         logger.debug(f"extract_audio_features type: {type(results)}")  # Doit être <class 'dict'>
         metadata.update(results)
 
-        if metadata["genre_tags"]:
+        if metadata.get("genre_tags"):
             logger.info(f"Genre tags trouvés: {metadata['genre_tags']}")
-        if metadata["mood_tags"]:
+        if metadata.get("mood_tags"):
             logger.info(f"Mood tags trouvés: {metadata['mood_tags']}")
-        
+
         # Extraire les données MusicBrainz
         mb_data = get_musicbrainz_tags(audio)
-        
+
         metadata.update({
             # S'assurer que les IDs sont au bon endroit
             "musicbrainz_artistid": mb_data.get("musicbrainz_artistid"),
@@ -226,25 +219,25 @@ async def extract_metadata(audio, file_path):
         # Log des IDs trouvés
         mb_ids = {k: v for k, v in mb_data.items() if v}
         if mb_ids:
-            logger.info(f"IDs MusicBrainz trouvés pour {file_path}: {mb_ids}")
+            logger.info(f"IDs MusicBrainz trouvés pour {file_path_str}: {mb_ids}")
 
         # Ne pas filtrer les valeurs numériques à 0 ou booléennes False
         metadata = {k: v for k, v in metadata.items() if v is not None}
-        
-        logger.debug(f"Métadonnées complètes pour {file_path}")
+
+        logger.debug(f"Métadonnées complètes pour {file_path_str}")
         logger.debug(f"extract_metadata returns: {type(metadata)}")
         return metadata
 
     except Exception as e:
-        logger.error(f"Erreur d'extraction des métadonnées pour {file_path}: {str(e)}")
-        return {"path": str(file_path), "error": str(e)}
+        logger.error(f"Erreur d'extraction des métadonnées pour {file_path_str}: {str(e)}")
+        return {"path": file_path_str, "error": str(e)}
 
 async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
     """Récupère les images d'artiste dans le dossier artiste."""
     try:
         artist_images = []
         dir_path = Path(artist_path)
-        
+
         if not dir_path.exists():
             logger.debug(f"Dossier artiste non trouvé: {artist_path}")
             return []
@@ -252,7 +245,7 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
         # Récupérer la liste des noms de fichiers d'artiste depuis les paramètres
         artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
         artist_files = json.loads(artist_files_json)
-        
+
         for image_file in artist_files:
             image_path = dir_path / image_file
             if image_path.exists():
@@ -274,66 +267,98 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
         logger.error(f"Erreur recherche images artiste dans {artist_path}: {str(e)}")
         return []
 
-async def scan_music_files(directory: str):
-    """Scan les fichiers musicaux d'un répertoire."""
+async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: dict, cover_cache: dict):
+    """
+    Traite un fichier musical à partir de son chemin en bytes.
+    Retourne un dictionnaire de métadonnées ou None si erreur.
+    """
+    file_path_str = file_path_bytes.decode('utf-8', 'surrogateescape')
+    file_path = Path(file_path_str)
+
     try:
-        logger.info(f"Début du scan dans le répertoire: {directory}")
-        path = Path(directory)
+        if file_path.suffix.lower().encode('utf-8') not in scan_config["music_extensions"]:
+            return None
 
-        if not path.exists():
-            logger.error("Le répertoire %s n'existe pas", directory)
-            return []
+        loop = asyncio.get_running_loop()
+        try:
+            with open(file_path_bytes, 'rb') as f:
+                audio = await loop.run_in_executor(None, lambda: File(f, easy=False))
+        except FileNotFoundError:
+            logger.error(f"Fichier non trouvé: {file_path_str}")
+            return None
+        except Exception as e:
+            logger.error(f"Erreur de lecture Mutagen pour {file_path_str}: {e}")
+            return None
+        
+        if audio is None:
+            logger.warning(f"Impossible de lire les données audio du fichier: {file_path_str}")
+            return None
 
-        # Récupérer le template de chemin
-        template = await settings_service.get_setting(MUSIC_PATH_TEMPLATE)
-        template_parts = template.split('/')
-        logger.info(f"Template chemin: {template}")
-        artist_depth = template_parts.index("{album_artist}") if "{album_artist}" in template_parts else -1
-        logger.info(f"Profondeur artiste: {artist_depth}")
+        parts = file_path.parts
+        artist_depth = scan_config["artist_depth"]
+        artist_path = Path(*parts[:artist_depth+1]) if artist_depth > 0 and len(parts) > artist_depth else file_path.parent
+        artist_path_str = str(artist_path)
 
-        music_extensions = {'.mp3', '.flac', '.m4a', '.ogg', '.wav'}
-        files_data = []
+        artist_images = []
+        if artist_path_str in artist_images_cache:
+            artist_images = artist_images_cache[artist_path_str]
+        elif artist_path.exists():
+            # Note: get_artist_images appelle toujours settings_service. On pourrait optimiser davantage.
+            artist_images = await get_artist_images(artist_path_str)
+            artist_images_cache[artist_path_str] = artist_images
 
-        for file_path in path.rglob('*'):
-            try:
-                str(file_path).encode('utf-8')  # Vérifier si le chemin est encodable en UTF-8
-            except UnicodeEncodeError:
-                logger.error(f"Chemin non encodable en UTF-8: {file_path}")
-                continue
-            try:
-                if file_path.suffix.lower() in music_extensions:
-                    logger.info(f"Traitement du fichier: {str(file_path)}")
+        metadata = await extract_metadata(audio, file_path_str)
+        metadata["artist_path"] = artist_path_str
+        metadata["artist_images"] = artist_images
 
-                    # Extraction explicite du chemin artiste
-                    artist_path = str(file_path.parent.parent)  # Remonter de deux niveaux
-                    logger.info(f"Chemin artiste déterminé: {artist_path}")
-
-                    # Vérification des images artiste
-                    artist_images = []
-                    if Path(artist_path).exists():
-                        artist_images = await get_artist_images(artist_path)
-                        logger.info(f"Images artiste trouvées dans {artist_path}: {len(artist_images)}")
-
-                    # Extraction des métadonnées
-                    metadata = await extract_metadata(File(str(file_path), easy=True), file_path)
-                    if metadata:
-                        metadata.update({
-                            "artist_path": artist_path,
-                            "artist_images": artist_images
-                        })
-                        files_data.append(metadata)
-                        logger.info(f"Métadonnées complètes pour: {file_path}")
-
-            except Exception as e:
-                logger.error(f"Erreur traitement fichier {file_path}: {str(e)}")
-                continue
-
-        logger.info(f"Scan terminé. {len(files_data)} fichiers trouvés")
-        return files_data
+        logger.debug(f"Métadonnées extraites pour {file_path_str}")
+        return metadata
 
     except Exception as e:
-        logger.error(f"Erreur scan répertoire: {str(e)}")
-        return []
+        logger.error(f"Erreur lors du traitement du fichier {file_path_str}: {str(e)}", exc_info=True)
+        return None
+
+
+async def async_walk(path: Path):
+    """Générateur asynchrone pour parcourir les fichiers, basé sur os.walk."""
+    loop = asyncio.get_running_loop()
+    for dirpath, dirnames, filenames in await loop.run_in_executor(None, os.walk, path):
+        dirnames[:] = [d for d in dirnames if not d.startswith('.')]
+        for filename in filenames:
+            if not filename.startswith('.'):
+                yield os.path.join(dirpath, filename).encode('utf-8', 'surrogateescape')
+
+async def scan_music_files(directory: str, scan_config: dict):
+    """Générateur asynchrone qui scanne les fichiers musicaux et yield leurs métadonnées."""
+    path = Path(directory)
+    artist_images_cache = {}
+    cover_cache = {}
+    
+    semaphore = asyncio.Semaphore(20)
+
+    async def process_and_yield(file_path_bytes):
+        async with semaphore:
+            return await process_file(
+                file_path_bytes, scan_config, artist_images_cache, cover_cache
+            )
+
+    tasks = []
+    async for file_path_bytes in async_walk(path):
+        file_suffix = Path(file_path_bytes.decode('utf-8', 'surrogateescape')).suffix.lower().encode('utf-8')
+        if file_suffix in scan_config["music_extensions"]:
+            tasks.append(process_and_yield(file_path_bytes))
+            if len(tasks) >= 100:
+                results = await asyncio.gather(*tasks)
+                for res in results:
+                    if res:
+                        yield res
+                tasks = []
+
+    if tasks:
+        results = await asyncio.gather(*tasks)
+        for res in results:
+            if res:
+                yield res
 
 def get_tag_list(audio, tag_name: str) -> list:
     """Récupère une liste de tags."""

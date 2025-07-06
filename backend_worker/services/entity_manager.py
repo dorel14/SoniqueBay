@@ -1,14 +1,14 @@
+from string import punctuation
 from typing import Dict, Optional, List, Tuple
 from cachetools import TTLCache
 import httpx
 import os
+import redis
+import json
 from pathlib import Path
-from backend_worker.services.audio_features_service import extract_audio_features
 from helpers.logging import logger
-from backend_worker.services.image_service import  process_artist_image
 from backend_worker.services.settings_service import SettingsService
-from backend_worker.services.lastfm_service import get_lastfm_artist_image
-from backend_worker.services.coverart_service import get_coverart_image, get_cover_schema, get_cover_types
+from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
 
 
 settings_service = SettingsService()
@@ -19,6 +19,12 @@ album_cache = TTLCache(maxsize=100, ttl=3600)
 genre_cache = TTLCache(maxsize=50, ttl=3600)
 track_cache = TTLCache(maxsize=1000, ttl=3600)
 api_url = os.getenv("API_URL", "http://backend:8001")
+
+def publish_library_update():
+    r = redis.Redis(host='redis', port=6379, db=0)
+    r.publish("notifications", json.dumps({"type": "library_update"}))
+
+
 async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, entity_id: int,
                             cover_data: str = None, mime_type: str = None, url: str = None,
                             cover_schema: dict = None) -> Optional[Dict]:
@@ -55,7 +61,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             # Essayer directement le PUT
             response = await client.put(
                 f"{api_url}/api/covers/{entity_type.value}/{entity_id}",
-                json=cover_create
+                json=cover_create, timeout=30,  # Timeout pour le PUT
             )
             if response.status_code in (200, 201):
                 logger.info(f"Cover mise à jour pour {entity_type} {entity_id}")
@@ -95,7 +101,8 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         # Rechercher le genre par nom
         response = await client.get(
             f"{api_url}/api/genres/search",
-            params={"name": genre_name}
+            params={"name": genre_name},
+            timeout=10
         )
 
         if response.status_code == 200:
@@ -110,7 +117,8 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         create_data = {"name": genre_name}
         response = await client.post(
             f"{api_url}/api/genres/",
-            json=create_data
+            json=create_data,
+            timeout=10
         )
 
         if response.status_code in (200, 201):
@@ -135,218 +143,72 @@ def update_missing_info(entity: Dict, new_data: Dict) -> bool:
             updated = True
     return updated
 
-async def create_or_get_artist(client: httpx.AsyncClient, artist_data: Dict) -> Optional[Dict]:
-    """Créer ou récupérer un artiste."""
+async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: List[Dict]) -> Dict[str, Dict]:
+    """Crée ou récupère une liste d'artistes en une seule requête (batch)."""
     try:
-        logger.info(f"Données artiste reçues: {artist_data}")
-        name = artist_data.get("name")
-        musicbrainz_artistid = artist_data.get("musicbrainz_artistid")
+        if not artists_data:
+            return {}
 
-        if not name:
-            logger.error(f"Nom d'artiste manquant dans les données {name}")
-            return None
-
-        logger.info(f"Traitement artiste - Nom: {name}, MusicBrainz ID: {musicbrainz_artistid}")
-
-        # Vérifier le cache d'abord
-        cache_key = f"{name.lower()}:{musicbrainz_artistid}" if musicbrainz_artistid else name.lower()
-        if cache_key in artist_cache:
-            logger.debug("Artiste trouvé dans le cache: %s", name)
-            return artist_cache[cache_key]
-
-        # Recherche par MusicBrainz ID si disponible
-        if musicbrainz_artistid:
-            response = await client.get(
-                f"{api_url}/api/artists/search",
-                params={"musicbrainz_artistid": musicbrainz_artistid}
-            )
-            if response.status_code == 200:
-                artists = response.json()
-                if artists:
-                    artist = artists[0]
-                    artist_cache[cache_key] = artist
-                    logger.info(f"Artiste trouvé par MusicBrainz ID: {artist['name']}")
-                    return artist
-
-        # Si pas trouvé par MusicBrainz ID, rechercher par nom
-        response = await client.get(
-            f"{api_url}/api/artists/search",
-            params={"name": name}
+        logger.info(f"Traitement en batch de {len(artists_data)} artistes.")
+        
+        # Utiliser le nouveau endpoint /batch
+        response = await client.post(
+            f"{api_url}/api/artists/batch",
+            json=artists_data,
+            timeout=60  # Augmenter le timeout pour les requêtes batch
         )
 
-        # Si artiste trouvé par MusicBrainz ID ou nom
-        if response.status_code == 200:
+        if response.status_code in (200, 201):
             artists = response.json()
-            if artists:
-                artist = artists[0]
-                # Mettre à jour l'ID MusicBrainz si nécessaire
-                if musicbrainz_artistid and not artist.get("musicbrainz_artistid"):
-                    logger.info(f"Mise à jour MusicBrainz ID pour artiste {name}")
-                    update_data = {
-                        **artist,
-                        "musicbrainz_artistid": musicbrainz_artistid
-                    }
-                    response = await client.put(
-                        f"{api_url}/api/artists/{artist['id']}", 
-                        json=update_data
-                    )
-                    if response.status_code == 200:
-                        artist = response.json()
-                return artist
-
-        # Pour la création d'un nouvel artiste
-        artist_create = {
-            "name": name,
-            "musicbrainz_artistid": musicbrainz_artistid  # S'assurer que l'ID est bien transmis
-        }
-        logger.info(f"Création artiste avec données: {artist_create}")
-
-        response = await client.post(
-            f"{api_url}/api/artists/",
-            json=artist_create
-        )
-
-        if response.status_code in (200, 201):
-            artist = response.json()
-            artist_cache[cache_key] = artist
-            logger.info(f"Nouvel artiste créé: {artist['name']}")
-
-            # Essayer d'abord les images locales
-            cover_added = False
-            if artist_data.get("artist_path"):
-                logger.info(f"Recherche d'images locales pour: {name}")
-                cover_data = await process_artist_image(artist_data["artist_path"])
-                if cover_data:
-                    await create_or_update_cover(
-                        client, "artist", artist["id"],
-                        cover_data=cover_data[0],
-                        mime_type=cover_data[1],
-                        url=artist_data["artist_path"]
-                    )
-                    cover_added = True
-
-            # Si pas d'image locale, essayer Last.fm
-            if not cover_added:
-                logger.info(f"Tentative récupération image Last.fm pour: {name}")
-                lastfm_cover = await get_lastfm_artist_image(client, name)
-                if lastfm_cover:
-                    await create_or_update_cover(
-                        client, "artist", artist["id"],
-                        cover_data=lastfm_cover[0],
-                        mime_type=lastfm_cover[1],
-                        url=f"lastfm://{name}"
-                    )
-
-            return artist
-
-        logger.error(f"Erreur création artiste {name}: {response.text}")
-        return None
-
-    except Exception as e:
-        logger.error(f"Erreur pour artiste {name}: {str(e)}")
-        return None
-
-async def create_or_get_album(client: httpx.AsyncClient, album_data: Dict, artist_id: Optional[int] = None) -> Optional[Dict]:
-    """Créer ou récupérer un album."""
-    try:
-        if not artist_id or not album_data.get("title"):
-            logger.error("ID artiste ou titre album manquant")
-            return None
-
-        # Rechercher l'album par titre et artist_id
-        response = await client.get(
-            f"{api_url}/api/albums/search",
-            params={
-                "title": album_data["title"],
-                "artist_id": artist_id
+            # Créer un dictionnaire pour un accès facile par nom ou mbid
+            artist_map = {
+                (artist.get('musicbrainz_artistid') or artist['name'].lower()): artist
+                for artist in artists
             }
-        )
+            logger.info(f"{len(artists)} artistes traités avec succès en batch.")
+            publish_library_update()  # Publier la mise à jour de la bibliothèque
+            # Mettre à jour le cache des artistes
+            return artist_map
+        else:
+            logger.error(f"Erreur lors du traitement en batch des artistes: {response.status_code} - {response.text}")
+            return {}
 
-        if response.status_code == 200:
-            albums = response.json()
-            if albums:
-                album = albums[0]
-                # Vérifier et mettre à jour les infos manquantes (version synchrone)
-                if update_missing_info(album, {
-                    "release_year": album_data.get("release_year"),
-                    "musicbrainz_albumid": album_data.get("musicbrainz_albumid"),
-                    "cover_url": album_data.get("cover_url")
-                }):
-                    # Mise à jour si nécessaire
-                    update_data = {**album}
-                    response = await client.put(
-                        f"{api_url}/api/albums/{album['id']}", 
-                        json=update_data
-                    )
-                    if response.status_code == 200:
-                        album = response.json()
-                        logger.info(f"Album mis à jour: {album['title']}")
-                return album
+    except Exception as e:
+        logger.error(f"Exception lors du traitement en batch des artistes: {str(e)}")
+        return {}
 
-        # Traiter les genres avant la création/mise à jour
-        genres = []
-        if album_data.get("genre"):
-            for genre_name in album_data["genre"].split(","):
-                genre = await create_or_get_genre(client, genre_name.strip())
-                if genre:
-                    genres.append(genre["id"])
+async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: List[Dict]) -> Dict[str, Dict]:
+    """Crée ou récupère une liste d'albums en une seule requête (batch)."""
+    try:
+        if not albums_data:
+            return {}
 
-        # Créer l'album avec les données nettoyées
-        create_data = {
-            "title": album_data["title"],
-            "album_artist_id": artist_id,
-            "release_year": album_data.get("release_year"),
-            "musicbrainz_albumid": album_data.get("musicbrainz_albumid"),
-            "cover_url": album_data.get("cover_url"),
-            "genres": genres
-        }
-
-        logger.info(f"Création d'un nouvel album: {create_data['title']} (artist_id: {artist_id})")
+        logger.info(f"Traitement en batch de {len(albums_data)} albums.")
+        
         response = await client.post(
-            f"{api_url}/api/albums/",
-            json=create_data
+            f"{api_url}/api/albums/batch",
+            json=albums_data,
+            timeout=120  # Timeout plus long pour les albums
         )
 
         if response.status_code in (200, 201):
-            album = response.json()
-            
-            # Gérer la cover album
-            cover_added = False
-            
-            # 1. Essayer d'abord la cover locale
-            if album_data.get("cover_data"):
-                await create_or_update_cover(
-                    client=client,
-                    entity_type="album",
-                    entity_id=album["id"],
-                    cover_data=album_data["cover_data"],
-                    mime_type=album_data.get("cover_mime_type"),
-                    url=str(Path(album_data["path"]).parent)
-                )
-                cover_added = True
-            
-            # 2. Si pas de cover locale, essayer Cover Art Archive
-            if not cover_added and album_data.get("musicbrainz_albumid"):
-                logger.info( f"Tentative récupération cover depuis Cover Art Archive")
-                cover_data = await get_coverart_image(client, album_data["musicbrainz_albumid"])
-                if cover_data:
-                    await create_or_update_cover(
-                        client=client,
-                        entity_type="album",
-                        entity_id=album["id"],
-                        cover_data=cover_data[0],
-                        mime_type=cover_data[1],
-                        url=f"coverart://{album_data['musicbrainz_albumid']}"
-                    )
-
-            return album
+            albums = response.json()
+            # Clé: (titre, artist_id) ou mbid
+            album_map = {
+                (album.get('musicbrainz_albumid') or (album['title'].lower(), album['album_artist_id'])): album
+                for album in albums
+            }
+            logger.info(f"{len(albums)} albums traités avec succès en batch.")
+            publish_library_update()  # Publier la mise à jour de la bibliothèque
+            # Mettre à jour le cache
+            return album_map
         else:
-            logger.error(f"Erreur création album: {response.status_code} - {response.text}")
-            return None
+            logger.error(f"Erreur lors du traitement en batch des albums: {response.status_code} - {response.text}")
+            return {}
 
     except Exception as e:
-        logger.error(f"Erreur create_or_get_album: {str(e)}")
-        return None
+        logger.error(f"Exception lors du traitement en batch des albums: {str(e)}")
+        return {}
 
 def clean_track_data(file: Dict) -> Dict:
     """Nettoie et valide les données de piste avant l'envoi."""
@@ -468,154 +330,34 @@ def clean_track_data(file: Dict) -> Dict:
 
     return cleaned_data
 
-async def create_or_get_track(client: httpx.AsyncClient, track_data: Dict) -> Optional[Dict]:
-    """Créer ou récupérer une piste."""
+async def create_or_update_tracks_batch(client: httpx.AsyncClient, tracks_data: List[Dict]) -> List[Dict]:
+    """Crée ou met à jour une liste de pistes en une seule requête (batch)."""
     try:
-        path = track_data.get("path")
+        if not tracks_data:
+            return []
+
+        logger.info(f"Traitement en batch de {len(tracks_data)} pistes.")
         
-        # S'assurer que track_artist_id est présent avant le nettoyage
-        if not track_data.get("track_artist_id"):
-            logger.error("track_artist_id requis mais manquant")
-            return None
+        # Nettoyer les données avant de les envoyer
+        cleaned_tracks_data = [clean_track_data(track) for track in tracks_data]
 
-        # Nettoyer les données de base
-        cleaned_data = clean_track_data(track_data)
-        if not cleaned_data:
-            logger.error("Données de piste invalides après nettoyage")
-            return None
-
-        # La gestion des covers sera faite après la création/mise à jour de la track
-        cover_data = cleaned_data.pop("cover_data", None)
-        cover_mime_type = cleaned_data.pop("cover_mime_type", None)
-
-        # Rechercher par chemin unique
-        response = await client.get(
-            f"{api_url}/api/tracks/search",
-            params={"path": path}
-        )
-
-        # Mise à jour du track existant
-        if response.status_code == 200:
-            tracks = response.json()
-            if tracks:
-                track = tracks[0]
-                track_id = track["id"]
-
-                # Extraire les caractéristiques audio avec l'ID
-                audio_features = await extract_audio_features(
-                    audio=track_data.get("audio"),
-                    tags=track_data.get("tags", {}),
-                    file_path=track_data["path"],
-                    track_id=track_id
-                )
-                
-                # Fusionner toutes les données
-                merged_data = {**track, **cleaned_data, **audio_features}
-
-                # Log des données avant mise à jour
-                logger.debug(f"Données à mettre à jour pour {track['id']}: {merged_data}")
-                
-                response = await client.put(
-                    f"{api_url}/api/tracks/{track['id']}", 
-                    json=merged_data
-                )
-                
-                if response.status_code != 200:
-                    logger.error(f"Erreur mise à jour piste {track['id']}: {response.status_code}")
-                    logger.error(f"Détails de l'erreur: {response.text}")
-                    logger.error(f"Données envoyées: {merged_data}")
-
-                # Vérifier si des mises à jour sont nécessaires
-                if any(merged_data[k] != track[k] for k in merged_data if k in track):
-                    logger.info(f"Mise à jour de la piste: {track['id']} - {track['title']}")
-                    response = await client.put(
-                        f"{api_url}/api/tracks/{track['id']}", 
-                        json=merged_data
-                    )
-                    if response.status_code == 200:
-                        updated_track = response.json()
-                        logger.info(f"Piste mise à jour avec succès: {updated_track['id']}")
-                        return updated_track
-
-                # Gérer la cover après la mise à jour
-                if cover_data:
-                    await create_or_update_cover(
-                        client=client,
-                        entity_type="track",
-                        entity_id=track["id"],
-                        cover_data=cover_data,
-                        mime_type=cover_mime_type,
-                        url=str(Path(track_data["path"]).parent)  # Utiliser le dossier du fichier comme URL
-                    )
-                return track
-
-        # Pour nouvelle piste
         response = await client.post(
-            f"{api_url}/api/tracks/",
-            json=cleaned_data
+            f"{api_url}/api/tracks/batch",
+            json=cleaned_tracks_data,
+            timeout=300  # Timeout très long pour les pistes
         )
 
         if response.status_code in (200, 201):
-            track = response.json()
-            track_id = track["id"]
-
-            # Extraire les caractéristiques audio avec track_id
-            audio_features = await extract_audio_features(
-                audio=track_data.get("audio"),
-                tags=track_data.get("tags", {}),
-                file_path=track_data["path"],
-                track_id=track_id
-            )
-
-            # Mettre à jour avec les nouvelles caractéristiques
-            if any(v for v in audio_features.values()):
-                update_data = {**track, **audio_features}
-                response = await client.put(
-                    f"{api_url}/api/tracks/{track_id}",
-                    json=update_data
-                )
-                if response.status_code == 200:
-                    track = response.json()
-
-            # Gérer la cover après la création
-            if track_data.get("cover_data"):
-                logger.info(f"Création/mise à jour cover pour track {track['id']}")
-                cover_result = await create_or_update_cover(
-                    client,
-                    "track",
-                    track["id"],
-                    cover_data=track_data["cover_data"],
-                    mime_type=track_data.get("cover_mime_type")
-                )
-                if cover_result:
-                    logger.info(f"Cover mise à jour pour track {track['id']}")
-
-            # Mise à jour explicite des tags
-            if track_data.get("genre_tags") or track_data.get("mood_tags"):
-                tags_update = {
-                    "genre_tags": track_data.get("genre_tags", []),
-                    "mood_tags": track_data.get("mood_tags", [])
-                }
-                logger.info(f"Mise à jour des tags pour track {track_id}")
-                
-                # Appel explicite pour mettre à jour les tags
-                response = await client.put(
-                    f"{api_url}/api/tracks/{track_id}/tags",
-                    json=tags_update
-                )
-                if response.status_code == 200:
-                    track = response.json()
-                    logger.info(f"Tags mis à jour pour track {track_id}")
-
-            logger.info(f"Nouvelle piste créée: {track['id']} - {track['title']}")
-            return track
-
-        logger.error(f"Erreur création/mise à jour piste: {response.text}")
-        return None
+            processed_tracks = response.json()
+            logger.info(f"{len(processed_tracks)} pistes traitées avec succès en batch.")
+            return processed_tracks
+        else:
+            logger.error(f"Erreur lors du traitement en batch des pistes: {response.status_code} - {response.text}")
+            return []
 
     except Exception as e:
-        logger.error(f"Erreur pour piste {track_data.get('path')}: {str(e)}")
-        return None
+        logger.error(f"Exception lors du traitement en batch des pistes: {str(e)}")
+        return []
 
 async def process_artist_covers(client: httpx.AsyncClient, artist_id: int, 
                             artist_path: str, artist_images: List[Tuple[str, str]]) -> None:

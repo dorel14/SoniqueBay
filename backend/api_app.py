@@ -1,11 +1,10 @@
 # -*- coding: UTF-8 -*-
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status, Request
+from fastapi import FastAPI, WebSocket, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from backend.api.services import settings_service
 from backend.utils.database import Base, engine
 from helpers.logging import logger
 from backend.api.services.settings_service import SettingsService
-
+import redis.asyncio as redis
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
@@ -64,33 +63,21 @@ def perform_healthcheck():
     return {"status": "healthy"}
 
 @app.websocket("/api/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """Point d'entrée WebSocket."""
+async def global_ws(websocket: WebSocket):
+    await websocket.accept()
     try:
-        await websocket.accept()
-        await websocket.send_json({"type": "connected"})
-
-        while True:
-            try:
-                msg = await websocket.receive_json()
-                # Broadcaster le message à tous les clients connectés
-                if msg.get('type') == 'library_update':
-                    await broadcast_to_clients({"type": "library_update"})
-                elif msg.get('type') == 'ping':
-                    await websocket.send_json({"type": "pong"})
-            except WebSocketDisconnect:
-                logger.info("Client WebSocket déconnecté")
-                break
-            except Exception as e:
-                logger.error(f"Erreur traitement message: {e}")
-                break
-    except Exception as e:
-        logger.error(f"Erreur WebSocket: {e}")
-
-async def broadcast_to_clients(message: dict):
-    """Diffuse un message à tous les clients WebSocket."""
-    # Implémentation du broadcast à ajouter ici
-    pass
+        # Boucle d'écoute Redis sur tous les canaux utiles
+        redis_client = await redis.from_url("redis://redis:6379")
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe("notifications", "progress")  # ou tous les canaux utiles
+        async for message in pubsub.listen():
+            if message['type'] == 'message':
+                data = message['data']
+                if isinstance(data, bytes):
+                    await websocket.send_text(data.decode('utf-8'))
+    finally:
+        await pubsub.unsubscribe("notifications", "progress")
+        await redis_client.close()
 
 
 @app.on_event("startup")

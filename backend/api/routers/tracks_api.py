@@ -97,6 +97,84 @@ async def search_tracks(
         logger.error(f"Erreur recherche pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/batch", response_model=List[Track])
+async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], db: SQLAlchemySession = Depends(get_db)):
+    """Crée ou met à jour plusieurs pistes en une seule fois (batch)."""
+    try:
+        paths = [t.path for t in tracks_data if t.path]
+        
+        # 1. Récupérer les pistes existantes
+        existing_tracks = db.query(TrackModel).filter(TrackModel.path.in_(paths)).options(joinedload('*')).all()
+        existing_tracks_map = {t.path: t for t in existing_tracks}
+
+        # 2. Pré-charger tous les tags nécessaires
+        all_genre_tags_names = {tag for t in tracks_data for tag in t.genre_tags or []}
+        all_mood_tags_names = {tag for t in tracks_data for tag in t.mood_tags or []}
+        
+        genre_tag_map = {tag.name: tag for tag in db.query(GenreTag).filter(GenreTag.name.in_(all_genre_tags_names)).all()}
+        mood_tag_map = {tag.name: tag for tag in db.query(MoodTag).filter(MoodTag.name.in_(all_mood_tags_names)).all()}
+
+        tracks_to_process = []
+        new_tracks_to_create = []
+
+        for track_data in tracks_data:
+            db_track = existing_tracks_map.get(track_data.path)
+            if db_track:
+                # Mise à jour
+                update_data = track_data.model_dump(exclude_unset=True, exclude={'genre_tags', 'mood_tags'})
+                for key, value in update_data.items():
+                    setattr(db_track, key, value)
+                db_track.date_modified = func.now()
+            else:
+                # Création
+                db_track = TrackModel(**track_data.model_dump(exclude={'genre_tags', 'mood_tags'}))
+                new_tracks_to_create.append(db_track)
+
+            # Gestion des tags pour la création et la mise à jour
+            if track_data.genre_tags is not None:
+                db_track.genre_tags = []
+                for tag_name in track_data.genre_tags:
+                    tag = genre_tag_map.get(tag_name)
+                    if not tag:
+                        tag = GenreTag(name=tag_name)
+                        db.add(tag)
+                        genre_tag_map[tag_name] = tag
+                    db_track.genre_tags.append(tag)
+
+            if track_data.mood_tags is not None:
+                db_track.mood_tags = []
+                for tag_name in track_data.mood_tags:
+                    tag = mood_tag_map.get(tag_name)
+                    if not tag:
+                        tag = MoodTag(name=tag_name)
+                        db.add(tag)
+                        mood_tag_map[tag_name] = tag
+                    db_track.mood_tags.append(tag)
+            
+            if not db_track in new_tracks_to_create:
+                 tracks_to_process.append(db_track)
+
+        if new_tracks_to_create:
+            db.add_all(new_tracks_to_create)
+            tracks_to_process.extend(new_tracks_to_create)
+
+        db.commit()
+
+        # Rafraîchir les objets pour obtenir les données complètes
+        for track in tracks_to_process:
+            db.refresh(track)
+
+        return tracks_to_process
+
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Erreur d'intégrité lors du traitement en batch des pistes: {e}")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Conflit de données lors du traitement en batch.")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Erreur inattendue lors du traitement en batch des pistes: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erreur interne du serveur.")
+
 @router.post("/", response_model=Track)
 async def create_track(track: TrackCreate, db: SQLAlchemySession = Depends(get_db)):
     """Création d'une nouvelle piste avec gestion des tags."""

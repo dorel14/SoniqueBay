@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from token import OP
+from fastapi import APIRouter, HTTPException, status, Body
+from typing import Optional
 from backend.utils.celery_app import celery
 from helpers.logging import logger
 import os
@@ -25,18 +27,22 @@ def convert_path_to_docker(input_path: str) -> str:
         return input_path
 
 @router.post("/scan", status_code=status.HTTP_201_CREATED)
-async def launch_scan(directory: str):
+async def launch_scan(directory: Optional[str]=Body((None))):
+    """Lance un scan de la bibliothèque musicale."""
     try:
+        if not directory:
+            path_to_scan = os.getenv('MUSIC_PATH', '/music')
+        else:
+            path_to_scan=f'/music/{directory}'
         # Log des variables d'environnement
         logger.info(f"MUSIC_PATH: {os.getenv('MUSIC_PATH')}")
         logger.info(f"PLATFORM: {os.getenv('PLATFORM')}")
-        
+
         docker_directory = convert_path_to_docker(directory)
         logger.info(f"Tentative d'accès au chemin Docker: {docker_directory}")
-        
+
         # Vérifier les permissions et l'existence du dossier racine
         try:
-            path_to_scan=f'/music/{directory}' 
             logger.info("Test d'accès au dossier /music:")
             music_stat = os.stat(path_to_scan)
             logger.info(f"Permissions {path_to_scan} {oct(music_stat.st_mode)}")
