@@ -1,11 +1,11 @@
 import asyncio
 
 from helpers.logging import logger
-from backend_worker.celery_app import celery
-from backend_worker.services.scanner import scan_music_task
-from backend_worker.services.audio_features_service import analyze_audio_with_librosa, retry_failed_updates
-from backend_worker.services.enrichment_service import enrich_artist, enrich_album
-from backend_worker.utils.pubsub import publish_event
+from celery_app import celery
+from services.scanner import scan_music_task
+from services.audio_features_service import analyze_audio_with_librosa, retry_failed_updates
+from services.enrichment_service import enrich_artist, enrich_album
+from utils.pubsub import publish_event
 
 
 @celery.task(name="scan_music_task", bind=True)

@@ -1,10 +1,9 @@
-from nicegui import ui, APIRouter
-from .generals import theme_skeleton
+from nicegui import ui
 
-router = APIRouter(prefix='/api_docs')
-@router.page('/')
-def api_docs():
-    with theme_skeleton.frame('API Docs'):
+
+
+def render(container):
+    with container:
         ui.label('SoniqueBay API Documentation').classes('text-2xl font-bold sonique-primary-text')
         ui.label('📜 Documentation de l\'API 📜').classes('text-lg sonique-primary-text')
         ui.separator()

@@ -37,8 +37,6 @@ RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.
     apt-get update && apt-get install -y --no-install-recommends \
     apt-transport-https \
     curl \
-    gcc \
-    g++ \
     libpq-dev \
     nfs-common \
     cifs-utils \
@@ -60,5 +58,5 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /backend_worker
-CMD ["celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=debug", "-E"]
+CMD ["/opt/venv/bin/celery", "-A", "celery_app", "worker", "--loglevel=debug", "-E"]
 

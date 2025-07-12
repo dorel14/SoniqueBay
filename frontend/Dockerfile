@@ -28,7 +28,7 @@ ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
 RUN /install.sh && rm /install.sh
 
 # Install pip requirements
-COPY ./frontend/requirements.txt /frontend/requirements.txt
+COPY ./frontend /frontend
 RUN /root/.local/bin/uv venv /opt/venv
 RUN /root/.local/bin/uv pip install --no-cache -r requirements.txt
 
@@ -72,12 +72,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
-&& mkdir /backend
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 #Permet de forcer le vidage de cahche des varaibles d'environnement
 ARG CACHEBUST=1
 
 WORKDIR /frontend
 
 
-CMD ["python", "./frontend/start_ui.py"]
+CMD ["python", "start_ui.py"]

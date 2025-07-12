@@ -9,11 +9,11 @@ from mutagen.flac import FLAC
 import os
 from helpers.logging import logger
 import base64
-from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
+from services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
 import json
 import aiofiles
 import asyncio
-from backend_worker.services.audio_features_service import extract_audio_features
+from services.audio_features_service import extract_audio_features
 
 
 

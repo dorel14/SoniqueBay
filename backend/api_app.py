@@ -65,19 +65,32 @@ def perform_healthcheck():
 @app.websocket("/api/ws")
 async def global_ws(websocket: WebSocket):
     await websocket.accept()
+    redis_client = None  # Initialize redis_client outside the try block
+    pubsub = None
     try:
-        # Boucle d'écoute Redis sur tous les canaux utiles
         redis_client = await redis.from_url("redis://redis:6379")
         pubsub = redis_client.pubsub()
-        await pubsub.subscribe("notifications", "progress")  # ou tous les canaux utiles
+        await pubsub.subscribe("notifications", "progress")
         async for message in pubsub.listen():
             if message['type'] == 'message':
                 data = message['data']
                 if isinstance(data, bytes):
-                    await websocket.send_text(data.decode('utf-8'))
+                    try:
+                        await websocket.send_text(data.decode('utf-8'))
+                    except Exception as e:
+                        logger.error(f"WebSocket send error: {e}")
+                        break  # Exit the loop if WebSocket send fails
+    except Exception as e:
+        logger.error(f"Redis or WebSocket error: {e}")
     finally:
-        await pubsub.unsubscribe("notifications", "progress")
-        await redis_client.close()
+        if pubsub:
+            try:
+                await pubsub.unsubscribe("notifications", "progress")
+            except Exception as e:
+                logger.error(f"Error unsubscribing: {e}")
+        if redis_client:
+            await redis_client.close()
+        logger.info("WebSocket disconnected.")
 
 
 @app.on_event("startup")

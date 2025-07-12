@@ -1,6 +1,6 @@
-from backend_worker.services.indexer import MusicIndexer
-from backend_worker.services.music_scan import scan_music_files
-from backend_worker.services.entity_manager import (
+from services.indexer import MusicIndexer
+from services.music_scan import scan_music_files
+from services.entity_manager import (
     create_or_get_artists_batch,
     create_or_get_albums_batch,
     create_or_update_tracks_batch,
@@ -11,7 +11,11 @@ import asyncio
 from typing import Dict
 from helpers.logging import logger
 from pathlib import Path
-from backend_worker.celery_app import celery
+from celery_app import celery
+from services.music_scan import async_walk
+from services.settings_service import SettingsService, MUSIC_PATH_TEMPLATE, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
+from utils.pubsub import publish_event
+import json
 
 async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: dict):
     """Traite un lot de métadonnées de fichiers."""
@@ -72,10 +76,7 @@ async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: 
         await asyncio.gather(*cover_tasks)
         stats['covers_processed'] += len(cover_tasks)
 
-from backend_worker.services.music_scan import async_walk
-from backend_worker.services.settings_service import SettingsService, MUSIC_PATH_TEMPLATE, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
-from backend_worker.utils.pubsub import publish_event
-import json
+
 
 async def count_music_files(directory: str, music_extensions: set) -> int:
     """Compte rapidement le nombre de fichiers musicaux dans un répertoire."""

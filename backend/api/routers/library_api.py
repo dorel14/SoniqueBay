@@ -32,3 +32,16 @@ async def get_library_tree(db: SQLAlchemySession = Depends(get_db)):
         tree.append(artist_node)
 
     return tree
+
+@router.get("/artist/{artist_id}/albums")
+async def get_albums_for_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
+    albums = (
+        db.query(Album)
+        .filter(Album.album_artist_id == artist_id)
+        .order_by(Album.title)
+        .all()
+    )
+    return [
+        {"id": f"album_{album.id}", "label": album.title}
+        for album in albums
+    ]

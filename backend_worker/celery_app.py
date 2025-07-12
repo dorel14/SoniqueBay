@@ -1,15 +1,13 @@
 from celery import Celery
 import os
-from celery.signals import worker_ready
-from helpers.logging import logger
-from backend_worker.services.settings_service import SettingsService
+
 
 # Communique via Redis
 celery = Celery(
     'soniquebay',
     broker=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0'),
-    include=['backend_worker.background_tasks.tasks']  # nom du fichier où sont définies les tâches
+    include=['background_tasks.tasks']  # nom du fichier où sont définies les tâches
 )
 
 celery.conf.update(

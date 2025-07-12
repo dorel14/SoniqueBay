@@ -78,13 +78,13 @@ volumes:
         driver: local
         driver_opts:
             type: none
-            device: .
+            device: ./backend
             o: bind
     worker-dir:
         driver: local
         driver_opts:
             type: none
-            device: .
+            device: ./backend_worker
             o: bind
     db-data:
         driver: local
@@ -92,7 +92,7 @@ volumes:
         driver: local
         driver_opts:
             type: none
-            device: .
+            device: ./frontend
             o: bind
     music-share:
         driver_opts:

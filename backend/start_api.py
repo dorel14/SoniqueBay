@@ -30,4 +30,4 @@ if __name__ == "__main__":
                 forwarded_allow_ips="*",  # Permettre les en-têtes forwarded
                 proxy_headers=True,  # Activer le support des proxy headers
                 reload=True,  # Recharger l'application automatiquement en cas de modification du code
-                )
+                reload_dirs=("/backend"))

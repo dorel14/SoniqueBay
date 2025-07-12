@@ -54,9 +54,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 COPY --from=builder /opt/venv /opt/venv
 
 WORKDIR /backend
+#COPY ./backend .
 COPY scripts/healthcheck.sh /healthcheck.sh
 RUN chmod +x /healthcheck.sh
 
-CMD ["python", "./backend/start_api.py"]
+CMD ["python", "/backend/start_api.py"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD /healthcheck.sh

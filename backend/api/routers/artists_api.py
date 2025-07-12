@@ -3,7 +3,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
-from pathlib import Path
 from backend.utils.database import get_db
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.models.artists_model import Artist as ArtistModel
@@ -142,8 +141,8 @@ def create_artist(artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db))
         )
 
 @router.get("/", response_model=List[Artist])
-def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
-    artists = db.query(ArtistModel).offset(skip).limit(limit).all()
+async def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
+    artists = db.query(ArtistModel).order_by('name').offset(skip).limit(limit).all()
     return artists
 
 @router.get("/{artist_id}", response_model=ArtistWithRelations)
@@ -151,10 +150,10 @@ async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
     try:
         # Modifier la requête pour inclure explicitement les covers
         artist = db.query(ArtistModel)\
-                  .options(joinedload(ArtistModel.covers))\
-                  .filter(ArtistModel.id == artist_id)\
-                  .first()
-        
+                .options(joinedload(ArtistModel.covers))\
+                .filter(ArtistModel.id == artist_id)\
+                .first()
+
         if not artist:
             raise HTTPException(status_code=404, detail="Artiste non trouvé")
 

@@ -10,7 +10,6 @@ from backend.utils.database import get_db
 from sqlalchemy.exc import IntegrityError
 from helpers.logging import logger
 from sqlalchemy.orm import joinedload
-from pathlib import Path
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
@@ -192,46 +191,50 @@ def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends
         }
     ).model_dump() for album in albums]
 
-@router.get("/{album_id}", response_model=Album)
+
+@router.get("/{album_id}", response_model=AlbumWithRelations)
 async def read_album(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1),
+    album_id: int,
     db: SQLAlchemySession = Depends(get_db)
 ):
     try:
-        albums = db.query(AlbumModel).offset(skip).limit(limit).all()
-        
-        result = []
-        for album in albums:
-            # Convertir les chemins en format compatible
-            album_covers = []
-            if album.covers:
-                for cover in album.covers:
-                    try:
-                        # Utiliser le validateur existant de Cover
-                        cover_data = {
-                            "id": cover.id,
-                            "entity_type": CoverType.ALBUM,
-                            "entity_id": album.id,
-                            "url": str(Path(cover.url).absolute()),
-                            "mime_type": cover.mime_type,
-                            "date_added": cover.date_added,
-                            "date_modified": cover.date_modified
-                        }
-                        album_covers.append(Cover(**cover_data))
-                    except Exception as e:
-                        logger.warning(f"Erreur lors de la validation de la cover pour l'album {album.id}: {str(e)}")
-                        continue
+        album = db.query(AlbumModel) \
+            .options(joinedload(AlbumModel.covers)) \
+            .filter(AlbumModel.id == album_id).first()
+        if not album:
+            raise HTTPException(status_code=404, detail="Album non trouvé")
+        logger.debug(f"Covers trouvées pour l'album {album_id}: {album.covers}")
 
-            # Créer l'objet album avec les covers validées
-            album_data = {
-                **album.__dict__,
-                "covers": album_covers,
-                "cover_url": album_covers[0].url if album_covers else None
-            }
-            result.append(AlbumWithRelations(**album_data))
+        album_covers = []
+        if hasattr(album, 'covers') and album.covers:
+            for cover in album.covers:
+                try:
+                    cover_data = {
+                        "id": cover.id,
+                        "entity_type": CoverType.ALBUM,
+                        "entity_id": album.id,
+                        "url": cover.url,
+                        "cover_data": cover.cover_data,
+                        "date_added": cover.date_added,
+                        "date_modified": cover.date_modified,
+                        "mime_type": cover.mime_type
+                    }
+                    album_covers.append(Cover(**cover_data))
+                except Exception as e:
+                    logger.error(f"Erreur lors du traitement de la cover {cover.id}: {str(e)}")
+                    continue
 
-        return result
+        # Toujours définir album_data, même si pas de covers
+        album_data = {
+            **album.__dict__,
+            "covers": album_covers,
+            "cover_url": album_covers[0].url if album_covers else None,
+            "date_added": album.date_added or datetime.utcnow(),
+            "date_modified": album.date_modified or datetime.utcnow(),
+        }
+
+        # Retourne un dict pour FastAPI
+        return AlbumWithRelations.model_validate(album_data).model_dump()
 
     except Exception as e:
         logger.error(f"Erreur lors de la récupération des albums: {str(e)}")

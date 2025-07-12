@@ -19,7 +19,7 @@ def update_version_file():
     print("Début de la mise à jour de version...")
     version = get_git_tag()
 
-    version_file = Path(__file__).parent.parent / "_version_.py"
+    version_file = Path(__file__).parent.parent / "frontend/_version_.py"
     print(f"Chemin du fichier version : {version_file}")
 
     content = f'''"""Version information."""

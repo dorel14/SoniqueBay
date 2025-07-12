@@ -7,8 +7,8 @@ import redis
 import json
 from pathlib import Path
 from helpers.logging import logger
-from backend_worker.services.settings_service import SettingsService
-from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
+from services.settings_service import SettingsService
+from services.coverart_service import get_cover_schema, get_cover_types
 
 
 settings_service = SettingsService()
