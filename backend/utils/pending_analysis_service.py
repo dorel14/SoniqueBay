@@ -1,7 +1,7 @@
 from tinydb import TinyDB, Query
 from pathlib import Path
 from typing import List, Dict
-from helpers.logging import logger
+from utils.logging import logger
 
 class PendingAnalysisService:
     def __init__(self):

@@ -3,11 +3,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
-from backend.utils.database import get_db
-from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
-from backend.api.models.artists_model import Artist as ArtistModel
-from backend.api.schemas.covers_schema import Cover, CoverType
-from helpers.logging import logger
+from utils.database import get_db
+from utils.paginated_routes import paginated_route
+from api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
+from api.schemas.pagination_schema import PaginatedResponse
+from api.models.artists_model import Artist as ArtistModel
+from api.schemas.covers_schema import Cover, CoverType
+from utils.paginations import paginate_query
+from utils.logging import logger
 
 
 router = APIRouter(prefix="/api/artists", tags=["artists"])
@@ -140,10 +143,21 @@ def create_artist(artist: ArtistCreate, db: SQLAlchemySession = Depends(get_db))
             detail="Un artiste avec cet identifiant existe déjà"
         )
 
-@router.get("/", response_model=List[Artist])
+""" @router.get("/", response_model=PaginatedResponse[Artist])
 async def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
-    artists = db.query(ArtistModel).order_by('name').offset(skip).limit(limit).all()
-    return artists
+    artists = db.query(ArtistModel).order_by('name').offset(skip).limit(limit)
+    return paginate_query(artists, skip, limit) """
+
+@paginated_route(
+    router=router,
+    path="",
+    schema=Artist,
+    db_model=ArtistModel,
+    tags=["Artistes"],
+    summary="Liste paginée des artistes"
+)
+def ignored():  # ⚠️ fonction requise pour la syntaxe du décorateur, mais ignorée
+    pass
 
 @router.get("/{artist_id}", response_model=ArtistWithRelations)
 async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):

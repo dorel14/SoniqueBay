@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Query
 from api.schemas.pagination_schema import PaginatedResponse
 from typing import Type, TypeVar
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 from functools import lru_cache
 T = TypeVar("T", bound=BaseModel)
 

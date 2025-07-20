@@ -1,15 +1,15 @@
 # -*- coding: UTF-8 -*-
 from fastapi import FastAPI, WebSocket, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from backend.utils.database import Base, engine
-from helpers.logging import logger
-from backend.api.services.settings_service import SettingsService
+from utils.database import Base, engine
+from utils.logging import logger
+from api.services.settings_service import SettingsService
 import redis.asyncio as redis
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
 # Importer les routes avant toute autre initialisation
-from backend.api import api_router  # noqa: E402
+from api import api_router  # noqa: E402
 
 app = FastAPI(title="SoniqueBay API",
             version="1.0.0",

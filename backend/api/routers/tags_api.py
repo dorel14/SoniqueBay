@@ -1,9 +1,9 @@
 from fastapi import APIRouter,  Depends
 from sqlalchemy.orm import Session
 from typing import List
-from backend.utils.database import get_db
-from backend.api.schemas.tags_schema import Tag, TagCreate
-from backend.api.models.tags_model import GenreTag, MoodTag
+from utils.database import get_db
+from api.schemas.tags_schema import Tag, TagCreate
+from api.models.tags_model import GenreTag, MoodTag
 
 router = APIRouter(tags=["tags"])
 

@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession
-from backend.utils.database import get_db
-from backend.utils.pending_analysis_service import PendingAnalysisService
-from backend.utils.tinydb_handler import TinyDBHandler
-from backend.utils.celery_app import celery
-from backend.api.models.tracks_model import Track as TrackModel
-from helpers.logging import logger
+from utils.database import get_db
+from utils.pending_analysis_service import PendingAnalysisService
+from utils.tinydb_handler import TinyDBHandler
+from utils.celery_app import celery
+from api.models.tracks_model import Track as TrackModel
+from utils.logging import logger
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 pending_service = PendingAnalysisService()

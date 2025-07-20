@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
-from backend.utils.database import get_db
-from backend.api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
-from backend.api.models.covers_model import Cover as CoverModel, CoverType
-from helpers.logging import logger
+from utils.database import get_db
+from api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
+from api.models.covers_model import Cover as CoverModel, CoverType
+from utils.logging import logger
 
 router = APIRouter(prefix="/api/covers", tags=["covers"])
 

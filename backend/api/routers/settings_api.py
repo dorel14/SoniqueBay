@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List
-from backend.utils.database import get_db
-from backend.api.schemas.settings_schema import SettingCreate, Setting
-from backend.api.models.settings_model import Setting as SettingModel
-from backend.utils.crypto import encrypt_value, decrypt_value
-from backend.utils.path_variables import PathVariables
+from utils.database import get_db
+from api.schemas.settings_schema import SettingCreate, Setting
+from api.models.settings_model import Setting as SettingModel
+from utils.crypto import encrypt_value, decrypt_value
+from utils.path_variables import PathVariables
 import json
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])

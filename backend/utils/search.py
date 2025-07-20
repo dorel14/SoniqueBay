@@ -5,7 +5,7 @@ from whoosh.index import create_in, open_dir, exists_in  # noqa: E402
 from whoosh.fields import Schema, ID, TEXT, NUMERIC, STORED  # noqa: E402
 from whoosh.qparser import OperatorsPlugin  # noqa: E402
 from whoosh import scoring, sorting  # noqa: E402
-from helpers.logging import logger  # noqa: E402
+from utils.logging import logger  # noqa: E402
 
 import os  # noqa: E402
 import shutil  # noqa: E402

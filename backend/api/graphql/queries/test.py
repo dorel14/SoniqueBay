@@ -1,9 +1,0 @@
-import strawberry
-
-@strawberry.type
-class Query:
-    @strawberry.field
-    def hello(self) -> str:
-        return "Hello bulk GraphQL with Redis cache!"
-
-schema = strawberry.Schema(Query)
