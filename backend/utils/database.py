@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session
 from sqlalchemy import MetaData
 
 load_dotenv()
@@ -51,7 +51,9 @@ def get_db():
         yield db
     finally:
         db.close()
-
+def get_session():
+    with Session(engine) as session:
+        yield session
 
 
 # Exporter les éléments nécessaires

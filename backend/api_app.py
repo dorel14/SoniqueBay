@@ -2,15 +2,21 @@
 from fastapi import FastAPI, WebSocket, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from utils.database import Base, engine
+from strawberry.fastapi import GraphQLRouter
 from utils.logging import logger
 from api.services.settings_service import SettingsService
 import redis.asyncio as redis
+
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
 # Importer les routes avant toute autre initialisation
 from api import api_router  # noqa: E402
+from api.graphql.queries.schema import schema # noqa: E402
+# Initialiser du router GraphQL
+graphql_app = GraphQLRouter(schema)
 
+# Créer l'application FastAPI
 app = FastAPI(title="SoniqueBay API",
             version="1.0.0",
             docs_url="/api/docs",
@@ -43,6 +49,7 @@ async def log_requests(request: Request, call_next):
 
 # Inclure le router AVANT de créer le service
 app.include_router(api_router)
+app.include_router(graphql_app, prefix="/graphql", tags=["GraphQL"])
 
 @app.get('/api/healthcheck', status_code=status.HTTP_200_OK, tags=["health"])
 def perform_healthcheck():

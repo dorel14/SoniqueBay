@@ -10,6 +10,10 @@ psycopg2-binary>=2.9.6  # PostgreSQL
 pymysql>=1.0.2  # MariaDB/MySQL
 aiosqlite>=0.19.0  # SQLite async
 
+#GRAPHQL
+strawberry-graphql[fastapi]>=0.278.0
+strawchemy>=0.18.0
+
 #Gestion des tâches
 celery>=5.5.3
 redis>=4.2.0
