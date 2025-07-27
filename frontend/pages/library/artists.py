@@ -4,8 +4,7 @@ import math
 import os
 from urllib.parse import urlparse, parse_qs
 from helpers.logging import logger
-
-
+from config import sonique_bay_logo
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
 
 MAX_PAGE_BUTTONS = 5
@@ -14,7 +13,6 @@ current_page = 1
 total_pages = 1
 page_size = 50
 cached_pages = {}
-sonique_bay_logo = "/static/logo.png"
 artists_column = None
 pagination_label = None
 pagination_bar = None
@@ -80,13 +78,16 @@ async def artist_view(page: int):
                         if cover_data and len(cover_data) > 0:
                             ui.image(cover_data[0].get('cover_data', ''))
                         else:
-                            ui.image(sonique_bay_logo) # Placeholder image
+                            logger.warning(f"Aucun cover trouvé pour l'artiste {artist['id']}, utilisation du logo par défaut.")
+                            ui.image(sonique_bay_logo)
                         ui.separator().classes('my-2')
                         with ui.card_section():
                             ui.label(artist['name']).classes('text-sm font-bold')
                             with ui.row().classes('w-full justify-around mt-2'):
-                                ui.icon('play_arrow').classes('text-xl cursor-pointer')
-                                ui.icon('favorite_border').classes('text-xl cursor-pointer')
+                                with ui.link(target=f"/library/artist_details?id={artist['id']}").classes('cursor-pointer'):
+                                    ui.icon('o_info').classes('text-xl cursor-pointer')
+                                ui.icon('play_circle_outline').classes('text-xl cursor-pointer')
+                                ui.icon('o_favorite_border').classes('text-xl cursor-pointer')
 
     pagination_label.text = f"Page {current_page} / {total_pages}"
     spinner.visible = False
@@ -133,6 +134,7 @@ def refresh_pagination_bar():
 
         add_button("Suivant ›", current_page + 1, disabled=current_page == total_pages)
         add_button("Dernière »", total_pages, disabled=current_page == total_pages)
+
 async def update_page_size(value: str):
     global page_size, cached_pages, total_pages, current_page
     page_size = int(value)
@@ -152,6 +154,7 @@ async def render(container):
         artists_column = ui.column().classes('mt-4 w-full')
         spinner = ui.spinner(size='lg')
         spinner.visible = False
+        ui.space()
         with ui.row().classes('items-center justify-center w-full mt-4'):
             pagination_label = ui.label().classes('text-sm text-gray-600')
             ui.space()

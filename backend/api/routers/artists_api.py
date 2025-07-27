@@ -153,7 +153,7 @@ async def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = 
     path="",
     schema=Artist,
     db_model=ArtistModel,
-    tags=["Artistes"],
+    tags=["Artists"],
     summary="Liste paginée des artistes"
 )
 def ignored():  # ⚠️ fonction requise pour la syntaxe du décorateur, mais ignorée

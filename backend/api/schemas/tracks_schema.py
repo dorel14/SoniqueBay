@@ -76,3 +76,4 @@ class Track(TrackBase, TimestampedSchema):
 
 class TrackWithRelations(Track):
     covers: Optional[List[Cover]] = []
+    album_title: Optional[str] = Field(None, description="Album title")

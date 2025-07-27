@@ -12,6 +12,7 @@ from api.schemas.tracks_schema import TrackCreate, Track, TrackWithRelations
 from api.models.tracks_model import Track as TrackModel
 from api.models.tags_model import GenreTag, MoodTag
 from utils.logging import logger
+from ..services.tracks_services import get_artist_tracks
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
 
@@ -151,8 +152,8 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], db: SQLA
                         mood_tag_map[tag_name] = tag
                     db_track.mood_tags.append(tag)
             
-            if not db_track in new_tracks_to_create:
-                 tracks_to_process.append(db_track)
+            if db_track not in new_tracks_to_create:
+                tracks_to_process.append(db_track)
 
         if new_tracks_to_create:
             db.add_all(new_tracks_to_create)
@@ -447,6 +448,17 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
     except Exception as e:
         logger.error(f"Erreur lecture piste: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/artists/{artist_id}/albums/{album_id}", response_model=List[TrackWithRelations])
+async def read_artist_tracks_by_album(artist_id: int, album_id: int, db: SQLAlchemySession = Depends(get_db)):
+    """Récupère les pistes d'un artiste pour un album spécifique."""
+    return await get_artist_tracks(artist_id, album_id, db)
+
+@router.get("/artists/{artist_id}", response_model=List[TrackWithRelations])
+async def read_artist_tracks(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
+    """Récupère toutes les pistes d'un artiste."""
+    return await get_artist_tracks(artist_id, None, db)
+
 
 @router.put("/{track_id}", response_model=Track)
 async def update_track(track_id: int, track: TrackCreate, request: Request, db: SQLAlchemySession = Depends(get_db)):

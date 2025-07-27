@@ -243,6 +243,37 @@ async def read_album(
             detail="Erreur lors de la récupération des albums"
         )
 
+@router.get("/artists/{artist_id}", response_model=List[AlbumWithRelations])
+def read_artist_albums(
+    artist_id: int,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """Récupère les albums d'un artiste spécifique."""
+    try:
+        albums = db.query(AlbumModel) \
+            .options(joinedload(AlbumModel.covers)) \
+            .filter(AlbumModel.album_artist_id == artist_id).all()
+        logger.debug(f"Albums trouvés pour l'artiste {artist_id}: {len(albums)}")
+        if not albums:
+            raise HTTPException(status_code=404, detail="Aucun album trouvé pour cet artiste")
+
+        album_list = []
+        for album in albums:
+            album_data = {
+                **album.__dict__,
+                "covers": [Cover.model_validate(c) for c in album.covers],
+                "date_added": album.date_added or datetime.utcnow(),
+                "date_modified": album.date_modified or datetime.utcnow()
+            }
+            album_model = AlbumWithRelations.model_validate(album_data)
+            album_list.append(album_model)
+
+        return album_list
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des albums de l'artiste {artist_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des albums de l'artiste")
+
 @router.put("/{album_id}", response_model=Album)
 def update_album(album_id: int, album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
     db_album = db.query(AlbumModel).filter(AlbumModel.id == album_id).first()

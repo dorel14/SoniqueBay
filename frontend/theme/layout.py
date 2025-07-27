@@ -20,6 +20,8 @@ CUSTOM_LABELS = {
     'api_docs': '📚 Documentation API',
 }
 
+
+
 MENU_ORDER = ['homepage', 'library', 'recommendations','downloads', 'settings']
 def label_for(name: str) -> str:
     return CUSTOM_LABELS.get(name, name.replace('_', ' ').capitalize())
@@ -28,7 +30,7 @@ COMMON_LINK_CLASSES = '!no-underline text-gray-10 block mb-2 hover:text-primary 
 COMMON_LINK_STYLE = 'font-family: Poppins; color: rgb(210 213 219);'
 COMMON_EXPANSION_CLASSES = 'mb-2 text-gray-10 w-full'
 COMMON_EXPANSION_HEADER_CLASSES = 'left text-grey-3' # Pour le texte de l'en-tête de l'expansion
-
+EXCLUDED_FILES = ["library","artist_details"]
 
 
 API_URL = os.getenv('API_URL', 'http://backend:8001')
@@ -113,13 +115,12 @@ async def refresh_library():
 def left_menu() -> None:
     top_level_pages = {}
     submenus = {}
-
     for root, _, files in os.walk(PAGES_DIR):
         rel_root = os.path.relpath(root, PAGES_DIR)
         parts = rel_root.split(os.sep) if rel_root != '.' else []
 
         for file in files:
-            if not file.endswith('.py') or file.startswith('__'):
+            if not file.endswith('.py') or file.startswith('__') or file[:-3] in EXCLUDED_FILES:
                 continue
 
             name = file[:-3]
