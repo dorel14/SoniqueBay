@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
 from utils.database import get_db
 from api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
-from api.models.covers_model import Cover as CoverModel, CoverType
+from api.models.covers_model import Cover as CoverModel, EntityCoverType
 from utils.logging import logger
 
 router = APIRouter(prefix="/api/covers", tags=["covers"])
@@ -44,7 +44,7 @@ async def get_cover(
 ):
     """Récupère une cover par type et ID d'entité."""
     try:
-        cover_type = CoverType(entity_type.lower())
+        cover_type = EntityCoverType(entity_type.lower())
         cover = db.query(CoverModel).filter(
             CoverModel.entity_type == cover_type,
             CoverModel.entity_id == entity_id
@@ -58,7 +58,7 @@ async def get_cover(
 
 @router.get("/", response_model=List[CoverSchema])
 async def get_covers(
-    entity_type: Optional[CoverType] = Query(None),
+    entity_type: Optional[EntityCoverType] = Query(None),
     db: SQLAlchemySession = Depends(get_db)
 ):
     """Liste les covers avec filtrage optionnel par type."""
@@ -69,7 +69,7 @@ async def get_covers(
 
 @router.delete("/{entity_type}/{entity_id}")
 async def delete_cover(
-    entity_type: CoverType,
+    entity_type: EntityCoverType,
     entity_id: int,
     db: SQLAlchemySession = Depends(get_db)
 ):
@@ -97,7 +97,7 @@ async def update_cover(
     try:
         # Conversion de la chaîne en CoverType
         try:
-            cover_type = CoverType(entity_type.lower())
+            cover_type = EntityCoverType(entity_type.lower())
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Type d'entité invalide: {entity_type}")
         
@@ -137,4 +137,4 @@ async def get_cover_schema():
 @router.get("/types")
 async def get_cover_types():
     """Retourne les types de couverture disponibles."""
-    return [cover_type.value for cover_type in CoverType]
+    return [cover_type.value for cover_type in EntityCoverType]

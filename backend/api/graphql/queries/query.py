@@ -1,15 +1,11 @@
 from __future__ import annotations
-
-from strawchemy import ValidationErrorType  # noqa: TC002
-from strawchemy.validation.pydantic import PydanticValidation
-
 import strawberry
-from ..gqContext_init import strawchemy
+from ..strawchemy_init import strawchemy
 
-from ..types.artist_type import ArtistType
+from ..types.artist_type import ArtistGQL, ArtistFilter, ArtistOrder
 
 
 @strawberry.type
 class Query:
-    artist: ArtistType = strawchemy.field()
-    artists: list[ArtistType] = strawchemy.field()
+    track: ArtistGQL = strawchemy.field(filter_input=ArtistFilter, order_by=ArtistOrder, description="Get a single track by ID or slug")
+    tracks: list[ArtistGQL] =strawchemy.field(filter_input=ArtistFilter, order_by=ArtistOrder, description="Get multiple tracks by filter and order")

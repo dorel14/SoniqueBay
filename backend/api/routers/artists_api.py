@@ -6,9 +6,9 @@ from typing import List, Optional
 from utils.database import get_db
 from utils.paginated_routes import paginated_route
 from api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
-from api.schemas.pagination_schema import PaginatedResponse
+
 from api.models.artists_model import Artist as ArtistModel
-from api.schemas.covers_schema import Cover, CoverType
+from api.schemas.covers_schema import Cover
 from utils.paginations import paginate_query
 from utils.logging import logger
 
@@ -181,7 +181,7 @@ async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
                 try:
                     cover_data = {
                         "id": cover.id,
-                        "entity_type": CoverType.ARTIST,
+                        "entity_type": "artist",
                         "entity_id": artist.id,
                         "url": cover.url,
                         "cover_data": cover.cover_data,

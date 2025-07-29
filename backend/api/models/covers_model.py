@@ -1,9 +1,8 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum, func, UniqueConstraint, Index
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, String, Integer, DateTime, Enum, func, UniqueConstraint, Index
 import enum
 from backend.utils.database import Base
 
-class CoverType(str, enum.Enum):
+class EntityCoverType(str, enum.Enum):
     TRACK = "track"
     ALBUM = "album"
     ARTIST = "artist"
@@ -12,7 +11,7 @@ class Cover(Base):
     __tablename__ = "covers"
     
     id = Column(Integer, primary_key=True)
-    entity_type = Column(Enum(CoverType), nullable=False)  # Utiliser l'enum ici
+    entity_type = Column(Enum(EntityCoverType), nullable=False)  # Utiliser l'enum ici
     entity_id = Column(Integer, nullable=False)
     cover_data = Column(String)  # Base64
     mime_type = Column(String)

@@ -340,7 +340,7 @@ async def read_tracks(
                 "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else [],
                 "covers": [{
                     "id": cover.id,
-                    "entity_type": cover.entity_type,
+                    "entity_type": "track",
                     "entity_id": cover.entity_id,
                     "cover_data": cover.cover_data,
                     "mime_type": cover.mime_type,
@@ -418,7 +418,7 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
             "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else [],
             "covers": [{
                 "id": cover.id,
-                "entity_type": cover.entity_type,
+                "entity_type": "track",
                 "entity_id": cover.entity_id,
                 "cover_data": cover.cover_data,
                 "mime_type": cover.mime_type,
@@ -517,35 +517,6 @@ async def update_track(track_id: int, track: TrackCreate, request: Request, db: 
         logger.error(f"Erreur inattendue pour track {track_id}: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-async def update_track_tags(db_track: TrackModel, genre_tags: List[str], mood_tags: List[str], db: SQLAlchemySession):
-    """Fonction utilitaire pour mettre à jour les tags."""
-    try:
-        if genre_tags is not None:
-            db_track.genre_tags = []
-            for tag_name in genre_tags:
-                tag = db.query(GenreTag).filter_by(name=tag_name).first()
-                if not tag:
-                    tag = GenreTag(name=tag_name)
-                    db.add(tag)
-                db_track.genre_tags.append(tag)
-        
-        if mood_tags is not None:
-            db_track.mood_tags = []
-            for tag_name in mood_tags:
-                tag = db.query(MoodTag).filter_by(name=tag_name).first()
-                if not tag:
-                    tag = MoodTag(name=tag_name)
-                    db.add(tag)
-                db_track.mood_tags.append(tag)
-
-        db_track.date_modified = func.now()
-        db.commit()
-        db.refresh(db_track)
-        return db_track
-    except Exception as e:
-        logger.error(f"Erreur mise à jour tags: {str(e)}")
-        raise
 
 @router.put("/{track_id}/tags", response_model=Track)
 async def update_track_tags(

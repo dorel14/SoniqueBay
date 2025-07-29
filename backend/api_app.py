@@ -1,12 +1,18 @@
 # -*- coding: UTF-8 -*-
-from fastapi import FastAPI, WebSocket, status, Request
+from __future__ import annotations
+from dataclasses import dataclass
+from fastapi import FastAPI, WebSocket, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from backend.utils import settings
 from utils.database import Base, engine
-from strawberry.fastapi import GraphQLRouter
+from strawberry.fastapi import GraphQLRouter, BaseContext
+from sqlalchemy.orm import Session
+from typing import Annotated
 from utils.logging import logger
+from utils.settings import Settings
 from api.services.settings_service import SettingsService
 import redis.asyncio as redis
-
+from utils.database import get_session
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
@@ -14,7 +20,21 @@ Base.metadata.create_all(bind=engine)
 from api import api_router  # noqa: E402
 from api.graphql.queries.schema import schema # noqa: E402
 # Initialiser du router GraphQL
-graphql_app = GraphQLRouter(schema)
+
+@dataclass
+class AppContext(BaseContext):
+    settings: Settings
+    session: Session
+
+SessionDep = Annotated[Session, Depends(get_session)]
+
+async def get_context(session: SessionDep):
+        """Context passed to all GraphQL functions. Give database access"""
+        return AppContext(settings=settings, session=session)
+
+graphql_app = GraphQLRouter(schema,
+                            graphql_ide="graphiql",
+                            context_getter=get_context)
 
 # Créer l'application FastAPI
 app = FastAPI(title="SoniqueBay API",
@@ -49,7 +69,7 @@ async def log_requests(request: Request, call_next):
 
 # Inclure le router AVANT de créer le service
 app.include_router(api_router)
-app.include_router(graphql_app, prefix="/graphql", tags=["GraphQL"])
+app.include_router(graphql_app, prefix="/api/graphql", tags=["GraphQL"])
 
 @app.get('/api/healthcheck', status_code=status.HTTP_200_OK, tags=["health"])
 def perform_healthcheck():

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
 from api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
 from api.models.albums_model import Album as AlbumModel
-from api.schemas.covers_schema import Cover, CoverType
+from api.schemas.covers_schema import Cover
 from sqlalchemy import func, or_
 from datetime import datetime
 from typing import List, Optional
@@ -211,7 +211,7 @@ async def read_album(
                 try:
                     cover_data = {
                         "id": cover.id,
-                        "entity_type": CoverType.ALBUM,
+                        "entity_type": "album",
                         "entity_id": album.id,
                         "url": cover.url,
                         "cover_data": cover.cover_data,
