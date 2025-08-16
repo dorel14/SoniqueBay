@@ -1,63 +1,65 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func, Float, Boolean
-from sqlalchemy.orm import relationship, foreign
+from __future__ import annotations
+from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Float, Boolean
+from datetime import datetime
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 
 from backend.utils.database import Base
-from .genre_links import track_genre_links
-from .tags_model import track_mood_tags, track_genre_tags
-from .genres_model import track_genres
-from ..models.covers_model import Cover
-from ..models.tags_model import GenreTag, MoodTag
+from backend.api.models.genre_links import track_genre_links
+from backend.api.models.tags_model import track_mood_tags, track_genre_tags
+from backend.api.models.genres_model import track_genres
+from backend.api.models.covers_model import Cover
+from backend.api.models.tags_model import GenreTag, MoodTag
 
 class Track(Base):
     __tablename__ = 'tracks'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String)
-    album_id = Column(Integer, ForeignKey('albums.id'), nullable=True)
-    path = Column(String, unique=True)
-    duration = Column(Integer, nullable=True)
-    track_number = Column(String, nullable=True)
-    disc_number = Column(String, nullable=True)
-    year = Column(String, nullable=True)
-    genre = Column(String, nullable=True)
-    musicbrainz_id = Column(String, nullable=True, unique=True)
-    musicbrainz_albumid = Column(String, nullable=True)
-    musicbrainz_artistid = Column(String, nullable=True)
-    musicbrainz_albumartistid = Column(String, nullable=True)
-    musicbrainz_genre = Column(String, nullable=True)
-    acoustid_fingerprint = Column(String, nullable=True)
-    file_type = Column(String, nullable=True)
-    cover_data = Column(String, nullable=True)  # Base64 encoded cover image data
-    cover_mime_type = Column(String, nullable=True)
-    bitrate = Column(Integer, nullable=True)
-    date_added = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    date_modified = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    track_artist_id = Column(Integer, ForeignKey('artists.id'), nullable=False)  # Artiste principal de la piste
-    featured_artists = Column(String, nullable=True)  # Artistes en featuring, séparés par des virgules
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=True)
+    album_id: Mapped[int] = mapped_column(Integer, ForeignKey('albums.id'), nullable=True)
+    path: Mapped[str] = mapped_column(String, unique=True)
+    duration: Mapped[int] = mapped_column(Integer, nullable=True)
+    track_number: Mapped[str] = mapped_column(String, nullable=True)
+    disc_number: Mapped[str] = mapped_column(String, nullable=True)
+    year: Mapped[str] = mapped_column(String, nullable=True)
+    genre: Mapped[str] = mapped_column(String, nullable=True)
+    musicbrainz_id: Mapped[str] = mapped_column(String, nullable=True, unique=True)
+    musicbrainz_albumid: Mapped[str] = mapped_column(String, nullable=True)
+    musicbrainz_artistid: Mapped[str] = mapped_column(String, nullable=True)
+    musicbrainz_albumartistid: Mapped[str] = mapped_column(String, nullable=True)
+    musicbrainz_genre: Mapped[str] = mapped_column(String, nullable=True)
+    acoustid_fingerprint: Mapped[str] = mapped_column(String, nullable=True)
+    file_type: Mapped[str] = mapped_column(String, nullable=True)
+    cover_data: Mapped[str] = mapped_column(String, nullable=True)
+    cover_mime_type: Mapped[str] = mapped_column(String, nullable=True)
+    bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
+    date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    date_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    track_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id'), nullable=False)
+    featured_artists: Mapped[str] = mapped_column(String, nullable=True)
 
     # Nouveaux champs d'analyse audio
-    bpm = Column(Float, nullable=True)
-    key = Column(String, nullable=True)
-    scale = Column(String, nullable=True)
-    danceability = Column(Float, nullable=True)
-    mood_happy = Column(Float, nullable=True)
-    mood_aggressive = Column(Float, nullable=True)
-    mood_party = Column(Float, nullable=True)
-    mood_relaxed = Column(Float, nullable=True)
-    instrumental = Column(Float, nullable=True)
-    acoustic = Column(Float, nullable=True)
-    tonal = Column(Float, nullable=True)
-    genre_main = Column(String, nullable=True)
-    camelot_key = Column(String, nullable=True)  # Clé Camelot pour la tonalité
+    bpm: Mapped[float] = mapped_column(Float, nullable=True)
+    key: Mapped[str] = mapped_column(String, nullable=True)
+    scale: Mapped[str] = mapped_column(String, nullable=True)
+    danceability: Mapped[float] = mapped_column(Float, nullable=True)
+    mood_happy: Mapped[float] = mapped_column(Float, nullable=True)
+    mood_aggressive: Mapped[float] = mapped_column(Float, nullable=True)
+    mood_party: Mapped[float] = mapped_column(Float, nullable=True)
+    mood_relaxed: Mapped[float] = mapped_column(Float, nullable=True)
+    instrumental: Mapped[float] = mapped_column(Float, nullable=True)
+    acoustic: Mapped[float] = mapped_column(Float, nullable=True)
+    tonal: Mapped[float] = mapped_column(Float, nullable=True)
+    genre_main: Mapped[str] = mapped_column(String, nullable=True)
+    camelot_key: Mapped[str] = mapped_column(String, nullable=True)
 
     # Relations
-    track_artist = relationship("Artist", back_populates="tracks")
-    album = relationship("Album", back_populates="tracks")
-    genres = relationship("Genre", secondary="track_genres", back_populates="tracks")
-    mood_tags = relationship("MoodTag", secondary=track_mood_tags, back_populates="tracks")
-    genre_tags = relationship("GenreTag", secondary=track_genre_tags, back_populates="tracks")
-    covers = relationship(
+    artist: Mapped["Artist"] = relationship("Artist", back_populates="tracks") # type: ignore # noqa: F821
+    album: Mapped["Album"] = relationship("Album", back_populates="tracks") # type: ignore # noqa: F821
+    genres: Mapped[list["Genre"]] = relationship("Genre", secondary="track_genres", back_populates="tracks") # type: ignore # noqa: F821
+    mood_tags: Mapped[list["MoodTag"]] = relationship("MoodTag", secondary="track_mood_tags", back_populates="tracks") # type: ignore # noqa: F821
+    genre_tags: Mapped[list["GenreTag"]] = relationship("GenreTag", secondary="track_genre_tags", back_populates="tracks") # type: ignore # noqa: F821
+    covers: Mapped[list["Cover"]] = relationship(
         "Cover",
         primaryjoin="and_(Cover.entity_type=='track', Track.id==Cover.entity_id)",
         lazy="selectin",

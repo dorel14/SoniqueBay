@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, status
-from utils.celery_app import celery
+from backend.utils.celery_app import celery
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 @router.get("/status/{task_id}")

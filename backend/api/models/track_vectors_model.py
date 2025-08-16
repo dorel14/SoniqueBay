@@ -1,11 +1,11 @@
 from __future__ import annotations
 from sqlalchemy import Integer, Text, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-# from .tracks_model import Track # Supprimé pour éviter les imports circulaires
+from backend.api.models.tracks_model import Track # Supprimé pour éviter les imports circulaires
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.types import TypeDecorator
 import json
-from utils.database import Base
+from backend.utils.database import Base
 
 class JSONList(TypeDecorator):
     impl = Text

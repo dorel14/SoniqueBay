@@ -2,17 +2,17 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
-from api.models.genres_model import Genre
-from api.models.albums_model import Album
-from api.models.covers_model import Cover
+from backend.api.models.genres_model import Genre
+from backend.api.models.albums_model import Album
+from backend.api.models.covers_model import Cover
 
 from typing import List, Optional
-from utils.database import get_db
-from api.schemas.tracks_schema import TrackCreate, Track, TrackWithRelations
-from api.models.tracks_model import Track as TrackModel
-from api.models.tags_model import GenreTag, MoodTag
-from utils.logging import logger
-from ..services.tracks_services import get_artist_tracks
+from backend.utils.database import get_db
+from backend.api.schemas.tracks_schema import TrackCreate, Track, TrackWithRelations
+from backend.api.models.tracks_model import Track as TrackModel
+from backend.api.models.tags_model import GenreTag, MoodTag
+from backend.utils.logging import logger
+from backend.api.services.tracks_services import get_artist_tracks
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
 

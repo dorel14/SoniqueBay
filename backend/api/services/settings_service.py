@@ -5,7 +5,7 @@ import socket
 from typing import Any, Dict, Optional
 from backend.api.schemas.settings_schema import SettingCreate
 from backend.utils.path_variables import PathVariables
-from utils.logging import logger
+from backend.utils.logging import logger
 import os
 
 # Clés des paramètres système

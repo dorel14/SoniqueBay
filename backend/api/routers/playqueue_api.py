@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
-from api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
-from utils.tinydb_handler import TinyDBHandler
+from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
+from backend.utils.tinydb_handler import TinyDBHandler
 from datetime import datetime
 
 router = APIRouter(prefix="/api/playqueue", tags=["playqueue"])

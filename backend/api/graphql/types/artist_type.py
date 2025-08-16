@@ -1,27 +1,31 @@
 from __future__ import annotations
-
 from typing import Annotated
+import strawberry
 
+from strawberry import auto
 
+from backend.api.models.artists_model import Artist
 
-from ...models.artists_model import Artist
-
-from ..strawchemy_init import strawchemy
-
+from backend.api.graphql.strawchemy_init import strawchemy
 @strawchemy.order(Artist, include="all")
-class ArtistOrder:
-    pass
-
+class ArtistOrderedType: ...
 
 @strawchemy.filter(Artist, include="all")
-class ArtistFilter:
-    pass
+class ArtistFilterType: ...
 
+@strawchemy.type(Artist, include="all",filter_input=ArtistFilterType, order_by=ArtistOrderedType,override=True)
+class ArtistType: ...
 
-@strawchemy.type(Artist, include="all", filter_input=ArtistFilter, order_by=ArtistOrder, override=True)
-class ArtistGQL:
-    pass
+@strawchemy.create_input(Artist, include="all")
+class ArtistCreateInputType: ...
 
-@strawchemy.create_input(Artist, include=["name", "musicbrainz_artistid"])
-class ArtistCreateInput:
-    pass
+@strawchemy.pk_update_input(Artist, include="all")
+class ArtistUpdateInputType: ...
+
+@strawchemy.filter_update_input(Artist, include="all")
+class ArtistFilterUpdateInputType: ...
+
+@strawchemy.upsert_conflict_fields(Artist, include=["id", "musicbrainz_id", "name"])
+class ArtistUpsertConflictFieldsType: ...
+@strawchemy.upsert_update_fields(Artist, include="all")
+class ArtistUpsertUpdateFieldsType: ...

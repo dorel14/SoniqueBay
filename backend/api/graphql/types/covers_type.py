@@ -1,23 +1,10 @@
-# from strawchemy_init import strawchemy
-# from ...models.covers_model import Cover
-# import strawberry
+from backend.api.graphql.strawchemy_init import strawchemy
+from backend.api.models.covers_model import Cover
+import strawberry
 
-# @strawberry.enum
-# class CoverType:
-#     ARTIST = "artist"
-#     ALBUM = "album"
-#     TRACK = "track"
-
-
-# @strawchemy.order(Cover, include="all")
-# class CoverOrder:
-#     pass
-# @strawchemy.filter(Cover, include="all")
-# class CoverFilter:
-#     pass
-# @strawchemy.type(Cover, include="all", filter_input=CoverFilter, order_by=CoverOrder, override=True)
-# class CoverGQL:
-#     pass
-# @strawchemy.create_input(Cover, exclude=["id", "created_at", "updated_at"])
-# class CoverCreateInput:
-#     pass
+@strawchemy.order(Cover, include="all")
+class CoverOrderedType: ...
+@strawchemy.filter(Cover, include="all")
+class CoverFilterType: ...
+@strawchemy.type(Cover, include="all",filter_input=CoverFilterType, order_by=CoverOrderedType, override=True)
+class CoverType: ...

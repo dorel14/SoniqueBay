@@ -11,7 +11,7 @@ import sys
 
 # Add the project root to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from api_app import create_api
+from backend.api_app import create_api
 
 app = create_api()
 # Add socketio app to the main app

@@ -1,23 +1,25 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, func
-from sqlalchemy.orm import relationship, foreign
+from __future__ import annotations
+from sqlalchemy import String, Integer, DateTime, ForeignKey, func
+from datetime import datetime
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.utils.database import Base
-from .covers_model import Cover
+from backend.api.models.covers_model import Cover
 class Album(Base):
     __tablename__ = 'albums'
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String, nullable=False)
-    album_artist_id = Column(Integer, ForeignKey('artists.id'), nullable=False)
-    release_year = Column(String, nullable=True)
-    musicbrainz_albumid = Column(String, nullable=True)
-    date_added = Column(DateTime(timezone=True), server_default=func.now())
-    date_modified = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    album_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id'), nullable=False)
+    release_year: Mapped[str] = mapped_column(String, nullable=True)
+    musicbrainz_albumid: Mapped[str] = mapped_column(String, nullable=True)
+    date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    date_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relations
-    album_artist = relationship("Artist", back_populates="albums")
-    tracks = relationship("Track", back_populates="album")
-    genres = relationship("Genre", secondary="album_genres", back_populates="albums")
-    covers = relationship(
+    artist: Mapped["Artist"] = relationship("Artist", back_populates="albums") # type: ignore # noqa: F821
+    tracks: Mapped[list["Track"]] = relationship("Track", back_populates="album") # type: ignore # noqa: F821
+    genres: Mapped[list["Genre"]] = relationship("Genre", secondary="album_genres", back_populates="albums") # type: ignore # noqa: F821
+    covers: Mapped[list["Cover"]] = relationship(
         "Cover",
         primaryjoin="and_(Cover.entity_type=='album', Album.id==Cover.entity_id)",
         lazy="selectin",

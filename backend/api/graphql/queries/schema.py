@@ -1,6 +1,6 @@
 
 import strawberry
-from .query import Query
-from .mutations import Mutation
+from backend.api.graphql.queries.query import Query
+from backend.api.graphql.queries.mutations import Mutation
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

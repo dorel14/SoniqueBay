@@ -3,7 +3,7 @@
 from typing import List, Optional
 from pydantic import BaseModel
 from backend.utils.tinydb_handler import TinyDBHandler
-from helpers.logging import logger
+from backend.utils.logging import logger
 
 class PlayQueueError(Exception):
     pass

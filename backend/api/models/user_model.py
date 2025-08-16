@@ -2,8 +2,8 @@ from __future__ import annotations
 from sqlalchemy import String, Integer, DateTime, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
-from utils.database import Base
-# from .listening_history_model import ListeningHistory # Supprimé pour éviter les imports circulaires
+from backend.utils.database import Base
+from backend.api.models.listening_history_model import ListeningHistory # Supprimé pour éviter les imports circulaires
 
 
 class User(Base):

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
-from utils.database import get_db
-from api.models.artists_model import Artist
-from api.models.albums_model import Album
+from backend.utils.database import get_db
+from backend.api.models.artists_model import Artist
+from backend.api.models.albums_model import Album
 
 router = APIRouter(prefix="/api/library", tags=["library"])
 

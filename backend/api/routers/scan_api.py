@@ -1,8 +1,8 @@
 from token import OP
 from fastapi import APIRouter, HTTPException, status, Body
 from typing import Optional
-from utils.celery_app import celery
-from utils.logging import logger
+from backend.utils.celery_app import celery
+from backend.utils.logging import logger
 import os
 
 

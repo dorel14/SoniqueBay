@@ -1,7 +1,7 @@
 from venv import logger
 from fastapi import APIRouter, Body, HTTPException
-from utils.search import get_or_create_index, search_index, add_to_index
-from api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet, AddToIndexRequest
+from backend.utils.search import get_or_create_index, search_index, add_to_index
+from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet, AddToIndexRequest
 
 import os
 

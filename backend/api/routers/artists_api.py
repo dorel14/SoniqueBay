@@ -3,14 +3,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
 from typing import List, Optional
-from utils.database import get_db
-from utils.paginated_routes import paginated_route
-from api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
+from backend.utils.database import get_db
+from backend.utils.paginated_routes import paginated_route
+from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 
-from api.models.artists_model import Artist as ArtistModel
-from api.schemas.covers_schema import Cover
-from utils.paginations import paginate_query
-from utils.logging import logger
+from backend.api.models.artists_model import Artist as ArtistModel
+from backend.api.schemas.covers_schema import Cover
+from backend.utils.paginations import paginate_query
+from backend.utils.logging import logger
 
 
 router = APIRouter(prefix="/api/artists", tags=["artists"])

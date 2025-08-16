@@ -1,14 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
-from api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
-from api.models.albums_model import Album as AlbumModel
-from api.schemas.covers_schema import Cover
+from backend.api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
+from backend.api.models.albums_model import Album as AlbumModel
+from backend.api.schemas.covers_schema import Cover
 from sqlalchemy import func, or_
 from datetime import datetime
 from typing import List, Optional
-from utils.database import get_db
+from backend.utils.database import get_db
 from sqlalchemy.exc import IntegrityError
-from utils.logging import logger
+from backend.utils.logging import logger
 from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])

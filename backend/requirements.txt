@@ -12,7 +12,9 @@ aiosqlite>=0.19.0  # SQLite async
 
 #GRAPHQL
 strawberry-graphql[fastapi]>=0.278.0
-strawchemy>=0.18.0
+strawberry-sqlalchemy
+strawberry-sqlalchemy-mapper
+strawchemy
 
 #Gestion des tâches
 celery>=5.5.3

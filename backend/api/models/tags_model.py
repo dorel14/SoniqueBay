@@ -1,5 +1,6 @@
+from __future__ import annotations
 from sqlalchemy import Column, Integer, String, Table, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.utils.database import Base
 
 # Tables de liaison
@@ -20,13 +21,13 @@ track_mood_tags = Table(
 class GenreTag(Base):
     __tablename__ = 'genre_tags'
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    tracks = relationship("Track", secondary=track_genre_tags, back_populates="genre_tags")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=True)
+    tracks: Mapped[list["Track"]] = relationship("Track", secondary=track_genre_tags, back_populates="genre_tags") # type: ignore # noqa: F821
 
 class MoodTag(Base):
     __tablename__ = 'mood_tags'
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
-    tracks = relationship("Track", secondary=track_mood_tags, back_populates="mood_tags")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=True)
+    tracks: Mapped[list["Track"]] = relationship("Track", secondary=track_mood_tags, back_populates="mood_tags") # type: ignore # noqa: F821

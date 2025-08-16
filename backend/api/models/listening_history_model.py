@@ -4,8 +4,8 @@ from datetime import datetime
 from sqlalchemy import Integer, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from utils.database import Base
-# from .user_model import User # Supprimé pour éviter les imports circulaires
-# from .tracks_model import Track # Supprimé pour éviter les imports circulaires
+from backend.api.models.user_model import User # Supprimé pour éviter les imports circulaires
+from backend.api.models.tracks_model import Track # Supprimé pour éviter les imports circulaires
 
 
 class ListeningHistory(Base):

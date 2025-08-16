@@ -1,11 +1,11 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
-from utils.database import get_db
+from backend.utils.database import get_db
 from typing import List, Optional
-from api.models.tracks_model import Track as TrackModel
-from api.schemas.tracks_schema import Track, TrackWithRelations
-from api.schemas.covers_schema import Cover
-from utils.logging import logger
+from backend.api.models.tracks_model import Track as TrackModel
+from backend.api.schemas.tracks_schema import Track, TrackWithRelations
+from backend.api.schemas.covers_schema import Cover
+from backend.utils.logging import logger
 
 
 

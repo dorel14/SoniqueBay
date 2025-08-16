@@ -4,21 +4,21 @@ from dataclasses import dataclass
 from fastapi import FastAPI, WebSocket, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from backend.utils import settings
-from utils.database import Base, engine
+from backend.utils.database import Base, engine
 from strawberry.fastapi import GraphQLRouter, BaseContext
 from sqlalchemy.orm import Session
 from typing import Annotated
-from utils.logging import logger
-from utils.settings import Settings
-from api.services.settings_service import SettingsService
+from backend.utils.logging import logger
+from backend.utils.settings import Settings
+from backend.api.services.settings_service import SettingsService
 import redis.asyncio as redis
-from utils.database import get_session
+from backend.utils.database import get_session
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
 # Importer les routes avant toute autre initialisation
-from api import api_router  # noqa: E402
-from api.graphql.queries.schema import schema # noqa: E402
+from backend.api import api_router  # noqa: E402
+from backend.api.graphql.queries.schema import schema # noqa: E402
 # Initialiser du router GraphQL
 
 @dataclass

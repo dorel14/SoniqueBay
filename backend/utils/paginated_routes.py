@@ -1,10 +1,10 @@
 from typing import Type, Callable,Any
 from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
-from .paginations import paginate_query
-from api.schemas.pagination_schema import PaginatedResponse
+from backend.utils.paginations import paginate_query
+from backend.api.schemas.pagination_schema import PaginatedResponse
 from pydantic import BaseModel
-from .database import get_db  # Ton propre get_db dépendance
+from backend.utils.database import get_db  # Ton propre get_db dépendance
 
 def paginated_route(
     router: APIRouter,

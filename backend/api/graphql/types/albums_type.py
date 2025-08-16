@@ -1,26 +1,25 @@
-# from __future__ import annotations
-# from typing import Annotated
+from __future__ import annotations
+from typing import Annotated
+from strawberry import auto
+from backend.api.graphql.strawchemy_init import strawchemy
 
-# from strawberry import auto
-# from ..strawchemy_init import strawchemy
+from backend.api.models.albums_model import Album
+@strawchemy.order(Album, include="all")
+class AlbumOrderedType: ...
+@strawchemy.filter(Album, include="all")
+class AlbumFilterType: ...
+@strawchemy.type(Album, include="all",filter_input=AlbumFilterType, order_by=AlbumOrderedType, override=True)
+class AlbumType: ...
 
-# from ...models.albums_model import Album
+@strawchemy.create_input(Album, include="all")
+class AlbumCreateInputType: ...
+@strawchemy.pk_update_input(Album, include="all")
+class AlbumUpdateInputType: ...
 
-# @strawchemy.order(Album, include="all")
-# class AlbumOrder:
-#     pass
+@strawchemy.filter_update_input(Album, include="all")
+class AlbumFilterUpdateInputType: ...
+@strawchemy.upsert_conflict_fields(Album, include=["id", "musicbrainz_id", "title", "album_artist_id "])
+class AlbumUpsertConflictFieldsType: ...
 
-# @strawchemy.filter(Album, include="all")
-# class AlbumFilter:
-#     pass
-
-# @strawchemy.type(Album, include="all", filter_input=AlbumFilter, order_by=AlbumOrder, override=True)
-# class AlbumGQL:
-#     pass
-
-# @strawchemy.create_input(Album, exclude=["id", "created_at", "updated_at"])
-# class AlbumCreateInput:
-#     album_artist:auto
-#     tracks:auto
-#     genres:auto
-#     covers:auto
+@strawchemy.upsert_update_fields(Album, include=["title", "release_date", "musicbrainz_id", "album_artist_id"])
+class AlbumUpsertUpdateFieldsType: ...
