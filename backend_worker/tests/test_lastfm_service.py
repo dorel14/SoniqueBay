@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 import logging
 import base64
 
@@ -53,14 +53,15 @@ async def test_get_lastfm_artist_image_no_api_key(clear_cache, caplog):
 async def test_get_lastfm_artist_image_success(clear_cache, caplog):
     """Test la récupération d'une image d'artiste avec succès."""
     caplog.set_level(logging.INFO)
-    
+
     # Créer un mock pour le client httpx
     mock_client = AsyncMock()
-    
+
     # Créer un mock pour settings_service
-    with patch('backend_worker.services.lastfm_service.settings_service.get_setting', return_value="test_api_key"):
+    with patch('backend_worker.services.lastfm_service.settings_service.get_setting', new_callable=AsyncMock) as mock_get_setting:
+        mock_get_setting.return_value = "test_api_key"
         # Configurer le mock pour la première requête (API Last.fm)
-        mock_response1 = AsyncMock()
+        mock_response1 = Mock()
         mock_response1.status_code = 200
         mock_response1.json.return_value = {
             "artist": {
@@ -72,25 +73,25 @@ async def test_get_lastfm_artist_image_success(clear_cache, caplog):
                 ]
             }
         }
-        
+
         # Configurer le mock pour la deuxième requête (téléchargement de l'image)
-        mock_response2 = AsyncMock()
+        mock_response2 = Mock()
         mock_response2.status_code = 200
         mock_response2.content = b"test image data"
         mock_response2.headers = {"content-type": "image/jpeg"}
-        
+
         # Configurer le mock client pour retourner les réponses dans l'ordre
         mock_client.get.side_effect = [mock_response1, mock_response2]
-        
+
         # Appeler la fonction
         result = await get_lastfm_artist_image(mock_client, "Test Artist")
-        
+
         # Vérifier le résultat
         assert result is not None
         assert result[0].startswith("data:image/jpeg;base64,")
         assert result[1] == "image/jpeg"
         assert "Image Last.fm trouvée pour Test Artist" in caplog.text
-        
+
         # Vérifier que l'image a été mise en cache
         assert "Test Artist" in _lastfm_artist_image_cache
 
@@ -98,14 +99,15 @@ async def test_get_lastfm_artist_image_success(clear_cache, caplog):
 async def test_get_lastfm_artist_image_no_images(clear_cache, caplog):
     """Test la récupération d'une image d'artiste sans images disponibles."""
     caplog.set_level(logging.WARNING)
-    
+
     # Créer un mock pour le client httpx
     mock_client = AsyncMock()
-    
+
     # Créer un mock pour settings_service
-    with patch('backend_worker.services.lastfm_service.settings_service.get_setting', return_value="test_api_key"):
+    with patch('backend_worker.services.lastfm_service.settings_service.get_setting', new_callable=AsyncMock) as mock_get_setting:
+        mock_get_setting.return_value = "test_api_key"
         # Configurer le mock pour la première requête (API Last.fm)
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "artist": {
@@ -117,12 +119,12 @@ async def test_get_lastfm_artist_image_no_images(clear_cache, caplog):
                 ]
             }
         }
-        
+
         mock_client.get.return_value = mock_response
-        
+
         # Appeler la fonction
         result = await get_lastfm_artist_image(mock_client, "Test Artist")
-        
+
         # Vérifier le résultat
         assert result is None
         assert "Aucune image Last.fm trouvée pour Test Artist" in caplog.text

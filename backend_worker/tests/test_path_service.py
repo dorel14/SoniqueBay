@@ -68,14 +68,15 @@ async def test_find_local_images_success():
     """Test la recherche d'images locales avec succès."""
     with patch('os.path.exists', return_value=True):
         with patch('os.path.isfile', return_value=True):
-            with patch.object(PathService, 'settings_service') as mock_settings:
+            # Créer l'instance d'abord
+            path_service = PathService()
+            with patch.object(path_service, 'settings_service') as mock_settings:
                 # Configurer le mock
-                mock_settings.get_setting.return_value = json.dumps(["cover.jpg"])
-                
+                mock_settings.get_setting = AsyncMock(return_value=json.dumps(["cover.jpg"]))
+
                 # Appeler la fonction
-                path_service = PathService()
                 result = await path_service.find_local_images("/path/to/album", "album")
-                
+
                 # Vérifier le résultat
                 assert result == "/path/to/album/cover.jpg"
 
@@ -84,14 +85,15 @@ async def test_find_local_images_not_found():
     """Test la recherche d'images locales sans succès."""
     with patch('os.path.exists', return_value=True):
         with patch('os.path.isfile', return_value=False):
-            with patch.object(PathService, 'settings_service') as mock_settings:
+            # Créer l'instance d'abord
+            path_service = PathService()
+            with patch.object(path_service, 'settings_service') as mock_settings:
                 # Configurer le mock
-                mock_settings.get_setting.return_value = json.dumps(["cover.jpg"])
-                
+                mock_settings.get_setting = AsyncMock(return_value=json.dumps(["cover.jpg"]))
+
                 # Appeler la fonction
-                path_service = PathService()
                 result = await path_service.find_local_images("/path/to/album", "album")
-                
+
                 # Vérifier le résultat
                 assert result is None
 

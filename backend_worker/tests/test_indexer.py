@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 import os
 import json
 
@@ -14,14 +14,14 @@ async def test_remote_get_or_create_index_success():
     """Test la création ou récupération d'un index Whoosh avec succès."""
     with patch('httpx.AsyncClient') as mock_client:
         # Configurer le mock
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"index_dir": "/path/to/index", "index_name": "test_index"}
         mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-        
+
         # Appeler la fonction
         index_dir, index_name = await remote_get_or_create_index("/path/to/index")
-        
+
         # Vérifier le résultat
         assert index_dir == "/path/to/index"
         assert index_name == "test_index"
@@ -42,18 +42,18 @@ async def test_remote_get_or_create_index_error():
 async def test_remote_add_to_index_success(caplog):
     """Test l'ajout de données à un index Whoosh avec succès."""
     caplog.set_level("INFO")
-    
+
     with patch('httpx.AsyncClient') as mock_client:
         # Configurer le mock
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"status": "success"}
         mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-        
+
         # Appeler la fonction
         whoosh_data = {"id": 1, "title": "Test Track", "artist": "Test Artist"}
         result = await remote_add_to_index("/path/to/index", "test_index", whoosh_data)
-        
+
         # Vérifier le résultat
         assert result == {"status": "success"}
         assert "Ajout de données à l'index Whoosh" in caplog.text

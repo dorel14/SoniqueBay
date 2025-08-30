@@ -29,7 +29,7 @@ class PathService:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.api_url}/api/settings/music_path_template")
             if response.status_code == 200:
-                return response.json().get("value")
+                return (await response.json()).get("value")
             return None
 
     async def get_artist_path(self, artist_name: str, full_path: str) -> Optional[str]:
@@ -40,9 +40,9 @@ class PathService:
                 return None
 
             template_parts = template.split('/')
-            path_parts = full_path.split(os.sep)
+            path_parts = [p for p in full_path.split('/') if p]  # Filter out empty parts
             artist_depth = template_parts.index("{album_artist}")
-            return os.path.join(*path_parts[:artist_depth + 1])
+            return '/' + '/'.join(path_parts[:artist_depth + 1])  # Use / consistently
         except (ValueError, IndexError) as e:
             logger.error(f"Erreur extraction chemin artiste: {e}")
             return None
@@ -63,7 +63,7 @@ class PathService:
                 image_files = json.loads(await self.settings_service.get_setting(setting_key))
 
             for image_name in image_files:
-                image_path = os.path.join(directory, image_name)
+                image_path = (Path(directory) / image_name).as_posix()  # Use POSIX style paths
                 if os.path.isfile(image_path):
                     logger.debug(f"Image trouvée: {image_path}")
                     return image_path

@@ -15,5 +15,8 @@ def key_to_camelot(key: str, scale: str) -> str:
     """Convertit une clé musicale en notation Camelot."""
     if not key or not scale:
         return "Unknown"
-    full_key = key + ('m' if scale.lower() == 'minor' else '')
+    if scale.lower() == 'minor':
+        full_key = key if key.endswith('m') else key + 'm'
+    else:
+        full_key = key
     return CAMELOT_MAP.get(full_key, "Unknown")

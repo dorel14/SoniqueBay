@@ -23,9 +23,13 @@ def get_file_type(file_path: str) -> str:
     """Détermine le type de fichier à partir de son extension."""
     try:
         mime_type, encoding = mimetypes.guess_type(file_path)
+        logger.debug(f"get_file_type for {file_path}: mime_type={mime_type}, encoding={encoding}")
         if mime_type is None:
             logger.warning("Type de fichier inconnu pour %s", file_path)
             return "unknown"
+        # Normalize common variants
+        if mime_type == "audio/x-flac":
+            mime_type = "audio/flac"
         return mime_type
     except Exception as e:
         logger.error("Erreur lors de la détermination du type de fichier %s: %s", file_path, str(e))
@@ -402,36 +406,45 @@ def get_tag(audio, tag_name):
     """Récupère une tag de manière sécurisée."""
     try:
         if not hasattr(audio, 'tags') or not audio.tags:
+            logger.debug(f"get_tag: no tags for {tag_name}")
             return None
-            
+
         # ID3 tags
         if hasattr(audio.tags, 'getall'):
-            frames = audio.tags.getall(tag_name)
-            if frames:
-                value = str(frames[0])
-                logger.debug(f"Tag ID3 trouvé {tag_name}: {value}")
-                return value
-                
+            logger.debug(f"get_tag: trying getall for {tag_name}")
+            try:
+                frames = audio.tags.getall(tag_name)
+                if frames:
+                    value = str(frames[0])
+                    logger.debug(f"Tag ID3 trouvé {tag_name}: {value}")
+                    return value
+            except AttributeError as ae:
+                logger.debug(f"get_tag: getall AttributeError for {tag_name}: {ae}")
+
         # Tags génériques
         if hasattr(audio.tags, 'get'):
+            logger.debug(f"get_tag: trying get for {tag_name}")
             value = audio.tags.get(tag_name, [""])[0]
             if value:
                 if isinstance(value, bytes):
                     value = value.decode('utf-8')
                 logger.debug(f"Tag générique trouvé {tag_name}: {value}")
                 return str(value)
-                
+
+        logger.debug(f"get_tag: no value found for {tag_name}")
         return None
-        
+
     except Exception as e:
         logger.debug(f"Erreur lecture tag {tag_name}: {str(e)}")
         return None
 def serialize_tags(tags):
     """Convertit un objet tags Mutagen en dict simple JSON-serializable."""
     if tags is None:
+        logger.debug("serialize_tags: tags is None")
         return {}
     # Pour ID3 (MP3)
     if hasattr(tags, "keys"):
+        logger.debug("serialize_tags: has keys, processing ID3")
         result = {}
         for key in tags.keys():
             value = tags.get(key)
@@ -442,7 +455,13 @@ def serialize_tags(tags):
                 result[key] = str(value)
         return result
     # Pour d'autres formats
+    logger.debug("serialize_tags: trying dict(tags)")
     try:
         return dict(tags)
-    except Exception:
-        return str(tags)
+    except Exception as e:
+        logger.debug(f"serialize_tags: dict failed {e}, trying str")
+        try:
+            return str(tags)
+        except Exception as e2:
+            logger.debug(f"serialize_tags: str also failed {e2}")
+            return "unserializable tags object"

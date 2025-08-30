@@ -32,15 +32,17 @@ async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
         spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
 
         # Calculer et convertir les caractéristiques en types Python standards
+        key = keys[key_index]
+        scale = 'major' if key in ['C', 'D', 'E', 'F', 'G', 'A'] else 'minor'
         features = {
             "bpm": int(float(tempo)),  # Double conversion pour éviter l'erreur
-            "key": keys[key_index],
+            "key": key,
             "danceability": float(np.mean(tempo > 120).item()),  # Convertir en float Python
             "acoustic": float(np.mean(spectral_centroids < sr/4).item()),
             "instrumental": float(np.mean(spectral_rolloff > sr/3).item()),
             "tonal": float(np.std(chroma).item()),  # Convertir en float Python
-            "camelot_key": key_to_camelot(keys[key_index]),
-            "scale": 'major' if keys[key_index] in ['C', 'D', 'E', 'F', 'G', 'A'] else 'minor'
+            "camelot_key": key_to_camelot(key, scale),
+            "scale": scale
         }
 
         logger.info(f"Analyse Librosa terminée: {features}")
@@ -54,7 +56,7 @@ async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
                 }, timeout=10)
                 response.raise_for_status()
                 logger.info(f"Track mise à jour avec succès: {response.json()}")
-        except httpx.HTTPStatusError as e:
+        except Exception as e:
             logger.error(f"Erreur lors de la mise à jour de la track: {str(e)}")
             # Stocker localement pour retry ultérieur
             failed_updates_db.insert({
@@ -105,17 +107,26 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
             'ab:hi:tonal_atonal:tonal': 'tonal'
         }
 
+        # Champs qui sont des chaînes de caractères (pas numériques)
+        string_fields = {'key', 'scale'}
+
         # Extraction des tags genre/mood
         genre_tags = set()
         mood_tags = set()
 
         # Parcours de tous les tags
         for tag_name, values in tags.items():
-            # Caractéristiques audio avec valeurs numériques
+            # Caractéristiques audio
             if tag_name in ab_mapping:
                 try:
-                    value = float(values[0]) if values else None
-                    features[ab_mapping[tag_name]] = value
+                    field = ab_mapping[tag_name]
+                    if field in string_fields:
+                        # Pour les champs string, prendre la valeur directement
+                        features[field] = values[0] if values else None
+                    else:
+                        # Pour les champs numériques, convertir en float
+                        value = float(values[0]) if values else None
+                        features[field] = value
                 except (ValueError, IndexError):
                     continue
 
@@ -123,6 +134,9 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
             tag_name_lower = tag_name.lower()
             if tag_name_lower.startswith('ab:'):
                 for value in (values if isinstance(values, list) else [values]):
+                    # Vérifier si la valeur est valide (pas une exception ou objet invalide)
+                    if not isinstance(value, (str, int, float)):
+                        raise ValueError(f"Valeur invalide dans les tags: {tag_name} = {value}")
                     value_str = str(value).strip()
                     # Ne garder que les tags qui ne sont pas des nombres
                     try:
@@ -133,6 +147,11 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
                             genre_tags.add(value_str)
                         elif 'mood' in tag_name_lower and not value_str.startswith('0.'):
                             mood_tags.add(value_str)
+            else:
+                # Pour les tags non 'ab:', vérifier quand même les valeurs invalides
+                for value in (values if isinstance(values, list) else [values]):
+                    if not isinstance(value, (str, int, float)):
+                        raise ValueError(f"Valeur invalide dans les tags: {tag_name} = {value}")
 
         # Mise à jour des tags dans les features
         features['genre_tags'] = [tag for tag in genre_tags if not any(c.isdigit() for c in tag)]
@@ -163,6 +182,6 @@ async def retry_failed_updates():
                 }, timeout=10)
                 response.raise_for_status()
                 logger.info(f"Retry réussi pour track {doc['track_id']}")
-                failed_updates_db.remove(doc_ids=[doc.doc_id])
+                failed_updates_db.remove(doc_ids=[doc["doc_id"]])
         except Exception as e:
             logger.error(f"Retry échoué pour track {doc['track_id']}: {str(e)}")

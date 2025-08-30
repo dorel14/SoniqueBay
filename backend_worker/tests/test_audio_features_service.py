@@ -36,7 +36,8 @@ async def test_analyze_audio_with_librosa_success(caplog, tmp_path):
                                     # Configurer le mock client
                                     mock_response = AsyncMock()
                                     mock_response.status_code = 200
-                                    mock_response.json.return_value = {"status": "success"}
+                                    mock_response.raise_for_status = MagicMock()
+                                    mock_response.json = MagicMock(return_value={"status": "success"})
                                     mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                                     
                                     # Appeler la fonction
@@ -78,7 +79,7 @@ async def test_analyze_audio_with_librosa_api_error(caplog, tmp_path):
                             # Configurer le mock client pour simuler une erreur
                             mock_response = AsyncMock()
                             mock_response.status_code = 500
-                            mock_response.raise_for_status.side_effect = Exception("API Error")
+                            mock_response.raise_for_status = MagicMock(side_effect=Exception("API Error"))
                             mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
                             
                             with patch('backend_worker.services.audio_features_service.failed_updates_db', mock_db):
@@ -180,6 +181,7 @@ async def test_retry_failed_updates_success(caplog):
             # Configurer le mock client
             mock_response = AsyncMock()
             mock_response.status_code = 200
+            mock_response.raise_for_status = MagicMock()
             mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
             
             # Appeler la fonction

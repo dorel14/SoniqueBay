@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, Mock
 import json
 
 from backend_worker.services.settings_service import SettingsService, _settings_cache
@@ -16,9 +16,9 @@ async def test_get_setting_from_api(clear_cache):
     """Test la récupération d'un paramètre depuis l'API."""
     with patch('httpx.AsyncClient') as mock_client:
         # Configurer le mock
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"value": "test_value"}
+        mock_response.json = Mock(return_value={"value": "test_value"})
         mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
         
         # Appeler la fonction
@@ -101,9 +101,9 @@ async def test_get_path_variables_success():
     """Test la récupération des variables de chemin avec succès."""
     with patch('httpx.AsyncClient') as mock_client:
         # Configurer le mock
-        mock_response = AsyncMock()
+        mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.json.return_value = {"library": "/music", "album_artist": "Artist", "album": "Album"}
+        mock_response.json = Mock(return_value={"library": "/music", "album_artist": "Artist", "album": "Album"})
         mock_client.return_value.__aenter__.return_value.get.return_value = mock_response
         
         # Appeler la fonction

@@ -26,12 +26,12 @@ async def test_process_metadata_chunk(caplog):
                     with patch('backend_worker.services.scanner.celery') as mock_celery:
                         # Configurer les mocks
                         mock_artists.return_value = {
-                            "artist1": {"id": 1, "name": "Artist 1"},
-                            "artist2": {"id": 2, "name": "Artist 2"}
+                            "artist 1": {"id": 1, "name": "Artist 1"},
+                            "artist 2": {"id": 2, "name": "Artist 2"}
                         }
                         mock_albums.return_value = {
-                            ("album1", 1): {"id": 1, "title": "Album 1"},
-                            ("album2", 2): {"id": 2, "title": "Album 2"}
+                            ("album 1", 1): {"id": 1, "title": "Album 1"},
+                            ("album 2", 2): {"id": 2, "title": "Album 2"}
                         }
                         mock_tracks.return_value = [
                             {"id": 1, "title": "Track 1"},
