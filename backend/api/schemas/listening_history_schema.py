@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 class ListeningHistoryBase(BaseModel):
@@ -12,5 +12,4 @@ class ListeningHistory(ListeningHistoryBase):
     id: int
     date_listened: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

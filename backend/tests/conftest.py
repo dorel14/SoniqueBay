@@ -1,10 +1,18 @@
+# backend/tests/conftest.py
 import pytest
+import sys
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
+
+# Ajouter le répertoire racine au sys.path si nécessaire
+root_dir = os.getcwd()
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 from backend.utils.database import Base, get_db
 from backend.api_app import create_api
-import os
 import tempfile
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
@@ -13,13 +21,28 @@ from backend.api.models.genres_model import Genre
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
 
-# Base de données SQLite en mémoire pour les tests
+# Base de données SQLite temporaire pour les tests
 @pytest.fixture(scope="session")
 def test_db_engine():
-    engine = create_engine("sqlite:///:memory:")
+    import tempfile
+    import os
+    # Créer un fichier temporaire pour la base de données
+    temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+    db_url = f"sqlite:///{temp_db.name}"
+    engine = create_engine(db_url)
     Base.metadata.create_all(bind=engine)
     yield engine
+    # Properly dispose of all connections before cleanup
+    engine.dispose()
     Base.metadata.drop_all(bind=engine)
+    # Supprimer le fichier temporaire avec gestion d'erreur
+    try:
+        os.unlink(temp_db.name)
+    except (OSError, PermissionError):
+        # Sur Windows, le fichier peut encore être verrouillé
+        # On peut essayer de le supprimer plus tard ou l'ignorer
+        pass
 
 @pytest.fixture
 def db_session(test_db_engine):
@@ -36,16 +59,16 @@ def db_session(test_db_engine):
 def client(db_session):
     """Client de test FastAPI avec une base de données de test."""
     app = create_api()
-    
+
     # Override de la dépendance get_db pour utiliser notre session de test
     def override_get_db():
         try:
             yield db_session
         finally:
             pass
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     with TestClient(app) as test_client:
         yield test_client
 
@@ -57,7 +80,7 @@ def create_test_artist(db_session):
     def _create_artist(name="Test Artist", musicbrainz_artistid=None):
         artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid)
         db_session.add(artist)
-        db_session.commit()
+        db_session.flush()  # Make it available in session
         return artist
     return _create_artist
 
@@ -70,30 +93,36 @@ def create_test_artists(db_session):
             artist = Artist(name=f"Test Artist {i}", musicbrainz_artistid=f"test-mb-id-{i}")
             db_session.add(artist)
             artists.append(artist)
-        db_session.commit()
+        db_session.flush()
         return artists
     return _create_artists
 
 @pytest.fixture
-def create_test_album(db_session):
+def create_test_album(db_session, create_test_artist):
     """Crée un album de test."""
     def _create_album(title="Test Album", artist_id=None, musicbrainz_albumid=None):
-        album = Album(title=title, artist_id=artist_id, musicbrainz_albumid=musicbrainz_albumid)
+        if artist_id is None:
+            artist = create_test_artist()
+            artist_id = artist.id
+        album = Album(title=title, album_artist_id=artist_id, musicbrainz_albumid=musicbrainz_albumid)
         db_session.add(album)
-        db_session.commit()
+        db_session.flush()
         return album
     return _create_album
 
 @pytest.fixture
-def create_test_albums(db_session):
+def create_test_albums(db_session, create_test_artist):
     """Crée plusieurs albums de test."""
     def _create_albums(count=3, artist_id=None):
+        if artist_id is None:
+            artist = create_test_artist()
+            artist_id = artist.id
         albums = []
         for i in range(count):
-            album = Album(title=f"Test Album {i}", artist_id=artist_id, musicbrainz_albumid=f"test-mb-album-id-{i}")
+            album = Album(title=f"Test Album {i}", album_artist_id=artist_id, musicbrainz_albumid=f"test-mb-album-id-{i}")
             db_session.add(album)
             albums.append(album)
-        db_session.commit()
+        db_session.flush()
         return albums
     return _create_albums
 
@@ -104,7 +133,7 @@ def create_test_track(db_session, create_test_artist):
         if artist_id is None:
             artist = create_test_artist()
             artist_id = artist.id
-        
+
         track_data = {
             "title": title,
             "path": path,
@@ -112,7 +141,7 @@ def create_test_track(db_session, create_test_artist):
             "album_id": album_id,
             **kwargs
         }
-        
+
         track = Track(**track_data)
         db_session.add(track)
         db_session.commit()
@@ -126,7 +155,7 @@ def create_test_tracks(db_session, create_test_artist):
         if artist_id is None:
             artist = create_test_artist()
             artist_id = artist.id
-        
+
         tracks = []
         for i in range(count):
             track = Track(
@@ -137,7 +166,7 @@ def create_test_tracks(db_session, create_test_artist):
             )
             db_session.add(track)
             tracks.append(track)
-        
+
         db_session.commit()
         return tracks
     return _create_tracks
@@ -147,7 +176,7 @@ def create_test_album_with_artist(db_session, create_test_artist):
     """Crée un album avec son artiste."""
     def _create_album_with_artist():
         artist = create_test_artist()
-        album = Album(title="Test Album", artist_id=artist.id)
+        album = Album(title="Test Album", album_artist_id=artist.id)
         db_session.add(album)
         db_session.commit()
         return album, artist
@@ -158,8 +187,8 @@ def create_test_track_with_relations(db_session, create_test_artist, create_test
     """Crée une piste avec artiste et album."""
     def _create_track_with_relations():
         artist = create_test_artist()
-        album = create_test_album(artist_id=artist.id)
-        
+        album = create_test_album(album_artist_id=artist.id)
+
         track = Track(
             title="Test Track with Relations",
             path="/path/to/relations_test.mp3",
@@ -168,7 +197,7 @@ def create_test_track_with_relations(db_session, create_test_artist, create_test
         )
         db_session.add(track)
         db_session.commit()
-        
+
         return track, artist, album
     return _create_track_with_relations
 
@@ -196,8 +225,8 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
     """Crée des pistes avec des métadonnées variées."""
     def _create_tracks_with_metadata():
         artist = create_test_artist()
-        album = create_test_album(artist_id=artist.id)
-        
+        album = create_test_album(album_artist_id=artist.id)
+
         tracks = []
         # Piste Rock
         track1 = Track(
@@ -213,7 +242,7 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
         )
         db_session.add(track1)
         tracks.append(track1)
-        
+
         # Piste Jazz
         track2 = Track(
             title="Test Jazz Track",
@@ -228,7 +257,7 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
         )
         db_session.add(track2)
         tracks.append(track2)
-        
+
         # Piste Electronic
         track3 = Track(
             title="Test Electronic Track",
@@ -243,7 +272,7 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
         )
         db_session.add(track3)
         tracks.append(track3)
-        
+
         db_session.commit()
         return tracks
     return _create_tracks_with_metadata
@@ -253,7 +282,7 @@ def create_test_track_with_tags(db_session, create_test_track):
     """Crée une piste avec des tags."""
     def _create_track_with_tags():
         track = create_test_track()
-        
+
         # Ajouter des genre_tags
         genre_tags = [
             GenreTag(name="rock"),
@@ -262,7 +291,7 @@ def create_test_track_with_tags(db_session, create_test_track):
         ]
         for tag in genre_tags:
             db_session.add(tag)
-        
+
         # Ajouter des mood_tags
         mood_tags = [
             MoodTag(name="happy"),
@@ -271,13 +300,13 @@ def create_test_track_with_tags(db_session, create_test_track):
         ]
         for tag in mood_tags:
             db_session.add(tag)
-        
+
         db_session.commit()
-        
+
         # Associer les tags à la piste
         track.genre_tags = genre_tags
         track.mood_tags = mood_tags
         db_session.commit()
-        
+
         return track
     return _create_track_with_tags

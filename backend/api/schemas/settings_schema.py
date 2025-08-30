@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional
 from .base_schema import TimestampedSchema
@@ -17,5 +17,4 @@ class Setting(SettingBase, TimestampedSchema):
     date_added: datetime
     date_modified: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

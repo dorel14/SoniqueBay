@@ -2,7 +2,7 @@ from __future__ import annotations
 from sqlalchemy import Column, String, Integer, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.utils.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Tables d'association
 artist_genres = Table(
@@ -34,8 +34,8 @@ class Genre(Base):
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    date_added: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=True)
-    date_modified: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    date_added: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=True)
+    date_modified: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=True)
 
     # Relations
     artists: Mapped[list["Artist"]] = relationship("Artist", secondary=artist_genres, back_populates="genres") # type: ignore # noqa: F821

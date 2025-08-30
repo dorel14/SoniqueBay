@@ -3,7 +3,7 @@ import httpx
 import math
 import os
 from urllib.parse import urlparse, parse_qs
-from helpers.logging import logger
+from utils.logging import logger
 from config import sonique_bay_logo
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
 

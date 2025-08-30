@@ -2,7 +2,7 @@ import websockets
 import asyncio
 import os
 import json
-from helpers.logging import logger
+from utils.logging import logger
 
 wsurl = os.getenv('WS_URL', 'ws://localhost:8001/api/ws')
 handlers = []

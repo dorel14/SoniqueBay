@@ -6,7 +6,7 @@ import os
 from urllib.parse import urlparse, parse_qs
 from config import sonique_bay_logo
 from frontend.pages.library import albums
-from helpers.logging import logger
+from utils.logging import logger
 from theme.layout import COMMON_LINK_CLASSES
 
 api_url = os.getenv('API_URL', 'http://localhost:8001')

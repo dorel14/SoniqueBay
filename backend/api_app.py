@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fastapi import FastAPI, WebSocket, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from backend.utils import settings
 from backend.utils.database import Base, engine
 from strawberry.fastapi import GraphQLRouter, BaseContext
@@ -36,11 +37,28 @@ graphql_app = GraphQLRouter(schema,
                             graphql_ide="graphiql",
                             context_getter=get_context)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Gestionnaire de lifespan pour l'application FastAPI."""
+    # Code d'initialisation (startup)
+    logger.info("Démarrage de l'API...")
+    await SettingsService().initialize_default_settings()
+    # Log des routes enregistrées
+    for route in app.routes:
+        if hasattr(route, "methods"):
+            logger.info(f"Route enregistrée: {route.path} [{route.methods}]")
+        else:
+            logger.info(f"WebSocket route enregistrée: {route.path}")
+    yield
+    # Code de nettoyage (shutdown) si nécessaire
+    pass
+
 # Créer l'application FastAPI
 app = FastAPI(title="SoniqueBay API",
             version="1.0.0",
             docs_url="/api/docs",
-            openapi_url="/api/openapi.json")
+            openapi_url="/api/openapi.json",
+            lifespan=lifespan)
 
 # Configuration CORS avec origins explicites
 origins = [
@@ -120,17 +138,6 @@ async def global_ws(websocket: WebSocket):
         logger.info("WebSocket disconnected.")
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialisation au démarrage."""
-    logger.info("Démarrage de l'API...")
-    await SettingsService().initialize_default_settings()
-    # Log des routes enregistrées
-    for route in app.routes:
-        if hasattr(route, "methods"):
-            logger.info(f"Route enregistrée: {route.path} [{route.methods}]")
-        else:
-            logger.info(f"WebSocket route enregistrée: {route.path}")
 
 
 def create_api():

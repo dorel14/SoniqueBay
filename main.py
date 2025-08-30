@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import subprocess
 import time
-from helpers.logging import logger
+from utils.logging import logger
 
 def launch_api():
     return subprocess.Popen(["python", "./backend/start_api.py"])

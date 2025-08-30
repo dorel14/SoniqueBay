@@ -65,6 +65,7 @@ docker-compose build && docker-compose up
   * Workers Celery,
   * Logique métier.
 * Gestion d’erreurs : lever des exceptions explicites, logs utiles, pas de `except: pass`.
+* Gestion des logs: dans chacun des dossiers principaux , il existe un sous dossier utils et une lib logging.py , elle doit être utilisée pour la gestion des logs ,  pas de print autorisé
 
 ### Frontend (NiceGUI)
 
@@ -89,6 +90,7 @@ docker-compose build && docker-compose up
 ## 5. ✅ Tests & Validation
 
 * Tester le projet **dans Docker** (pas seulement en local “nu”).
+* Tous les tests doivent être écrits dans les sous répertoires 'tests' des dossiers principaux 
 * Ajouter des **tests unitaires** pour la logique non triviale.
 * Vérifier avant commit :
 

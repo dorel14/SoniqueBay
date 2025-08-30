@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 # Import des routers
 from backend.api.routers.albums_api import router as albums_router
+from backend.api.routers.analysis_api import router as analysis_router
 from backend.api.routers.artists_api import router as artists_router
 from backend.api.routers.tracks_api import router as tracks_router
 from backend.api.routers.genres_api import router as genres_router
@@ -21,6 +22,7 @@ api_router = APIRouter()
 # Liste des routers à inclure
 ROUTERS = [
     albums_router,
+    analysis_router,
     artists_router,
     covers_router,
     tracks_router,

@@ -28,4 +28,4 @@ class Album(Base):
     )
 
     def __repr__(self):
-        return f"<Album(title='{self.title}', artist='{self.album_artist.name if self.album_artist else None}')>"
+        return f"<Album(title='{self.title}', artist='{self.artist.name if self.artist else None}')>"

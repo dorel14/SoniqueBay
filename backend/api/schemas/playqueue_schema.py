@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
 
@@ -16,8 +16,7 @@ class PlayQueue(BaseModel):
     current_position: Optional[int] = None
     last_updated: datetime = datetime.now()
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QueueOperation(BaseModel):
     track_id: int

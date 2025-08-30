@@ -3,7 +3,7 @@ from nicegui import ui, app
 from utils.music_tree_data import get_albums_for_artist
 from utils.music_tree_data import get_library_tree
 from frontend.websocket_manager.ws_client import register_ws_handler
-from helpers.logging import logger
+from utils.logging import logger
 
 def make_library_update_handler(tree):
     async def handler(data):

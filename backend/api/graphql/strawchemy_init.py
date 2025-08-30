@@ -1,5 +1,5 @@
 from strawchemy import Strawchemy, StrawchemySyncRepository, StrawchemyConfig
-from utils.settings import get_strawchemy_config
+from backend.utils.settings import get_strawchemy_config
 
 
 strawchemy = Strawchemy(StrawchemyConfig(get_strawchemy_config(),

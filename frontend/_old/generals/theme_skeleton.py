@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from helpers.logging import logger
+from utils.logging import logger
 from ...theme.menu import menu
 from .library_tree import library_tree
 from frontend.theme.colors import apply_theme

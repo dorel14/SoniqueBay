@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List
 
 class TrackVectorBase(BaseModel):
@@ -11,5 +11,4 @@ class TrackVectorCreate(TrackVectorBase):
 class TrackVector(TrackVectorBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

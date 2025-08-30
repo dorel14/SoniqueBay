@@ -1,10 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from sqlalchemy.orm import Session as SQLAlchemySession
-from backend.api.schemas.albums_schema import AlbumCreate, Album, AlbumWithRelations
+from backend.api.schemas.albums_schema import AlbumCreate, AlbumUpdate, Album, AlbumWithRelations
 from backend.api.models.albums_model import Album as AlbumModel
+from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.schemas.covers_schema import Cover
+from backend.api.schemas.tracks_schema import Track
 from sqlalchemy import func, or_
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from backend.utils.database import get_db
 from sqlalchemy.exc import IntegrityError
@@ -117,8 +119,8 @@ def create_albums_batch(albums: List[AlbumCreate], db: SQLAlchemySession = Depen
             album_data = {
                 **album.__dict__,
                 "covers": covers,
-                "date_added": album.date_added or datetime.utcnow(),
-                "date_modified": album.date_modified or datetime.utcnow(),
+                "date_added": album.date_added or datetime.now(timezone.utc),
+                "date_modified": album.date_modified or datetime.now(timezone.utc),
             }
             # On crée l'objet Pydantic puis on le "dump" en dict
             result.append(AlbumWithRelations.model_validate(album_data).model_dump())
@@ -186,8 +188,10 @@ def read_albums(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends
     # Convertir les dates None en datetime.now()
     return [AlbumWithRelations.model_validate(
         {**album.__dict__,
-         "date_added": album.date_added or datetime.utcnow(),
-         "date_modified": album.date_modified or datetime.utcnow()
+         "covers": [],
+         "cover_url": None,
+         "date_added": album.date_added or datetime.now(timezone.utc),
+         "date_modified": album.date_modified or datetime.now(timezone.utc)
         }
     ).model_dump() for album in albums]
 
@@ -197,14 +201,14 @@ async def read_album(
     album_id: int,
     db: SQLAlchemySession = Depends(get_db)
 ):
-    try:
-        album = db.query(AlbumModel) \
-            .options(joinedload(AlbumModel.covers)) \
-            .filter(AlbumModel.id == album_id).first()
-        if not album:
-            raise HTTPException(status_code=404, detail="Album non trouvé")
-        logger.debug(f"Covers trouvées pour l'album {album_id}: {album.covers}")
+    album = db.query(AlbumModel) \
+        .options(joinedload(AlbumModel.covers)) \
+        .filter(AlbumModel.id == album_id).first()
+    if not album:
+        raise HTTPException(status_code=404, detail="Album non trouvé")
+    logger.debug(f"Covers trouvées pour l'album {album_id}: {album.covers}")
 
+    try:
         album_covers = []
         if hasattr(album, 'covers') and album.covers:
             for cover in album.covers:
@@ -229,8 +233,8 @@ async def read_album(
             **album.__dict__,
             "covers": album_covers,
             "cover_url": album_covers[0].url if album_covers else None,
-            "date_added": album.date_added or datetime.utcnow(),
-            "date_modified": album.date_modified or datetime.utcnow(),
+            "date_added": album.date_added or datetime.now(timezone.utc),
+            "date_modified": album.date_modified or datetime.now(timezone.utc),
         }
 
         # Retourne un dict pour FastAPI
@@ -262,8 +266,8 @@ def read_artist_albums(
             album_data = {
                 **album.__dict__,
                 "covers": [Cover.model_validate(c) for c in album.covers],
-                "date_added": album.date_added or datetime.utcnow(),
-                "date_modified": album.date_modified or datetime.utcnow()
+                "date_added": album.date_added or datetime.now(timezone.utc),
+                "date_modified": album.date_modified or datetime.now(timezone.utc)
             }
             album_model = AlbumWithRelations.model_validate(album_data)
             album_list.append(album_model)
@@ -275,17 +279,76 @@ def read_artist_albums(
         raise HTTPException(status_code=500, detail="Erreur lors de la récupération des albums de l'artiste")
 
 @router.put("/{album_id}", response_model=Album)
-def update_album(album_id: int, album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
+def update_album(album_id: int, album: AlbumUpdate, db: SQLAlchemySession = Depends(get_db)):
     db_album = db.query(AlbumModel).filter(AlbumModel.id == album_id).first()
     if db_album is None:
         raise HTTPException(status_code=404, detail="Album non trouvé")
 
-    for key, value in album.dict().items():
-        setattr(db_album, key, value)
+    # Update only the fields that should be updatable, excluding timestamps
+    update_data = album.model_dump(exclude_unset=True, exclude={"date_added", "date_modified"})
+    for key, value in update_data.items():
+        if hasattr(db_album, key):
+            setattr(db_album, key, value)
+
+    # Update the modification timestamp
+    db_album.date_modified = func.now()
 
     db.commit()
     db.refresh(db_album)
-    return db_album
+    return Album.model_validate(db_album)
+
+@router.get("/{album_id}/tracks", response_model=List[Track])
+def read_album_tracks(album_id: int, db: SQLAlchemySession = Depends(get_db)):
+    """Récupère les pistes d'un album."""
+    try:
+        tracks = db.query(TrackModel).filter(TrackModel.album_id == album_id).all()
+        logger.debug(f"Pistes trouvées pour l'album {album_id}: {len(tracks)}")
+
+        # Convertir en format de réponse
+        result = []
+        for track in tracks:
+            track_dict = {
+                "id": track.id,
+                "title": track.title,
+                "path": track.path,
+                "track_artist_id": track.track_artist_id,
+                "album_id": track.album_id,
+                "duration": track.duration,
+                "track_number": track.track_number,
+                "disc_number": track.disc_number,
+                "year": track.year,
+                "genre": track.genre,
+                "file_type": track.file_type,
+                "bitrate": track.bitrate,
+                "featured_artists": track.featured_artists,
+                "bpm": track.bpm,
+                "key": track.key,
+                "scale": track.scale,
+                "danceability": track.danceability,
+                "mood_happy": track.mood_happy,
+                "mood_aggressive": track.mood_aggressive,
+                "mood_party": track.mood_party,
+                "mood_relaxed": track.mood_relaxed,
+                "instrumental": track.instrumental,
+                "acoustic": track.acoustic,
+                "tonal": track.tonal,
+                "musicbrainz_id": track.musicbrainz_id,
+                "musicbrainz_albumid": track.musicbrainz_albumid,
+                "musicbrainz_artistid": track.musicbrainz_artistid,
+                "musicbrainz_albumartistid": track.musicbrainz_albumartistid,
+                "acoustid_fingerprint": track.acoustid_fingerprint,
+                "date_added": track.date_added,
+                "date_modified": track.date_modified,
+                "genre_tags": [tag.name for tag in track.genre_tags] if track.genre_tags else [],
+                "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else []
+            }
+            result.append(track_dict)
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des pistes de l'album {album_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des pistes de l'album")
 
 @router.delete("/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):
@@ -295,4 +358,4 @@ def delete_album(album_id: int, db: SQLAlchemySession = Depends(get_db)):
 
     db.delete(album)
     db.commit()
-    return {"ok": True}
+    return

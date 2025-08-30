@@ -4,7 +4,7 @@ from nicegui import ui, app
 from config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
-from helpers.logging import logger
+from utils.logging import logger
 from websocket_manager.ws_client import register_ws_handler
 import asyncio
 import httpx

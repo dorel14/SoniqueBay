@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 from .base_schema import TimestampedSchema
@@ -15,13 +15,17 @@ class AlbumCreate(AlbumBase):
     date_modified : Optional[datetime] = datetime.now()
     pass
 
+class AlbumUpdate(AlbumBase):
+    title: Optional[str] = None
+    album_artist_id: Optional[int] = None
+    release_year: Optional[str] = None
+    musicbrainz_albumid: Optional[str] = None
+
 class Album(AlbumBase, TimestampedSchema):
     id: int
     covers: List[Cover] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class AlbumWithRelations(Album):
-    covers: Optional[List[Cover]] = []
     cover_url: Optional[str] = Field(None, description="URL de la couverture")

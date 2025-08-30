@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 from typing import Optional
 from enum import Enum
@@ -17,7 +17,8 @@ class CoverBase(BaseModel):
     cover_data: Optional[str] = Field(None, description="Données de l'image en Base64")
     mime_type: Optional[str] = Field(None, pattern="^image/[a-z]+$", description="Type MIME de l'image")
 
-    @validator('url')
+    @field_validator('url')
+    @classmethod
     def validate_url(cls, v):
         if not v:
             return v
@@ -30,8 +31,9 @@ class CoverBase(BaseModel):
 
 class CoverCreate(CoverBase):
     """Schéma pour la création d'une cover."""
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 class Cover(CoverBase, TimestampedSchema):
     id: int

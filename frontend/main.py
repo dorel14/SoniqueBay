@@ -5,7 +5,7 @@ import glob
 from typing import Callable
 from nicegui import ui
 from theme.layout import wrap_with_layout
-from helpers.logging import logger
+from utils.logging import logger
 from config import PAGES_DIR
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Define project root
 
