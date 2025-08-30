@@ -1,14 +1,14 @@
-from string import punctuation
+
 from typing import Dict, Optional, List, Tuple
 from cachetools import TTLCache
 import httpx
 import os
 import redis
 import json
-from pathlib import Path
-from helpers.logging import logger
-from services.settings_service import SettingsService
-from services.coverart_service import get_cover_schema, get_cover_types
+
+from backend_worker.utils.logging import logger
+from backend_worker.services.settings_service import SettingsService
+from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
 
 
 settings_service = SettingsService()
@@ -34,7 +34,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             cover_schema = await get_cover_schema()
     except Exception as e:
         logger.error(f"Erreur récupération schéma cover: {str(e)}")
-        return 
+        return None
     covertype = await get_cover_types()
     logger.debug(f"Types de cover disponibles: {covertype}")
     if entity_type not in covertype:
@@ -49,7 +49,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
 
         logger.info(f"Traitement cover pour {entity_type} {entity_id}")
         all_args = {
-            "entity_type": entity_type.value if hasattr(entity_type, "value") else entity_type,
+            "entity_type": entity_type,
             "entity_id": entity_id,
             "cover_data": cover_data,
             "mime_type": mime_type,
@@ -60,12 +60,12 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
         try:
             # Essayer directement le PUT
             response = await client.put(
-                f"{api_url}/api/covers/{entity_type.value}/{entity_id}",
+                f"{api_url}/api/covers/{entity_type}/{entity_id}",
                 json=cover_create, timeout=30,  # Timeout pour le PUT
             )
             if response.status_code in (200, 201):
                 logger.info(f"Cover mise à jour pour {entity_type} {entity_id}")
-                return response.json()
+                return await response.json()
         except Exception as e:
             logger.debug(f"PUT échoué, tentative de POST: {str(e)}")
 
@@ -78,7 +78,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             )
             if response.status_code in (200, 201):
                 logger.info(f"Cover créée pour {entity_type} {entity_id}")
-                return response.json()
+                return await response.json()
         except Exception as e:
             logger.error(f"Erreur création cover: {str(e)}")
 
@@ -106,8 +106,10 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         )
 
         if response.status_code == 200:
-            genres = response.json()
+            genres = await response.json()
             if genres:
+
+
                 genre = genres[0]
                 genre_cache[genre_name.lower()] = genre
                 logger.debug(f"Genre trouvé: {genre_name}")
@@ -122,7 +124,7 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         )
 
         if response.status_code in (200, 201):
-            genre = response.json()
+            genre = await response.json()
             genre_cache[genre_name.lower()] = genre
             logger.info(f"Nouveau genre créé: {genre_name}")
             return genre
@@ -147,9 +149,8 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
     """Crée ou récupère une liste d'artistes en une seule requête (batch)."""
     try:
         if not artists_data:
+            logger.info(f"Traitement en batch de {len(artists_data)} artistes.")
             return {}
-
-        logger.info(f"Traitement en batch de {len(artists_data)} artistes.")
         
         # Utiliser le nouveau endpoint /batch
         response = await client.post(
@@ -159,7 +160,7 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
         )
 
         if response.status_code in (200, 201):
-            artists = response.json()
+            artists = await response.json()
             # Créer un dictionnaire pour un accès facile par nom ou mbid
             artist_map = {
                 (artist.get('musicbrainz_artistid') or artist['name'].lower()): artist
@@ -192,7 +193,7 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
         )
 
         if response.status_code in (200, 201):
-            albums = response.json()
+            albums = await response.json()
             # Clé: (titre, artist_id) ou mbid
             album_map = {
                 (album.get('musicbrainz_albumid') or (album['title'].lower(), album['album_artist_id'])): album
@@ -348,7 +349,7 @@ async def create_or_update_tracks_batch(client: httpx.AsyncClient, tracks_data: 
         )
 
         if response.status_code in (200, 201):
-            processed_tracks = response.json()
+            processed_tracks = await response.json()
             logger.info(f"{len(processed_tracks)} pistes traitées avec succès en batch.")
             return processed_tracks
         else:
@@ -374,5 +375,4 @@ async def process_artist_covers(client: httpx.AsyncClient, artist_id: int,
             )
     except Exception as e:
         logger.error(f"Erreur traitement covers artiste {artist_id}: {str(e)}")
-
-
+    return None

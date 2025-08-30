@@ -1,6 +1,6 @@
 import httpx
 from typing import Optional, Tuple
-from helpers.logging import logger
+from backend_worker.utils.logging import logger
 import base64
 import os
 

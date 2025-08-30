@@ -4,9 +4,9 @@ import mimetypes
 import aiofiles
 
 from typing import Tuple, Optional, List
-from helpers.logging import logger
-from .path_service import find_local_images
-from .settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES
+from backend_worker.utils.logging import logger
+from backend_worker.services.path_service import find_local_images
+from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES
 from pathlib import Path
 
 settings_service = SettingsService()
@@ -48,7 +48,7 @@ async def find_cover_in_directory(directory: str, cover_filenames: list[str]) ->
             cover_path = dir_path / filename
             if cover_path.exists():
                 logger.info(f"Cover trouvée: {cover_path}")
-                return str(cover_path)
+                return cover_path.as_posix()
         
         return None
     except Exception as e:
@@ -68,6 +68,8 @@ async def process_cover_image(image_path: str, album_path: Optional[str] = None)
                 image_bytes = await read_image_file(image_path)
                 if image_bytes:
                     return await process_image_data(image_bytes)
+                else:
+                    logger.error(f"Erreur traitement cover: Impossible de lire le fichier {image_path}")
 
         # Chercher dans le dossier local si un chemin album est fourni
         if album_path:
@@ -166,9 +168,9 @@ async def get_artist_images(artist_path: str) -> List[Tuple[str, str]]:
                     mime_type = mimetypes.guess_type(str(image_path))[0] or 'image/jpeg'
                     async with aiofiles.open(image_path, mode='rb') as f:
                         image_bytes = await f.read()
-                        image_data = await convert_to_base64(image_bytes, mime_type)
+                        image_data, converted_mime_type = await convert_to_base64(image_bytes, mime_type)
                         if image_data:
-                            artist_images.append((image_data, mime_type))
+                            artist_images.append((image_data, converted_mime_type))
                             logger.info(f"Image traitée avec succès: {image_path}")
                 except Exception as e:
                     logger.error(f"Erreur traitement image {image_path}: {str(e)}")

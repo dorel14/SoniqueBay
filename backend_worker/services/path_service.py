@@ -2,8 +2,8 @@ import os
 import httpx
 import json
 from typing import Optional,  List
-from helpers.logging import logger
-from .settings_service import SettingsService, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
+from backend_worker.utils.logging import logger
+from backend_worker.services.settings_service import SettingsService, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
 from pathlib import Path
 
 settings_service = SettingsService()

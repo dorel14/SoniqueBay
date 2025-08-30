@@ -1,8 +1,8 @@
 import httpx
 import base64
 from typing import Optional, Tuple
-from helpers.logging import logger
-from .settings_service import SettingsService
+from backend_worker.utils.logging import logger
+from backend_worker.services.settings_service import SettingsService
 
 settings_service = SettingsService()
 _lastfm_artist_image_cache = {}

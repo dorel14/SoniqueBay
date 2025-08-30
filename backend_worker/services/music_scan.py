@@ -7,13 +7,13 @@ from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
 import os
-from helpers.logging import logger
+from backend_worker.utils.logging import logger
 import base64
-from services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
+from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
 import json
 import aiofiles
 import asyncio
-from services.audio_features_service import extract_audio_features
+from backend_worker.services.audio_features_service import extract_audio_features
 
 
 

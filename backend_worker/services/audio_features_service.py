@@ -1,9 +1,9 @@
-from helpers.logging import logger
+from backend_worker.utils.logging import logger
 import librosa
 import httpx
 import os
 import numpy as np
-from .key_service import key_to_camelot
+from backend_worker.services.key_service import key_to_camelot
 from tinydb import TinyDB
 import pathlib
 import asyncio

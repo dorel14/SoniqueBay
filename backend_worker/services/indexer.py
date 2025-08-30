@@ -2,8 +2,8 @@
 import os
 import shutil
 from typing import Callable, Optional, Dict
-from services.music_scan import scan_music_files
-from helpers.logging import logger
+from backend_worker.services.music_scan import scan_music_files
+from backend_worker.utils.logging import logger
 import httpx
 import json
 

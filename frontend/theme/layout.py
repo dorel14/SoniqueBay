@@ -243,6 +243,7 @@ def wrap_with_layout(render_page):
             ui.separator()
             ui.space()
             left_menu()
+            ui.space()
             ui.separator()
             with ui.row().classes('items-center q-my-sm object-bottom'):
                 ui.button(text='Actualiser la bibliothèque',on_click=refresh_library,
