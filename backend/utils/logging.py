@@ -17,6 +17,9 @@ parentdir = os.path.dirname(currentdir)
 logdir = os.path.join(parentdir, '/logs')
 logfiles = os.path.join(logdir, 'soniquebay - '+ datetime.today().strftime(date_format) +'.log')
 
+# Détecter si on est en mode test (pytest)
+is_testing = 'pytest' in sys.modules or 'PYTEST_CURRENT_TEST' in os.environ
+
 
 class SafeFormatter(logging.Formatter):
     def format(self, record):
@@ -58,13 +61,18 @@ logger.setLevel(getattr(logging, log_level))
 safe_formatter = SafeFormatter('%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s')
 
 # Création des handlers pour le QueueListener
-file_handler = RotatingFileHandler(filename=logfiles,
-                                    mode='a',
-                                    maxBytes=1000000,
-                                    backupCount=5,
-                                    encoding='utf-8',)
-file_handler.setLevel(getattr(logging, log_level))
-file_handler.setFormatter(safe_formatter)
+handlers = []
+
+# Ne pas ajouter le file_handler en mode test pour éviter les conflits de multiprocessing
+if not is_testing:
+    file_handler = RotatingFileHandler(filename=logfiles,
+                                        mode='a',
+                                        maxBytes=1000000,
+                                        backupCount=5,
+                                        encoding='utf-8',)
+    file_handler.setLevel(getattr(logging, log_level))
+    file_handler.setFormatter(safe_formatter)
+    handlers.append(file_handler)
 
 # Handler console avec encodage utf-8
 class Utf8StreamHandler(logging.StreamHandler):
@@ -79,10 +87,15 @@ class Utf8StreamHandler(logging.StreamHandler):
 stream_handler = Utf8StreamHandler()
 stream_handler.setLevel(getattr(logging, log_level))
 stream_handler.setFormatter(safe_formatter)
+handlers.append(stream_handler)
 
-# Configurer le QueueListener avec les handlers
-listener = QueueListener(log_queue, file_handler, stream_handler)
-listener.start()
+# Configurer le QueueListener avec les handlers (uniquement si il y a des handlers)
+if handlers:
+    listener = QueueListener(log_queue, *handlers)
+    listener.start()
+else:
+    # En mode test sans handlers, on ne démarre pas le listener
+    listener = None
 
 # Configurer le logger principal pour utiliser un QueueHandler
 queue_handler = QueueHandler(log_queue)
@@ -97,9 +110,17 @@ def configure_worker_logging():
     # Supprimer tous les handlers existants
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-    
-    # Ajouter un QueueHandler qui envoie les logs à la queue partagée
-    handler = QueueHandler(log_queue)
-    logger.addHandler(handler)
+
+    # En mode test, utiliser seulement un handler console simple
+    if is_testing:
+        stream_handler = Utf8StreamHandler()
+        stream_handler.setLevel(getattr(logging, log_level))
+        stream_handler.setFormatter(safe_formatter)
+        logger.addHandler(stream_handler)
+    else:
+        # Ajouter un QueueHandler qui envoie les logs à la queue partagée
+        handler = QueueHandler(log_queue)
+        logger.addHandler(handler)
+
     logger.setLevel(getattr(logging, log_level))
     return logger

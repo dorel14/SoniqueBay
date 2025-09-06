@@ -22,10 +22,15 @@ from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
 
 # Base de données SQLite temporaire pour les tests
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def test_db_engine():
     import tempfile
     import os
+    # Créer un fichier marqueur pour indiquer qu'on est en mode test
+    test_marker_file = os.path.join(os.getcwd(), '.test_mode')
+    with open(test_marker_file, 'w') as f:
+        f.write('1')
+
     # Créer un fichier temporaire pour la base de données
     temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_db.close()
@@ -37,12 +42,44 @@ def test_db_engine():
     engine.dispose()
     Base.metadata.drop_all(bind=engine)
     # Supprimer le fichier temporaire avec gestion d'erreur
+    import time
+    time.sleep(0.1)  # Petit délai pour permettre la libération du fichier
     try:
         os.unlink(temp_db.name)
     except (OSError, PermissionError):
         # Sur Windows, le fichier peut encore être verrouillé
         # On peut essayer de le supprimer plus tard ou l'ignorer
         pass
+
+    # Supprimer le fichier marqueur
+    try:
+        os.unlink(test_marker_file)
+    except (OSError, PermissionError):
+        pass
+
+
+@pytest.fixture(scope="function")
+def encryption_key():
+    """Fixture qui définit une clé de cryptage fixe pour les tests."""
+    import os
+    from cryptography.fernet import Fernet
+
+    # Utiliser une clé fixe valide pour les tests
+    test_key = b'PJMY7VW4nm_gUJ8UO43EgbKrJm9gJ0F-WxqK-NSIoh0='
+
+    # Sauvegarder la clé existante si elle existe
+    original_key = os.environ.get('ENCRYPTION_KEY')
+
+    # Définir la clé de test
+    os.environ['ENCRYPTION_KEY'] = test_key.decode()
+
+    yield test_key
+
+    # Restaurer la clé originale
+    if original_key is not None:
+        os.environ['ENCRYPTION_KEY'] = original_key
+    else:
+        os.environ.pop('ENCRYPTION_KEY', None)
 
 @pytest.fixture
 def db_session(test_db_engine):
@@ -100,11 +137,11 @@ def create_test_artists(db_session):
 @pytest.fixture
 def create_test_album(db_session, create_test_artist):
     """Crée un album de test."""
-    def _create_album(title="Test Album", artist_id=None, musicbrainz_albumid=None):
+    def _create_album(title="Test Album", artist_id=None, musicbrainz_albumid=None, release_year=None):
         if artist_id is None:
             artist = create_test_artist()
             artist_id = artist.id
-        album = Album(title=title, album_artist_id=artist_id, musicbrainz_albumid=musicbrainz_albumid)
+        album = Album(title=title, album_artist_id=artist_id, musicbrainz_albumid=musicbrainz_albumid, release_year=release_year)
         db_session.add(album)
         db_session.flush()
         return album

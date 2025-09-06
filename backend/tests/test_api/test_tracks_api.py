@@ -60,7 +60,9 @@ def test_update_track_basic(client, db_session, create_test_track):
     track = create_test_track(title="Original Title")
 
     update_data = {
-        "title": "Updated Title"
+        "title": "Updated Title",
+        "path": track.path,  # Required field
+        "track_artist_id": track.track_artist_id  # Required field
     }
 
     response = client.put(f"/api/tracks/{track.id}", json=update_data)

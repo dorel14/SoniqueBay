@@ -3,21 +3,23 @@ from backend.api.models.artists_model import Artist
 
 def test_get_artists_empty(client, db_session):
     """Test de récupération d'une liste vide d'artistes."""
-    response = client.get("/api/artists/")
+    response = client.get("/api/artists")
     assert response.status_code == 200
-    assert response.json() == []
+    data = response.json()
+    assert data == {"count": 0, "results": []}
 
 def test_get_artists_with_data(client, db_session, create_test_artists):
     """Test de récupération d'une liste d'artistes avec données."""
     artists = create_test_artists(5)  # Crée 5 artistes de test
 
-    response = client.get("/api/artists/")
+    response = client.get("/api/artists")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 5
+    assert data["count"] == 5
+    assert len(data["results"]) == 5
 
     # Vérifier que les données correspondent
-    artist_ids = [artist["id"] for artist in data]
+    artist_ids = [artist["id"] for artist in data["results"]]
     for artist in artists:
         assert artist.id in artist_ids
 
@@ -102,7 +104,7 @@ def test_get_artist_tracks(client, db_session, create_test_artist_with_tracks):
     """Test de récupération des pistes d'un artiste."""
     artist, tracks = create_test_artist_with_tracks(track_count=3)
 
-    response = client.get(f"/api/artists/{artist.id}/tracks")
+    response = client.get(f"/api/tracks/artists/{artist.id}")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 3

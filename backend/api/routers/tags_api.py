@@ -1,5 +1,6 @@
-from fastapi import APIRouter,  Depends
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List
 from backend.utils.database import get_db
 from backend.api.schemas.tags_schema import Tag, TagCreate
@@ -17,16 +18,24 @@ async def list_mood_tags(db: Session = Depends(get_db)):
 
 @router.post("/api/genre-tags/", response_model=Tag)
 async def create_genre_tag(tag: TagCreate, db: Session = Depends(get_db)):
-    db_tag = GenreTag(name=tag.name)
-    db.add(db_tag)
-    db.commit()
-    db.refresh(db_tag)
-    return db_tag
+    try:
+        db_tag = GenreTag(name=tag.name)
+        db.add(db_tag)
+        db.commit()
+        db.refresh(db_tag)
+        return db_tag
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Un tag de genre avec ce nom existe déjà")
 
 @router.post("/api/mood-tags/", response_model=Tag)
 async def create_mood_tag(tag: TagCreate, db: Session = Depends(get_db)):
-    db_tag = MoodTag(name=tag.name)
-    db.add(db_tag)
-    db.commit()
-    db.refresh(db_tag)
-    return db_tag
+    try:
+        db_tag = MoodTag(name=tag.name)
+        db.add(db_tag)
+        db.commit()
+        db.refresh(db_tag)
+        return db_tag
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Un tag d'humeur avec ce nom existe déjà")

@@ -208,6 +208,8 @@ async def read_artist(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
         
         return response_data
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erreur lors de la récupération de l'artiste {artist_id}: {str(e)}")
         raise HTTPException(

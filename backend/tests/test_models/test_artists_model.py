@@ -80,8 +80,8 @@ def test_artist_relationships_with_albums(db_session):
 
     # Créer des albums pour cet artiste
     from backend.api.models.albums_model import Album
-    album1 = Album(title="Album 1", artist_id=artist.id)
-    album2 = Album(title="Album 2", artist_id=artist.id)
+    album1 = Album(title="Album 1", album_artist_id=artist.id)
+    album2 = Album(title="Album 2", album_artist_id=artist.id)
     db_session.add(album1)
     db_session.add(album2)
     db_session.commit()

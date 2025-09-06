@@ -10,7 +10,7 @@ def test_get_albums_query(client, db_session, create_test_albums):
         albums {
             id
             title
-            year
+            releaseYear
             artist {
                 id
                 name
@@ -37,14 +37,14 @@ def test_get_albums_query(client, db_session, create_test_albums):
 def test_get_album_by_id_query(client, db_session, create_test_album):
     """Test de récupération d'un album par ID via GraphQL."""
     # Créer un album de test
-    album = create_test_album(title="Test Album", year="2023")
+    album = create_test_album(title="Test Album", release_year="2023")
 
     query = f"""
     query {{
         album(id: {album.id}) {{
             id
             title
-            year
+            releaseYear
             artist {{
                 id
                 name
@@ -61,7 +61,7 @@ def test_get_album_by_id_query(client, db_session, create_test_album):
     assert "album" in data["data"]
     assert data["data"]["album"]["id"] == str(album.id)
     assert data["data"]["album"]["title"] == "Test Album"
-    assert data["data"]["album"]["year"] == "2023"
+    assert data["data"]["album"]["releaseYear"] == "2023"
 
 def test_get_albums_with_tracks_query(client, db_session, create_test_artist_album_tracks):
     """Test de récupération d'albums avec leurs pistes via GraphQL."""

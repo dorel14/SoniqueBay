@@ -14,7 +14,7 @@ def test_create_genre(client, db_session):
     }
 
     response = client.post("/api/genres/", json=genre_data)
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Rock"
 

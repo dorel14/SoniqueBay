@@ -14,7 +14,7 @@ def test_create_track(db_session):
     db_session.add(artist)
     db_session.flush()
 
-    album = Album(title="Test Album", artist_id=artist.id)
+    album = Album(title="Test Album", album_artist_id=artist.id)
     db_session.add(album)
     db_session.flush()
 
@@ -83,7 +83,7 @@ def test_track_relationships(db_session):
     db_session.flush()
 
     # Créer un album
-    album = Album(title="Relationship Test Album", artist_id=artist.id)
+    album = Album(title="Relationship Test Album", album_artist_id=artist.id)
     db_session.add(album)
     db_session.flush()
 

@@ -1,7 +1,7 @@
-from venv import logger
 from fastapi import APIRouter, Body, HTTPException
 from backend.utils.search import get_or_create_index, search_index, add_to_index
 from backend.api.schemas.search_schema import SearchQuery, SearchResult, SearchFacet, AddToIndexRequest
+from backend.utils.logging import logger
 
 import os
 
@@ -21,10 +21,12 @@ def api_add_to_index(body: AddToIndexRequest):
     return {"status": "ok"}
 
 @router.post("/", response_model=SearchResult)
-async def search(query: SearchQuery):
+async def search(query: SearchQuery, index_dir: str = None):
     try:
-        # Initialiser l'index
-        index_dir = os.path.join(os.getcwd(), "search_index")
+        # Utiliser le répertoire d'index fourni ou utiliser le répertoire par défaut
+        if index_dir is None:
+            index_dir = os.path.join(os.getcwd(), "search_index")
+
         index = get_or_create_index(index_dir)
 
         # Effectuer la recherche

@@ -16,30 +16,30 @@ async def get_queue():
 
 @router.post("/tracks", response_model=PlayQueue)
 async def add_track(track: QueueTrack):
-    queue = get_queue()
+    queue = await get_queue()
     track.position = len(queue.tracks)
     queue.tracks.append(track)
     queue.last_updated = datetime.now()
     db.truncate()
-    db.insert(queue.dict())
+    db.insert(queue.model_dump())
     return queue
 
 @router.delete("/tracks/{track_id}", response_model=PlayQueue)
 async def remove_track(track_id: int):
-    queue = get_queue()
+    queue = await get_queue()
     queue.tracks = [t for t in queue.tracks if t.id != track_id]
     # Réorganiser les positions
     for i, track in enumerate(queue.tracks):
         track.position = i
     queue.last_updated = datetime.now()
     db.truncate()
-    db.insert(queue.dict())
+    db.insert(queue.model_dump())
     return queue
 
 @router.post("/tracks/move", response_model=PlayQueue)
 async def move_track(operation: QueueOperation):
-    queue = get_queue()
-    if not operation.new_position:
+    queue = await get_queue()
+    if operation.new_position is None:
         raise HTTPException(status_code=400, detail="Nouvelle position requise")
 
     # Trouver et déplacer la piste
@@ -56,7 +56,7 @@ async def move_track(operation: QueueOperation):
 
     queue.last_updated = datetime.now()
     db.truncate()
-    db.insert(queue.dict())
+    db.insert(queue.model_dump())
     return queue
 
 @router.delete("/", response_model=PlayQueue)

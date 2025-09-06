@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.exc import IntegrityError
 from typing import List
 from backend.utils.database import get_db
 from backend.api.schemas.settings_schema import SettingCreate, Setting
@@ -22,8 +23,12 @@ async def get_path_variables():
     }
 
 @router.post("/validate-path-template")
-async def validate_template(template: str):
+async def validate_template(template: str = None):
     """Valide un template de chemin."""
+    # Try to get template from request body if not in query
+    if template is None:
+        # This might happen if the client sends it in the body
+        pass
     is_valid = PathVariables.validate_path_template(template)
     return {
         "is_valid": is_valid,
@@ -33,16 +38,32 @@ async def validate_template(template: str):
 # Routes CRUD génériques ensuite
 @router.post("/", response_model=Setting)
 async def create_setting(setting: SettingCreate, db: SQLAlchemySession = Depends(get_db)):
-    db_setting = SettingModel(
-        key=setting.key,
-        value=encrypt_value(setting.value) if setting.is_encrypted else setting.value,
-        description=setting.description,
-        is_encrypted=setting.is_encrypted
-    )
-    db.add(db_setting)
-    db.commit()
-    db.refresh(db_setting)
-    return db_setting
+    try:
+        encrypted_value = encrypt_value(setting.value) if setting.is_encrypted else setting.value
+        db_setting = SettingModel(
+            key=setting.key,
+            value=encrypted_value,
+            description=setting.description,
+            is_encrypted=setting.is_encrypted
+        )
+        db.add(db_setting)
+        db.commit()
+        db.refresh(db_setting)
+
+        # Créer une copie pour la réponse avec la valeur décryptée si nécessaire
+        response_setting = SettingModel(
+            key=db_setting.key,
+            value=decrypt_value(db_setting.value) if db_setting.is_encrypted and db_setting.value else db_setting.value,
+            description=db_setting.description,
+            is_encrypted=db_setting.is_encrypted,
+            date_added=db_setting.date_added,
+            date_modified=db_setting.date_modified
+        )
+        response_setting.id = db_setting.id
+        return response_setting
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Un paramètre avec cette clé existe déjà")
 
 @router.get("/", response_model=List[Setting])
 async def read_settings(db: SQLAlchemySession = Depends(get_db)):
@@ -81,10 +102,20 @@ async def read_setting(key: str, db: SQLAlchemySession = Depends(get_db)):
         else:
             raise HTTPException(status_code=404, detail="Paramètre non trouvé")
 
-    # Décrypter si nécessaire
+    # Décrypter si nécessaire - créer une copie pour éviter de modifier l'objet en base
     if db_setting.is_encrypted and db_setting.value:
-        db_setting.value = decrypt_value(db_setting.value)
-    
+        # Créer une copie de l'objet pour la réponse
+        response_setting = SettingModel(
+            key=db_setting.key,
+            value=decrypt_value(db_setting.value),
+            description=db_setting.description,
+            is_encrypted=db_setting.is_encrypted,
+            date_added=db_setting.date_added,
+            date_modified=db_setting.date_modified
+        )
+        response_setting.id = db_setting.id
+        return response_setting
+
     return db_setting
 
 @router.put("/{key}", response_model=Setting)
@@ -93,10 +124,14 @@ async def update_setting(key: str, setting: SettingCreate, db: SQLAlchemySession
     if not db_setting:
         raise HTTPException(status_code=404, detail="Paramètre non trouvé")
 
-    db_setting.value = encrypt_value(setting.value) if setting.is_encrypted else setting.value
+    encrypted_value = encrypt_value(setting.value) if setting.is_encrypted else setting.value
+    db_setting.value = encrypted_value
     db_setting.description = setting.description
     db_setting.is_encrypted = setting.is_encrypted
 
     db.commit()
     db.refresh(db_setting)
+    # Décrypter la valeur pour la réponse si elle est cryptée
+    if db_setting.is_encrypted and db_setting.value:
+        db_setting.value = decrypt_value(db_setting.value)
     return db_setting

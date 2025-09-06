@@ -89,6 +89,7 @@ docker-compose build && docker-compose up
 
 ## 5. ✅ Tests & Validation
 
+* Tester le projet en mode local avec pytest,  on indiquera en fin de commande -n auto pour la lib pytest-xdist
 * Tester le projet **dans Docker** (pas seulement en local “nu”).
 * Tous les tests doivent être écrits dans les sous répertoires 'tests' des dossiers principaux 
 * Ajouter des **tests unitaires** pour la logique non triviale.
@@ -165,7 +166,7 @@ git checkout -b feat/nom-fonctionnalite
 * Avant commit, vérifier :
 
   * le projet démarre dans Docker,
-  * le code est formaté (`black`, `isort`),
+  * le code est formaté (`ruff`, `isort`),
   * pas d’imports morts, pas de TODO “temporaires” laissés au milieu d’une feature.
 
 ---

@@ -132,7 +132,7 @@ async def update_cover(
 @router.get("/schema")
 async def get_cover_schema():
     """Retourne le schéma JSON attendu pour CoverCreate."""
-    return CoverCreate.schema()
+    return CoverCreate.model_json_schema()
 
 @router.get("/types")
 async def get_cover_types():

@@ -429,11 +429,11 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
         }
         
         # Add related data
-        if track.track_artist:
+        if track.artist:
             track_dict["track_artist"] = {
-                "id": track.track_artist.id,
-                "name": track.track_artist.name,
-                "musicbrainz_artistid": track.track_artist.musicbrainz_artistid
+                "id": track.artist.id,
+                "name": track.artist.name,
+                "musicbrainz_artistid": track.artist.musicbrainz_artistid
             }
         
         if track.album:
