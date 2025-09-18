@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from typing import Annotated
 from backend.utils.logging import logger
 from backend.utils.settings import Settings
-from backend.api.services.settings_service import SettingsService
+from backend.services.settings_service import SettingsService
 import redis.asyncio as redis
 from backend.utils.database import get_session
 # Initialiser la base de données avant d'importer les modèles

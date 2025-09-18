@@ -1,0 +1,107 @@
+# serializer version: 1
+# name: TestAlbumQueries.test_get_album
+  dict({
+    'album': dict({
+      'albumArtistId': 1,
+      'id': 1,
+      'musicbrainzAlbumid': 'test-mb-album-id',
+      'releaseYear': '2023',
+      'title': 'Test Album',
+    }),
+  })
+# ---
+# name: TestAlbumQueries.test_get_album_nonexistent
+  dict({
+    'album': None,
+  })
+# ---
+# name: TestAlbumQueries.test_list_albums
+  dict({
+    'albums': list([
+      dict({
+        'albumArtistId': 1,
+        'id': 1,
+        'title': 'Test Album 0',
+      }),
+      dict({
+        'albumArtistId': 1,
+        'id': 2,
+        'title': 'Test Album 1',
+      }),
+    ]),
+  })
+# ---
+# name: TestArtistQueries.test_get_artist
+  dict({
+    'artist': dict({
+      'id': 1,
+      'musicbrainzArtistid': 'test-mb-id',
+      'name': 'Test Artist',
+    }),
+  })
+# ---
+# name: TestArtistQueries.test_get_artist_nonexistent
+  dict({
+    'artist': None,
+  })
+# ---
+# name: TestArtistQueries.test_list_artists
+  dict({
+    'artists': list([
+      dict({
+        'id': 1,
+        'musicbrainzArtistid': 'test-mb-id-0',
+        'name': 'Test Artist 0',
+      }),
+      dict({
+        'id': 2,
+        'musicbrainzArtistid': 'test-mb-id-1',
+        'name': 'Test Artist 1',
+      }),
+    ]),
+  })
+# ---
+# name: TestArtistQueries.test_list_artists_empty
+  dict({
+    'artists': list([
+    ]),
+  })
+# ---
+# name: TestTrackQueries.test_get_track
+  dict({
+    'track': dict({
+      'albumId': 1,
+      'bpm': 120.0,
+      'genre': 'Rock',
+      'id': 1,
+      'key': 'C',
+      'path': '/path/to/test.mp3',
+      'scale': 'major',
+      'title': 'Test Track',
+      'trackArtistId': 1,
+    }),
+  })
+# ---
+# name: TestTrackQueries.test_get_track_nonexistent
+  dict({
+    'track': None,
+  })
+# ---
+# name: TestTrackQueries.test_list_tracks
+  dict({
+    'tracks': list([
+      dict({
+        'id': 1,
+        'path': '/path/to/test0.mp3',
+        'title': 'Test Track 0',
+        'trackArtistId': 1,
+      }),
+      dict({
+        'id': 2,
+        'path': '/path/to/test1.mp3',
+        'title': 'Test Track 1',
+        'trackArtistId': 1,
+      }),
+    ]),
+  })
+# ---

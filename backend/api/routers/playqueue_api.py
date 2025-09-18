@@ -1,65 +1,48 @@
 from fastapi import APIRouter, HTTPException
 from typing import List
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
+from backend.services.playqueue_service import PlayQueueService
 from backend.utils.tinydb_handler import TinyDBHandler
-from datetime import datetime
+from backend.utils.tinydb_handler import TinyDBHandler
+db = TinyDBHandler().get_db('playqueue')  # For backward compatibility with tests
+ 
 
 router = APIRouter(prefix="/api/playqueue", tags=["playqueue"])
-db = TinyDBHandler.get_db('playqueue')
+ 
 
 @router.get("/", response_model=PlayQueue)
 async def get_queue():
-    queue_data = db.all()
-    if not queue_data:
-        return PlayQueue()
-    return PlayQueue(**queue_data[0])
+    try:
+        return PlayQueueService.get_queue()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PlayQueue error: {str(e)}")
 
 @router.post("/tracks", response_model=PlayQueue)
 async def add_track(track: QueueTrack):
-    queue = await get_queue()
-    track.position = len(queue.tracks)
-    queue.tracks.append(track)
-    queue.last_updated = datetime.now()
-    db.truncate()
-    db.insert(queue.model_dump())
-    return queue
+    try:
+        return PlayQueueService.add_track(track)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Add track error: {str(e)}")
 
 @router.delete("/tracks/{track_id}", response_model=PlayQueue)
 async def remove_track(track_id: int):
-    queue = await get_queue()
-    queue.tracks = [t for t in queue.tracks if t.id != track_id]
-    # Réorganiser les positions
-    for i, track in enumerate(queue.tracks):
-        track.position = i
-    queue.last_updated = datetime.now()
-    db.truncate()
-    db.insert(queue.model_dump())
-    return queue
+    try:
+        return PlayQueueService.remove_track(track_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Remove track error: {str(e)}")
 
 @router.post("/tracks/move", response_model=PlayQueue)
 async def move_track(operation: QueueOperation):
-    queue = await get_queue()
-    if operation.new_position is None:
-        raise HTTPException(status_code=400, detail="Nouvelle position requise")
-
-    # Trouver et déplacer la piste
-    track_to_move = next((t for t in queue.tracks if t.id == operation.track_id), None)
-    if not track_to_move:
-        raise HTTPException(status_code=404, detail="Piste non trouvée")
-
-    queue.tracks.remove(track_to_move)
-    queue.tracks.insert(operation.new_position, track_to_move)
-
-    # Mettre à jour les positions
-    for i, track in enumerate(queue.tracks):
-        track.position = i
-
-    queue.last_updated = datetime.now()
-    db.truncate()
-    db.insert(queue.model_dump())
-    return queue
+    try:
+        return PlayQueueService.move_track(operation)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Move track error: {str(e)}")
 
 @router.delete("/", response_model=PlayQueue)
 async def clear_queue():
-    db.truncate()
-    return PlayQueue()
+    try:
+        return PlayQueueService.clear_queue()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clear queue error: {str(e)}")

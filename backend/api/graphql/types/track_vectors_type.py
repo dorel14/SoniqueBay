@@ -1,11 +1,15 @@
 from __future__ import annotations
 from strawberry import auto
-from backend.api.graphql.strawchemy_init import strawchemy
+# Temporarily disable Strawchemy to avoid conflicts
+# from backend.api.graphql.strawchemy_init import strawchemy
 from backend.api.models.track_vectors_model import TrackVector
+import strawberry
 
-@strawchemy.order(TrackVector, include="all")
-class TrackVectorOrderedType: ...
-@strawchemy.filter(TrackVector, include="all")
-class TrackVectorFilterType: ...
-@strawchemy.type(TrackVector, include="all",filter_input=TrackVectorFilterType, order_by=TrackVectorOrderedType, override=True)
-class TrackVectorType: ...
+@strawberry.type
+class TrackVectorType:
+    id: int
+    track_id: int
+    vector_data: str
+    vector_type: str
+    date_added: str
+    date_modified: str

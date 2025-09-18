@@ -114,7 +114,7 @@ def client(db_session):
 @pytest.fixture
 def create_test_artist(db_session):
     """Crée un artiste de test."""
-    def _create_artist(name="Test Artist", musicbrainz_artistid=None):
+    def _create_artist(name="Test Artist", musicbrainz_artistid="test-mb-id"):
         artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid)
         db_session.add(artist)
         db_session.flush()  # Make it available in session
@@ -124,10 +124,11 @@ def create_test_artist(db_session):
 @pytest.fixture
 def create_test_artists(db_session):
     """Crée plusieurs artistes de test."""
-    def _create_artists(count=3):
+    def _create_artists(count=3, names=None):
         artists = []
         for i in range(count):
-            artist = Artist(name=f"Test Artist {i}", musicbrainz_artistid=f"test-mb-id-{i}")
+            name = names[i] if names and i < len(names) else f"Test Artist {i}"
+            artist = Artist(name=name, musicbrainz_artistid=f"test-mb-id-{i}")
             db_session.add(artist)
             artists.append(artist)
         db_session.flush()
@@ -137,7 +138,7 @@ def create_test_artists(db_session):
 @pytest.fixture
 def create_test_album(db_session, create_test_artist):
     """Crée un album de test."""
-    def _create_album(title="Test Album", artist_id=None, musicbrainz_albumid=None, release_year=None):
+    def _create_album(title="Test Album", artist_id=None, musicbrainz_albumid="test-mb-album-id", release_year=2023):
         if artist_id is None:
             artist = create_test_artist()
             artist_id = artist.id
@@ -166,16 +167,26 @@ def create_test_albums(db_session, create_test_artist):
 @pytest.fixture
 def create_test_track(db_session, create_test_artist):
     """Crée une piste de test."""
-    def _create_track(title="Test Track", path="/path/to/test.mp3", artist_id=None, album_id=None, **kwargs):
+    def _create_track(title="Test Track", path="/path/to/test.mp3", artist_id=None, album_id=None, genre="Rock", bpm=120.0, key="C", scale="major", **kwargs):
         if artist_id is None:
             artist = create_test_artist()
             artist_id = artist.id
+
+        if album_id is None:
+            album = Album(title="Test Album", album_artist_id=artist_id)
+            db_session.add(album)
+            db_session.flush()
+            album_id = album.id
 
         track_data = {
             "title": title,
             "path": path,
             "track_artist_id": artist_id,
             "album_id": album_id,
+            "genre": genre,
+            "bpm": bpm,
+            "key": key,
+            "scale": scale,
             **kwargs
         }
 
@@ -347,3 +358,105 @@ def create_test_track_with_tags(db_session, create_test_track):
 
         return track
     return _create_track_with_tags
+
+@pytest.fixture
+def create_test_genre(db_session):
+    """Crée un genre de test."""
+    def _create_genre(name="Test Genre"):
+        genre = Genre(name=name)
+        db_session.add(genre)
+        db_session.flush()
+        return genre
+    return _create_genre
+
+@pytest.fixture
+def create_test_genres(db_session):
+    """Crée plusieurs genres de test."""
+    def _create_genres(count=3):
+        genres = []
+        for i in range(count):
+            genre = Genre(name=f"Test Genre {i}")
+            db_session.add(genre)
+            genres.append(genre)
+        db_session.flush()
+        return genres
+    return _create_genres
+
+@pytest.fixture
+def create_test_cover(db_session):
+    """Crée une cover de test."""
+    def _create_cover(entity_type="album", entity_id=1, cover_data="base64data", mime_type="image/jpeg"):
+        cover = Cover(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            cover_data=cover_data,
+            mime_type=mime_type
+        )
+        db_session.add(cover)
+        db_session.flush()
+        return cover
+    return _create_cover
+
+@pytest.fixture
+def create_test_covers(db_session):
+    """Crée plusieurs covers de test."""
+    def _create_covers(count=3, entity_type="album", entity_id=1):
+        covers = []
+        for i in range(count):
+            cover = Cover(
+                entity_type=entity_type,
+                entity_id=entity_id,
+                cover_data=f"base64data{i}",
+                mime_type="image/jpeg"
+            )
+            db_session.add(cover)
+            covers.append(cover)
+        db_session.flush()
+        return covers
+    return _create_covers
+
+@pytest.fixture
+def create_test_genre_tag(db_session):
+    """Crée un genre tag de test."""
+    def _create_genre_tag(name="Test Genre Tag"):
+        genre_tag = GenreTag(name=name)
+        db_session.add(genre_tag)
+        db_session.flush()
+        return genre_tag
+    return _create_genre_tag
+
+@pytest.fixture
+def create_test_genre_tags(db_session):
+    """Crée plusieurs genre tags de test."""
+    def _create_genre_tags(count=3):
+        genre_tags = []
+        for i in range(count):
+            genre_tag = GenreTag(name=f"Test Genre Tag {i}")
+            db_session.add(genre_tag)
+            genre_tags.append(genre_tag)
+        db_session.flush()
+        return genre_tags
+    return _create_genre_tags
+
+@pytest.fixture
+def create_test_mood_tag(db_session):
+    """Crée un mood tag de test."""
+    def _create_mood_tag(name="Test Mood Tag"):
+        mood_tag = MoodTag(name=name)
+        db_session.add(mood_tag)
+        db_session.flush()
+        return mood_tag
+    return _create_mood_tag
+
+@pytest.fixture
+def create_test_mood_tags(db_session):
+    """Crée plusieurs mood tags de test."""
+    def _create_mood_tags(count=3):
+        mood_tags = []
+        for i in range(count):
+            mood_tag = MoodTag(name=f"Test Mood Tag {i}")
+            db_session.add(mood_tag)
+            mood_tags.append(mood_tag)
+        db_session.flush()
+        return mood_tags
+    return _create_mood_tags

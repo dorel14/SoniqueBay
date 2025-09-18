@@ -10,6 +10,10 @@ class ArtistBase(BaseModel):
 class ArtistCreate(ArtistBase):
     pass
 
+class ArtistUpdate(BaseModel):
+    name: Optional[str] = None
+    musicbrainz_artistid: Optional[str] = None
+
 class Artist(ArtistBase, TimestampedSchema):
     id: int
     covers: List[Cover] = []

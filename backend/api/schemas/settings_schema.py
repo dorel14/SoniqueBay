@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 from .base_schema import TimestampedSchema
 
 class SettingBase(BaseModel):
     key: str
-    value: Optional[str] = None
+    value: Optional[Any] = None
     description: Optional[str] = None
     is_encrypted: bool = False
 

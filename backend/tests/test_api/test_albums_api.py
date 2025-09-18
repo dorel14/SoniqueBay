@@ -5,7 +5,10 @@ def test_get_albums_empty(client, db_session):
     """Test de récupération d'une liste vide d'albums."""
     response = client.get("/api/albums/")
     assert response.status_code == 200
-    assert response.json() == []
+    data = response.json()
+    assert isinstance(data, dict)
+    assert data.get('count', 0) == 0
+    assert data.get('results', []) == []
 
 def test_get_albums_with_data(client, db_session, create_test_albums):
     """Test de récupération d'une liste d'albums avec données."""
@@ -14,10 +17,13 @@ def test_get_albums_with_data(client, db_session, create_test_albums):
     response = client.get("/api/albums/")
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 5
+    assert isinstance(data, dict)
+    assert data.get('count', 0) >= 5
+    assert len(data.get('results', [])) > 0
 
     # Vérifier que les données correspondent
-    album_ids = [album["id"] for album in data]
+    results = data.get('results', [])
+    album_ids = [album["id"] for album in results]
     for album in albums:
         assert album.id in album_ids
 

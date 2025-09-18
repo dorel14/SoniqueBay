@@ -1,0 +1,159 @@
+# serializer version: 1
+# name: TestAlbumMutations.test_create_album
+  dict({
+    'createAlbum': dict({
+      'albumArtistId': 1,
+      'id': 1,
+      'title': 'Test Album',
+    }),
+  })
+# ---
+# name: TestAlbumMutations.test_create_albums_batch
+  dict({
+    'createAlbums': list([
+      dict({
+        'albumArtistId': 1,
+        'id': 1,
+        'musicbrainzAlbumid': 'batch-mb-album-1',
+        'title': 'Batch Album 1',
+      }),
+      dict({
+        'albumArtistId': 1,
+        'id': 2,
+        'musicbrainzAlbumid': 'batch-mb-album-2',
+        'title': 'Batch Album 2',
+      }),
+    ]),
+  })
+# ---
+# name: TestAlbumMutations.test_update_albums_by_filter
+  dict({
+    'updateAlbums': list([
+      dict({
+        'id': 1,
+        'title': 'Updated Album',
+      }),
+      dict({
+        'id': 2,
+        'title': 'Updated Album',
+      }),
+    ]),
+  })
+# ---
+# name: TestAlbumMutations.test_upsert_album
+  dict({
+    'upsertAlbum': dict({
+      'albumArtistId': 1,
+      'id': 1,
+      'title': 'Upsert Test Album',
+    }),
+  })
+# ---
+# name: TestArtistMutations.test_create_artist
+  dict({
+    'createArtist': dict({
+      'id': 1,
+      'musicbrainzArtistid': 'test-mb-artist-id',
+      'name': 'Test Artist',
+    }),
+  })
+# ---
+# name: TestArtistMutations.test_create_artists_batch
+  dict({
+    'createArtists': list([
+      dict({
+        'id': 1,
+        'name': 'Batch Artist 1',
+      }),
+      dict({
+        'id': 2,
+        'name': 'Batch Artist 2',
+      }),
+    ]),
+  })
+# ---
+# name: TestArtistMutations.test_update_artists_by_filter
+  dict({
+    'updateArtists': list([
+      dict({
+        'id': 1,
+        'name': 'Updated Batch',
+      }),
+      dict({
+        'id': 2,
+        'name': 'Updated Batch',
+      }),
+    ]),
+  })
+# ---
+# name: TestArtistMutations.test_upsert_artist
+  dict({
+    'upsertArtist': dict({
+      'id': 1,
+      'musicbrainzArtistid': 'upsert-mb-artist-id',
+      'name': 'Upsert Test Artist',
+    }),
+  })
+# ---
+# name: TestTrackMutations.test_create_track
+  dict({
+    'createTrack': dict({
+      'albumId': 1,
+      'id': 1,
+      'path': '/path/to/test.mp3',
+      'title': 'Test Track',
+      'trackArtistId': 1,
+    }),
+  })
+# ---
+# name: TestTrackMutations.test_create_tracks_batch
+  dict({
+    'createTracks': list([
+      dict({
+        'albumId': 1,
+        'bpm': 120.0,
+        'genre': 'Rock',
+        'id': 1,
+        'key': 'C',
+        'path': '/batch/path1.mp3',
+        'scale': 'major',
+        'title': 'Batch Track 1',
+        'trackArtistId': 1,
+      }),
+      dict({
+        'albumId': 1,
+        'bpm': 130.0,
+        'genre': 'Pop',
+        'id': 2,
+        'key': 'D',
+        'path': '/batch/path2.mp3',
+        'scale': 'minor',
+        'title': 'Batch Track 2',
+        'trackArtistId': 1,
+      }),
+    ]),
+  })
+# ---
+# name: TestTrackMutations.test_update_tracks_by_filter
+  dict({
+    'updateTracks': list([
+      dict({
+        'id': 1,
+        'title': 'Updated Track',
+      }),
+      dict({
+        'id': 2,
+        'title': 'Updated Track',
+      }),
+    ]),
+  })
+# ---
+# name: TestTrackMutations.test_upsert_track
+  dict({
+    'upsertTrack': dict({
+      'id': 1,
+      'title': 'Upsert Test Track',
+      'trackArtistId': 1,
+    }),
+  })
+# ---

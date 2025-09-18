@@ -1,29 +1,110 @@
 from __future__ import annotations
-from typing import Annotated
-
+import strawberry
 from strawberry import auto
-from backend.api.graphql.strawchemy_init import strawchemy
-
 from backend.api.models.tracks_model import Track
+from .covers_type import CoverType
 
-@strawchemy.order(Track, include="all")
-class TrackOrderedType: ...
-@strawchemy.filter(Track, include="all")
-class TrackFilterType: ...
-@strawchemy.type(Track, include="all",filter_input=TrackFilterType, order_by=TrackOrderedType, override=True)
-class TrackType: ...
 
-@strawchemy.create_input(Track, include="all")
-class TrackCreateInputType: ...
+@strawberry.type
+class TrackType:
+    id: int
+    title: str | None
+    path: str
+    track_artist_id: int
+    album_id: int | None
+    duration: float | None
+    track_number: str | None
+    disc_number: str | None
+    year: str | None
+    genre: str | None
+    file_type: str | None
+    bitrate: int | None
+    featured_artists: str | None
+    bpm: float | None
+    key: str | None
+    scale: str | None
+    danceability: float | None
+    mood_happy: float | None
+    mood_aggressive: float | None
+    mood_party: float | None
+    mood_relaxed: float | None
+    instrumental: float | None
+    acoustic: float | None
+    tonal: float | None
+    camelot_key: str | None
+    genre_main: str | None
+    musicbrainz_id: str | None
+    musicbrainz_albumid: str | None
+    musicbrainz_artistid: str | None
+    musicbrainz_albumartistid: str | None
+    acoustid_fingerprint: str | None
+    covers: list[CoverType] = strawberry.field(default_factory=list)
 
-@strawchemy.pk_update_input(Track, include="all")
-class TrackUpdateInputType: ...
 
-@strawchemy.filter_update_input(Track, include="all")
-class TrackFilterUpdateInputType: ...
+@strawberry.input
+class TrackCreateInput:
+    title: str | None = None
+    path: str
+    track_artist_id: int
+    album_id: int | None = None
+    duration: float | None = None
+    track_number: str | None = None
+    disc_number: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    file_type: str | None = None
+    bitrate: int | None = None
+    featured_artists: str | None = None
+    bpm: float | None = None
+    key: str | None = None
+    scale: str | None = None
+    danceability: float | None = None
+    mood_happy: float | None = None
+    mood_aggressive: float | None = None
+    mood_party: float | None = None
+    mood_relaxed: float | None = None
+    instrumental: float | None = None
+    acoustic: float | None = None
+    tonal: float | None = None
+    camelot_key: str | None = None
+    genre_main: str | None = None
+    musicbrainz_id: str | None = None
+    musicbrainz_albumid: str | None = None
+    musicbrainz_artistid: str | None = None
+    musicbrainz_albumartistid: str | None = None
+    acoustid_fingerprint: str | None = None
 
-@strawchemy.upsert_conflict_fields(Track, include=["id", "musicbrainz_id", "path","album_id", "artist_id"])
-class TrackUpsertConflictFieldsType: ...
 
-@strawchemy.upsert_update_fields(Track, include=["title", "duration", "track_number", "disc_number", "musicbrainz_id", "path", "album_id", "artist_id"])
-class TrackUpsertUpdateFieldsType: ...
+@strawberry.input
+class TrackUpdateInput:
+    id: int
+    title: str | None = None
+    path: str | None = None
+    track_artist_id: int | None = None
+    album_id: int | None = None
+    duration: float | None = None
+    track_number: str | None = None
+    disc_number: str | None = None
+    year: str | None = None
+    genre: str | None = None
+    file_type: str | None = None
+    bitrate: int | None = None
+    featured_artists: str | None = None
+    bpm: float | None = None
+    key: str | None = None
+    scale: str | None = None
+    danceability: float | None = None
+    mood_happy: float | None = None
+    mood_aggressive: float | None = None
+    mood_party: float | None = None
+    mood_relaxed: float | None = None
+    instrumental: float | None = None
+    acoustic: float | None = None
+    tonal: float | None = None
+    camelot_key: str | None = None
+    genre_main: str | None = None
+    musicbrainz_id: str | None = None
+    musicbrainz_albumid: str | None = None
+    musicbrainz_artistid: str | None = None
+    musicbrainz_albumartistid: str | None = None
+    acoustid_fingerprint: str | None = None

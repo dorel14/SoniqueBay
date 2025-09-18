@@ -25,6 +25,9 @@ class CoverBase(BaseModel):
         # Convertir le chemin Windows en chemin absolu avec forward slashes
         try:
             path = str(Path(v).absolute()).replace('\\', '/')
+            # Préserver la casse majuscule du lecteur sur Windows
+            if len(path) > 1 and path[1] == ':':
+                path = path[0].upper() + path[1:]
             return path
         except Exception:
             return v

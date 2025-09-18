@@ -375,20 +375,20 @@ def test_api_search_query_error(mock_search_index, client, temp_index_dir):
 
 def test_api_search_invalid_json(client):
     """Test avec JSON invalide."""
-    response = client.post("/api/search/", data="invalid json")
+    response = client.post("/api/search/", content="invalid json")
 
     assert response.status_code == 422  # Unprocessable Entity
 
 
 def test_api_add_to_index_invalid_json(client):
     """Test d'ajout avec JSON invalide."""
-    response = client.post("/api/search/add", data="invalid json")
+    response = client.post("/api/search/add", content="invalid json")
 
     assert response.status_code == 422  # Unprocessable Entity
 
 
 def test_api_get_index_invalid_json(client):
     """Test de création d'index avec JSON invalide."""
-    response = client.post("/api/search/index", data="invalid json")
+    response = client.post("/api/search/index", content="invalid json")
 
     assert response.status_code == 422  # Unprocessable Entity

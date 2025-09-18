@@ -1,25 +1,32 @@
 from __future__ import annotations
-from typing import Annotated
+import strawberry
 from strawberry import auto
-from backend.api.graphql.strawchemy_init import strawchemy
-
 from backend.api.models.albums_model import Album
-@strawchemy.order(Album, include="all")
-class AlbumOrderedType: ...
-@strawchemy.filter(Album, include="all")
-class AlbumFilterType: ...
-@strawchemy.type(Album, include="all",filter_input=AlbumFilterType, order_by=AlbumOrderedType, override=True)
-class AlbumType: ...
+from .covers_type import CoverType
 
-@strawchemy.create_input(Album, include="all")
-class AlbumCreateInputType: ...
-@strawchemy.pk_update_input(Album, include="all")
-class AlbumUpdateInputType: ...
 
-@strawchemy.filter_update_input(Album, include="all")
-class AlbumFilterUpdateInputType: ...
-@strawchemy.upsert_conflict_fields(Album, include=["id", "musicbrainz_id", "title", "album_artist_id "])
-class AlbumUpsertConflictFieldsType: ...
+@strawberry.type
+class AlbumType:
+    id: int
+    title: str
+    album_artist_id: int
+    release_year: str | None
+    musicbrainz_albumid: str | None
+    covers: list[CoverType] = strawberry.field(default_factory=list)
 
-@strawchemy.upsert_update_fields(Album, include=["title", "release_date", "musicbrainz_id", "album_artist_id"])
-class AlbumUpsertUpdateFieldsType: ...
+
+@strawberry.input
+class AlbumCreateInput:
+    title: str
+    album_artist_id: int
+    release_year: str | None = None
+    musicbrainz_albumid: str | None = None
+
+
+@strawberry.input
+class AlbumUpdateInput:
+    id: int
+    title: str | None = None
+    album_artist_id: int | None = None
+    release_year: str | None = None
+    musicbrainz_albumid: str | None = None
