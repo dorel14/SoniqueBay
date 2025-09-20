@@ -2,7 +2,7 @@ from __future__ import annotations
 import strawberry
 from strawberry import auto
 from backend.api.models.artists_model import Artist
-from .covers_type import CoverType
+from backend.api.graphql.types.covers_type import CoverType
 
 
 @strawberry.type

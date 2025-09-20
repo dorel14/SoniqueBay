@@ -9,7 +9,7 @@ class Album(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
-    album_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id'), nullable=False)
+    album_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id', ondelete='CASCADE'), nullable=False)
     release_year: Mapped[str] = mapped_column(String, nullable=True)
     musicbrainz_albumid: Mapped[str] = mapped_column(String, nullable=True)
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

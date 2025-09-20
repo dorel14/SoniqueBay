@@ -8,7 +8,7 @@ from backend.api.models.covers_model import Cover
 
 from typing import List, Optional
 from backend.utils.database import get_db
-from backend.api.schemas.tracks_schema import TrackCreate, Track, TrackWithRelations
+from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.utils.logging import logger
@@ -221,7 +221,7 @@ async def read_artist_tracks(artist_id: int, db: SQLAlchemySession = Depends(get
 
 
 @router.put("/{track_id}", response_model=Track)
-async def update_track(track_id: int, track: TrackCreate, request: Request, db: SQLAlchemySession = Depends(get_db)):
+async def update_track(track_id: int, track: TrackUpdate, request: Request, db: SQLAlchemySession = Depends(get_db)):
     """Mise à jour d'une piste."""
     service = TrackService(db)
     try:

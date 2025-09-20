@@ -35,7 +35,7 @@ class Track(Base):
     bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     date_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
-    track_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id'), nullable=False)
+    track_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id', ondelete='CASCADE'), nullable=False)
     featured_artists: Mapped[str] = mapped_column(String, nullable=True)
 
     # Nouveaux champs d'analyse audio

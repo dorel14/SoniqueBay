@@ -47,6 +47,40 @@ class TrackBase(BaseModel):
 class TrackCreate(TrackBase):
     pass
 
+class TrackUpdate(BaseModel):
+    title: Optional[str] = None
+    path: Optional[str] = None
+    track_artist_id: Optional[int] = None
+    album_id: Optional[int] = None
+    duration: Optional[float] = None
+    track_number: Optional[str] = None
+    disc_number: Optional[str] = None
+    year: Optional[str] = None
+    genre: Optional[str] = None
+    file_type: Optional[str] = None
+    bitrate: Optional[int] = None
+    featured_artists: Optional[str] = None
+    bpm: Optional[float] = None
+    key: Optional[str] = None
+    scale: Optional[str] = None
+    danceability: Optional[float] = None
+    mood_happy: Optional[float] = None
+    mood_aggressive: Optional[float] = None
+    mood_party: Optional[float] = None
+    mood_relaxed: Optional[float] = None
+    instrumental: Optional[float] = None
+    acoustic: Optional[float] = None
+    tonal: Optional[float] = None
+    camelot_key: Optional[str] = None
+    genre_main: Optional[str] = None
+    musicbrainz_id: Optional[str] = None
+    musicbrainz_albumid: Optional[str] = None
+    musicbrainz_artistid: Optional[str] = None
+    musicbrainz_albumartistid: Optional[str] = None
+    acoustid_fingerprint: Optional[str] = None
+    genre_tags: Optional[List[str]] = None
+    mood_tags: Optional[List[str]] = None
+
 class Track(TrackBase, TimestampedSchema):
     id: int
     covers: List[Cover] = []  # Ajouter le champ covers

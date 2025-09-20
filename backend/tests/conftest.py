@@ -114,7 +114,12 @@ def client(db_session):
 @pytest.fixture
 def create_test_artist(db_session):
     """Crée un artiste de test."""
-    def _create_artist(name="Test Artist", musicbrainz_artistid="test-mb-id"):
+    def _create_artist(name=None, musicbrainz_artistid=None):
+        import uuid
+        if name is None:
+            name = f"Test Artist {str(uuid.uuid4())[:8]}"
+        if musicbrainz_artistid is None:
+            musicbrainz_artistid = f"test-mb-id-{str(uuid.uuid4())[:8]}"
         artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid)
         db_session.add(artist)
         db_session.flush()  # Make it available in session

@@ -12,7 +12,7 @@ class TrackQueries:
 
     @strawberry.field
     def track(self, info: strawberry.types.Info, id: int) -> Optional[TrackType]:
-        db = info.context["db"]
+        db = info.context.session
         service = TrackService(db)
         track = service.read_track(id)
         if track:
@@ -50,7 +50,7 @@ class TrackQueries:
 
     @strawberry.field
     def tracks(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[TrackType]:
-        db = info.context["db"]
+        db = info.context.session
         service = TrackService(db)
         tracks = service.read_tracks(skip, limit)
         result = []

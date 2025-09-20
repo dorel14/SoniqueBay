@@ -11,14 +11,14 @@ class Artist(Base):
     __tablename__ = 'artists'
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     musicbrainz_artistid: Mapped[str] = mapped_column(String, nullable=True)
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     date_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relations
-    albums: Mapped[list["Album"]] = relationship("Album", back_populates="artist") # type: ignore # noqa: F821
-    tracks: Mapped[list["Track"]] = relationship("Track", back_populates="artist") # type: ignore # noqa: F821
+    albums: Mapped[list["Album"]] = relationship("Album", back_populates="artist", cascade="all, delete-orphan") # type: ignore # noqa: F821
+    tracks: Mapped[list["Track"]] = relationship("Track", back_populates="artist", cascade="all, delete-orphan") # type: ignore # noqa: F821
     covers: Mapped[list["Cover"]] = relationship(
         "Cover",
         primaryjoin="and_(Cover.entity_type=='artist', Artist.id==Cover.entity_id)",

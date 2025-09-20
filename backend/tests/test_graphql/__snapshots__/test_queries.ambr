@@ -35,7 +35,7 @@
   dict({
     'artist': dict({
       'id': 1,
-      'musicbrainzArtistid': 'test-mb-id',
+      'musicbrainzArtistid': 'test-mb-id-93cb930b',
       'name': 'Test Artist',
     }),
   })

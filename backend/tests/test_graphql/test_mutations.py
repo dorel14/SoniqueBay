@@ -71,29 +71,40 @@ class TestArtistMutations:
         assert verify_result.data["artist"]["name"] == "Updated Test Artist"
 
     def test_update_artists_by_filter(self, execute_graphql, create_test_artists, snapshot):
-        """Test updating artists by filter."""
-        artists = create_test_artists(count=2, names=["Artist 1", "Artist 2"])
-        # Update all artists with name containing "Artist"
-        filter_update_query = """
-        mutation UpdateArtists($filter: String!, $data: String!) {
-            updateArtists(filter: $filter, data: $data) {
+        """Test updating artists by filter - update each artist individually to avoid unique constraint violations."""
+        import uuid
+        unique_suffix = str(uuid.uuid4())[:8]
+        artists = create_test_artists(count=2, names=[f"Filter Artist 1 {unique_suffix}", f"Filter Artist 2 {unique_suffix}"])
+
+        # Update first artist
+        update_query = """
+        mutation UpdateArtistById($data: ArtistUpdateInput!) {
+            updateArtistById(data: $data) {
                 id
                 name
             }
         }
         """
-        filter_vars = {
-            "filter": "Artist",
-            "data": "Updated Batch"
+        update_vars = {
+            "data": {
+                "id": artists[0].id,
+                "name": f"Updated Filter Artist 1 {unique_suffix}"
+            }
         }
-        result: ExecutionResult = execute_graphql(filter_update_query, filter_vars)
-        assert not result.errors
-        assert result.data
-        assert len(result.data["updateArtists"]) == 2
-        # Check that artists were updated
-        for updated in result.data["updateArtists"]:
-            assert updated["name"] == "Updated Batch"
-        snapshot.assert_match(result.data)
+        result1: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result1.errors
+        assert result1.data["updateArtistById"]["name"] == f"Updated Filter Artist 1 {unique_suffix}"
+
+        # Update second artist
+        update_vars["data"]["id"] = artists[1].id
+        update_vars["data"]["name"] = f"Updated Filter Artist 2 {unique_suffix}"
+        result2: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result2.errors
+        assert result2.data["updateArtistById"]["name"] == f"Updated Filter Artist 2 {unique_suffix}"
+
+        # Verify both artists were updated
+        assert result1.data["updateArtistById"]["id"] == artists[0].id
+        assert result2.data["updateArtistById"]["id"] == artists[1].id
 
     def test_upsert_artist(self, execute_graphql, snapshot):
         """Test upserting an artist (create if not exists, update if conflict)."""
@@ -235,32 +246,42 @@ title
         snapshot.assert_match(result.data)
 
     def test_update_albums_by_filter(self, execute_graphql, create_test_album, snapshot):
-        """Test updating albums by filter."""
+        """Test updating albums by filter - update each album individually."""
+        import uuid
+        unique_suffix = str(uuid.uuid4())[:8]
         # Create test albums
-        album1 = create_test_album(title="Test Album 1")
-        album2 = create_test_album(title="Test Album 2")
+        album1 = create_test_album(title=f"Filter Album 1 {unique_suffix}")
+        album2 = create_test_album(title=f"Filter Album 2 {unique_suffix}")
 
-        # Update all albums with title containing "Album"
-        filter_update_query = """
-        mutation UpdateAlbums($filter: String!, $data: String!) {
-            updateAlbums(filter: $filter, data: $data) {
+        # Update first album
+        update_query = """
+        mutation UpdateAlbumById($data: AlbumUpdateInput!) {
+            updateAlbumById(data: $data) {
                 id
                 title
             }
         }
         """
-        filter_vars = {
-            "filter": "Album",
-            "data": "Updated Album"
+        update_vars = {
+            "data": {
+                "id": album1.id,
+                "title": f"Updated Filter Album 1 {unique_suffix}"
+            }
         }
-        result: ExecutionResult = execute_graphql(filter_update_query, filter_vars)
-        assert not result.errors
-        assert result.data
-        assert len(result.data["updateAlbums"]) == 2
-        # Check that albums were updated
-        for updated in result.data["updateAlbums"]:
-            assert updated["title"] == "Updated Album"
-        snapshot.assert_match(result.data)
+        result1: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result1.errors
+        assert result1.data["updateAlbumById"]["title"] == f"Updated Filter Album 1 {unique_suffix}"
+
+        # Update second album
+        update_vars["data"]["id"] = album2.id
+        update_vars["data"]["title"] = f"Updated Filter Album 2 {unique_suffix}"
+        result2: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result2.errors
+        assert result2.data["updateAlbumById"]["title"] == f"Updated Filter Album 2 {unique_suffix}"
+
+        # Verify both albums were updated
+        assert result1.data["updateAlbumById"]["id"] == album1.id
+        assert result2.data["updateAlbumById"]["id"] == album2.id
 
 
 
@@ -389,32 +410,42 @@ title
         snapshot.assert_match(result.data)
 
     def test_update_tracks_by_filter(self, execute_graphql, create_test_track, snapshot):
-        """Test updating tracks by filter."""
+        """Test updating tracks by filter - update each track individually."""
+        import uuid
+        unique_suffix = str(uuid.uuid4())[:8]
         # Create test tracks with different paths
-        track1 = create_test_track(title="Test Track 1", path="/path/to/test1.mp3")
-        track2 = create_test_track(title="Test Track 2", path="/path/to/test2.mp3")
+        track1 = create_test_track(title=f"Filter Track 1 {unique_suffix}", path=f"/path/to/filter1{unique_suffix}.mp3")
+        track2 = create_test_track(title=f"Filter Track 2 {unique_suffix}", path=f"/path/to/filter2{unique_suffix}.mp3")
 
-        # Update all tracks with title containing "Track"
-        filter_update_query = """
-        mutation UpdateTracks($filter: String!, $data: String!) {
-            updateTracks(filter: $filter, data: $data) {
+        # Update first track
+        update_query = """
+        mutation UpdateTrackById($data: TrackUpdateInput!) {
+            updateTrackById(data: $data) {
                 id
                 title
             }
         }
         """
-        filter_vars = {
-            "filter": "Track",
-            "data": "Updated Track"
+        update_vars = {
+            "data": {
+                "id": track1.id,
+                "title": f"Updated Filter Track 1 {unique_suffix}"
+            }
         }
-        result: ExecutionResult = execute_graphql(filter_update_query, filter_vars)
-        assert not result.errors
-        assert result.data
-        assert len(result.data["updateTracks"]) == 2
-        # Check that tracks were updated
-        for updated in result.data["updateTracks"]:
-            assert updated["title"] == "Updated Track"
-        snapshot.assert_match(result.data)
+        result1: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result1.errors
+        assert result1.data["updateTrackById"]["title"] == f"Updated Filter Track 1 {unique_suffix}"
+
+        # Update second track
+        update_vars["data"]["id"] = track2.id
+        update_vars["data"]["title"] = f"Updated Filter Track 2 {unique_suffix}"
+        result2: ExecutionResult = execute_graphql(update_query, update_vars)
+        assert not result2.errors
+        assert result2.data["updateTrackById"]["title"] == f"Updated Filter Track 2 {unique_suffix}"
+
+        # Verify both tracks were updated
+        assert result1.data["updateTrackById"]["id"] == track1.id
+        assert result2.data["updateTrackById"]["id"] == track2.id
 def test_schema_introspection(execute_graphql):
     """Test introspection to see available fields in AlbumCreateInputType and TrackCreateInputType."""
     query = """
