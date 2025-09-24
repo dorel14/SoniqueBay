@@ -1,5 +1,4 @@
 import warnings
-import re
 from whoosh.analysis import RegexTokenizer
 
 def configure_whoosh_warnings():

@@ -2,18 +2,13 @@
 import pytest
 import sys
 import os
+import tempfile
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-# Ajouter le répertoire racine au sys.path si nécessaire
-root_dir = os.getcwd()
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
-
 from backend.utils.database import Base, get_db
 from backend.api_app import create_api
-import tempfile
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
 from backend.api.models.tracks_model import Track
@@ -21,10 +16,14 @@ from backend.api.models.genres_model import Genre
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
 
+# Ajouter le répertoire racine au sys.path si nécessaire
+root_dir = os.getcwd()
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
 # Base de données SQLite temporaire pour les tests
 @pytest.fixture(scope="function")
 def test_db_engine():
-    import tempfile
     import os
     # Créer un fichier marqueur pour indiquer qu'on est en mode test
     test_marker_file = os.path.join(os.getcwd(), '.test_mode')
@@ -62,7 +61,6 @@ def test_db_engine():
 def encryption_key():
     """Fixture qui définit une clé de cryptage fixe pour les tests."""
     import os
-    from cryptography.fernet import Fernet
 
     # Utiliser une clé fixe valide pour les tests
     test_key = b'PJMY7VW4nm_gUJ8UO43EgbKrJm9gJ0F-WxqK-NSIoh0='
@@ -119,7 +117,7 @@ def create_test_artist(db_session):
         if name is None:
             name = f"Test Artist {str(uuid.uuid4())[:8]}"
         if musicbrainz_artistid is None:
-            musicbrainz_artistid = f"test-mb-id-{str(uuid.uuid4())[:8]}"
+            musicbrainz_artistid = "test-mb-id-93cb930b"  # Fixed value for snapshot tests
         artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid)
         db_session.add(artist)
         db_session.flush()  # Make it available in session

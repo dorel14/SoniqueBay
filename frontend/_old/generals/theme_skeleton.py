@@ -88,7 +88,7 @@ def frame(navigation_title: str):
         ui.label('Made with ❤️ by David Orel')
         ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto ')
 
-    with ui.header().classes(replace='row items-center') as header:
+    with ui.header().classes(replace='row items-center'):
         with ui.button(icon='menu').props('flat color=white'):
             menu()
         toggle_button = ui.button(icon='chevron_left').classes('text-sm').props('flat dense color=white')
@@ -98,7 +98,7 @@ def frame(navigation_title: str):
         ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
         ui.button(on_click=about.open, icon='info').props('flat color=white')
     
-    with ui.footer() as footer:
+    with ui.footer():
         with ui.row().classes('w-full items-center flex-wrap'):
             ui.icon('copyright')
             ui.label('Tout droits réservés').classes('text-xs')

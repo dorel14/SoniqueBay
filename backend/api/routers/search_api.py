@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body
 from backend.api.schemas.search_schema import SearchQuery, SearchResult, AddToIndexRequest
 from backend.services.search_service import SearchService
-from backend.utils.search import get_or_create_index, search_index, add_to_index
+from backend.utils.search import get_or_create_index, search_index
 
 
 router = APIRouter(prefix="/api/search", tags=["search"])

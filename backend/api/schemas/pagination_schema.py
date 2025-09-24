@@ -11,8 +11,6 @@ class PaginatedResponse(BaseModel, Generic[T]):
     results: List[T]
 
 # Schémas explicites pour FastAPI
-from .artists_schema import Artist
-from .albums_schema import AlbumWithRelations
 
 class PaginatedArtists(PaginatedResponse[Artist]):
     pass

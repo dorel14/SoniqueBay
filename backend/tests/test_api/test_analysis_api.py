@@ -1,11 +1,8 @@
 # backend/tests/test_api/test_analysis_api.py
 # Tests pour les endpoints de l'API Analysis
 
-import pytest
 from unittest.mock import patch, MagicMock
 from backend.api.models.tracks_model import Track
-from backend.utils.pending_analysis_service import PendingAnalysisService
-from backend.utils.tinydb_handler import TinyDBHandler
 
 
 @patch('backend.services.analysis_service.TinyDBHandler.get_db')

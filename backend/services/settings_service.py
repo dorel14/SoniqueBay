@@ -1,7 +1,7 @@
 
 from backend.utils.path_variables import PathVariables
 from backend.api.models.settings_model import Setting as SettingModel
-from backend.api.schemas.settings_schema import SettingCreate, Setting
+from backend.api.schemas.settings_schema import SettingCreate
 from backend.utils.crypto import encrypt_value, decrypt_value
 from typing import Any, Dict, Optional
 

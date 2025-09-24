@@ -1,8 +1,6 @@
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import logging
-import json
-from pathlib import Path
 
 from backend_worker.services.scanner import (
     process_metadata_chunk,
@@ -22,7 +20,7 @@ async def test_process_metadata_chunk(caplog):
     with patch('backend_worker.services.scanner.create_or_get_artists_batch') as mock_artists:
         with patch('backend_worker.services.scanner.create_or_get_albums_batch') as mock_albums:
             with patch('backend_worker.services.scanner.create_or_update_tracks_batch') as mock_tracks:
-                with patch('backend_worker.services.scanner.create_or_update_cover') as mock_cover:
+                with patch('backend_worker.services.scanner.create_or_update_cover'):
                     with patch('backend_worker.services.scanner.celery') as mock_celery:
                         # Configurer les mocks
                         mock_artists.return_value = {
@@ -143,7 +141,7 @@ async def test_scan_music_task(caplog):
                             assert mock_process.call_count > 0
                             mock_indexer_instance.async_init.assert_called_once()
                             mock_indexer_instance.index_directory.assert_called_once()
-                            mock_publish.assert_called_once()
+                            assert mock_publish.call_count == 2
                             assert mock_callback.call_count > 0
                             
                             # Vérifier le résultat

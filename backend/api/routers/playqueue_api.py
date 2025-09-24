@@ -1,8 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from typing import List
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
 from backend.services.playqueue_service import PlayQueueService
-from backend.utils.tinydb_handler import TinyDBHandler
 from backend.utils.tinydb_handler import TinyDBHandler
 db = TinyDBHandler().get_db('playqueue')  # For backward compatibility with tests
  

@@ -13,62 +13,182 @@ failed_updates_db = TinyDB(FAILED_UPDATES_DB_PATH)
 
 
 async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
-    """Analyse un fichier audio avec Librosa."""
+    """
+    Analyse un fichier audio avec Librosa de manière optimisée.
+
+    Args:
+        track_id: ID de la track à analyser
+        file_path: Chemin vers le fichier audio
+
+    Returns:
+        Dictionnaire des caractéristiques audio extraites
+    """
     try:
-        logger.info(f"Analyse Librosa pour: {file_path}")
+        logger.info(f"Analyse Librosa pour track {track_id}: {file_path}")
+
+        # Vérifier que le fichier existe et est accessible
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Fichier audio non trouvé: {file_path}")
+
+        # Utiliser un executor pour les opérations CPU-intensive
         loop = asyncio.get_running_loop()
-        y, sr = await loop.run_in_executor(None, lambda: librosa.load(file_path, mono=True, duration=120))
 
-        # Analyse du tempo/BPM
-        tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+        # Charger l'audio avec optimisation
+        y, sr = await loop.run_in_executor(
+            None,
+            lambda: librosa.load(file_path, mono=True, duration=60)  # Réduire à 60s pour performance
+        )
 
-        # Analyse de la tonalité
-        chroma = librosa.feature.chroma_stft(y=y, sr=sr)
-        key_index = int(chroma.mean(axis=1).argmax())  # Convertir en int
-        keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+        # Analyse parallèle des caractéristiques
+        tasks = [
+            loop.run_in_executor(None, lambda: librosa.beat.beat_track(y=y, sr=sr)),
+            loop.run_in_executor(None, lambda: librosa.feature.chroma_stft(y=y, sr=sr)),
+            loop.run_in_executor(None, lambda: librosa.feature.spectral_centroid(y=y, sr=sr)),
+            loop.run_in_executor(None, lambda: librosa.feature.spectral_rolloff(y=y, sr=sr)),
+            loop.run_in_executor(None, lambda: librosa.feature.rms(y=y)),
+        ]
 
-        # Autres caractéristiques
-        spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
-        spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
+        # Attendre tous les résultats
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Calculer et convertir les caractéristiques en types Python standards
-        key = keys[key_index]
-        scale = 'major' if key in ['C', 'D', 'E', 'F', 'G', 'A'] else 'minor'
+        # Traiter les résultats avec gestion d'erreurs
+        tempo_result, chroma_result, centroid_result, rolloff_result, rms_result = results
+
+        # Extraction du tempo
+        tempo = 120.0  # Valeur par défaut
+        if not isinstance(tempo_result, Exception):
+            tempo, _ = tempo_result
+            tempo = float(tempo) if tempo > 0 else 120.0
+
+        # Extraction de la tonalité
+        key = "C"
+        scale = "major"
+        if not isinstance(chroma_result, Exception):
+            chroma = chroma_result
+            key_index = int(np.mean(chroma, axis=1).argmax())
+            keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+            key = keys[key_index % 12]
+            # Estimation basique de la scale (à améliorer avec un vrai modèle)
+            scale = 'major' if key_index % 2 == 0 else 'minor'
+
+        # Calcul des autres caractéristiques avec sécurisation
         features = {
-            "bpm": int(float(tempo)),  # Double conversion pour éviter l'erreur
+            "bpm": int(tempo),
             "key": key,
-            "danceability": float(np.mean(tempo > 120).item()),  # Convertir en float Python
-            "acoustic": float(np.mean(spectral_centroids < sr/4).item()),
-            "instrumental": float(np.mean(spectral_rolloff > sr/3).item()),
-            "tonal": float(np.std(chroma).item()),  # Convertir en float Python
+            "scale": scale,
+            "danceability": 0.5,  # Valeur par défaut
+            "acoustic": 0.5,      # Valeur par défaut
+            "instrumental": 0.5,  # Valeur par défaut
+            "tonal": 0.5,         # Valeur par défaut
             "camelot_key": key_to_camelot(key, scale),
-            "scale": scale
         }
 
-        logger.info(f"Analyse Librosa terminée: {features}")
-        # Appel direct à l'API pour mettre à jour la track
-        API_URL = os.getenv("API_URL", "http://localhost:8000")
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(f"{API_URL}/api/tracks/update_features", json={
-                    "track_id": track_id ,  # Remplacer par l'ID de la piste si disponible
-                    "features": features
-                }, timeout=10)
-                response.raise_for_status()
-                logger.info(f"Track mise à jour avec succès: {response.json()}")
-        except Exception as e:
-            logger.error(f"Erreur lors de la mise à jour de la track: {str(e)}")
-            # Stocker localement pour retry ultérieur
-            failed_updates_db.insert({
-                "track_id": track_id,
-                "features": features,
-                "error": str(e)
-            })
+        # Calcul des caractéristiques avancées si les données sont disponibles
+        if not isinstance(centroid_result, Exception):
+            spectral_centroids = centroid_result[0]
+            features["acoustic"] = float(np.clip(np.mean(spectral_centroids < sr/4), 0, 1))
+
+        if not isinstance(rolloff_result, Exception):
+            spectral_rolloff = rolloff_result[0]
+            features["instrumental"] = float(np.clip(np.mean(spectral_rolloff > sr/3), 0, 1))
+
+        if not isinstance(rms_result, Exception):
+            rms = rms_result[0]
+            features["danceability"] = float(np.clip(np.mean(rms), 0, 1))
+
+        if not isinstance(chroma_result, Exception):
+            features["tonal"] = float(np.clip(np.std(chroma_result), 0, 1))
+
+        logger.info(f"Analyse Librosa terminée pour track {track_id}: BPM={features['bpm']}, Key={features['key']}")
+
+        # Mise à jour asynchrone de la track
+        await _update_track_features_async(track_id, features)
+
         return features
 
     except Exception as e:
         logger.error(f"Erreur analyse Librosa: {str(e)}")
         return {}
+
+
+async def _update_track_features_async(track_id: int, features: dict):
+    """
+    Met à jour les caractéristiques audio d'une track de manière asynchrone.
+
+    Args:
+        track_id: ID de la track
+        features: Caractéristiques à mettre à jour
+    """
+    API_URL = os.getenv("API_URL", "http://localhost:8000")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.put(
+                f"{API_URL}/api/tracks/{track_id}/features",
+                json={"features": features}
+            )
+            response.raise_for_status()
+            logger.info(f"Track {track_id} mise à jour avec succès")
+
+    except Exception as e:
+        logger.error("Erreur lors de la mise à jour de la track")
+        # Stocker pour retry ultérieur
+        failed_updates_db.insert({
+            "track_id": track_id,
+            "features": features,
+            "error": str(e),
+            "timestamp": str(asyncio.get_event_loop().time())
+        })
+
+
+async def analyze_audio_batch(track_data_list: list) -> dict:
+    """
+    Analyse un lot de fichiers audio en parallèle avec contrôle de concurrence.
+
+    Args:
+        track_data_list: Liste de tuples (track_id, file_path)
+
+    Returns:
+        Résultats de l'analyse pour chaque track
+    """
+    logger.info(f"Démarrage analyse batch de {len(track_data_list)} tracks")
+
+    # Limiter la concurrence pour éviter la surcharge CPU
+    semaphore = asyncio.Semaphore(4)  # Max 4 analyses simultanées
+
+    async def analyze_with_semaphore(track_id: int, file_path: str):
+        async with semaphore:
+            return await analyze_audio_with_librosa(track_id, file_path)
+
+    # Lancer toutes les analyses
+    tasks = [
+        analyze_with_semaphore(track_id, file_path)
+        for track_id, file_path in track_data_list
+    ]
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Traiter les résultats
+    successful = 0
+    failed = 0
+
+    for i, result in enumerate(results):
+        track_id = track_data_list[i][0]
+        if isinstance(result, Exception):
+            logger.error(f"Exception analyse track {track_id}: {str(result)}")
+            failed += 1
+        elif result:
+            successful += 1
+        else:
+            failed += 1
+
+    logger.info(f"Analyse batch terminée: {successful} succès, {failed} échecs")
+
+    return {
+        "total": len(track_data_list),
+        "successful": successful,
+        "failed": failed
+    }
 
 async def extract_audio_features(audio, tags, file_path: str = None, track_id: int = None):
     """Extrait les caractéristiques audio et les tags AcoustID."""

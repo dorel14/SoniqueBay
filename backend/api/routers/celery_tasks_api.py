@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, status
+from fastapi import APIRouter
 from backend.utils.celery_app import celery
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])

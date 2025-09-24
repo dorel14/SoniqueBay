@@ -2,7 +2,6 @@
 # Tests pour les endpoints de l'API Scan
 
 import pytest
-import os
 from unittest.mock import Mock
 from backend.api.routers.scan_api import convert_path_to_docker
 

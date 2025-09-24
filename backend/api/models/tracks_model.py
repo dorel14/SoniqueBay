@@ -1,13 +1,10 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Float, Boolean
+from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Float, Index
 from datetime import datetime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 
 from backend.utils.database import Base
-from backend.api.models.genre_links import track_genre_links
-from backend.api.models.tags_model import track_mood_tags, track_genre_tags
-from backend.api.models.genres_model import track_genres
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
 
@@ -65,5 +62,21 @@ class Track(Base):
         lazy="selectin",
         foreign_keys=[Cover.entity_id],
         viewonly=True
+    )
+    # vectors: Mapped[list["TrackVector"]] = relationship("TrackVector", back_populates="track")  # type: ignore # noqa: F821
+
+    __table_args__ = (
+        # Index pour les lookups rapides par chemin (scan)
+        Index('idx_tracks_path', 'path'),
+        # Index pour les recherches par artiste/album
+        Index('idx_tracks_artist_album', 'track_artist_id', 'album_id'),
+        # Index pour les recherches par MusicBrainz ID
+        Index('idx_tracks_mb_id', 'musicbrainz_id'),
+        # Index pour les tracks sans caractéristiques audio (pour analyse)
+        Index('idx_tracks_missing_audio', 'bpm', 'key'),
+        # Index pour les recherches par genre
+        Index('idx_tracks_genre', 'genre'),
+        # Index composite pour les dates (optimisation scan)
+        Index('idx_tracks_dates', 'date_added', 'date_modified'),
     )
 

@@ -116,7 +116,7 @@ def test_delete_album(client, db_session, create_test_album):
 def test_get_artist_albums(client, db_session, create_test_artist, create_test_albums):
     """Test de récupération des albums d'un artiste."""
     artist = create_test_artist()
-    albums = create_test_albums(count=3, artist_id=artist.id)
+    create_test_albums(count=3, artist_id=artist.id)
 
     response = client.get(f"/api/albums/artists/{artist.id}")
     assert response.status_code == 200

@@ -12,7 +12,7 @@ class ArtistMutations:
         """Create a new artist."""
         from backend.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistCreate
-        session = info.context.db
+        session = info.context.session
         service = ArtistService(session)
 
         # Convertir l'objet Strawberry en objet Pydantic
@@ -34,7 +34,7 @@ class ArtistMutations:
         """Create multiple artists."""
         from backend.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistCreate
-        session = info.context.db
+        session = info.context.session
         service = ArtistService(session)
 
         # Convertir les objets Strawberry en objets Pydantic
@@ -61,7 +61,7 @@ class ArtistMutations:
         """Update an artist by ID."""
         from backend.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistUpdate
-        session = info.context.db
+        session = info.context.session
         service = ArtistService(session)
 
         # Convertir l'objet Strawberry en objet Pydantic, en filtrant les None
@@ -87,7 +87,7 @@ class ArtistMutations:
         """Upsert an artist (create if not exists, update if exists)."""
         from backend.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistCreate
-        session = info.context.db
+        session = info.context.session
         service = ArtistService(session)
 
         # Convertir l'objet Strawberry en objet Pydantic
@@ -108,7 +108,7 @@ class ArtistMutations:
     def update_artists(self, filter: str, data: str, info: strawberry.types.Info) -> list[ArtistType]:
         """Update multiple artists by filter."""
         from backend.services.artist_service import ArtistService
-        session = info.context.db
+        session = info.context.session
         service = ArtistService(session)
         filter_data = {"name": {"icontains": filter}}
         update_data = {"name": data}

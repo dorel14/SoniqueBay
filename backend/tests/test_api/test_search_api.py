@@ -2,11 +2,9 @@
 # Tests pour les endpoints de l'API Search
 
 import pytest
-import os
 import tempfile
 import shutil
-from unittest.mock import Mock, patch
-from backend.api.schemas.search_schema import SearchQuery, AddToIndexRequest
+from unittest.mock import patch
 
 
 @pytest.fixture

@@ -31,8 +31,8 @@ def test_get_library_tree_multiple_artists(client, db_session, create_test_artis
     # Créer plusieurs artistes avec albums
     artist1 = create_test_artist("Artist A")
     artist2 = create_test_artist("Artist B")
-    album1 = create_test_album("Album A1", artist_id=artist1.id)
-    album2 = create_test_album("Album B1", artist_id=artist2.id)
+    create_test_album("Album A1", artist_id=artist1.id)
+    create_test_album("Album B1", artist_id=artist2.id)
 
     response = client.get("/api/library/tree")
     assert response.status_code == 200
@@ -47,8 +47,8 @@ def test_get_library_tree_multiple_artists(client, db_session, create_test_artis
 def test_get_albums_for_artist(client, db_session, create_test_artist, create_test_album):
     """Test de récupération des albums d'un artiste."""
     artist = create_test_artist("Test Artist")
-    album1 = create_test_album("Album A", artist_id=artist.id)
-    album2 = create_test_album("Album B", artist_id=artist.id)
+    create_test_album("Album A", artist_id=artist.id)
+    create_test_album("Album B", artist_id=artist.id)
 
     response = client.get(f"/api/library/artist/{artist.id}/albums")
     assert response.status_code == 200

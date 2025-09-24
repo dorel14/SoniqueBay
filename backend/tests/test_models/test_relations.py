@@ -1,5 +1,4 @@
 # backend/tests/test_models/test_relations.py
-import pytest
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
 from backend.api.models.tracks_model import Track

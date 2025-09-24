@@ -14,6 +14,7 @@ from backend.utils.settings import Settings
 from backend.services.settings_service import SettingsService
 import redis.asyncio as redis
 from backend.utils.database import get_session
+from backend.utils.sqlite_vec_init import initialize_sqlite_vec
 # Initialiser la base de données avant d'importer les modèles
 Base.metadata.create_all(bind=engine)
 
@@ -43,6 +44,8 @@ async def lifespan(app: FastAPI):
     # Code d'initialisation (startup)
     logger.info("Démarrage de l'API...")
     await SettingsService().initialize_default_settings()
+    # Initialiser sqlite-vec
+    initialize_sqlite_vec()
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):

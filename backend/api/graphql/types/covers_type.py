@@ -1,6 +1,5 @@
 # Temporarily disable Strawchemy to avoid conflicts
 # from backend.api.graphql.strawchemy_init import strawchemy
-from backend.api.models.covers_model import Cover
 import strawberry
 
 @strawberry.type

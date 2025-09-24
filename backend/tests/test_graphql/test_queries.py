@@ -10,7 +10,6 @@ from .fixtures import (
     QUERY_LIST_ALBUMS,
     QUERY_GET_TRACK,
     QUERY_LIST_TRACKS,
-    SAMPLE_ARTIST_INPUT,
 )
 
 

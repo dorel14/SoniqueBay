@@ -1,11 +1,8 @@
 from nicegui import ui
-import json
-import asyncio
 import httpx
 import os
 from urllib.parse import urlparse, parse_qs
 from config import sonique_bay_logo
-from frontend.pages.library import albums
 from utils.logging import logger
 from theme.layout import COMMON_LINK_CLASSES
 
@@ -68,7 +65,7 @@ async def artist_tracks_container(artist_id: int, album_id: int = None):
     with ui.card().classes('w-full max-w-4xl  p-4 bordered bg-base-200 mt-4'):
         #ui.label(f"Pistes de l'album {album_id}").classes('text-xl font-bold mb-4')
 
-        table = ui.table(columns=[
+        ui.table(columns=[
             {'name': 'title', 'label': 'Titre', 'field': 'title', 'sortable': True},
             {'name': 'duration', 'label': 'Durée', 'field': 'duration', 'sortable': True},
         ],
@@ -81,7 +78,6 @@ async def artist_tracks_container(artist_id: int, album_id: int = None):
 async def artist_container(artist_id: int):
     artist_data = await get_artist_info(artist_id)
     artist_container = ui.element('div').classes('w-full').props('id=artist-zone')
-    selected_album_id = None  # Variable pour stocker l'album sélectionné
     with artist_container:
         with ui.card().classes('w-full bg-primary text-gray-10 p-4'):
             with ui.row().classes('w-full items-center gap-4 p-4'):
@@ -96,14 +92,14 @@ async def artist_container(artist_id: int):
                     except (IndexError, KeyError, TypeError):
                         logger.warning(f"Erreur lors de l'extraction du cover pour l'artiste {artist_id}, utilisation du logo par défaut.")
                         cover_data = sonique_bay_logo
-                    artist_image = ui.image(cover_data).classes('w-full h-full object-cover')
+                    ui.image(cover_data).classes('w-full h-full object-cover')
                 # Zone infos artiste
                 with ui.column().classes('flex-grow'):
-                    artist_name = ui.label(artist_data['name']).classes('text-2xl font-bold text-gray-10')
+                    ui.label(artist_data['name']).classes('text-2xl font-bold text-gray-10')
                     ui.separator()
                     with ui.row().classes('gap-4 text-sm mt-2 text-gray-10'):
                         albums_count = ui.label()
-                        tracks_count = ui.label()
+                        ui.label()
                         albums_count.set_text(f"Albums: {len(artist_data.get('albums', []))}")
         with ui.row().classes('w-full items-center justify-between mt-4'):
             albums_list = await get_artist_albums(artist_id)
@@ -112,7 +108,6 @@ async def artist_container(artist_id: int):
                 with albums_container:
                     for album in albums_list:
                         album_id_value = album.get('id')
-                        classes = 'w-48 h-56 bordered cursor-pointer'
                         with ui.card().classes('w-full w-48 h-48').tight().on('click', lambda artist_id=artist_id, album_id=album_id_value: artist_tracks_container.refresh(artist_id=artist_id, album_id=album_id)):
                             # Check if album is a dictionary before calling get()
                             if isinstance(album, dict):

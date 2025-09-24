@@ -59,6 +59,7 @@ docker-compose build && docker-compose up
 * Utiliser des **annotations de type** (`typing`) systématiquement.
 * Ajouter des **docstrings** claires (module, classes, fonctions).
 * Préférer les **imports absolus** dans les modules internes.
+* Travailler dans une architecture MVC afin de séparer logique métier et api par exemple 
 * Bien séparer :
 
   * API (FastAPI/GraphQL),
@@ -98,7 +99,7 @@ docker-compose build && docker-compose up
   * `docker-compose up` démarre sans erreur,
   * les endpoints FastAPI/GraphQL répondent,
   * l’UI NiceGUI fonctionne.
-
+* '
 ---
 
 ## 6. 📜 Règles de commits

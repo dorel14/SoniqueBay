@@ -1,11 +1,9 @@
 # tests/test_image_service.py
 import pytest
-from unittest.mock import AsyncMock, patch, Mock, MagicMock
-from typing import Optional
+from unittest.mock import AsyncMock, patch
 import logging
 
 # Assuming image_service.py is in the same directory or accessible via PYTHONPATH
-import mimetypes
 from backend_worker.services.image_service import (
     process_cover_image,
     read_image_file,

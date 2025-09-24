@@ -11,6 +11,22 @@ from backend_worker.services.settings_service import SettingsService
 from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
 
 
+def snake_to_camel(s: str) -> str:
+    """Convert snake_case to camelCase."""
+    parts = s.split('_')
+    return parts[0] + ''.join(word.capitalize() for word in parts[1:])
+
+
+def convert_dict_keys_to_camel(data):
+    """Recursively convert dict keys from snake_case to camelCase."""
+    if isinstance(data, dict):
+        return {snake_to_camel(k): convert_dict_keys_to_camel(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_dict_keys_to_camel(item) for item in data]
+    else:
+        return data
+
+
 settings_service = SettingsService()
 
 # Cache pour stocker les IDs (durée de vie 1 heure)
@@ -25,29 +41,106 @@ def publish_library_update():
     r.publish("notifications", json.dumps({"type": "library_update"}))
 
 
-async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, entity_id: int,
-                            cover_data: str = None, mime_type: str = None, url: str = None,
-                            cover_schema: dict = None) -> Optional[Dict]:
-    try:
-        if not cover_schema:
-            # Récupérer le schéma de cover si non fourni
-            cover_schema = await get_cover_schema()
-    except Exception as e:
-        logger.error(f"Erreur récupération schéma cover: {str(e)}")
-        return None
-    covertype = await get_cover_types()
-    logger.debug(f"Types de cover disponibles: {covertype}")
-    if entity_type not in covertype:
-        logger.error(f"Type de cover non supporté: {entity_type}")
-        return None
+async def execute_graphql_query(client: httpx.AsyncClient, query: str, variables: dict = None) -> dict:
+    """
+    Exécute une requête GraphQL de manière asynchrone.
 
-    """Crée ou met à jour une cover pour une entité."""
+    Args:
+        client: Client HTTP asynchrone
+        query: Requête GraphQL
+        variables: Variables de la requête
+
+    Returns:
+        Résultat de la requête GraphQL
+
+    Raises:
+        Exception: En cas d'erreur GraphQL
+    """
+    graphql_url = f"{api_url}/api/graphql"
+
+    payload = {"query": query}
+    if variables:
+        payload["variables"] = variables
+
     try:
+        response = await client.post(
+            graphql_url,
+            json=payload,
+            timeout=120  # Timeout plus long pour les opérations batch
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"GraphQL request failed: {response.status_code} - {response.text}")
+
+        result = await response.json()
+
+        if "errors" in result:
+            raise Exception(f"GraphQL errors: {result['errors']}")
+
+        return result.get("data", {})
+
+    except Exception as e:
+        logger.error(f"Erreur GraphQL: {str(e)}")
+        raise
+
+
+async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, entity_id: int,
+                             cover_data: str = None, mime_type: str = None, url: str = None,
+                             cover_schema: dict = None) -> Optional[Dict]:
+    """
+    Crée ou met à jour une cover pour une entité avec gestion d'erreurs améliorée.
+
+    Args:
+        client: Client HTTP asynchrone
+        entity_type: Type d'entité ('artist', 'album', 'track')
+        entity_id: ID de l'entité
+        cover_data: Données de l'image encodée
+        mime_type: Type MIME de l'image
+        url: URL source de l'image
+        cover_schema: Schéma de validation (optionnel)
+
+    Returns:
+        Données de la cover créée/mise à jour ou None en cas d'erreur
+    """
+    try:
+        # Validation des paramètres d'entrée
+        if not entity_type or not isinstance(entity_id, int) or entity_id <= 0:
+            logger.error(f"Paramètres invalides: entity_type={entity_type}, entity_id={entity_id}")
+            return None
+
         if not cover_data:
             logger.debug(f"Pas de données cover pour {entity_type} {entity_id}")
             return None
 
-        logger.info(f"Traitement cover pour {entity_type} {entity_id}")
+        if not mime_type:
+            logger.warning(f"Type MIME manquant pour {entity_type} {entity_id}")
+            # Essayer de deviner le type MIME depuis les données
+            if cover_data.startswith('data:image/'):
+                mime_type = cover_data.split(';')[0].split(':')[1]
+            else:
+                mime_type = 'image/jpeg'  # Valeur par défaut
+
+        # Récupération du schéma si non fourni
+        if not cover_schema:
+            try:
+                cover_schema = await get_cover_schema()
+            except Exception as e:
+                logger.error(f"Erreur récupération schéma cover: {str(e)}")
+                return None
+
+        # Validation du type d'entité
+        try:
+            covertype = await get_cover_types()
+            if entity_type not in covertype:
+                logger.error(f"Type de cover non supporté: {entity_type} (supportés: {covertype})")
+                return None
+        except Exception as e:
+            logger.error(f"Erreur récupération types de cover: {str(e)}")
+            return None
+
+        logger.info(f"Traitement cover pour {entity_type} {entity_id} ({mime_type})")
+
+        # Préparation des données
         all_args = {
             "entity_type": entity_type,
             "entity_id": entity_id,
@@ -55,37 +148,67 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             "mime_type": mime_type,
             "url": url,
         }
+
+        # Filtrage selon le schéma
         properties = cover_schema.get("properties", {})
-        cover_create = {field: all_args[field] for field in properties if field in all_args and all_args[field] is not None}
+        cover_create = {
+            field: all_args[field]
+            for field in properties
+            if field in all_args and all_args[field] is not None
+        }
+
+        # Nettoyer les données base64 si nécessaire
+        if cover_data.startswith('data:image/'):
+            cover_create["cover_data"] = cover_data.split(',')[1]
+
+        # Tentative de mise à jour (PUT)
         try:
-            # Essayer directement le PUT
             response = await client.put(
                 f"{api_url}/api/covers/{entity_type}/{entity_id}",
-                json=cover_create, timeout=30,  # Timeout pour le PUT
+                json=cover_create,
+                timeout=60,  # Timeout plus long pour les uploads
             )
-            if response.status_code in (200, 201):
-                logger.info(f"Cover mise à jour pour {entity_type} {entity_id}")
-                return await response.json()
-        except Exception as e:
-            logger.debug(f"PUT échoué, tentative de POST: {str(e)}")
 
-        # Si le PUT échoue, essayer le POST
+            if response.status_code in (200, 201):
+                result = await response.json()
+                logger.info(f"Cover mise à jour pour {entity_type} {entity_id}")
+                return result
+            elif response.status_code == 404:
+                logger.debug(f"Cover n'existe pas pour {entity_type} {entity_id}, tentative de création")
+            else:
+                logger.warning(f"PUT échoué pour {entity_type} {entity_id}: {response.status_code} - {response.text}")
+
+        except httpx.TimeoutException:
+            logger.warning(f"Timeout PUT pour {entity_type} {entity_id}")
+        except Exception as e:
+            logger.debug(f"PUT échoué pour {entity_type} {entity_id}, tentative POST: {str(e)}")
+
+        # Tentative de création (POST) si PUT a échoué
         try:
             response = await client.post(
                 f"{api_url}/api/covers",
                 json=cover_create,
-                follow_redirects=True  # Important: suivre les redirections
+                timeout=60,
+                follow_redirects=True
             )
-            if response.status_code in (200, 201):
-                logger.info(f"Cover créée pour {entity_type} {entity_id}")
-                return await response.json()
-        except Exception as e:
-            logger.error(f"Erreur création cover: {str(e)}")
 
-        return None
+            if response.status_code in (200, 201):
+                result = await response.json()
+                logger.info(f"Cover créée pour {entity_type} {entity_id}")
+                return result
+            else:
+                logger.error(f"POST échoué pour {entity_type} {entity_id}: {response.status_code} - {response.text}")
+                return None
+
+        except httpx.TimeoutException:
+            logger.error(f"Timeout POST pour {entity_type} {entity_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Erreur POST pour {entity_type} {entity_id}: {str(e)}")
+            return None
 
     except Exception as e:
-        logger.error(f"Erreur gestion cover pour {entity_type} {entity_id}: {str(e)}")
+        logger.error(f"Erreur générale gestion cover pour {entity_type} {entity_id}: {str(e)}")
         return None
 
 async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Optional[Dict]:
@@ -146,65 +269,109 @@ def update_missing_info(entity: Dict, new_data: Dict) -> bool:
     return updated
 
 async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: List[Dict]) -> Dict[str, Dict]:
-    """Crée ou récupère une liste d'artistes en une seule requête (batch)."""
+    """
+    Crée ou récupère une liste d'artistes en une seule requête GraphQL (batch).
+
+    Args:
+        client: Client HTTP asynchrone
+        artists_data: Liste des données d'artistes
+
+    Returns:
+        Dictionnaire des artistes créés/récupérés
+    """
     try:
         if not artists_data:
-            logger.info(f"Traitement en batch de {len(artists_data)} artistes.")
+            logger.info("Traitement en batch de 0 artistes.")
             return {}
-        
-        # Utiliser le nouveau endpoint /batch
-        response = await client.post(
-            f"{api_url}/api/artists/batch",
-            json=artists_data,
-            timeout=60  # Augmenter le timeout pour les requêtes batch
-        )
 
-        if response.status_code in (200, 201):
-            artists = await response.json()
+        logger.info(f"Traitement en batch de {len(artists_data)} artistes via GraphQL")
+
+        # Construire la mutation GraphQL
+        mutation = """
+        mutation CreateArtists($artists: [ArtistCreateInput!]!) {
+            createArtists(data: $artists) {
+                id
+                name
+                musicbrainzArtistid
+            }
+        }
+        """
+
+        # Convertir les clés snake_case en camelCase pour GraphQL
+        converted_artists_data = convert_dict_keys_to_camel(artists_data)
+        variables = {"artists": converted_artists_data}
+        logger.debug(f"GraphQL variables for CreateArtists: {variables}")
+
+        # Exécuter la requête GraphQL
+        result = await execute_graphql_query(client, mutation, variables)
+
+        if "createArtists" in result:
+            artists = result["createArtists"]
             # Créer un dictionnaire pour un accès facile par nom ou mbid
             artist_map = {
-                (artist.get('musicbrainz_artistid') or artist['name'].lower()): artist
+                (artist.get('musicbrainzArtistid') or artist['name'].lower()): artist
                 for artist in artists
             }
-            logger.info(f"{len(artists)} artistes traités avec succès en batch.")
+            logger.info(f"{len(artists)} artistes traités avec succès en batch via GraphQL")
             publish_library_update()  # Publier la mise à jour de la bibliothèque
-            # Mettre à jour le cache des artistes
             return artist_map
         else:
-            logger.error(f"Erreur lors du traitement en batch des artistes: {response.status_code} - {response.text}")
+            logger.error(f"Réponse GraphQL inattendue: {result}")
             return {}
 
     except Exception as e:
-        logger.error(f"Exception lors du traitement en batch des artistes: {str(e)}")
+        logger.error(f"Erreur lors du traitement en batch des artistes: {str(e)}")
         return {}
 
 async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: List[Dict]) -> Dict[str, Dict]:
-    """Crée ou récupère une liste d'albums en une seule requête (batch)."""
+    """
+    Crée ou récupère une liste d'albums en une seule requête GraphQL (batch).
+
+    Args:
+        client: Client HTTP asynchrone
+        albums_data: Liste des données d'albums
+
+    Returns:
+        Dictionnaire des albums créés/récupérés
+    """
     try:
         if not albums_data:
             return {}
 
-        logger.info(f"Traitement en batch de {len(albums_data)} albums.")
-        
-        response = await client.post(
-            f"{api_url}/api/albums/batch",
-            json=albums_data,
-            timeout=120  # Timeout plus long pour les albums
-        )
+        logger.info(f"Traitement en batch de {len(albums_data)} albums via GraphQL")
 
-        if response.status_code in (200, 201):
-            albums = await response.json()
+        # Construire la mutation GraphQL
+        mutation = """
+        mutation CreateAlbums($albums: [AlbumCreateInput!]!) {
+            createAlbums(data: $albums) {
+                id
+                title
+                albumArtistId
+                releaseYear
+                musicbrainzAlbumid
+            }
+        }
+        """
+
+        # Convertir les clés snake_case en camelCase pour GraphQL
+        converted_albums_data = convert_dict_keys_to_camel(albums_data)
+        variables = {"albums": converted_albums_data}
+
+        # Exécuter la requête GraphQL
+        result = await execute_graphql_query(client, mutation, variables)
+
+        if "createAlbums" in result:
+            albums = result["createAlbums"]
             # Clé: (titre, artist_id) ou mbid
             album_map = {
-                (album.get('musicbrainz_albumid') or (album['title'].lower(), album['album_artist_id'])): album
+                (album.get('musicbrainzAlbumid') or (album['title'].lower(), album['albumArtistId'])): album
                 for album in albums
             }
-            logger.info(f"{len(albums)} albums traités avec succès en batch.")
+            logger.info(f"{len(albums)} albums traités avec succès en batch via GraphQL")
             publish_library_update()  # Publier la mise à jour de la bibliothèque
-            # Mettre à jour le cache
             return album_map
         else:
-            logger.error(f"Erreur lors du traitement en batch des albums: {response.status_code} - {response.text}")
+            logger.error(f"Réponse GraphQL inattendue: {result}")
             return {}
 
     except Exception as e:
@@ -248,17 +415,17 @@ def clean_track_data(file: Dict) -> Dict:
                     float_val = float(value)
                     # Conversion explicite en bool
                     return bool(float_val > 0.5)
-                except:
+                except Exception:
                     return None
             return None
-        except:
+        except Exception:
             return None
 
     def safe_float(value) -> Optional[float]:
         """Convertit une valeur en float de manière sécurisée."""
         try:
             return float(value) if value is not None else None
-        except:
+        except Exception:
             return None
 
     # Correction du mapping MusicBrainz avec les bonnes clés
@@ -332,40 +499,117 @@ def clean_track_data(file: Dict) -> Dict:
     return cleaned_data
 
 async def create_or_update_tracks_batch(client: httpx.AsyncClient, tracks_data: List[Dict]) -> List[Dict]:
-    """Crée ou met à jour une liste de pistes en une seule requête (batch)."""
+    """
+    Crée ou met à jour une liste de pistes en une seule requête GraphQL (batch).
+
+    Args:
+        client: Client HTTP asynchrone
+        tracks_data: Liste des données de pistes
+
+    Returns:
+        Liste des pistes traitées
+    """
     try:
         if not tracks_data:
             return []
 
-        logger.info(f"Traitement en batch de {len(tracks_data)} pistes.")
-        
+        logger.info(f"Traitement en batch de {len(tracks_data)} pistes via GraphQL")
+
         # Nettoyer les données avant de les envoyer
         cleaned_tracks_data = [clean_track_data(track) for track in tracks_data]
 
-        response = await client.post(
-            f"{api_url}/api/tracks/batch",
-            json=cleaned_tracks_data,
-            timeout=300  # Timeout très long pour les pistes
-        )
+        # Construire la mutation GraphQL
+        mutation = """
+        mutation CreateTracks($tracks: [TrackCreateInput!]!) {
+            createTracks(data: $tracks) {
+                id
+                title
+                path
+                trackArtistId
+                albumId
+                duration
+                trackNumber
+                discNumber
+                year
+                genre
+                fileType
+                bitrate
+                featuredArtists
+                bpm
+                key
+                scale
+                danceability
+                moodHappy
+                moodAggressive
+                moodParty
+                moodRelaxed
+                instrumental
+                acoustic
+                tonal
+                camelotKey
+                genreMain
+                musicbrainzId
+                musicbrainzAlbumid
+                musicbrainzArtistid
+                musicbrainzAlbumartistid
+                acoustidFingerprint
+            }
+        }
+        """
 
-        if response.status_code in (200, 201):
-            processed_tracks = await response.json()
-            logger.info(f"{len(processed_tracks)} pistes traitées avec succès en batch.")
+        # Convertir les clés snake_case en camelCase pour GraphQL
+        converted_tracks_data = convert_dict_keys_to_camel(cleaned_tracks_data)
+        variables = {"tracks": converted_tracks_data}
+
+        # Exécuter la requête GraphQL
+        result = await execute_graphql_query(client, mutation, variables)
+
+        if "createTracks" in result:
+            processed_tracks = result["createTracks"]
+            logger.info(f"{len(processed_tracks)} pistes traitées avec succès en batch via GraphQL")
             return processed_tracks
         else:
-            logger.error(f"Erreur lors du traitement en batch des pistes: {response.status_code} - {response.text}")
+            logger.error(f"Réponse GraphQL inattendue: {result}")
             return []
 
     except Exception as e:
         logger.error(f"Exception lors du traitement en batch des pistes: {str(e)}")
         return []
 
-async def process_artist_covers(client: httpx.AsyncClient, artist_id: int, 
-                            artist_path: str, artist_images: List[Tuple[str, str]]) -> None:
-    """Traite toutes les covers d'un artiste."""
-    try:
-        for cover_data, mime_type in artist_images:
-            await create_or_update_cover(
+async def process_artist_covers(client: httpx.AsyncClient, artist_id: int,
+                             artist_path: str, artist_images: List[Tuple[str, str]]) -> None:
+    """
+    Traite toutes les covers d'un artiste avec gestion d'erreurs améliorée.
+
+    Args:
+        client: Client HTTP asynchrone
+        artist_id: ID de l'artiste
+        artist_path: Chemin vers le dossier de l'artiste
+        artist_images: Liste de tuples (données_cover, type_mime)
+    """
+    if not artist_images:
+        logger.debug(f"Aucune image cover pour l'artiste {artist_id}")
+        return
+
+    logger.info(f"Traitement de {len(artist_images)} covers pour l'artiste {artist_id}")
+
+    successful = 0
+    failed = 0
+
+    for i, (cover_data, mime_type) in enumerate(artist_images):
+        try:
+            if not cover_data or not mime_type:
+                logger.warning(f"Données cover invalides pour artiste {artist_id}, image {i}")
+                failed += 1
+                continue
+
+            # Validation basique du type MIME
+            if not mime_type.startswith('image/'):
+                logger.warning(f"Type MIME invalide pour artiste {artist_id}: {mime_type}")
+                failed += 1
+                continue
+
+            result = await create_or_update_cover(
                 client=client,
                 entity_type="artist",
                 entity_id=artist_id,
@@ -373,6 +617,23 @@ async def process_artist_covers(client: httpx.AsyncClient, artist_id: int,
                 mime_type=mime_type,
                 url=artist_path
             )
-    except Exception as e:
-        logger.error(f"Erreur traitement covers artiste {artist_id}: {str(e)}")
-    return None
+
+            if result:
+                successful += 1
+                logger.debug(f"Cover {i+1}/{len(artist_images)} traitée pour artiste {artist_id}")
+            else:
+                failed += 1
+                logger.warning(f"Échec traitement cover {i+1} pour artiste {artist_id}")
+
+        except Exception as e:
+            failed += 1
+            logger.error(f"Exception traitement cover {i+1} pour artiste {artist_id}: {str(e)}")
+
+    logger.info(f"Covers artiste {artist_id}: {successful} succès, {failed} échecs")
+
+    # Publier une mise à jour si au moins une cover a été traitée
+    if successful > 0:
+        try:
+            publish_library_update()
+        except Exception as e:
+            logger.error(f"Erreur publication mise à jour artiste {artist_id}: {str(e)}")

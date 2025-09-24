@@ -1,8 +1,5 @@
 from typing import Dict, Any
 
-from backend.api.graphql.types.artist_type import ArtistCreateInput
-from backend.api.graphql.types.albums_type import AlbumCreateInput
-from backend.api.graphql.types.tracks_type import TrackCreateInput
 
 
 # Sample GraphQL queries for testing

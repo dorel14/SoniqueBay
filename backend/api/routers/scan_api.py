@@ -1,17 +1,10 @@
  
 from fastapi import APIRouter, HTTPException, status, Body
-from backend.utils.celery_app import celery  # For test compatibility
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
- 
+import os
+
 from backend.services.scan_service import ScanService
- 
-
-
-class ScanRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")  # Prevent extra fields
-
-    directory: Optional[str] = None
+from backend.api.schemas.scan_schema import ScanRequest
 
 
 router = APIRouter(prefix="/api", tags=["scan"])
@@ -37,9 +30,6 @@ async def launch_scan(request: Optional[ScanRequest] = Body(None)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-from typing import Optional
-import os
 
 def convert_path_to_docker(path: Optional[str]) -> Optional[str]:
     """Convertit un chemin Windows vers un chemin Docker."""

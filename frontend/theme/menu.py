@@ -1,7 +1,7 @@
 from nicegui import ui
 
 def menu() -> None:
-    with ui.menu().classes() as menu:
+    with ui.menu().classes():
         with ui.menu_item(on_click=lambda: ui.navigate.to('/')).classes(''):
             with ui.item_section().props('avatar'):
                 ui.icon('home')

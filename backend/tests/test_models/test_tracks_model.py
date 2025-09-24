@@ -5,7 +5,6 @@ from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
 from backend.api.models.tracks_model import Track
 # backend/tests/test_models/test_tracks_model.py
-from sqlalchemy.exc import IntegrityError
 
 def test_create_track(db_session):
     """Test de création d'une piste en BDD."""

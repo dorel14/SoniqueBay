@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import patch, AsyncMock
-import os
 import json
 
 from backend_worker.services.path_service import PathService, find_local_images, get_artist_path, find_cover_in_directory

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Any
-from datetime import datetime
+from typing import List, Any
 from .base_schema import TimestampedSchema
 
 class GenreBase(BaseModel):

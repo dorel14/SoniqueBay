@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import patch, AsyncMock, Mock
-import json
 
 from backend_worker.services.settings_service import SettingsService, _settings_cache
 

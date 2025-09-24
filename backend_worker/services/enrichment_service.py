@@ -1,6 +1,5 @@
 import httpx
 import os
-from typing import Optional
 from backend_worker.utils.logging import logger
 from backend_worker.services.lastfm_service import get_lastfm_artist_image
 from backend_worker.services.coverart_service import get_coverart_image

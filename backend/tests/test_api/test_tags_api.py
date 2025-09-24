@@ -2,7 +2,6 @@
 # Tests pour les endpoints de l'API Tags
 
 import pytest
-from backend.api.schemas.tags_schema import TagCreate
 
 
 @pytest.fixture

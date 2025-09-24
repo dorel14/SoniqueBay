@@ -1,7 +1,5 @@
 import pytest
-from unittest.mock import patch, AsyncMock, Mock
-import os
-import json
+from unittest.mock import patch, Mock
 
 from backend_worker.services.indexer import (
     MusicIndexer,

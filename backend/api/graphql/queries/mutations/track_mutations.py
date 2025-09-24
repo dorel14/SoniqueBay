@@ -174,7 +174,6 @@ class TrackMutations:
     def update_track_by_id(self, data: TrackUpdateInput, info: strawberry.types.Info) -> TrackType:
         """Update a track by ID."""
         from backend.services.track_service import TrackService
-        from backend.api.schemas.tracks_schema import TrackCreate
         session = info.context.db
         service = TrackService(session)
 

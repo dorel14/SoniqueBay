@@ -1,4 +1,3 @@
-from typing import Optional
 
 CAMELOT_MAP = {
     'C': '8B', 'C#': '3B', 'Db': '3B', 'D': '10B', 'D#': '5B', 'Eb': '5B',

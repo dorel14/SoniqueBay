@@ -2,7 +2,6 @@ import os
 import inspect
 import importlib
 import glob
-from typing import Callable
 from nicegui import ui
 from theme.layout import wrap_with_layout
 from utils.logging import logger

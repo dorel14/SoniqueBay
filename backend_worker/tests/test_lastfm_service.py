@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import patch, AsyncMock, Mock
 import logging
-import base64
 
 from backend_worker.services.lastfm_service import get_lastfm_artist_image, _lastfm_artist_image_cache
 

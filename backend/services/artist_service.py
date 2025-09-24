@@ -1,5 +1,3 @@
-from backend.api.models.artists_model import Artist
-import dataclasses
 
 from sqlalchemy import func, or_
 from backend.api.models.artists_model import Artist as ArtistModel

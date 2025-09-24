@@ -2,8 +2,6 @@
 from nicegui import ui, APIRouter as ng_apirouter
 from utils.logging import logger
 from .generals.theme_skeleton import frame
-import json
-import asyncio
 import httpx
 import os
 
@@ -37,14 +35,14 @@ async def artist_container(artist_id: int):
                     except (IndexError, KeyError):
                         logger.warning(f"Aucun cover trouvé pour l'artiste {artist_id}, utilisation du logo par défaut.")
                         cover_data = sonique_bay_logo
-                    artist_image = ui.image(cover_data).classes('w-full h-full object-cover')
+                    ui.image(cover_data).classes('w-full h-full object-cover')
                 # Zone infos artiste
                 with ui.column().classes('flex-grow'):
-                    artist_name = ui.label(artist_data['name']).classes('text-2xl font-bold')
+                    ui.label(artist_data['name']).classes('text-2xl font-bold')
                     ui.separator()
                     with ui.row().classes('gap-4 text-sm mt-2'):
                         albums_count = ui.label()
-                        tracks_count = ui.label()
+                        ui.label()
                         albums_count.set_text(f"Albums: {len(artist_data.get('albums', []))}")
 
 

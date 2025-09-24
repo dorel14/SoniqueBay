@@ -57,7 +57,7 @@ async def artist_view(page: int):
 
     spinner.visible = True
     artists_column.clear()
-    pagination_label.text = f"Chargement..."
+    pagination_label.text = "Chargement..."
 
     artists_data = await get_artists(skip, page_size)
     

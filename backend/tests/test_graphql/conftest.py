@@ -5,8 +5,6 @@ from strawberry.types import ExecutionResult
 
 from backend.api.graphql.queries.schema import schema
 
-pytest_plugins = ("syrupy",)
-
 
 class TestContext:
     """Context for Strawberry execution with DB session."""

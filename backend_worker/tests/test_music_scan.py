@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import logging
 from pathlib import Path
-import json
 import base64
 
 from backend_worker.services.music_scan import (
@@ -11,12 +10,7 @@ from backend_worker.services.music_scan import (
     convert_to_base64,
     get_file_bitrate,
     get_musicbrainz_tags,
-    extract_metadata,
     get_artist_images,
-    process_file,
-    async_walk,
-    scan_music_files,
-    get_tag_list,
     get_tag,
     serialize_tags
 )

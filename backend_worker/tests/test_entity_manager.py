@@ -28,13 +28,12 @@ async def test_create_or_get_artists_batch_success(caplog):
         mock_client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json = AsyncMock(return_value=[{"name": "Test Artist", "musicbrainz_artistid": "123"}])
+        mock_response.json = AsyncMock(return_value={"data": {"createArtists": [{"name": "Test Artist", "musicbrainzArtistid": "123"}]}})
         mock_client.post = AsyncMock(return_value=mock_response)
         result = await create_or_get_artists_batch(mock_client, [{"name": "Test Artist"}])
-        artists = await mock_client.post.return_value.json()
-        assert result["123"] == {"name": "Test Artist", "musicbrainz_artistid": "123"}
+        assert result["123"] == {"name": "Test Artist", "musicbrainzArtistid": "123"}
         mock_publish.assert_called_once()
-    assert "1 artistes traités avec succès en batch." in caplog.text
+    assert "1 artistes traités avec succès en batch via GraphQL" in caplog.text
 
 @pytest.mark.asyncio
 async def test_create_or_get_artists_batch_api_error(caplog):
@@ -47,7 +46,7 @@ async def test_create_or_get_artists_batch_api_error(caplog):
 
     result = await create_or_get_artists_batch(mock_client, [{"name": "Test Artist"}])
     assert result == {}
-    assert "Erreur lors du traitement en batch des artistes: 500 - Internal Server Error" in caplog.text
+    assert "Erreur lors du traitement en batch des artistes: GraphQL request failed: 500 - Internal Server Error" in caplog.text
 
 @pytest.mark.asyncio
 async def test_create_or_get_artists_batch_exception(caplog):
@@ -57,7 +56,7 @@ async def test_create_or_get_artists_batch_exception(caplog):
 
     result = await create_or_get_artists_batch(mock_client, [{"name": "Test Artist"}])
     assert result == {}
-    assert "Exception lors du traitement en batch des artistes: Test Exception" in caplog.text
+    assert "Erreur lors du traitement en batch des artistes: Test Exception" in caplog.text
 
 @pytest.mark.asyncio
 async def test_create_or_get_artists_batch_musicbrainz_artistid_none(caplog):
@@ -66,13 +65,12 @@ async def test_create_or_get_artists_batch_musicbrainz_artistid_none(caplog):
         mock_client = AsyncMock()
         mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_response.json = AsyncMock(return_value=[{"name": "Test Artist", "musicbrainz_artistid": None}])
+        mock_response.json = AsyncMock(return_value={"data": {"createArtists": [{"name": "Test Artist", "musicbrainzArtistid": None}]}})
         mock_client.post = AsyncMock(return_value=mock_response)
         result = await create_or_get_artists_batch(mock_client, [{"name": "Test Artist"}])
-        artists = await mock_client.post.return_value.json()
-        assert result["test artist"] == {"name": "Test Artist", "musicbrainz_artistid": None}
+        assert result["test artist"] == {"name": "Test Artist", "musicbrainzArtistid": None}
         mock_publish.assert_called_once()
-    assert "1 artistes traités avec succès en batch." in caplog.text
+    assert "1 artistes traités avec succès en batch via GraphQL" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -145,24 +143,24 @@ async def test_create_or_get_genre_from_cache(caplog):
 async def test_create_or_get_albums_batch_success(caplog):
     """Test la création ou récupération d'albums en batch avec succès."""
     caplog.set_level(logging.INFO)
-    
+
     mock_client = AsyncMock()
     mock_response = AsyncMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = [
-        {"id": 1, "title": "Album 1", "album_artist_id": 1, "musicbrainz_albumid": "123"},
-        {"id": 2, "title": "Album 2", "album_artist_id": 2, "musicbrainz_albumid": None}
-    ]
+    mock_response.json.return_value = {"data": {"createAlbums": [
+        {"id": 1, "title": "Album 1", "albumArtistId": 1, "musicbrainzAlbumid": "123"},
+        {"id": 2, "title": "Album 2", "albumArtistId": 2, "musicbrainzAlbumid": None}
+    ]}}
     mock_client.post.return_value = mock_response
-    
+
     with patch('backend_worker.services.entity_manager.publish_library_update') as mock_publish:
         albums_data = [
             {"title": "Album 1", "album_artist_id": 1},
             {"title": "Album 2", "album_artist_id": 2}
         ]
-        
+
         result = await create_or_get_albums_batch(mock_client, albums_data)
-        
+
         assert "123" in result
         assert ("album 2", 2) in result
         assert len(result) == 2

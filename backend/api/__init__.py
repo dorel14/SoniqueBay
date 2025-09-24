@@ -14,6 +14,7 @@ from backend.api.routers.search_api import router as search_router
 from backend.api.routers.covers_api import router as covers_router
 from backend.api.routers.library_api import router as library_router
 from backend.api.routers.celery_tasks_api import router as celery_tasks_router
+from backend.api.routers.track_vectors_api import router as track_vectors_router
 
 
 # Créer le router principal
@@ -34,6 +35,7 @@ ROUTERS = [
     search_router,
     library_router,
     celery_tasks_router,
+    track_vectors_router,
 ]
 
 

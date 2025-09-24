@@ -6,7 +6,6 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
-import dataclasses
 
 class AlbumService:
     def __init__(self, db):
@@ -98,10 +97,10 @@ class AlbumService:
                 result.append(AlbumWithRelations.model_validate(album_data).model_dump())
             return result
 
-        except IntegrityError as e:
+        except IntegrityError:
             self.db.rollback()
             raise Exception("Conflit de données lors de la création en batch.")
-        except Exception as e:
+        except Exception:
             self.db.rollback()
             raise Exception("Erreur interne du serveur.")
 

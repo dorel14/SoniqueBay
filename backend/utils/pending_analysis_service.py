@@ -27,7 +27,7 @@ class PendingAnalysisService:
     def get_pending_tracks(self) -> List[Dict]:
         """Récupère toutes les pistes en attente d'analyse."""
         Track = Query()
-        pending_tracks = self.tracks.search(Track.analyzed == False)
+        pending_tracks = self.tracks.search(not Track.analyzed)
         logger.info(f"Récupération des pistes en attente - DB path: {self.db.storage._handle.name}")
         logger.info(f"Total tracks in DB: {len(self.tracks)}, Pending tracks: {len(pending_tracks)}")
         if pending_tracks:

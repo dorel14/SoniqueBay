@@ -53,12 +53,14 @@ class MusicIndexer:
         }
         return {k: v for k, v in whoosh_data.items() if v is not None}
 
-    async def index_directory(self, directory: str, progress_callback=None):
+    async def index_directory(self, directory: str, scan_config: dict, progress_callback=None):
         """Indexe uniquement dans Whoosh."""
         try:
             logger.info(f"Démarrage indexation Whoosh: {directory}")
             # Scan des fichiers
-            files = await scan_music_files(directory)
+            files = []
+            async for file_data in scan_music_files(directory, scan_config):
+                files.append(file_data)
             total_files = len(files)
 
             # Traiter chaque fichier uniquement pour Whoosh
@@ -96,4 +98,4 @@ class MusicIndexer:
         if os.path.exists(self.index_dir):
             shutil.rmtree(self.index_dir)
         self.index_dir_actual, self.index_name = await remote_get_or_create_index(self.index_dir)
-        await self.index_directory(directory, progress_callback)
+        await self.index_directory(directory, {}, progress_callback)

@@ -2,7 +2,6 @@
 # Tests pour les endpoints de l'API Settings
 
 import pytest
-from backend.api.schemas.settings_schema import SettingCreate
 
 
 @pytest.fixture

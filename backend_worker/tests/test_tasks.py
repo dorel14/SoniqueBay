@@ -1,6 +1,4 @@
-import pytest
 from unittest.mock import patch, AsyncMock
-import asyncio
 
 from backend_worker.background_tasks.tasks import (
     scan_music_tasks,
@@ -13,7 +11,7 @@ from backend_worker.background_tasks.tasks import (
 def test_scan_music_tasks():
     """Test la tâche d'indexation de musique."""
     with patch('backend_worker.background_tasks.tasks.scan_music_task', new_callable=AsyncMock) as mock_scan:
-        with patch('backend_worker.utils.pubsub.publish_event') as mock_publish:
+        with patch('backend_worker.utils.pubsub.publish_event'):
             # Configurer le mock
             mock_scan.return_value = {"scanned": 10, "added": 5}
 
@@ -60,7 +58,7 @@ def test_enrich_artist_task():
         # Vérifier les appels
         mock_enrich.assert_called_once()
         assert result["id"] == 1
-        assert result["enriched"] == True
+        assert result["enriched"] is True
 
 def test_enrich_album_task():
     """Test la tâche d'enrichissement pour un album."""
@@ -74,4 +72,4 @@ def test_enrich_album_task():
         # Vérifier les appels
         mock_enrich.assert_called_once()
         assert result["id"] == 1
-        assert result["enriched"] == True
+        assert result["enriched"] is True

@@ -3,7 +3,7 @@
 
 import pytest
 from datetime import datetime
-from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
+from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack
 
 
 @pytest.fixture
@@ -176,7 +176,7 @@ def test_move_track_invalid_position(client, mock_playqueue_service):
     tracks = [
         QueueTrack(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180, path="/path/1.mp3", position=0)
     ]
-    mock_queue = PlayQueue(tracks=tracks, current_position=0, last_updated=datetime.now())
+    PlayQueue(tracks=tracks, current_position=0, last_updated=datetime.now())
     mock_playqueue_service.move_track.side_effect = ValueError("Nouvelle position requise")
     
     move_data = {"track_id": 1, "new_position": None}
@@ -196,7 +196,7 @@ def test_move_track_not_found(client, mock_playqueue_service):
     tracks = [
         QueueTrack(id=1, title="Track 1", artist="Artist 1", album="Album 1", duration=180, path="/path/1.mp3", position=0)
     ]
-    mock_queue = PlayQueue(tracks=tracks, current_position=0, last_updated=datetime.now())
+    PlayQueue(tracks=tracks, current_position=0, last_updated=datetime.now())
     mock_playqueue_service.move_track.side_effect = ValueError("Piste non trouvée")
     
     move_data = {"track_id": 999, "new_position": 0}

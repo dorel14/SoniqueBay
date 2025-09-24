@@ -7,7 +7,7 @@ celery = Celery(
     'soniquebay',
     broker=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0'),
-    include=['background_tasks.tasks']  # nom du fichier où sont définies les tâches
+    include=['backend_worker.background_tasks.tasks']  # nom du fichier où sont définies les tâches
 )
 
 celery.conf.update(

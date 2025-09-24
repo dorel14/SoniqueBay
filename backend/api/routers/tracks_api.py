@@ -1,16 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
-from sqlalchemy.orm import Session as SQLAlchemySession, joinedload
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func
-from backend.api.models.genres_model import Genre
-from backend.api.models.albums_model import Album
-from backend.api.models.covers_model import Cover
+from sqlalchemy.orm import Session as SQLAlchemySession
 
 from typing import List, Optional
 from backend.utils.database import get_db
 from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.api.models.tracks_model import Track as TrackModel
-from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.utils.logging import logger
 from backend.services.track_service import TrackService
 
@@ -262,5 +256,106 @@ async def delete_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
     return {"ok": True}
+
+@router.post("/analyze-audio", status_code=status.HTTP_202_ACCEPTED)
+async def analyze_audio_tracks(
+    track_ids: Optional[List[int]] = None,
+    limit: int = 100,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Déclenche l'analyse audio des pistes.
+
+    Args:
+        track_ids: Liste spécifique d'IDs de tracks, ou None pour analyser toutes les tracks sans features
+        limit: Nombre maximum de tracks à analyser
+        db: Session de base de données
+
+    Returns:
+        Informations sur la tâche lancée
+    """
+    try:
+        from backend.utils.celery_app import celery
+
+        if track_ids:
+            # Analyser les tracks spécifiques
+            logger.info(f"Analyse audio demandée pour {len(track_ids)} tracks spécifiques")
+            # Récupérer les chemins des fichiers
+            tracks = db.query(TrackModel).filter(TrackModel.id.in_(track_ids)).all()
+            track_data_list = [(track.id, track.path) for track in tracks if track.path]
+        else:
+            # Analyser les tracks sans caractéristiques audio
+            logger.info(f"Analyse audio demandée pour tracks sans features (limit: {limit})")
+            tracks = db.query(TrackModel).filter(
+                TrackModel.bpm.is_(None) | TrackModel.key.is_(None)
+            ).limit(limit).all()
+            track_data_list = [(track.id, track.path) for track in tracks if track.path]
+
+        if not track_data_list:
+            return {"message": "Aucune track à analyser", "count": 0}
+
+        # Lancer la tâche Celery
+        result = celery.send_task("analyze_audio_batch_task", args=[track_data_list])
+
+        logger.info(f"Tâche d'analyse audio lancée: {result.id} pour {len(track_data_list)} tracks")
+
+        return {
+            "task_id": result.id,
+            "message": f"Analyse audio lancée pour {len(track_data_list)} tracks",
+            "count": len(track_data_list)
+        }
+
+    except Exception as e:
+        logger.error(f"Erreur lancement analyse audio: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors du lancement de l'analyse: {str(e)}")
+
+@router.put("/{track_id}/features", status_code=status.HTTP_200_OK)
+async def update_track_features(
+    track_id: int,
+    features: dict,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Met à jour les caractéristiques audio d'une track.
+
+    Args:
+        track_id: ID de la track
+        features: Dictionnaire des caractéristiques audio
+        db: Session de base de données
+
+    Returns:
+        Confirmation de mise à jour
+    """
+    try:
+        service = TrackService(db)
+        track = service.read_track(track_id)
+
+        if not track:
+            raise HTTPException(status_code=404, detail="Track non trouvée")
+
+        # Mise à jour des champs audio
+        update_data = {}
+        audio_fields = [
+            'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
+            'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
+            'camelot_key', 'genre_main'
+        ]
+
+        for field in audio_fields:
+            if field in features:
+                update_data[field] = features[field]
+
+        if update_data:
+            updated_track = service.update_track(track_id, update_data)
+            if not updated_track:
+                raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+
+        return {"message": f"Caractéristiques audio mises à jour pour track {track_id}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur mise à jour features track {track_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
 
 

@@ -1,7 +1,6 @@
 # backend/tests/test_api/test_covers_api.py
 import pytest
 from backend.api.models.covers_model import Cover, EntityCoverType
-from backend.api.schemas.covers_schema import CoverCreate
 
 @pytest.fixture
 def create_test_cover(db_session):
@@ -51,7 +50,7 @@ def test_create_cover(client, db_session):
 def test_create_cover_duplicate_update(client, db_session, create_test_cover):
     """Test de création d'une cover existante (doit mettre à jour)."""
     # Créer une cover existante
-    existing_cover = create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2, url="/old/path.jpg")
+    create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2, url="/old/path.jpg")
 
     # Tenter de créer la même cover
     cover_data = {
@@ -75,7 +74,7 @@ def test_create_cover_duplicate_update(client, db_session, create_test_cover):
 
 def test_get_cover(client, db_session, create_test_cover):
     """Test de récupération d'une cover existante."""
-    cover = create_test_cover(entity_type=EntityCoverType.TRACK, entity_id=3, url="/track/cover.png")
+    create_test_cover(entity_type=EntityCoverType.TRACK, entity_id=3, url="/track/cover.png")
 
     response = client.get("/api/covers/track/3")
     assert response.status_code == 200
@@ -103,9 +102,9 @@ def test_get_covers_empty(client, db_session):
 
 def test_get_covers_with_data(client, db_session, create_test_cover):
     """Test de récupération de la liste de covers avec données."""
-    cover1 = create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=1)
-    cover2 = create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2)
-    cover3 = create_test_cover(entity_type=EntityCoverType.TRACK, entity_id=3)
+    create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=1)
+    create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2)
+    create_test_cover(entity_type=EntityCoverType.TRACK, entity_id=3)
 
     response = client.get("/api/covers/")
     assert response.status_code == 200
@@ -114,9 +113,9 @@ def test_get_covers_with_data(client, db_session, create_test_cover):
 
 def test_get_covers_filtered(client, db_session, create_test_cover):
     """Test de récupération de covers filtrées par type."""
-    cover1 = create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=1)
-    cover2 = create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2)
-    cover3 = create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=3)
+    create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=1)
+    create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=2)
+    create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=3)
 
     response = client.get("/api/covers/?entity_type=artist")
     assert response.status_code == 200
@@ -127,7 +126,7 @@ def test_get_covers_filtered(client, db_session, create_test_cover):
 
 def test_update_cover_existing(client, db_session, create_test_cover):
     """Test de mise à jour d'une cover existante."""
-    cover = create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=4, url="/old/album.jpg")
+    create_test_cover(entity_type=EntityCoverType.ALBUM, entity_id=4, url="/old/album.jpg")
 
     update_data = {
         "entity_type": "album",
@@ -180,7 +179,7 @@ def test_update_cover_invalid_type(client, db_session):
 
 def test_delete_cover(client, db_session, create_test_cover):
     """Test de suppression d'une cover."""
-    cover = create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=6)
+    create_test_cover(entity_type=EntityCoverType.ARTIST, entity_id=6)
 
     response = client.delete("/api/covers/artist/6")
     assert response.status_code == 200

@@ -53,10 +53,11 @@ RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
     PATH="/opt/venv/bin:$PATH"
 
 COPY --from=builder /opt/venv /opt/venv
 
-WORKDIR /backend_worker
-CMD ["/opt/venv/bin/celery", "-A", "celery_app", "worker", "--loglevel=debug", "-E"]
+WORKDIR /app
+CMD ["/opt/venv/bin/celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=debug", "-E"]
 

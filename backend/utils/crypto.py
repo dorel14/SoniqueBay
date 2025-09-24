@@ -1,5 +1,4 @@
 from cryptography.fernet import Fernet
-from base64 import b64encode, b64decode
 import os
 
 def _get_encryption_key() -> bytes:

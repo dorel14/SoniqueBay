@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from sqlalchemy.exc import IntegrityError
 from typing import List
 from backend.utils.database import get_db
-from backend.utils.crypto import encrypt_value, decrypt_value
 from backend.api.schemas.settings_schema import SettingCreate, Setting
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])

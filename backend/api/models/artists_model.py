@@ -1,11 +1,9 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, func, ForeignKey
+from sqlalchemy import String, Integer, DateTime, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
-from backend.api.models.genre_links import artist_genre_links
 from backend.api.models.covers_model import Cover
 from backend.utils.database import Base
-from backend.api.models.genres_model import artist_genres
 
 class Artist(Base):
     __tablename__ = 'artists'

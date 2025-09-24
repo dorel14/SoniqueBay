@@ -2,8 +2,6 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import logging
 import numpy as np
-import json
-from tinydb import TinyDB
 
 from backend_worker.services.audio_features_service import (
     analyze_audio_with_librosa,
@@ -28,31 +26,29 @@ async def test_analyze_audio_with_librosa_success(caplog, tmp_path):
     with patch('librosa.load', return_value=(mock_y, mock_sr)) as mock_load:
         with patch('librosa.beat.beat_track', return_value=(120, None)) as mock_beat:
             with patch('librosa.feature.chroma_stft', return_value=np.zeros((12, 10))) as mock_chroma:
-                with patch('librosa.feature.spectral_centroid', return_value=[np.zeros(10)]) as mock_centroid:
-                    with patch('librosa.feature.spectral_rolloff', return_value=[np.zeros(10)]) as mock_rolloff:
-                        with patch('numpy.mean', return_value=np.array(0.5)) as mock_mean:
-                            with patch('numpy.std', return_value=np.array(0.2)) as mock_std:
-                                with patch('httpx.AsyncClient') as mock_client:
-                                    # Configurer le mock client
-                                    mock_response = AsyncMock()
-                                    mock_response.status_code = 200
-                                    mock_response.raise_for_status = MagicMock()
-                                    mock_response.json = MagicMock(return_value={"status": "success"})
-                                    mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
-                                    
-                                    # Appeler la fonction
-                                    result = await analyze_audio_with_librosa(1, str(test_file))
-                                    
-                                    # Vérifier les appels
-                                    mock_load.assert_called_once()
-                                    mock_beat.assert_called_once()
-                                    mock_chroma.assert_called_once()
-                                    
-                                    # Vérifier le résultat
-                                    assert "bpm" in result
-                                    assert "key" in result
-                                    assert "danceability" in result
-                                    assert "Track mise à jour avec succès" in caplog.text
+                with patch('librosa.feature.spectral_centroid', return_value=[np.zeros(10)]):
+                    with patch('librosa.feature.spectral_rolloff', return_value=[np.zeros(10)]):
+                        with patch('httpx.AsyncClient') as mock_client:
+                            # Configurer le mock client
+                            mock_response = AsyncMock()
+                            mock_response.status_code = 200
+                            mock_response.raise_for_status = MagicMock()
+                            mock_response.json = MagicMock(return_value={"status": "success"})
+                            mock_client.return_value.__aenter__.return_value.put.return_value = mock_response
+                            
+                            # Appeler la fonction
+                            result = await analyze_audio_with_librosa(1, str(test_file))
+                            
+                            # Vérifier les appels
+                            mock_load.assert_called_once()
+                            mock_beat.assert_called_once()
+                            mock_chroma.assert_called_once()
+                            
+                            # Vérifier le résultat
+                            assert "bpm" in result
+                            assert "key" in result
+                            assert "danceability" in result
+                            assert "Track 1 mise à jour avec succès" in caplog.text
 
 @pytest.mark.asyncio
 async def test_analyze_audio_with_librosa_api_error(caplog, tmp_path):
@@ -80,7 +76,7 @@ async def test_analyze_audio_with_librosa_api_error(caplog, tmp_path):
                             mock_response = AsyncMock()
                             mock_response.status_code = 500
                             mock_response.raise_for_status = MagicMock(side_effect=Exception("API Error"))
-                            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
+                            mock_client.return_value.__aenter__.return_value.put.return_value = mock_response
                             
                             with patch('backend_worker.services.audio_features_service.failed_updates_db', mock_db):
                                 # Appeler la fonction

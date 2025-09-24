@@ -3,13 +3,12 @@
 from pathlib import Path
 from mutagen import File
 import mimetypes
-from mutagen.id3 import ID3
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
 import os
 from backend_worker.utils.logging import logger
 import base64
-from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES, MUSIC_PATH_TEMPLATE
+from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES
 import json
 import aiofiles
 import asyncio
@@ -70,7 +69,10 @@ async def get_cover_art(file_path_str: str, audio):
                 dir_path = Path(file_path_str).parent
                 # Récupérer la liste des noms de fichiers de cover depuis les paramètres
                 cover_files_json = await settings_service.get_setting(ALBUM_COVER_FILES)
-                cover_files = json.loads(cover_files_json)
+                if isinstance(cover_files_json, list):
+                    cover_files = cover_files_json
+                else:
+                    cover_files = json.loads(cover_files_json)
 
                 for cover_file in cover_files:
                     cover_path = dir_path / cover_file
@@ -248,7 +250,10 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
 
         # Récupérer la liste des noms de fichiers d'artiste depuis les paramètres
         artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
-        artist_files = json.loads(artist_files_json)
+        if isinstance(artist_files_json, list):
+            artist_files = artist_files_json
+        else:
+            artist_files = json.loads(artist_files_json)
 
         for image_file in artist_files:
             image_path = dir_path / image_file
@@ -277,6 +282,11 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
     Retourne un dictionnaire de métadonnées ou None si erreur.
     """
     file_path_str = file_path_bytes.decode('utf-8', 'surrogateescape')
+    # Corriger les apostrophes mal encodées dans les noms de fichiers
+    path_obj = Path(file_path_str)
+    if '?' in path_obj.name:
+        corrected_name = path_obj.name.replace('?', "'")
+        file_path_str = str(path_obj.parent / corrected_name)
     file_path = Path(file_path_str)
 
     try:
@@ -300,7 +310,7 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
 
         parts = file_path.parts
         artist_depth = scan_config["artist_depth"]
-        artist_path = Path(*parts[:artist_depth+1]) if artist_depth > 0 and len(parts) > artist_depth else file_path.parent
+        artist_path = Path(*parts[:artist_depth]) if artist_depth > 0 and len(parts) > artist_depth else file_path.parent
         artist_path_str = str(artist_path)
 
         artist_images = []

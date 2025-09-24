@@ -1,10 +1,8 @@
-from backend.api.models.tracks_model import Track
 
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from backend.api.models.tracks_model import Track as TrackModel
-from backend.api.models.covers_model import Cover
 from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.api.schemas.tracks_schema import TrackCreate
@@ -12,8 +10,27 @@ from backend.utils.logging import logger
 from typing import List, Optional
 
 class TrackService:
+    """
+    Service métier pour la gestion des pistes musicales.
+
+    Ce service fournit toutes les opérations CRUD pour les tracks,
+    ainsi que les fonctionnalités de recherche et de mise à jour.
+
+    Auteur : Kilo Code
+    Dépendances : backend.api.models.tracks_model, backend.utils.database
+    """
+
     def get_artist_tracks(self, artist_id: int, album_id: Optional[int] = None):
-        """Retourne les pistes d'un artiste, optionnellement filtrées par album."""
+        """
+        Retourne les pistes d'un artiste, optionnellement filtrées par album.
+
+        Args:
+            artist_id: ID de l'artiste
+            album_id: ID de l'album (optionnel)
+
+        Returns:
+            Liste des pistes de l'artiste
+        """
         query = self.session.query(TrackModel).filter(TrackModel.track_artist_id == artist_id)
         if album_id:
             query = query.filter(TrackModel.album_id == album_id)
@@ -26,9 +43,27 @@ class TrackService:
         )
         return query.all()
     def __init__(self, session):
+        """
+        Initialise le service avec une session de base de données.
+
+        Args:
+            session: Session SQLAlchemy
+        """
         self.session = session
 
     def create_track(self, data: TrackCreate):
+        """
+        Crée une nouvelle piste dans la base de données.
+
+        Args:
+            data: Données de la piste à créer
+
+        Returns:
+            La piste créée
+
+        Raises:
+            IntegrityError: En cas de violation de contrainte
+        """
         track = TrackModel(
             title=data.title,
             path=data.path,
@@ -133,7 +168,6 @@ class TrackService:
 
     def update_track(self, track_id: int, track_data):
         from sqlalchemy import func
-        from backend.api.models.genres_model import Genre
 
         db_track = self.session.query(TrackModel).filter(TrackModel.id == track_id).first()
         if not db_track:

@@ -1,6 +1,5 @@
 """Tests for GraphQL mutations."""
 
-import pytest
 from strawberry.types import ExecutionResult
 
 from .fixtures import (
@@ -147,7 +146,7 @@ class TestAlbumMutations:
 
     def test_create_album(self, execute_graphql, create_test_artist, snapshot):
         """Test creating an album with artist relation."""
-        artist = create_test_artist(name="Test Artist for Album")
+        create_test_artist(name="Test Artist for Album")
         album_input = SAMPLE_ALBUM_INPUT.copy()
         # Remove the extra field that was added
         if "album_artist_id" in album_input["data"]:
@@ -291,7 +290,7 @@ class TestTrackMutations:
     def test_create_track(self, execute_graphql, create_test_artist, create_test_album, snapshot):
         """Test creating a track with artist and album relations."""
         artist = create_test_artist(name="Test Artist for Track")
-        album = create_test_album(title="Test Album for Track", artist_id=artist.id)
+        create_test_album(title="Test Album for Track", artist_id=artist.id)
         track_input = SAMPLE_TRACK_INPUT.copy()
         # Remove the extra fields that were added
         if "track_artist_id" in track_input["data"]:

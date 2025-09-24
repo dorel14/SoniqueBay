@@ -44,6 +44,7 @@ def get_database_url():
 # Créer l'engine après la définition de l'URL
 if os.getenv('DB_TYPE', 'sqlite').lower() == 'sqlite':
     engine = create_engine(get_database_url(), connect_args={"check_same_thread": False})
+
     # Enable foreign key support for SQLite
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):

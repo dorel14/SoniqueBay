@@ -14,7 +14,7 @@ class AnalysisService:
         db_tasks = TinyDBHandler.get_db("pending_analysis")
         tracks_table = db_tasks.table('tracks')
         Track = Query()
-        pending = tracks_table.search(Track.analyzed == False)
+        pending = tracks_table.search(not Track.analyzed)
         logger.info(f"get_pending_tracks: DB path {db_tasks.storage._handle.name if hasattr(db_tasks.storage, '_handle') else 'unknown'}, total pending items: {len(pending)}")
         if pending:
             logger.info(f"Pending tracks IDs: {[item.get('track_id') for item in pending]}")

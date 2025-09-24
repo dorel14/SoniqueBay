@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from datetime import datetime
 from typing import Optional, List, Union
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover

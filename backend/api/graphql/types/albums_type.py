@@ -1,7 +1,5 @@
 from __future__ import annotations
 import strawberry
-from strawberry import auto
-from backend.api.models.albums_model import Album
 from backend.api.graphql.types.covers_type import CoverType
 
 
