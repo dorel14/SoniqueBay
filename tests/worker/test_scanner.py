@@ -7,6 +7,7 @@ from backend_worker.services.scanner import (
     count_music_files,
     scan_music_task
 )
+from backend_worker.utils.logging import logger
 
 @pytest.mark.asyncio
 async def test_process_metadata_chunk(caplog):
@@ -109,46 +110,63 @@ async def test_scan_music_task(caplog):
                 with patch('backend_worker.services.scanner.process_metadata_chunk') as mock_process:
                     with patch('backend_worker.services.scanner.MusicIndexer') as mock_indexer:
                         with patch('backend_worker.services.scanner.publish_event') as mock_publish:
-                            # Configurer les mocks
-                            mock_settings = AsyncMock()
-                            mock_settings.get_setting.side_effect = [
-                                "{library}/{album_artist}/{album}",  # MUSIC_PATH_TEMPLATE
-                                '["artist.jpg"]',  # ARTIST_IMAGE_FILES
-                                '["cover.jpg"]'  # ALBUM_COVER_FILES
-                            ]
-                            mock_settings_service.return_value = mock_settings
-                            
-                            mock_count.return_value = 2
-                            
-                            mock_scan.return_value.__aiter__.return_value = [
-                                {"title": "Track 1", "artist": "Artist 1", "album": "Album 1"},
-                                {"title": "Track 2", "artist": "Artist 2", "album": "Album 2"}
-                            ]
-                            
-                            mock_indexer_instance = AsyncMock()
-                            mock_indexer.return_value = mock_indexer_instance
-                            
-                            # Créer un mock pour le callback de progression
-                            mock_callback = MagicMock()
-                            
-                            # Appeler la fonction
-                            result = await scan_music_task("/path/to/music", mock_callback)
-                            
-                            # Vérifier les appels
-                            assert mock_settings.get_setting.call_count == 3
-                            mock_count.assert_called_once()
-                            mock_scan.assert_called_once()
-                            assert mock_process.call_count > 0
-                            mock_indexer_instance.async_init.assert_called_once()
-                            mock_indexer_instance.index_directory.assert_called_once()
-                            assert mock_publish.call_count == 2
-                            assert mock_callback.call_count > 0
-                            
-                            # Vérifier le résultat
-                            assert "directory" in result
-                            assert "files_processed" in result
-                            assert "artists_processed" in result
-                            assert "albums_processed" in result
-                            assert "tracks_processed" in result
-                            assert "covers_processed" in result
-                            assert "Scan terminé" in caplog.text
+                            with patch('backend_worker.services.music_scan.os.path.exists', return_value=True):
+                                with patch('backend_worker.services.scan_optimizer.ScanOptimizer.extract_metadata_batch') as mock_extract:
+                                    # Configurer les mocks
+                                    mock_settings = AsyncMock()
+                                    mock_settings.get_setting.side_effect = [
+                                        "{library}/{album_artist}/{album}",  # MUSIC_PATH_TEMPLATE
+                                        '["artist.jpg"]',  # ARTIST_IMAGE_FILES
+                                        '["cover.jpg"]'  # ALBUM_COVER_FILES
+                                    ]
+                                    mock_settings_service.return_value = mock_settings
+
+                                    mock_count.return_value = 2
+
+                                    # Mock pour async iterator
+                                    async def mock_scan_iter():
+                                        yield {"title": "Track 1", "artist": "Artist 1", "album": "Album 1", "path": "/path/to/track1.mp3"}
+                                        yield {"title": "Track 2", "artist": "Artist 2", "album": "Album 2", "path": "/path/to/track2.mp3"}
+
+                                    mock_scan.return_value = mock_scan_iter()
+
+                                    # Mock extract_metadata_batch pour retourner les métadonnées
+                                    mock_extract.return_value = [
+                                        {"title": "Track 1", "artist": "Artist 1", "album": "Album 1", "path": "/path/to/track1.mp3"},
+                                        {"title": "Track 2", "artist": "Artist 2", "album": "Album 2", "path": "/path/to/track2.mp3"}
+                                    ]
+
+                                    mock_indexer_instance = AsyncMock()
+                                    mock_indexer.return_value = mock_indexer_instance
+
+                                    # Créer un mock pour le callback de progression
+                                    mock_callback = MagicMock()
+
+                                    # Ajouter des logs pour debug
+                                    logger.info("Début du test scan_music_task")
+                                    logger.info(f"Mock scan configuré: {mock_scan.return_value}")
+
+                                    # Appeler la fonction
+                                    result = await scan_music_task("/path/to/music", mock_callback)
+
+                                    logger.info(f"Résultat du scan: {result}")
+                                    logger.info(f"Mock process call count: {mock_process.call_count}")
+
+                                    # Vérifier les appels
+                                    assert mock_settings.get_setting.call_count == 3
+                                    mock_count.assert_called_once()
+                                    mock_scan.assert_called_once()
+                                    assert mock_process.call_count > 0, f"process_metadata_chunk n'a pas été appelée, call_count={mock_process.call_count}"
+                                    mock_indexer_instance.async_init.assert_called_once()
+                                    mock_indexer_instance.index_directory.assert_called_once()
+                                    assert mock_publish.call_count == 2
+                                    assert mock_callback.call_count > 0
+
+                                    # Vérifier le résultat
+                                    assert "directory" in result
+                                    assert "files_processed" in result
+                                    assert "artists_processed" in result
+                                    assert "albums_processed" in result
+                                    assert "tracks_processed" in result
+                                    assert "covers_processed" in result
+                                    assert "Scan ultra-optimisé terminé" in caplog.text

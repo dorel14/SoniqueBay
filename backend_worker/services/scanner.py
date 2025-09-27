@@ -6,6 +6,7 @@ from backend_worker.services.entity_manager import (
     create_or_update_tracks_batch,
     create_or_update_cover
 )
+from backend_worker.services.scan_optimizer import ScanOptimizer
 import httpx
 import asyncio
 from backend_worker.utils.logging import logger
@@ -121,7 +122,7 @@ async def count_music_files(directory: str, music_extensions: set) -> int:
 
 async def scan_music_task(directory: str, progress_callback=None, chunk_size=500):
     """
-    Tâche d'indexation en streaming avec traitement par lots et progression précise.
+    Tâche d'indexation ultra-optimisée avec parallélisation intelligente.
 
     Args:
         directory: Répertoire à scanner
@@ -129,21 +130,22 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
         chunk_size: Taille des lots de traitement
 
     Returns:
-        Statistiques du scan
+        Statistiques du scan avec métriques de performance
     """
     start_time = time.time()
-    metrics = {
-        "scan_start_time": start_time,
-        "files_discovered": 0,
-        "chunks_processed": 0,
-        "processing_time": 0,
-        "errors_count": 0
-    }
 
     try:
-        logger.info(f"Démarrage de l'indexation en streaming de: {directory}")
+        logger.info(f"Démarrage de l'indexation ultra-optimisée de: {directory}")
 
-        # Étape 1: Récupérer tous les paramètres en une seule fois
+        # Initialisation de l'optimiseur
+        optimizer = ScanOptimizer(
+            max_concurrent_files=100,  # Augmenté pour plus de parallélisation
+            max_concurrent_audio=20,   # Analyses audio parallèles
+            chunk_size=chunk_size,
+            enable_threading=True
+        )
+
+        # Étape 1: Récupérer la configuration
         settings_service = SettingsService()
         template = await settings_service.get_setting(MUSIC_PATH_TEMPLATE)
         artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
@@ -158,57 +160,60 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
         template_parts = template.split('/')
         scan_config["artist_depth"] = template_parts.index("{album_artist}") if "{album_artist}" in template_parts else -1
 
-        # Étape 2: Lancer le comptage des fichiers en arrière-plan
+        # Étape 2: Comptage des fichiers
+        total_files = await count_music_files(directory, scan_config["music_extensions"])
+        optimizer.metrics.files_total = total_files
+        logger.info(f"Nombre total de fichiers musicaux: {total_files}")
+
+        # Statistiques globales
         stats = {
             "files_processed": 0, "artists_processed": 0,
             "albums_processed": 0, "tracks_processed": 0, "covers_processed": 0
         }
-        chunk = []
-        total_files = 0
-        count_task = asyncio.create_task(count_music_files(directory, scan_config["music_extensions"]))
 
-        # Étape 3: Traitement en streaming
+        # Étape 3: Collecte et traitement par gros chunks avec parallélisation
         async with httpx.AsyncClient(timeout=300.0) as client:
+            file_batch = []
+            batch_size = 200  # Taille des batches pour l'extraction parallèle
+
             async for file_metadata in scan_music_files(directory, scan_config):
-                if not total_files and count_task.done():
-                    total_files = count_task.result()
-                    logger.info(f"Nombre total de fichiers musicaux: {total_files}")
-
-                chunk.append(file_metadata)
+                file_batch.append(file_metadata)
                 stats['files_processed'] += 1
-                metrics['files_discovered'] += 1
 
-                if len(chunk) >= chunk_size:
-                    chunk_start = time.time()
-                    logger.info(f"Traitement d'un lot de {len(chunk)} fichiers...")
-                    await process_metadata_chunk(client, chunk, stats)
-                    chunk_time = time.time() - chunk_start
-                    metrics['chunks_processed'] += 1
-                    metrics['processing_time'] += chunk_time
+                # Traiter par batches pour paralléliser l'extraction
+                if len(file_batch) >= batch_size:
+                    logger.info(f"Traitement parallèle d'un batch de {len(file_batch)} fichiers...")
 
-                    if progress_callback:
-                        progress = {
-                            "current": stats['files_processed'],
-                            "total": total_files,
-                            "percent": int((stats['files_processed'] / total_files) * 90) if total_files > 0 else 0, # 90% pour le scan
-                            "step": f"Processing files... ({stats['files_processed']}/{total_files or '?'})",
-                            "metrics": {
-                                "avg_chunk_time": metrics['processing_time'] / metrics['chunks_processed'],
-                                "chunks_per_second": metrics['chunks_processed'] / (time.time() - start_time)
-                            }
-                        }
-                        progress_callback(progress)
-                    chunk = []
+                    # Extraction parallélisée des métadonnées
+                    extracted_metadata = await optimizer.extract_metadata_batch(
+                        [fm['path'].encode('utf-8', 'surrogateescape') for fm in file_batch],
+                        scan_config
+                    )
 
-            if chunk:
-                logger.info(f"Traitement du dernier lot de {len(chunk)} fichiers...")
-                await process_metadata_chunk(client, chunk, stats)
-                metrics['chunks_processed'] += 1
+                    # Regrouper en chunks pour l'insertion DB
+                    for i in range(0, len(extracted_metadata), optimizer.chunk_size):
+                        chunk = extracted_metadata[i:i + optimizer.chunk_size]
+                        if chunk:
+                            await optimizer.process_chunk_with_optimization(
+                                client, chunk, stats, progress_callback
+                            )
 
-        if not count_task.done():
-            total_files = await count_task
-        
-        stats['files_processed'] = total_files
+                    file_batch = []
+
+            # Traiter le dernier batch
+            if file_batch:
+                logger.info(f"Traitement du dernier batch de {len(file_batch)} fichiers...")
+                extracted_metadata = await optimizer.extract_metadata_batch(
+                    [fm['path'].encode('utf-8', 'surrogateescape') for fm in file_batch],
+                    scan_config
+                )
+
+                for i in range(0, len(extracted_metadata), optimizer.chunk_size):
+                    chunk = extracted_metadata[i:i + optimizer.chunk_size]
+                    if chunk:
+                        await optimizer.process_chunk_with_optimization(
+                            client, chunk, stats, progress_callback
+                        )
 
         # Étape 4: Indexation Whoosh
         if progress_callback:
@@ -219,63 +224,74 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
         await indexer.async_init()
         await indexer.index_directory(directory, scan_config)
 
-        # Étape 5: Lancement de la vectorisation des tracks
+        # Étape 5: Lancement de la vectorisation (optimisée)
         if progress_callback:
             progress_callback({"current": 95, "total": 100, "percent": 95, "step": "Starting vectorization..."})
 
-        # Pour l'instant, on ne lance pas la vectorisation automatiquement
-        # car il faudrait récupérer tous les track_ids depuis la DB
-        # Cette étape sera implémentée plus tard avec une requête optimisée
-        logger.info("Vectorisation différée - à implémenter avec récupération des track_ids")
+        # TODO: Implémenter la vectorisation automatique avec récupération optimisée des track_ids
+        logger.info("Vectorisation différée - à optimiser avec récupération des track_ids")
 
         if progress_callback:
             progress_callback({"current": 100, "total": 100, "percent": 100, "step": "Scan complete!"})
 
-        # Calculer les métriques finales
+        # Métriques finales avec rapport détaillé
         total_time = time.time() - start_time
+        performance_report = optimizer.get_performance_report()
+        logger.debug(f"Performance report: {performance_report}")
+
         final_metrics = {
-            **metrics,
+            **performance_report,
             "total_scan_time": total_time,
-            "avg_files_per_second": stats['files_processed'] / total_time if total_time > 0 else 0,
-            "avg_chunk_processing_time": metrics['processing_time'] / metrics['chunks_processed'] if metrics['chunks_processed'] > 0 else 0,
-            "memory_usage_mb": 0,  # TODO: Implémenter mesure mémoire
+            "scan_efficiency_score": performance_report.get("efficiency_score", 0)
         }
 
-        # Publier les métriques
+        # Publier les métriques détaillées
         publish_event("scan_metrics", {
             "directory": directory,
             "stats": stats,
-            "metrics": final_metrics
+            "metrics": final_metrics,
+            "optimizer_config": {
+                "max_concurrent_files": optimizer.max_concurrent_files,
+                "max_concurrent_audio": optimizer.max_concurrent_audio,
+                "chunk_size": optimizer.chunk_size
+            }
         })
 
-        # Envoyer une notification de mise à jour de la bibliothèque
+        # Notification de mise à jour
         publish_event("library_updated", {"source": "scanner"})
         logger.info("Événement 'library_updated' publié.")
 
-        logger.info(f"Scan terminé. Statistiques finales: {stats}")
-        logger.info(f"Métriques de performance: {final_metrics}")
+        logger.info(f"Scan ultra-optimisé terminé. Stats: {stats}")
+        logger.info(f"Performance: {final_metrics}")
 
-        return {
+        # Nettoyer l'optimiseur
+        await optimizer.cleanup()
+
+        result = {
             "directory": directory,
             **stats,
             "performance_metrics": final_metrics
         }
+        logger.debug(f"Scan result: {result}")
+        return result
 
     except Exception as e:
         error_time = time.time() - start_time
-        logger.error(f"Erreur d'indexation après {error_time:.2f}s: {str(e)}", exc_info=True)
+        logger.error(f"Erreur scan optimisé après {error_time:.2f}s: {str(e)}", exc_info=True)
 
         # Publier les métriques d'erreur
         publish_event("scan_error", {
             "directory": directory,
             "error": str(e),
             "duration": error_time,
-            "metrics": metrics
+            "performance_report": optimizer.get_performance_report() if 'optimizer' in locals() else {}
         })
 
-        return {
+        error_result = {
             "error": str(e),
             "directory": directory,
             "duration": error_time,
-            "partial_metrics": metrics
+            "partial_metrics": stats if 'stats' in locals() else {}
         }
+        logger.debug(f"Error result: {error_result}")
+        return error_result

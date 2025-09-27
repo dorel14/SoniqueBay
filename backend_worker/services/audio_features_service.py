@@ -143,51 +143,89 @@ async def _update_track_features_async(track_id: int, features: dict):
 
 async def analyze_audio_batch(track_data_list: list) -> dict:
     """
-    Analyse un lot de fichiers audio en parallèle avec contrôle de concurrence.
+    Analyse un lot de fichiers audio en parallèle ultra-optimisée.
 
     Args:
         track_data_list: Liste de tuples (track_id, file_path)
 
     Returns:
-        Résultats de l'analyse pour chaque track
+        Résultats détaillés de l'analyse pour chaque track
     """
-    logger.info(f"Démarrage analyse batch de {len(track_data_list)} tracks")
+    logger.info(f"Démarrage analyse batch ultra-optimisée de {len(track_data_list)} tracks")
 
-    # Limiter la concurrence pour éviter la surcharge CPU
-    semaphore = asyncio.Semaphore(4)  # Max 4 analyses simultanées
+    # Augmenter la parallélisation pour les analyses CPU
+    semaphore = asyncio.Semaphore(20)  # Augmenté de 4 à 20 pour plus de parallélisation
 
-    async def analyze_with_semaphore(track_id: int, file_path: str):
+    # Utiliser un ThreadPoolExecutor pour les analyses Librosa
+    import concurrent.futures
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=20)
+
+    async def analyze_with_semaphore(track_data: dict):
         async with semaphore:
-            return await analyze_audio_with_librosa(track_id, file_path)
+            try:
+                track_id = track_data.get('id') or track_data.get('track_id')
+                file_path = track_data.get('path') or track_data.get('file_path')
 
-    # Lancer toutes les analyses
-    tasks = [
-        analyze_with_semaphore(track_id, file_path)
-        for track_id, file_path in track_data_list
-    ]
+                if not track_id or not file_path:
+                    logger.error(f"Données track invalides: {track_data}")
+                    return None
 
+                # Utiliser l'executor pour l'analyse complète
+                loop = asyncio.get_running_loop()
+                result = await loop.run_in_executor(
+                    executor,
+                    lambda: asyncio.run(analyze_audio_with_librosa(track_id, file_path))
+                )
+
+                return {
+                    "track_id": track_id,
+                    "file_path": file_path,
+                    "features": result,
+                    "success": bool(result)
+                }
+
+            except Exception as e:
+                logger.error(f"Exception analyse track {track_data}: {str(e)}")
+                return {
+                    "track_id": track_data.get('id'),
+                    "file_path": track_data.get('path'),
+                    "features": {},
+                    "success": False,
+                    "error": str(e)
+                }
+
+    # Lancer toutes les analyses en parallèle
+    tasks = [analyze_with_semaphore(track_data) for track_data in track_data_list]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Traiter les résultats
+    # Traiter et nettoyer les résultats
     successful = 0
     failed = 0
+    processed_results = []
 
-    for i, result in enumerate(results):
-        track_id = track_data_list[i][0]
+    for result in results:
         if isinstance(result, Exception):
-            logger.error(f"Exception analyse track {track_id}: {str(result)}")
+            logger.error(f"Exception globale analyse batch: {str(result)}")
             failed += 1
-        elif result:
+        elif result and result.get("success"):
             successful += 1
+            processed_results.append(result)
         else:
             failed += 1
+            if result:
+                processed_results.append(result)
 
-    logger.info(f"Analyse batch terminée: {successful} succès, {failed} échecs")
+    # Nettoyer l'executor
+    executor.shutdown(wait=True)
+
+    logger.info(f"Analyse batch ultra-optimisée terminée: {successful} succès, {failed} échecs sur {len(track_data_list)} tracks")
 
     return {
         "total": len(track_data_list),
         "successful": successful,
-        "failed": failed
+        "failed": failed,
+        "results": processed_results,
+        "avg_time_per_track": 0.0  # TODO: Calculer le temps moyen
     }
 
 async def extract_audio_features(audio, tags, file_path: str = None, track_id: int = None):

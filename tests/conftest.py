@@ -1,4 +1,4 @@
-# backend/tests/conftest.py
+# tests/conftest.py
 import pytest
 import sys
 import os
@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-from backend.utils.database import Base, get_db
+from backend.utils.database import Base, get_db, get_session
 from backend.api_app import create_api
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
@@ -16,10 +16,10 @@ from backend.api.models.genres_model import Genre
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
 
-# Ajouter le répertoire racine au sys.path si nécessaire
+# Ajouter le répertoire racine au sys.path
 root_dir = os.getcwd()
-if root_dir not in sys.path:
-    sys.path.insert(0, root_dir)
+sys.path.insert(0, root_dir)
+os.environ['PYTHONPATH'] = root_dir
 
 # Base de données SQLite temporaire pour les tests
 @pytest.fixture(scope="function")
@@ -102,7 +102,15 @@ def client(db_session):
         finally:
             pass
 
+    # Override de la dépendance get_session pour utiliser notre session de test
+    def override_get_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session] = override_get_session
 
     with TestClient(app) as test_client:
         yield test_client

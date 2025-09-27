@@ -343,12 +343,13 @@ async def async_walk(path: Path):
                 yield os.path.join(dirpath, filename).encode('utf-8', 'surrogateescape')
 
 async def scan_music_files(directory: str, scan_config: dict):
-    """Générateur asynchrone qui scanne les fichiers musicaux et yield leurs métadonnées."""
+    """Générateur asynchrone ultra-optimisé qui scanne les fichiers musicaux."""
     path = Path(directory)
     artist_images_cache = {}
     cover_cache = {}
-    
-    semaphore = asyncio.Semaphore(20)
+
+    # Augmenter la parallélisation pour l'extraction de base
+    semaphore = asyncio.Semaphore(100)  # Augmenté de 20 à 100
 
     async def process_and_yield(file_path_bytes):
         async with semaphore:
@@ -356,18 +357,22 @@ async def scan_music_files(directory: str, scan_config: dict):
                 file_path_bytes, scan_config, artist_images_cache, cover_cache
             )
 
+    # Optimiser le batching pour réduire la surcharge asyncio
     tasks = []
+    batch_size = 200  # Augmenté pour moins de yields
+
     async for file_path_bytes in async_walk(path):
         file_suffix = Path(file_path_bytes.decode('utf-8', 'surrogateescape')).suffix.lower().encode('utf-8')
         if file_suffix in scan_config["music_extensions"]:
             tasks.append(process_and_yield(file_path_bytes))
-            if len(tasks) >= 100:
+            if len(tasks) >= batch_size:
                 results = await asyncio.gather(*tasks)
                 for res in results:
                     if res:
                         yield res
                 tasks = []
 
+    # Traiter les tâches restantes
     if tasks:
         results = await asyncio.gather(*tasks)
         for res in results:

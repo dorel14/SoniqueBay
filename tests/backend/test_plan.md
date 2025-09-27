@@ -101,7 +101,7 @@ Ce document présente le plan de test complet pour le backend de SoniqueBay, cou
 ## 3. Structure des fichiers de test
 
 ```
-backend/tests/
+tests/backend/
 ├── conftest.py                  # Fixtures partagées
 ├── test_api/                    # Tests des endpoints REST
 │   ├── test_tracks_api.py
@@ -145,7 +145,7 @@ backend/tests/
 Le fichier `conftest.py` contiendra les fixtures partagées par tous les tests:
 
 ```python
-# backend/tests/conftest.py
+# tests/backend/conftest.py
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -449,7 +449,7 @@ def create_test_track_with_tags(db_session, create_test_track):
 ### Exemple de tests pour Tracks API
 
 ```python
-# backend/tests/test_api/test_tracks_api.py
+# tests/backend/test_api/test_tracks_api.py
 
 def test_get_tracks_empty(client, db_session):
     """Test de récupération d'une liste vide de pistes."""
@@ -561,7 +561,7 @@ Les autres fichiers de test REST suivront la même structure, adaptée à chaque
 ### Exemple de tests pour les requêtes d'artistes
 
 ```python
-# backend/tests/test_graphql/test_artist_queries.py
+# tests/backend/test_graphql/test_artist_queries.py
 
 def test_get_artists_query(client, db_session, create_test_artists):
     """Test de récupération de la liste des artistes via GraphQL."""
@@ -622,7 +622,7 @@ def test_get_artist_by_id_query(client, db_session, create_test_artist):
 ### Exemple de tests pour les mutations d'artistes
 
 ```python
-# backend/tests/test_graphql/test_artist_mutations.py
+# tests/backend/test_graphql/test_artist_mutations.py
 
 def test_create_artist_mutation(client, db_session):
     """Test de création d'un artiste via GraphQL."""
@@ -704,7 +704,7 @@ def test_update_artist_by_id_mutation(client, db_session, create_test_artist):
 ### Exemple de tests pour le modèle Track
 
 ```python
-# backend/tests/test_models/test_tracks_model.py
+# tests/backend/test_models/test_tracks_model.py
 
 def test_create_track(db_session):
     """Test de création d'une piste en BDD."""
@@ -838,7 +838,7 @@ Les tests d'intégration vérifient que les différentes parties du système fon
 ### Test d'intégration API REST et base de données
 
 ```python
-# backend/tests/test_integration/test_api_db.py
+# tests/backend/test_integration/test_api_db.py
 
 def test_create_and_retrieve_track(client, db_session, create_test_artist, create_test_album):
     """Test d'intégration: création d'une piste via API et récupération depuis la BDD."""
@@ -871,7 +871,7 @@ def test_create_and_retrieve_track(client, db_session, create_test_artist, creat
 ### Test d'intégration API REST et GraphQL
 
 ```python
-# backend/tests/test_integration/test_rest_graphql.py
+# tests/backend/test_integration/test_rest_graphql.py
 
 def test_create_track_rest_query_graphql(client, db_session, create_test_artist, create_test_album):
     """Test d'intégration: création d'une piste via REST et requête via GraphQL."""
@@ -931,7 +931,7 @@ def test_create_track_rest_query_graphql(client, db_session, create_test_artist,
 ### Test de flux de travail complet
 
 ```python
-# backend/tests/test_integration/test_full_workflow.py
+# tests/backend/test_integration/test_full_workflow.py
 
 def test_full_music_workflow(client, db_session):
     """Test d'intégration: flux de travail complet de gestion de musique."""
@@ -1041,19 +1041,19 @@ Pour exécuter les tests, utilisez la commande pytest avec les options appropri�
 
 ```bash
 # Exécuter tous les tests
-pytest backend/tests/
+pytest tests/backend/
 
 # Exécuter les tests avec rapport de couverture
-pytest backend/tests/ --cov=backend --cov-report=html
+pytest tests/backend/ --cov=backend --cov-report=html
 
 # Exécuter uniquement les tests REST
-pytest backend/tests/test_api/
+pytest tests/backend/test_api/
 
 # Exécuter uniquement les tests GraphQL
-pytest backend/tests/test_graphql/
+pytest tests/backend/test_graphql/
 
 # Exécuter uniquement les tests d'intégration
-pytest backend/tests/test_integration/
+pytest tests/backend/test_integration/
 ```
 
 ### Environnement de test
@@ -1098,7 +1098,7 @@ jobs:
         pip install pytest pytest-cov
     - name: Test with pytest
       run: |
-        pytest backend/tests/ --cov=backend --cov-report=xml
+        pytest tests/backend/ --cov=backend --cov-report=xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
 ```

@@ -232,8 +232,33 @@ async def test_chunk_size_optimization(client, db_session):
     """Test de l'optimisation de la taille des chunks."""
     from backend_worker.services.scanner import scan_music_task
 
+    # Simuler plusieurs fichiers
+    mock_files = [
+        {
+            "title": f"Test Track {i}",
+            "artist": "Test Artist",
+            "album": "Test Album",
+            "path": f"/test/track{i}.mp3",
+            "duration": 180
+        }
+        for i in range(10)  # 10 fichiers pour tester les chunks
+    ]
+
+    def mock_process_file(file_path_bytes, scan_config, artist_images_cache, cover_cache):
+        path = file_path_bytes.decode('utf-8', 'surrogateescape')
+        for f in mock_files:
+            if f['path'] == path:
+                return f
+        return None
+
+    async def mock_scan_async(directory, scan_config=None):
+        if scan_config is None:
+            return
+        for file in mock_files:
+            yield file
+
     # Test avec chunk_size personnalisé
-    with patch('backend_worker.services.scanner.scan_music_files') as mock_scan, \
+    with patch('backend_worker.services.scanner.scan_music_files', side_effect=mock_scan_async), \
          patch('httpx.AsyncClient') as mock_client, \
          patch('backend_worker.services.settings_service.SettingsService.get_setting') as mock_get_setting, \
          patch('backend_worker.services.scanner.publish_event'), \
@@ -242,33 +267,14 @@ async def test_chunk_size_optimization(client, db_session):
          patch('backend_worker.services.scanner.celery'), \
          patch('backend_worker.services.indexer.MusicIndexer') as mock_indexer, \
          patch('backend_worker.services.indexer.remote_get_or_create_index') as mock_remote, \
-         patch('backend_worker.services.scanner.count_music_files') as mock_count:
+         patch('backend_worker.services.scanner.count_music_files') as mock_count, \
+         patch('backend_worker.services.music_scan.process_file', side_effect=mock_process_file):
         # Mock settings
         mock_get_setting.side_effect = lambda key: {
             "MUSIC_PATH_TEMPLATE": "{album_artist}/{album}/{track_number} - {title}",
             "ARTIST_IMAGE_FILES": '["folder.jpg", "artist.jpg"]',
             "ALBUM_COVER_FILES": '["cover.jpg", "folder.jpg"]'
         }.get(key, "")
-
-        # Simuler plusieurs fichiers
-        mock_files = [
-            {
-                "title": f"Test Track {i}",
-                "artist": "Test Artist",
-                "album": "Test Album",
-                "path": f"/test/track{i}.mp3",
-                "duration": 180
-            }
-            for i in range(10)  # 10 fichiers pour tester les chunks
-        ]
-
-        async def mock_scan_async(directory, scan_config=None):
-            if scan_config is None:
-                return
-            for file in mock_files:
-                yield file
-
-        mock_scan.side_effect = mock_scan_async
 
         mock_client_instance = AsyncMock()
         mock_client.return_value.__aenter__.return_value = mock_client_instance
@@ -438,8 +444,8 @@ async def test_optimized_entity_manager(client, db_session):
             mock_resp.raise_for_status = AsyncMock()
             mock_resp.json = AsyncMock(return_value={
                 "data": {
-                    "create_artists": [
-                        {"id": 1, "name": "Test Artist", "musicbrainz_artistid": "test-uuid"}
+                    "createArtists": [
+                        {"id": 1, "name": "Test Artist", "musicbrainzArtistid": "test-uuid"}
                     ]
                 }
             })

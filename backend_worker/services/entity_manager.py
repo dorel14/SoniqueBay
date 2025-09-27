@@ -73,6 +73,7 @@ async def execute_graphql_query(client: httpx.AsyncClient, query: str, variables
             raise Exception(f"GraphQL request failed: {response.status_code} - {response.text}")
 
         result = await response.json()
+        logger.debug(f"GraphQL response: {result}")
 
         if "errors" in result:
             raise Exception(f"GraphQL errors: {result['errors']}")
@@ -313,6 +314,7 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
                 for artist in artists
             }
             logger.info(f"{len(artists)} artistes traités avec succès en batch via GraphQL")
+            logger.debug(f"Artist map keys: {list(artist_map.keys())}")
             publish_library_update()  # Publier la mise à jour de la bibliothèque
             return artist_map
         else:

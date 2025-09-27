@@ -83,7 +83,7 @@ async def test_create_or_update_cover_success(caplog):
     mock_response.status_code = 200
     mock_response.json = AsyncMock(return_value={"id": 1, "entity_type": "album", "entity_id": 1})
     mock_client.put.return_value = mock_response
-    
+
     with patch('backend_worker.services.entity_manager.get_cover_schema', return_value={"properties": {"entity_type": {}, "entity_id": {}, "cover_data": {}}}):
         with patch('backend_worker.services.entity_manager.get_cover_types', return_value=["album"]):
             result = await create_or_update_cover(

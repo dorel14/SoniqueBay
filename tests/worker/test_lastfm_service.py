@@ -2,14 +2,15 @@ import pytest
 from unittest.mock import patch, AsyncMock, Mock
 import logging
 
-from backend_worker.services.lastfm_service import get_lastfm_artist_image, _lastfm_artist_image_cache
+from backend_worker.services.lastfm_service import get_lastfm_artist_image
+from backend_worker.services.cache_service import cache_service
 
 @pytest.fixture
 def clear_cache():
     """Fixture pour nettoyer le cache entre les tests."""
-    _lastfm_artist_image_cache.clear()
+    cache_service.caches["lastfm"].clear()
     yield
-    _lastfm_artist_image_cache.clear()
+    cache_service.caches["lastfm"].clear()
 
 @pytest.mark.asyncio
 async def test_get_lastfm_artist_image_from_cache(clear_cache, caplog):
@@ -17,7 +18,7 @@ async def test_get_lastfm_artist_image_from_cache(clear_cache, caplog):
     caplog.set_level(logging.INFO)
     
     # Ajouter une image au cache
-    _lastfm_artist_image_cache["Test Artist"] = ("data:image/jpeg;base64,...", "image/jpeg")
+    cache_service.caches["lastfm"]["test artist"] = ("data:image/jpeg;base64,...", "image/jpeg")
     
     # Créer un mock pour le client httpx
     mock_client = AsyncMock()
@@ -92,7 +93,7 @@ async def test_get_lastfm_artist_image_success(clear_cache, caplog):
         assert "Image Last.fm trouvée pour Test Artist" in caplog.text
 
         # Vérifier que l'image a été mise en cache
-        assert "Test Artist" in _lastfm_artist_image_cache
+        assert "test artist" in cache_service.caches["lastfm"]
 
 @pytest.mark.asyncio
 async def test_get_lastfm_artist_image_no_images(clear_cache, caplog):

@@ -1,8 +1,17 @@
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import logging
+import sys
+import os
+import importlib
 
-from backend_worker.services.vectorization_service import VectorizationService
+# Add project root to sys.path for backend_worker imports
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+vectorization_service_module = importlib.import_module('backend_worker.services.vectorization_service')
+VectorizationService = vectorization_service_module.VectorizationService
 
 @pytest.mark.asyncio
 async def test_generate_embedding_success(caplog):

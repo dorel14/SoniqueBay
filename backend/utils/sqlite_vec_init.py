@@ -62,7 +62,7 @@ def create_vector_tables():
                 conn.load_extension(vec_path)
                 logger.info("Extension sqlite-vec chargée depuis le répertoire du projet (.dll)")
             else:
-                logger.warning(f"Aucun fichier trouvé dans le répertoire projet, essai système")
+                logger.warning("Aucun fichier trouvé dans le répertoire projet, essai système")
                 # Charger depuis le système
                 try:
                     conn.load_extension('vec0')
