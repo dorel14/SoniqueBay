@@ -7,6 +7,7 @@ from backend.api.routers.artists_api import router as artists_router
 from backend.api.routers.tracks_api import router as tracks_router
 from backend.api.routers.genres_api import router as genres_router
 from backend.api.routers.scan_api import router as scan_router
+from backend.api.routers.scan_sessions_api import router as scan_sessions_router
 from backend.api.routers.settings_api import router as settings_router
 from backend.api.routers.tags_api import router as tags_router
 from backend.api.routers.playqueue_api import router as playqueue_router
@@ -29,6 +30,7 @@ ROUTERS = [
     tracks_router,
     genres_router,
     scan_router,
+    scan_sessions_router,
     settings_router,
     tags_router,
     playqueue_router,

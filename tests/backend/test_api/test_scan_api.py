@@ -42,7 +42,7 @@ def test_launch_scan_default_directory(client, mock_celery, mock_os):
     assert "task_id" in data
     assert data["task_id"] == "test-task-id"
     assert "Scan lancé avec succès" in data["status"]
-    mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music'])
+    mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music', False])
 
 
 def test_launch_scan_with_directory(client, mock_celery, mock_os):
@@ -52,7 +52,7 @@ def test_launch_scan_with_directory(client, mock_celery, mock_os):
     data = response.json()
     assert data["task_id"] == "test-task-id"
     assert "test_dir" in data["status"]
-    mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music/test_dir'])
+    mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music/test_dir', False])
 
 
 def test_launch_scan_directory_not_exists(client, mock_celery, mocker):

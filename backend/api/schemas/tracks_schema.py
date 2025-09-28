@@ -42,6 +42,8 @@ class TrackBase(BaseModel):
     musicbrainz_artistid: Optional[str] = Field(None, description="MusicBrainz Artist ID")
     musicbrainz_albumartistid: Optional[str] = Field(None, description="MusicBrainz Album Artist ID")
     acoustid_fingerprint: Optional[str] = Field(None, description="AcoustID Fingerprint")
+    file_mtime: Optional[float] = Field(None, description="File modification time")
+    file_size: Optional[int] = Field(None, description="File size in bytes")
 
 class TrackCreate(TrackBase):
     pass
@@ -83,6 +85,8 @@ class TrackUpdate(BaseModel):
 class Track(TrackBase, TimestampedSchema):
     id: int
     covers: List[Cover] = []  # Ajouter le champ covers
+    file_mtime: Optional[float] = Field(None, description="File modification time")
+    file_size: Optional[int] = Field(None, description="File size in bytes")
 
     # Override tags to accept both strings and Tag objects for output
     genre_tags: Optional[List[Union[str, Tag]]] = None

@@ -3,19 +3,15 @@ import httpx
 import math
 import os
 from urllib.parse import urlparse, parse_qs
-from utils.logging import logger
-from config import sonique_bay_logo
+from frontend.utils.logging import logger
+from frontend.config import sonique_bay_logo
 API_URL = os.getenv('API_URL', 'http://localhost:8000')
-
-MAX_PAGE_BUTTONS = 5
 
 current_page = 1
 total_pages = 1
 page_size = 50
 cached_pages = {}
 artists_column = None
-pagination_label = None
-pagination_bar = None
 spinner = None
 
 async def get_page_from_url() -> int:
@@ -57,7 +53,6 @@ async def artist_view(page: int):
 
     spinner.visible = True
     artists_column.clear()
-    pagination_label.text = "Chargement..."
 
     artists_data = await get_artists(skip, page_size)
     
@@ -89,51 +84,20 @@ async def artist_view(page: int):
                                 ui.icon('play_circle_outline').classes('text-xl cursor-pointer')
                                 ui.icon('o_favorite_border').classes('text-xl cursor-pointer')
 
-    pagination_label.text = f"Page {current_page} / {total_pages}"
     spinner.visible = False
     ui.run_javascript(f'window.history.replaceState(null, "", "?page={current_page}")')
+    pagination_section.refresh()
 
 async def go_to_page(n: int):
     global current_page
     await artist_view(n)
-    refresh_pagination_bar()
 
 @ui.refreshable
-def refresh_pagination_bar():
-    logger.info(f"refresh_pagination_bar → current_page={current_page}, total_pages={total_pages}")
-    pagination_bar.clear()
-
-    def add_button(label, page_target, disabled=False, active=False):
-        btn = ui.button(label, on_click=lambda: go_to_page(page_target)).props('flat').classes('border border-gray-300 px-3 py-1 rounded')
-        if disabled:
-            btn.set_enabled(not disabled)
-            btn.classes('text-gray-400 opacity-50 cursor-not-allowed')
-
-        if active:
-            btn.classes('bg-primary text-white font-bold border-primary')
-        elif not disabled:
-            btn.classes('hover:bg-gray-200')
-        
-
-    with pagination_bar:
-        # Boutons de navigation
-        add_button("« Première", 1, disabled=current_page == 1)
-        add_button("‹ Précédent", current_page - 1, disabled=current_page == 1)
-
-        # Pages intermédiaires
-        half_range = MAX_PAGE_BUTTONS // 2
-        start_page = max(1, current_page - half_range)
-        end_page = min(total_pages, start_page + MAX_PAGE_BUTTONS - 1)
-
-        # Ajuster si on est en fin de pagination
-        if end_page - start_page + 1 < MAX_PAGE_BUTTONS:
-            start_page = max(1, end_page - MAX_PAGE_BUTTONS + 1)
-
-        for i in range(start_page, end_page + 1):
-            add_button(str(i), i, active=(i == current_page))
-
-        add_button("Suivant ›", current_page + 1, disabled=current_page == total_pages)
-        add_button("Dernière »", total_pages, disabled=current_page == total_pages)
+def pagination_section():
+    with ui.row().classes('items-center justify-center w-full mt-4'):
+        ui.label(f"Page {current_page} / {total_pages}").classes('text-sm text-gray-600')
+        ui.space()
+        ui.pagination(min=1, max=max(total_pages, 1), direction_links=True,value=current_page, on_change=lambda e: go_to_page(e.value))
 
 async def update_page_size(value: str):
     global page_size, cached_pages, total_pages, current_page
@@ -141,11 +105,11 @@ async def update_page_size(value: str):
     cached_pages = {}  # reset cache
     current_page = current_page
     await artist_view(current_page)
-    refresh_pagination_bar()
+    pagination_section.refresh()
 
 async def render(container):
     with container:
-        global artists_column, pagination_label, spinner, pagination_bar
+        global artists_column, spinner
 
         ui.label('🎵 Liste des artistes').classes('text-xl font-bold')
         ui.select(['10', '20', '50', '100'], value=str(page_size), on_change=lambda e: update_page_size(e.value)) \
@@ -155,14 +119,8 @@ async def render(container):
         spinner = ui.spinner(size='lg')
         spinner.visible = False
         ui.space()
-        with ui.row().classes('items-center justify-center w-full mt-4'):
-            pagination_label = ui.label().classes('text-sm text-gray-600')
-            ui.space()
-            pagination_bar = ui.row().classes('gap-2')
+        pagination_section()
 
         # Lancer la première page au démarrage
         page = await get_page_from_url() # Get page from URL if available
         await artist_view(page)
-        pagination_bar.visible = False
-        refresh_pagination_bar()
-        pagination_bar.visible = True

@@ -3,7 +3,7 @@ import pytest
 import sys
 import os
 import tempfile
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
@@ -36,6 +36,31 @@ def test_db_engine():
     db_url = f"sqlite:///{temp_db.name}"
     engine = create_engine(db_url)
     Base.metadata.create_all(bind=engine)
+
+    # Create FTS tables for testing
+    with engine.connect() as conn:
+        conn.execute(text("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING fts5(
+            title, artist_name, album_title, genre, genre_tags, mood_tags,
+            content=tracks,
+            content_rowid=id
+        );
+        """))
+        conn.execute(text("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS artists_fts USING fts5(
+            name, genre,
+            content=artists,
+            content_rowid=id
+        );
+        """))
+        conn.execute(text("""
+        CREATE VIRTUAL TABLE IF NOT EXISTS albums_fts USING fts5(
+            title, artist_name, genre,
+            content=albums,
+            content_rowid=id
+        );
+        """))
+        conn.commit()
     yield engine
     # Properly dispose of all connections before cleanup
     engine.dispose()

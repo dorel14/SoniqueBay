@@ -93,8 +93,9 @@ class ArtistService:
             raise Exception(str(e))
 
     def get_artists_paginated(self, skip=0, limit=100):
+        total_count = self.db.query(ArtistModel).count()
         artists = self.db.query(ArtistModel).order_by(ArtistModel.name).offset(skip).limit(limit).all()
-        return artists
+        return artists, total_count
 
     def read_artist(self, artist_id):
         artist = self.db.query(ArtistModel).filter(ArtistModel.id == artist_id).first()

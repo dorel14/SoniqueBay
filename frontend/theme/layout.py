@@ -88,6 +88,7 @@ async def refresh_library():
     progress_row = app.storage.client.get('progress_row')
     progress_bar = app.storage.client.get('progress_bar')
     progress_label = app.storage.client.get('progress_label')
+    left_drawer = app.storage.client.get('left_drawer')
 
     if not all([progress_row, progress_label, progress_bar]):
         logger.warning("Éléments de la barre de progression non trouvés dans le stockage du client.")
@@ -103,6 +104,8 @@ async def refresh_library():
                 progress_bar.value = 0.0
                 progress_row.update()
                 progress_bar.update()
+                if left_drawer:
+                    left_drawer.open()
                 # Enregistre le handler pour ce task_id
                 handler = make_progress_handler(task_id)
                 register_ws_handler(handler)
@@ -225,20 +228,21 @@ def wrap_with_layout(render_page):
         ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto ')
 
     with ui.header().classes(replace='row items-center'):
-        with ui.button(icon='menu').props('flat color=white'):
-            menu()
-        toggle_button = ui.button(icon='chevron_left').classes('text-sm').props('flat dense color=white')
+        toggle_button = ui.button(icon='menu').props('flat color=white')
         ui.space()
         ui.label('Sonique Bay').classes('font-bold text-lg').style('font-family: Poppins')
         ui.space()
         #ui.switch('Mode sombre').bind_value(ui.dark_mode()).props('dense')
         ui.button(on_click=about.open, icon='info').props('flat color=white')
+        with ui.button(icon='person').props('flat dense color=white'):
+            menu()
     with ui.footer():
         with ui.row().classes('w-full items-center flex-wrap'):
             ui.icon('copyright')
             ui.label('Tout droits réservés').classes('text-xs')
             # DRAWER (généré dynamiquement)
     with ui.left_drawer().classes('bg-primary') as left_drawer:
+        app.storage.client['left_drawer'] = left_drawer
         with ui.column():
             ui.separator()
             ui.space()
@@ -264,9 +268,6 @@ def wrap_with_layout(render_page):
     def toggle_drawer():
         """Gestion du toggle avec changement d'icône."""
         left_drawer.toggle()
-        current_icon = toggle_button._props.get('icon', 'chevron_left')
-        new_icon = 'chevron_right' if current_icon == 'chevron_left' else 'chevron_left'
-        toggle_button.props(f'icon={new_icon}')
 
     toggle_button.on('click', toggle_drawer)
 

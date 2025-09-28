@@ -92,9 +92,20 @@ class TrackService:
         for data in tracks_data:
             existing = self.session.query(TrackModel).filter(TrackModel.path == data.path).first()
             if existing:
-                # Mise à jour simple
-                for field, value in data.model_dump().items():
-                    setattr(existing, field, value)
+                # Check if file has changed
+                if hasattr(data, 'file_mtime') and hasattr(data, 'file_size'):
+                    if (existing.file_mtime == data.file_mtime and
+                        existing.file_size == data.file_size):
+                        # File unchanged, skip update
+                        result.append(existing)
+                        continue
+
+                # Update existing track
+                update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+                for field, value in update_data.items():
+                    if hasattr(existing, field):
+                        setattr(existing, field, value)
+                existing.date_modified = func.now()
                 self.session.commit()
                 self.session.refresh(existing)
                 result.append(existing)

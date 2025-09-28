@@ -28,7 +28,7 @@ def register_dynamic_routes():
 
         rel_path = os.path.relpath(filepath, PAGES_DIR)                # ex: 'homepage.py', 'library/artists.py'
         module_path = rel_path[:-3].replace(os.path.sep, '.')          # ex: 'homepage', 'library.artists'
-        module_import_path = f'pages.{module_path}'                    # ex: 'pages.homepage', 'pages.library.artists'
+        module_import_path = f'frontend.pages.{module_path}'                    # ex: 'frontend.pages.homepage', 'frontend.pages.library.artists'
 
         # Détermination du chemin d'URL
         if rel_path == 'homepage.py':

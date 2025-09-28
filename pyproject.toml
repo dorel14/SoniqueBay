@@ -33,11 +33,14 @@ write_to = "src/soniquebay_app/_version_.py"
 fallback_version = "0.1.0"  # Version utilisée si git n'est pas trouvé
 git_describe_command = ["git", "describe", "--dirty", "--tags", "--long"]
 
-[tool.codeflash]
-# All paths are relative to this pyproject.toml's directory.
-module-root = "."
-tests-root = "tests"
-test-framework = "pytest"
-ignore-paths = []
-git-remote = "SoniqueBay"
-formatter-cmds = ["disabled"]
+[tool.pytest.ini_options]
+addopts = "-p no:benchmark"
+
+# [tool.codeflash]
+# # All paths are relative to this pyproject.toml's directory.
+# module-root = "."
+# tests-root = "tests"
+# test-framework = "pytest"
+# ignore-paths = []
+# git-remote = "SoniqueBay"
+# formatter-cmds = ["disabled"]

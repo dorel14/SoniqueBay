@@ -17,6 +17,7 @@ from backend_worker.services.settings_service import SettingsService, MUSIC_PATH
 from backend_worker.utils.pubsub import publish_event
 import json
 import time
+import os
 
 async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: dict):
     """Traite un lot de métadonnées de fichiers."""
@@ -61,6 +62,19 @@ async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: 
             continue
         fd["track_artist_id"] = artist["id"]
         fd["album_id"] = album["id"]
+
+        # Get file stats for comparison
+        try:
+            stat = os.stat(fd["path"])
+            fd["file_mtime"] = stat.st_mtime
+            fd["file_size"] = stat.st_size
+        except OSError:
+            logger.warning(f"Could not stat file {fd['path']}")
+            fd["file_mtime"] = None
+            fd["file_size"] = None
+
+        # TODO: Smart update check via API
+
         tracks_to_process.append(fd)
     
     processed_tracks = await create_or_update_tracks_batch(client, tracks_to_process)
@@ -120,7 +134,7 @@ async def count_music_files(directory: str, music_extensions: set) -> int:
             count += 1
     return count
 
-async def scan_music_task(directory: str, progress_callback=None, chunk_size=500):
+async def scan_music_task(directory: str, progress_callback=None, chunk_size=500, session_id=None, cleanup_deleted: bool = False):
     """
     Tâche d'indexation ultra-optimisée avec parallélisation intelligente.
 
@@ -215,22 +229,7 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
                             client, chunk, stats, progress_callback
                         )
 
-        # Étape 4: Indexation Whoosh
-        if progress_callback:
-            progress_callback({"current": 90, "total": 100, "percent": 90, "step": "Indexing search data..."})
-
-        logger.info(f"Indexation Whoosh de {total_files} fichiers.")
-        indexer = MusicIndexer()
-        await indexer.async_init()
-        await indexer.index_directory(directory, scan_config)
-
-        # Étape 5: Lancement de la vectorisation (optimisée)
-        if progress_callback:
-            progress_callback({"current": 95, "total": 100, "percent": 95, "step": "Starting vectorization..."})
-
-        # TODO: Implémenter la vectorisation automatique avec récupération optimisée des track_ids
-        logger.info("Vectorisation différée - à optimiser avec récupération des track_ids")
-
+        # Étape 4: Scan terminé
         if progress_callback:
             progress_callback({"current": 100, "total": 100, "percent": 100, "step": "Scan complete!"})
 
@@ -273,6 +272,12 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
             "performance_metrics": final_metrics
         }
         logger.debug(f"Scan result: {result}")
+
+        # Launch cleanup if requested
+        if cleanup_deleted:
+            from backend_worker.celery_app import celery
+            celery.send_task("cleanup_deleted_tracks_task", args=[directory])
+
         return result
 
     except Exception as e:

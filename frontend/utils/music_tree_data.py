@@ -1,5 +1,5 @@
 # -*- coding: UTF-8 -*-
-from utils.logging import logger
+from .logging import logger
 import httpx
 import os
 import traceback

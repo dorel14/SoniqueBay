@@ -2,9 +2,9 @@ from nicegui import ui
 import httpx
 import os
 from urllib.parse import urlparse, parse_qs
-from config import sonique_bay_logo
-from utils.logging import logger
-from theme.layout import COMMON_LINK_CLASSES
+from frontend.config import sonique_bay_logo
+from frontend.utils.logging import logger
+from frontend.theme.layout import COMMON_LINK_CLASSES
 
 api_url = os.getenv('API_URL', 'http://localhost:8001')
 

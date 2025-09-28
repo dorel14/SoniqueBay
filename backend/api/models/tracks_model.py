@@ -30,6 +30,8 @@ class Track(Base):
     cover_data: Mapped[str] = mapped_column(String, nullable=True)
     cover_mime_type: Mapped[str] = mapped_column(String, nullable=True)
     bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
+    file_mtime: Mapped[float] = mapped_column(Float, nullable=True)  # File modification time
+    file_size: Mapped[int] = mapped_column(Integer, nullable=True)  # File size in bytes
     date_added: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     date_modified: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     track_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id', ondelete='CASCADE'), nullable=False)

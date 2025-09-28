@@ -47,7 +47,7 @@ class ArtistQueries:
     def artists(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[ArtistType]:
         db = info.context["db"]
         service = ArtistService(db)
-        artists = service.get_artists_paginated(skip, limit)
+        artists, _ = service.get_artists_paginated(skip, limit)
         result = []
         for a in artists:
             artist_data = a.__dict__

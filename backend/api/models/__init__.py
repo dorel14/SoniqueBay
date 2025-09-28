@@ -4,3 +4,4 @@ from backend.api.models.artists_model import Artist as Artist
 from backend.api.models.albums_model import Album as Album
 from backend.api.models.tracks_model import Track as Track
 from backend.api.models.settings_model import Setting as Setting
+from backend.api.models.scan_sessions_model import ScanSession as ScanSession

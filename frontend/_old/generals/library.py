@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 from nicegui import ui, APIRouter as ng_apirouter
-from utils.logging import logger
+from ...utils.logging import logger
 from .generals.theme_skeleton import frame
 import httpx
 import os

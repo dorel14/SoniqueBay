@@ -48,9 +48,9 @@ async def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = 
 @router.get("/", response_model=PaginatedArtists)
 def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
     service = ArtistService(db)
-    artists = service.get_artists_paginated(skip, limit)
+    artists, total_count = service.get_artists_paginated(skip, limit)
     return {
-        "count": len(artists),
+        "count": total_count,
         "results": [Artist.model_validate(a) for a in artists]
     }
 
