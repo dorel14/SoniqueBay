@@ -17,12 +17,14 @@ Ce document présente le plan de test complet pour le backend de SoniqueBay, cou
 ## 1. Analyse du projet
 
 ### Structure générale
+
 - Application backend FastAPI avec endpoints REST et GraphQL
 - Utilisation de SQLAlchemy comme ORM pour la gestion de la base de données
 - Strawberry pour l'implémentation GraphQL
 - Architecture modulaire avec séparation des modèles, schémas, routeurs et services
 
 ### Composants principaux
+
 1. **API REST** avec plusieurs endpoints:
    - Tracks API: gestion des pistes musicales (CRUD, recherche, filtrage)
    - Albums API, Artists API, etc.
@@ -1031,6 +1033,7 @@ def test_full_music_workflow(client, db_session):
 ### Organisation des tests
 
 Les tests sont organisés en plusieurs catégories:
+
 1. **Tests unitaires**: Tests des modèles et des services individuels
 2. **Tests d'API**: Tests des endpoints REST et GraphQL
 3. **Tests d'intégration**: Tests des interactions entre les différentes parties du système

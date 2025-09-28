@@ -9,7 +9,7 @@ data/
 .continue/
 .pytest_cache/
 .ruff_cache/
-
+*.ps1
 *.exchange
 *.env
 *.toc

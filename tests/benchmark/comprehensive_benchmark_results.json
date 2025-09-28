@@ -1,0 +1,27 @@
+{
+  "timestamp": 1759062133.1393423,
+  "total_time": 0.02482891082763672,
+  "results": [
+    {
+      "name": "Empty tags",
+      "avg_time": 3.853331630428632e-06,
+      "min_time": 1.7997808754444122e-06,
+      "max_time": 2.769986167550087e-05,
+      "total_calls": 15
+    },
+    {
+      "name": "Basic tags",
+      "avg_time": 0.00011720662005245685,
+      "min_time": 4.970002919435501e-05,
+      "max_time": 0.00029479991644620895,
+      "total_calls": 15
+    },
+    {
+      "name": "Complex tags",
+      "avg_time": 0.0001145599875599146,
+      "min_time": 9.910017251968384e-05,
+      "max_time": 0.00013689999468624592,
+      "total_calls": 15
+    }
+  ]
+}
