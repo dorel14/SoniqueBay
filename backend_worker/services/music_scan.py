@@ -972,13 +972,17 @@ def serialize_tags(tags):
         logger.debug("serialize_tags: tags is None")
         return {}
     # Pour ID3 (MP3)
-    if hasattr(tags, "keys"):
+    keys = getattr(tags, "keys", None)
+    if keys is not None:
         logger.debug("serialize_tags: has keys, processing ID3")
         result = {}
-        for key in tags.keys():
+        try:
+            all_keys = keys()
+        except Exception:
+            all_keys = []
+        for key in all_keys:
             value = tags.get(key)
-            # value peut être une liste, un objet, etc.
-            if isinstance(value, list):
+            if type(value) is list:
                 result[key] = [str(v) for v in value]
             else:
                 result[key] = str(value)
