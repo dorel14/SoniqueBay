@@ -41,10 +41,13 @@ class Album(AlbumBase, TimestampedSchema):
     @classmethod
     def model_validate(cls, obj):
         # Gère dict ou objet
+        # Optimization: Only copy dict when strictly necessary
         if isinstance(obj, dict):
-            if "release_year" in obj and isinstance(obj["release_year"], int):
-                obj = dict(obj)
-                obj["release_year"] = str(obj["release_year"])
+            val = obj
+            if "release_year" in val and isinstance(val["release_year"], int):
+                val = dict(obj)
+                val["release_year"] = str(val["release_year"])
+            return super().model_validate(val)
         elif hasattr(obj, "release_year") and isinstance(obj.release_year, int):
             obj.release_year = str(obj.release_year)
         return super().model_validate(obj)
