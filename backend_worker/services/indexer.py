@@ -36,22 +36,22 @@ class MusicIndexer:
         self.index_dir_actual, self.index_name = await remote_get_or_create_index(self.index_dir)
     def prepare_whoosh_data(self, track_data: Dict) -> Dict:
         """Prépare les données pour l'indexation Whoosh uniquement."""
-        whoosh_data = {
-            "id": track_data.get("id"),
-            "title": track_data.get("title"),
-            "path": track_data.get("path"),
-            "artist": track_data.get("artist"),
-            "album": track_data.get("album"),
-            "genre": track_data.get("genre"),
-            "year": track_data.get("year"),
-            "duration": track_data.get("duration", 0),
-            "track_number": track_data.get("track_number"),
-            "disc_number": track_data.get("disc_number"),
-            "musicbrainz_id": track_data.get("musicbrainz_id"),
-            "musicbrainz_albumid": track_data.get("musicbrainz_albumid"),
-            "musicbrainz_artistid": track_data.get("musicbrainz_artistid")
-        }
-        return {k: v for k, v in whoosh_data.items() if v is not None}
+        # Inline and avoid extra dictionary to minimize memory ops and function calls
+        result = {}
+        # Only required keys for whoosh
+        for key in (
+            "id", "title", "path", "artist", "album", "genre", "year",
+            "track_number", "disc_number", "musicbrainz_id",
+            "musicbrainz_albumid", "musicbrainz_artistid"
+        ):
+            v = track_data.get(key)
+            if v is not None:
+                result[key] = v
+        # Special case for duration with default
+        v = track_data.get("duration", 0)
+        if v is not None:
+            result["duration"] = v
+        return result
 
     async def index_directory(self, directory: str, scan_config: dict, progress_callback=None):
         """Indexe uniquement dans Whoosh."""
