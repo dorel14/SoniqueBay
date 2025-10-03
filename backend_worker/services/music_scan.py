@@ -18,6 +18,113 @@ from backend_worker.services.audio_features_service import extract_audio_feature
 
 settings_service = SettingsService()
 
+def sanitize_path(input_path: str) -> str:
+    """
+    Sanitise et normalise un chemin d'entrée pour éviter les attaques par traversée de répertoire.
+
+    Args:
+        input_path: Chemin à sanitiser
+
+    Returns:
+        Chemin normalisé et sécurisé
+
+    Raises:
+        ValueError: Si le chemin contient des éléments interdits ou dépasse les limites
+    """
+    import re
+    from pathlib import Path
+
+    if not input_path:
+        raise ValueError("Chemin vide fourni")
+
+    # Limiter la longueur totale du chemin
+    max_path_length = 260
+    if len(input_path) > max_path_length:
+        logger.warning(f"Chemin trop long: {len(input_path)} caractères (max: {max_path_length})")
+        raise ValueError(f"Le chemin dépasse la longueur maximale autorisée ({max_path_length} caractères)")
+
+    # Normaliser le chemin
+    try:
+        normalized_path = Path(input_path).resolve()
+        normalized_str = str(normalized_path)
+    except (OSError, RuntimeError, ValueError) as e:
+        logger.warning(f"Impossible de normaliser le chemin {input_path}: {e}")
+        if 'null character' in str(e):
+            logger.warning(f"Caractère nul détecté dans le chemin: {input_path}")
+            raise ValueError(f"Caractère nul détecté dans le chemin: {input_path}")
+        raise ValueError(f"Chemin invalide: {input_path}")
+
+    # Regex stricte pour valider le chemin (interdit .., caractères spéciaux dangereux)
+    # Permet lettres, chiffres, espaces, tirets, underscores, points, /, \, : (pour Windows)
+    forbidden_pattern = re.compile(r'[<>"|?*\x00-\x1f]')  # Caractères de contrôle et spéciaux interdits
+    if forbidden_pattern.search(normalized_str):
+        logger.warning(f"Caractères interdits détectés dans le chemin: {normalized_str}")
+        raise ValueError(f"Le chemin contient des caractères interdits: {normalized_str}")
+
+    # Interdire explicitement les patterns de traversée (avant résolution)
+    traversal_patterns = ['../', '..\\', '/..', '\\..']
+    for pattern in traversal_patterns:
+        if pattern in input_path:
+            logger.warning(f"Pattern de traversée détecté: '{pattern}' dans {input_path}")
+            raise ValueError(f"Pattern de traversée de répertoire détecté: {input_path}")
+
+    # Interdire les chemins commençant par ..
+    if input_path.startswith('..') or (len(input_path) > 1 and input_path[1:3] == '..'):
+        logger.warning(f"Chemin commençant par '..' détecté: {input_path}")
+        raise ValueError(f"Chemin commençant par '..' interdit: {input_path}")
+
+    # Interdire les caractères nuls
+    if '\0' in normalized_str:
+        logger.warning(f"Caractère nul détecté dans le chemin: {normalized_str}")
+        raise ValueError(f"Caractère nul détecté dans le chemin: {normalized_str}")
+
+    logger.debug(f"Chemin sanitisé avec succès: {input_path} -> {normalized_str}")
+    return normalized_str
+
+def validate_filename(filename: str) -> str | None:
+    """
+    Valide et nettoie un nom de fichier pour éviter les attaques par traversée.
+
+    Args:
+        filename: Nom de fichier à valider
+
+    Returns:
+        Nom de fichier validé ou None si invalide
+    """
+    import re
+
+    if not filename:
+        return None
+
+    # Limiter la longueur
+    max_length = 255
+    if len(filename) > max_length:
+        logger.warning(f"Nom de fichier trop long: {len(filename)} > {max_length}")
+        return None
+
+    # Interdire les caractères interdits
+    forbidden_pattern = re.compile(r'[<>"|?*\x00-\x1f]')
+    if forbidden_pattern.search(filename):
+        logger.warning(f"Caractères interdits dans le nom de fichier: {filename}")
+        return None
+
+    # Interdire les patterns de traversée
+    if '..' in filename or '/' in filename or '\\' in filename:
+        logger.warning(f"Pattern de traversée dans le nom de fichier: {filename}")
+        return None
+
+    # Interdire les noms commençant par .
+    if filename.startswith('.'):
+        logger.warning(f"Nom de fichier commençant par '.': {filename}")
+        return None
+
+    # Nettoyer les espaces
+    cleaned = filename.strip()
+    if not cleaned:
+        return None
+
+    return cleaned
+
 def get_file_type(file_path: str) -> str:
     """Détermine le type de fichier à partir de son extension."""
     try:
@@ -35,7 +142,213 @@ def get_file_type(file_path: str) -> str:
         return "unknown"
 
 
-async def get_cover_art(file_path_str: str, audio):
+async def secure_open_file(file_path: Path, mode: str = 'rb', allowed_base_paths: list[Path] | None = None) -> bytes | None:
+    """
+    Ouvre un fichier de manière sécurisée avec validation complète et renforcée.
+
+    Args:
+        file_path: Chemin du fichier à ouvrir
+        mode: Mode d'ouverture du fichier (restreint aux modes sécurisés)
+        allowed_base_paths: Liste des répertoires de base autorisés (optionnel)
+
+    Returns:
+        Contenu du fichier en bytes ou None si erreur ou validation échouée
+    """
+    try:
+        logger.debug(f"[SECURE_OPEN_FILE] Début validation pour: {file_path}, allowed_base_paths: {allowed_base_paths}")
+
+        # ÉTAPE 1: Validation basique du paramètre d'entrée
+        if not file_path:
+            logger.warning("[SECURE_OPEN_FILE] ALERT: Chemin de fichier vide ou invalide - Tentative suspecte détectée")
+            return None
+
+        if not isinstance(file_path, Path):
+            logger.warning(f"[SECURE_OPEN_FILE] ALERT: Type de chemin invalide: {type(file_path)} (attendu: Path) - Tentative suspecte détectée")
+            return None
+
+        logger.debug("[SECURE_OPEN_FILE] ✓ Validation basique du paramètre réussie")
+
+        # ÉTAPE 2: Vérification que le chemin est absolu
+        if not file_path.is_absolute():
+            logger.warning(f"[SECURE_OPEN_FILE] Chemin non absolu détecté: {file_path}")
+            return None
+
+        logger.debug("[SECURE_OPEN_FILE] ✓ Chemin absolu validé")
+
+        # ÉTAPE 3: Restriction des modes d'ouverture autorisés
+        allowed_modes = {'r', 'rb'}  # Modes en lecture seule uniquement
+        if mode not in allowed_modes:
+            logger.warning(f"[SECURE_OPEN_FILE] Mode d'ouverture non autorisé: '{mode}' (autorisés: {allowed_modes})")
+            return None
+
+        logger.debug(f"[SECURE_OPEN_FILE] ✓ Mode d'ouverture validé: {mode}")
+
+        # ÉTAPE 4: Résolution et normalisation du chemin
+        try:
+            resolved_path = file_path.resolve()
+            logger.debug(f"[SECURE_OPEN_FILE] Chemin résolu: {file_path} -> {resolved_path}")
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"[SECURE_OPEN_FILE] Impossible de résoudre le chemin {file_path}: {e}")
+            return None
+
+        # ÉTAPE 4.5: Interdire les liens symboliques pour éviter les contournements de sécurité
+        if resolved_path.is_symlink():
+            logger.warning(f"[SECURE_OPEN_FILE] Lien symbolique interdit (Path.is_symlink): {resolved_path}")
+            return None
+
+        # ÉTAPE 4.6: Vérification supplémentaire des liens symboliques via os.stat (nécessaire sur Windows)
+        try:
+            stat_result = os.stat(resolved_path)
+            # Vérifier si c'est un lien symbolique via st_mode
+            if (stat_result.st_mode & 0o170000) == 0o120000:  # S_IFLNK
+                logger.warning(f"[SECURE_OPEN_FILE] Lien symbolique interdit (os.stat): {resolved_path}")
+                return None
+        except (OSError, AttributeError) as e:
+            logger.warning(f"[SECURE_OPEN_FILE] Erreur lors de la vérification os.stat pour liens symboliques: {e}")
+            # Ne pas échouer ici, continuer avec les autres vérifications
+
+        # ÉTAPE 5: Validation que le chemin est dans le répertoire de travail autorisé
+        if allowed_base_paths is None or not allowed_base_paths:
+            logger.error(f"[SECURE_OPEN_FILE] allowed_base_paths est None ou vide - Refus d'ouverture pour éviter Path Traversal: {resolved_path}")
+            return None
+
+        path_is_allowed = False
+        for base_path in allowed_base_paths:
+            try:
+                if base_path.is_absolute() and resolved_path.is_relative_to(base_path.resolve()):
+                    path_is_allowed = True
+                    logger.debug(f"[SECURE_OPEN_FILE] Chemin dans répertoire autorisé: {base_path}")
+                    break
+            except (OSError, ValueError):
+                continue
+
+        if not path_is_allowed:
+            logger.warning(f"[SECURE_OPEN_FILE] Chemin en dehors des répertoires autorisés: {resolved_path}")
+            logger.warning(f"[SECURE_OPEN_FILE] Répertoires autorisés: {[str(p) for p in allowed_base_paths]}")
+            return None
+
+        logger.debug("[SECURE_OPEN_FILE] ✓ Validation du répertoire de base réussie")
+
+        # ÉTAPE 6: Vérification de l'existence et du type de fichier
+        if not resolved_path.exists():
+            logger.warning(f"[SECURE_OPEN_FILE] Fichier non trouvé: {resolved_path}")
+            return None
+
+        if not resolved_path.is_file():
+            logger.warning(f"[SECURE_OPEN_FILE] Le chemin n'est pas un fichier régulier: {resolved_path}")
+            return None
+
+        # DIAGNOSTIC: Vérifier si c'est un lien symbolique (potentielle vulnérabilité)
+        if resolved_path.is_symlink():
+            logger.warning(f"[SECURE_OPEN_FILE] DIAGNOSTIC: Lien symbolique détecté: {resolved_path} -> {resolved_path.readlink()}")
+            # Sur Windows, les liens symboliques peuvent contourner les validations
+
+        logger.debug("[SECURE_OPEN_FILE] ✓ Existence et type de fichier validés")
+
+        # ÉTAPE 7: Validation de la longueur du nom de fichier
+        filename = resolved_path.name
+        max_filename_length = 255  # Longueur maximale standard pour les noms de fichiers
+        if len(filename) > max_filename_length:
+            logger.warning(f"[SECURE_OPEN_FILE] Nom de fichier trop long: {len(filename)} caractères (max: {max_filename_length})")
+            return None
+
+        if len(filename) == 0:
+            logger.warning("[SECURE_OPEN_FILE] Nom de fichier vide détecté")
+            return None
+
+        logger.debug(f"[SECURE_OPEN_FILE] ✓ Longueur du nom de fichier validée: {len(filename)} caractères")
+
+        # ÉTAPE 8: Vérification complète des caractères interdits
+        path_str = str(resolved_path)
+
+        # Caractères de contrôle et caractères nuls
+        if '\0' in path_str:
+            logger.warning(f"[SECURE_OPEN_FILE] Caractère nul détecté dans le chemin: {path_str}")
+            return None
+
+        # Caractères de contrôle (0-31 sauf tab, newline, carriage return)
+        control_chars = set(range(0, 32)) - {9, 10, 13}  # Exclure tab (9), LF (10), CR (13)
+        if any(ord(c) in control_chars for c in path_str):
+            logger.warning(f"[SECURE_OPEN_FILE] Caractères de contrôle détectés dans le chemin: {path_str}")
+            return None
+
+        # Caractères interdits spécifiques (exclure les caractères valides dans les chemins Windows)
+        forbidden_chars = {'"', '|', '?', '*'}  # Exclure < > : qui peuvent être valides dans les chemins Windows
+        if any(c in path_str for c in forbidden_chars):
+            logger.warning(f"[SECURE_OPEN_FILE] Caractères interdits détectés dans le chemin: {path_str}")
+            return None
+
+        # Patterns de traversée de répertoire
+        suspicious_patterns = ['../', '..\\', '/..', '\\..', './', '.\\']
+        for pattern in suspicious_patterns:
+            if pattern in path_str:
+                logger.warning(f"[SECURE_OPEN_FILE] ALERT: Pattern de traversée détecté: '{pattern}' dans {path_str} - Tentative de Path Traversal suspecte")
+                return None
+
+        # Vérifications de début de chemin dangereux
+        if path_str.startswith('..') or (len(path_str) > 1 and path_str[1:3] == '..'):
+            logger.warning(f"[SECURE_OPEN_FILE] ALERT: Chemin commençant par '..' détecté: {path_str} - Tentative de Path Traversal suspecte")
+            return None
+
+        logger.debug("[SECURE_OPEN_FILE] ✓ Validation des caractères interdits réussie")
+
+        # ÉTAPE 9: Vérification des permissions du fichier
+        try:
+            stat_result = resolved_path.stat()
+
+            # Vérifier que c'est bien un fichier régulier
+            if not (stat_result.st_mode & 0o170000 == 0o100000):  # S_IFREG
+                logger.warning(f"[SECURE_OPEN_FILE] Le chemin n'est pas un fichier régulier: {resolved_path}")
+                return None
+
+            # Vérifier les permissions de lecture
+            if not os.access(resolved_path, os.R_OK):
+                logger.warning(f"[SECURE_OPEN_FILE] Pas de permission de lecture sur le fichier: {resolved_path}")
+                return None
+
+            # Vérifier que le fichier n'est pas trop volumineux (protection DoS)
+            max_file_size = 100 * 1024 * 1024  # 100MB maximum
+            if stat_result.st_size > max_file_size:
+                logger.warning(f"[SECURE_OPEN_FILE] Fichier trop volumineux: {stat_result.st_size} bytes (max: {max_file_size})")
+                return None
+
+            logger.debug(f"[SECURE_OPEN_FILE] ✓ Permissions et taille validées: {stat_result.st_size} bytes")
+
+        except (OSError, AttributeError) as e:
+            logger.warning(f"[SECURE_OPEN_FILE] Erreur lors de la vérification des permissions du fichier {resolved_path}: {e}")
+            return None
+
+        # ÉTAPE 10.5: Double validation - résoudre à nouveau et vérifier la cohérence
+        try:
+            final_resolved_path = resolved_path.resolve()
+            if final_resolved_path != resolved_path:
+                logger.warning(f"[SECURE_OPEN_FILE] Incohérence de résolution détectée: {resolved_path} -> {final_resolved_path}")
+                return None
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"[SECURE_OPEN_FILE] Erreur lors de la double validation: {e}")
+            return None
+
+        # ÉTAPE 11: Ouverture sécurisée du fichier
+        logger.info(f"[SECURE_OPEN_FILE] Ouverture sécurisée du fichier: {final_resolved_path} (mode: {mode})")
+        # DIAGNOSTIC: Logger le chemin résolu pour détecter les traversées potentielles
+        logger.debug(f"[SECURE_OPEN_FILE] DIAGNOSTIC: Chemin résolu avant ouverture: {final_resolved_path}")
+        # LOG VULNÉRABILITÉ: Ajouter log détaillé pour diagnostic Path Traversal
+        logger.warning(f"[PATH_TRAVERSAL_DIAG] Ouverture de fichier - Chemin final: {str(final_resolved_path)}, allowed_base_paths: {[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+        try:
+            async with aiofiles.open(final_resolved_path, mode=mode) as f:
+                content = await f.read()
+                logger.debug(f"[SECURE_OPEN_FILE] Fichier lu avec succès: {len(content)} bytes")
+                return content
+        except Exception as e:
+            logger.error(f"[SECURE_OPEN_FILE] Erreur lors de la lecture du fichier {final_resolved_path}: {e}")
+            return None
+
+    except Exception as e:
+        logger.error(f"[SECURE_OPEN_FILE] Erreur inattendue lors du traitement de {file_path}: {e}")
+        return None
+
+
+async def get_cover_art(file_path_str: str, audio, allowed_base_paths: list[Path] | None = None):
     """Récupère la pochette d'album d'un objet audio Mutagen."""
     try:
         if audio is None:
@@ -74,12 +387,63 @@ async def get_cover_art(file_path_str: str, audio):
                 else:
                     cover_files = json.loads(cover_files_json)
 
+                # SECURITY: Valider les noms de fichiers de cover
+                validated_cover_files = []
+                for cover_file in cover_files:
+                    if isinstance(cover_file, str):
+                        validated = validate_filename(cover_file)
+                        if validated:
+                            validated_cover_files.append(validated)
+                        else:
+                            logger.warning(f"Nom de fichier cover invalide ignoré: {cover_file}")
+                    else:
+                        logger.warning(f"Type de nom de fichier cover invalide: {type(cover_file)}")
+                        continue
+
+                if not validated_cover_files:
+                    logger.warning("Aucun nom de fichier cover valide trouvé, utilisation d'une liste par défaut")
+                    validated_cover_files = ["cover.jpg", "folder.jpg", "front.jpg"]
+
+                cover_files = validated_cover_files
+
                 for cover_file in cover_files:
                     cover_path = dir_path / cover_file
+                    logger.debug(f"Attempting to open cover file: {cover_path}")
+                    # SECURITY: Validate path to prevent directory traversal
+                    try:
+                        resolved_path = cover_path.resolve()
+                        dir_resolved = dir_path.resolve()
+
+                        # Vérification anti-traversée de répertoire renforcée
+                        if not resolved_path.is_relative_to(dir_resolved):
+                            logger.warning(f"Path traversal attempt detected for cover file: {cover_path}")
+                            continue
+
+                        # Vérification supplémentaire: le chemin ne doit pas contenir de composants suspects
+                        cover_path_str = str(cover_path)
+                        if '..' in cover_path_str or cover_path_str.startswith('/') or cover_path_str.startswith('\\'):
+                            logger.warning(f"Chemin de cover potentiellement dangereux: {cover_path_str}")
+                            continue
+
+                        # Vérifier que le fichier cover existe et est un fichier régulier
+                        if not cover_path.exists() or not cover_path.is_file():
+                            logger.debug(f"Fichier cover non trouvé ou invalide: {cover_path}")
+                            continue
+
+                    except Exception as e:
+                        logger.error(f"Error resolving path for cover file {cover_path}: {e}")
+                        continue
+
+                    # SECURITY: Utiliser la fonction sécurisée pour ouvrir le fichier
                     if cover_path.exists():
+                        if allowed_base_paths is None:
+                            logger.error("allowed_base_paths est None dans get_cover_art - Refus d'ouverture pour éviter Path Traversal")
+                            return None, None
                         mime_type = mimetypes.guess_type(str(cover_path))[0] or 'image/jpeg'
-                        async with aiofiles.open(cover_path, mode='rb') as f:
-                            cover_bytes = await f.read()
+                        # LOG VULNÉRABILITÉ: Diagnostic pour Path Traversal dans get_cover_art
+                        logger.warning(f"[PATH_TRAVERSAL_DIAG] get_cover_art - Ouverture cover: chemin original={str(cover_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+                        cover_bytes = await secure_open_file(resolved_path, 'rb', allowed_base_paths=allowed_base_paths)
+                        if cover_bytes:
                             cover_data = await convert_to_base64(cover_bytes, mime_type)
                             logger.debug(f"Cover fichier trouvée: {cover_path}")
                             break
@@ -109,6 +473,19 @@ async def convert_to_base64(data: bytes, mime_type: str) -> str:
 def get_file_bitrate(file_path: str) -> int:
     """Récupère le bitrate d'un fichier audio."""
     try:
+        # SECURITY: Validation du chemin avant traitement
+        path_obj = Path(file_path)
+
+        # Vérifier que le chemin ne contient pas de caractères suspects
+        if '..' in file_path or file_path.startswith('/') or file_path.startswith('\\'):
+            logger.warning(f"Chemin de fichier potentiellement dangereux pour bitrate: {file_path}")
+            return 0
+
+        # Vérifier que le fichier existe et est accessible
+        if not path_obj.exists() or not path_obj.is_file():
+            logger.warning(f"Fichier non trouvé ou invalide pour bitrate: {file_path}")
+            return 0
+
         filetype = get_file_type(file_path)
 
         if filetype == "audio/mpeg":
@@ -171,11 +548,11 @@ def get_musicbrainz_tags(audio):
         return mb_data
 
 
-async def extract_metadata(audio, file_path_str: str):
+async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[Path] | None = None):
     """Extrait les métadonnées d'un objet audio Mutagen."""
     try:
         # L'objet 'audio' est déjà chargé, on l'utilise directement
-        cover_data, mime_type = await get_cover_art(file_path_str, audio=audio)
+        cover_data, mime_type = await get_cover_art(file_path_str, audio=audio, allowed_base_paths=allowed_base_paths)
         
         # Extraire les métadonnées musicales de base
         metadata = {
@@ -238,7 +615,7 @@ async def extract_metadata(audio, file_path_str: str):
         logger.error(f"Erreur d'extraction des métadonnées pour {file_path_str}: {str(e)}")
         return {"path": file_path_str, "error": str(e)}
 
-async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
+async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | None = None) -> list[tuple[str, str]]:
     """Récupère les images d'artiste dans le dossier artiste."""
     try:
         artist_images = []
@@ -255,13 +632,64 @@ async def get_artist_images(artist_path: str) -> list[tuple[str, str]]:
         else:
             artist_files = json.loads(artist_files_json)
 
+        # SECURITY: Valider les noms de fichiers d'artiste
+        validated_artist_files = []
+        for artist_file in artist_files:
+            if isinstance(artist_file, str):
+                validated = validate_filename(artist_file)
+                if validated:
+                    validated_artist_files.append(validated)
+                else:
+                    logger.warning(f"Nom de fichier artiste invalide ignoré: {artist_file}")
+            else:
+                logger.warning(f"Type de nom de fichier artiste invalide: {type(artist_file)}")
+                continue
+
+        if not validated_artist_files:
+            logger.warning("Aucun nom de fichier artiste valide trouvé, utilisation d'une liste par défaut")
+            validated_artist_files = ["artist.jpg", "artist.png", "folder.jpg"]
+
+        artist_files = validated_artist_files
+
         for image_file in artist_files:
             image_path = dir_path / image_file
+            logger.debug(f"Attempting to open artist image file: {image_path}")
+            # SECURITY: Validate path to prevent directory traversal
+            try:
+                resolved_path = image_path.resolve()
+                dir_resolved = dir_path.resolve()
+
+                # Vérification anti-traversée de répertoire renforcée
+                if not resolved_path.is_relative_to(dir_resolved):
+                    logger.warning(f"Path traversal attempt detected for artist image file: {image_path}")
+                    continue
+
+                # Vérification supplémentaire: le chemin ne doit pas contenir de composants suspects
+                image_path_str = str(image_path)
+                if '..' in image_path_str or image_path_str.startswith('/') or image_path_str.startswith('\\'):
+                    logger.warning(f"Chemin d'image d'artiste potentiellement dangereux: {image_path_str}")
+                    continue
+
+                # Vérifier que le fichier image existe et est un fichier régulier
+                if not image_path.exists() or not image_path.is_file():
+                    logger.debug(f"Fichier image d'artiste non trouvé ou invalide: {image_path}")
+                    continue
+
+            except Exception as e:
+                logger.error(f"Error resolving path for artist image file {image_path}: {e}")
+                continue
+
+            # SECURITY: Utiliser la fonction sécurisée pour ouvrir le fichier
             if image_path.exists():
+                if allowed_base_paths is None:
+                    logger.error("allowed_base_paths est None dans get_artist_images - Refus d'ouverture pour éviter Path Traversal")
+                    return []
                 try:
                     mime_type = mimetypes.guess_type(str(image_path))[0] or 'image/jpeg'
-                    async with aiofiles.open(image_path, mode='rb') as f:
-                        image_bytes = await f.read()
+                    # LOG VULNÉRABILITÉ: Diagnostic pour Path Traversal dans get_artist_images
+                    logger.warning(f"[PATH_TRAVERSAL_DIAG] get_artist_images - Ouverture image artiste: chemin original={str(image_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+                    image_bytes = await secure_open_file(resolved_path, 'rb', allowed_base_paths=allowed_base_paths)
+                    if image_bytes:
                         image_data = await convert_to_base64(image_bytes, mime_type)
                         if image_data:
                             artist_images.append((image_data, mime_type))
@@ -287,16 +715,79 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
     if '?' in path_obj.name:
         corrected_name = path_obj.name.replace('?', "'")
         file_path_str = str(path_obj.parent / corrected_name)
+
+    # SECURITY: Sanitiser le chemin avant traitement
+    try:
+        file_path_str = sanitize_path(file_path_str)
+    except ValueError as e:
+        logger.warning(f"Chemin rejeté par sanitisation: {file_path_str} - {e}")
+        return None
+
     file_path = Path(file_path_str)
 
     try:
+        # SECURITY: Validate path is within allowed directory boundary
+        if not scan_config.get("base_directory"):
+            logger.error("Pas de répertoire de base configuré pour la validation de sécurité")
+            return None
+
+        base_dir = Path(scan_config["base_directory"]).resolve()
+        allowed_base_paths = [base_dir]
+        resolved_path = file_path.resolve()
+
+        # Vérifier que le fichier est dans les limites du répertoire de base
+        try:
+            if not resolved_path.is_relative_to(base_dir):
+                logger.warning(f"Tentative de traversée de répertoire détectée: {file_path_str}")
+                logger.warning(f"Chemin résolu: {resolved_path}, Répertoire de base: {base_dir}")
+                logger.warning(f"Vérification de sécurité: {resolved_path} n'est PAS dans {base_dir}")
+                return None
+        except (OSError, ValueError) as e:
+            logger.warning(f"Erreur de résolution de chemin lors de la validation: {file_path_str} - {e}")
+            return None
+
+        # Vérification supplémentaire: le chemin ne doit pas contenir de caractères suspects
+        if '..' in file_path_str or file_path_str.startswith('/') or file_path_str.startswith('\\'):
+            logger.warning(f"Chemin de fichier potentiellement dangereux: {file_path_str}")
+            return None
+
+        # Vérifier que le fichier existe et est un fichier régulier
+        if not file_path.exists() or not file_path.is_file():
+            logger.warning(f"Fichier non trouvé ou invalide: {file_path_str}")
+            return None
+
+        logger.debug(f"Chemin validé avec succès: {file_path_str} dans les limites de {base_dir}")
+
         if file_path.suffix.lower().encode('utf-8') not in scan_config["music_extensions"]:
+            logger.debug(f"Extension non musicale ignorée: {file_path_str}")
             return None
 
         loop = asyncio.get_running_loop()
         try:
-            with open(file_path_bytes, 'rb') as f:
-                audio = await loop.run_in_executor(None, lambda: File(f, easy=False))
+            # SECURITY: Use the validated resolved path instead of original bytes
+            file_path_str = file_path_bytes.decode('utf-8', 'surrogateescape')
+            # Re-validate the path to ensure it's still safe
+            if not scan_config.get("base_directory"):
+                logger.error("Pas de répertoire de base configuré pour la validation de sécurité")
+                return None
+
+            base_dir = Path(scan_config["base_directory"]).resolve()
+            current_path = Path(file_path_str).resolve()
+
+            if not current_path.is_relative_to(base_dir):
+                logger.warning(f"Tentative de traversée de répertoire détectée: {file_path_str}")
+                return None
+
+            # SECURITY: Utiliser la fonction sécurisée pour ouvrir le fichier
+            file_content = await secure_open_file(current_path, 'rb', allowed_base_paths=allowed_base_paths)
+            if file_content is None:
+                logger.error(f"Impossible d'ouvrir le fichier de manière sécurisée: {file_path_str}")
+                return None
+
+            # Utiliser le contenu du fichier avec mutagen via un flux mémoire
+            from io import BytesIO
+            file_buffer = BytesIO(file_content)
+            audio = await loop.run_in_executor(None, lambda: File(file_buffer, easy=False))
         except FileNotFoundError:
             logger.error(f"Fichier non trouvé: {file_path_str}")
             return None
@@ -318,10 +809,10 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
             artist_images = artist_images_cache[artist_path_str]
         elif artist_path.exists():
             # Note: get_artist_images appelle toujours settings_service. On pourrait optimiser davantage.
-            artist_images = await get_artist_images(artist_path_str)
+            artist_images = await get_artist_images(artist_path_str, allowed_base_paths=allowed_base_paths)
             artist_images_cache[artist_path_str] = artist_images
 
-        metadata = await extract_metadata(audio, file_path_str)
+        metadata = await extract_metadata(audio, file_path_str, allowed_base_paths=allowed_base_paths)
         metadata["artist_path"] = artist_path_str
         metadata["artist_images"] = artist_images
 
@@ -336,11 +827,34 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
 async def async_walk(path: Path):
     """Générateur asynchrone pour parcourir les fichiers, basé sur os.walk."""
     loop = asyncio.get_running_loop()
+    resolved_base = path.resolve()
+
     for dirpath, dirnames, filenames in await loop.run_in_executor(None, os.walk, path):
+        # SECURITY: Validate current directory is within base path
+        current_dir = Path(dirpath).resolve()
+        try:
+            if not current_dir.is_relative_to(resolved_base):
+                logger.warning(f"Répertoire en dehors des limites détecté, ignoré: {dirpath}")
+                logger.warning(f"Répertoire actuel: {current_dir}, Base: {resolved_base}")
+                continue
+
+            # Vérification supplémentaire: le répertoire ne doit pas contenir de caractères suspects
+            dirpath_str = str(dirpath)
+            if '..' in dirpath_str or dirpath_str.startswith('/') or dirpath_str.startswith('\\'):
+                logger.warning(f"Chemin de répertoire potentiellement dangereux: {dirpath_str}")
+                continue
+
+        except (OSError, ValueError) as e:
+            logger.warning(f"Erreur de résolution de répertoire: {dirpath} - {e}")
+            continue
+
+        logger.debug(f"Répertoire validé: {dirpath} dans les limites de {resolved_base}")
+
         dirnames[:] = [d for d in dirnames if not d.startswith('.')]
         for filename in filenames:
             if not filename.startswith('.'):
-                yield os.path.join(dirpath, filename).encode('utf-8', 'surrogateescape')
+                file_path = os.path.join(dirpath, filename)
+                yield file_path.encode('utf-8', 'surrogateescape')
 
 async def scan_music_files(directory: str, scan_config: dict):
     """Générateur asynchrone ultra-optimisé qui scanne les fichiers musicaux."""

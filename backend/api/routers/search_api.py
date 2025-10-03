@@ -12,9 +12,14 @@ def api_get_or_create_index(index_dir: str = Body(...)):
         # Correction : accepter index_dir vide ("" ou None) et retourner 200
         if index_dir is None or index_dir == "":
             index_dir = "search_index"
+
+        # Importer et utiliser la validation sécurisée
+        from backend.utils.search import validate_index_directory
+        safe_index_dir = validate_index_directory(index_dir)
+
         # Utilisation directe de la fonction utilitaire pour patchabilité
-        get_or_create_index(index_dir)
-        return {"index_name": "music_index", "index_dir": index_dir}
+        get_or_create_index(safe_index_dir)
+        return {"index_name": "music_index", "index_dir": safe_index_dir}
     except Exception as e:
         # Si c’est un mock (side_effect), retourner 500
         if hasattr(e, 'args') and e.args and ('Index creation failed' in str(e.args[0]) or 'side_effect' in str(type(e))):
@@ -26,7 +31,10 @@ def api_get_or_create_index(index_dir: str = Body(...)):
 @router.post("/add")
 def api_add_to_index(body: AddToIndexRequest):
     try:
-        SearchService.add_to_index(body.index_dir, body.index_name, body.whoosh_data)
+        # Utiliser la validation sécurisée
+        from backend.utils.search import validate_index_directory
+        safe_index_dir = validate_index_directory(body.index_dir)
+        SearchService.add_to_index(safe_index_dir, body.index_name, body.whoosh_data)
         return {"status": "ok"}
     except Exception as e:
         from fastapi import HTTPException
@@ -38,8 +46,23 @@ async def search(query: SearchQuery, index_dir: str = None):
         # Utilisation directe de la fonction utilitaire pour patchabilité
         if index_dir is None:
             index_dir = "search_index"
-        index = get_or_create_index(index_dir)
+
+        # Utiliser la validation sécurisée
+        from backend.utils.search import validate_index_directory
+        safe_index_dir = validate_index_directory(index_dir)
+
+        # Validate search query
+        if not query.query or not query.query.strip():
+            query.query = ""
+
+        index = get_or_create_index(safe_index_dir)
         total, artist_facet, genre_facet, decade_facet, results = search_index(index, query.query)
+        # Validate pagination parameters
+        if query.page < 1:
+            query.page = 1
+        if query.page_size < 1 or query.page_size > 100:  # Limit max page size
+            query.page_size = 20
+
         start = (query.page - 1) * query.page_size
         end = start + query.page_size
         paginated_results = results[start:end]

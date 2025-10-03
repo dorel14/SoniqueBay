@@ -10,6 +10,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass, field
+from pathlib import Path
 from backend_worker.utils.logging import logger
 
 try:
@@ -207,10 +208,11 @@ class ScanOptimizer:
         return processed_tracks
 
     async def process_chunk_with_optimization(self,
-                                           client,
-                                           chunk: List[Dict],
-                                           stats: Dict,
-                                           progress_callback: Optional[Callable] = None) -> Dict:
+                                            client,
+                                            chunk: List[Dict],
+                                            stats: Dict,
+                                            progress_callback: Optional[Callable] = None,
+                                            base_path: Optional[Path] = None) -> Dict:
         """
         Traite un chunk avec optimisations parallèles.
 
@@ -233,7 +235,7 @@ class ScanOptimizer:
 
             # Étape 2: Traitement DB (déjà optimisé avec GraphQL batch)
             from backend_worker.services.scanner import process_metadata_chunk
-            await process_metadata_chunk(client, chunk, stats)
+            await process_metadata_chunk(client, chunk, stats, base_path)
 
             # Mise à jour des métriques
             chunk_time = time.time() - chunk_start

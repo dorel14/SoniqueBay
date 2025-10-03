@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 import json
+from pathlib import Path
 
 from backend_worker.services.path_service import PathService, find_local_images, get_artist_path, find_cover_in_directory
 
@@ -99,10 +100,10 @@ async def test_find_local_images_not_found():
 @pytest.mark.asyncio
 async def test_find_cover_in_directory_success():
     """Test la recherche d'une cover dans un dossier avec succès."""
-    with patch('pathlib.Path.exists', side_effect=[True, True]):
+    with patch.object(Path, 'exists', return_value=True):
         # Appeler la fonction
         result = await find_cover_in_directory("/path/to/album", ["cover.jpg"])
-        
+
         # Vérifier le résultat
         assert result is not None
         assert "cover.jpg" in result
@@ -110,10 +111,21 @@ async def test_find_cover_in_directory_success():
 @pytest.mark.asyncio
 async def test_find_cover_in_directory_not_found():
     """Test la recherche d'une cover dans un dossier sans succès."""
-    with patch('pathlib.Path.exists', side_effect=[True, False]):
+    def mock_exists(self):
+        path_str = str(self)
+        # Le répertoire existe (/path/to/album) mais pas le fichier cover
+        if path_str.endswith('/path/to/album') or path_str.endswith('\\path\\to\\album'):
+            return True
+        # Le fichier cover n'existe pas
+        if 'cover.jpg' in path_str:
+            return False
+        # Autres fichiers n'existent pas
+        return False
+
+    with patch.object(Path, 'exists', mock_exists):
         # Appeler la fonction
         result = await find_cover_in_directory("/path/to/album", ["cover.jpg"])
-        
+
         # Vérifier le résultat
         assert result is None
 

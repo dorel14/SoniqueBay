@@ -25,6 +25,50 @@ class ScanService:
             return input_path
 
     @staticmethod
+    def validate_base_directory(directory: str) -> None:
+        """
+        Valide le répertoire de base pour le scan en interdisant les racines système
+        et en limitant la profondeur du répertoire.
+
+        Args:
+            directory: Chemin du répertoire à valider
+
+        Raises:
+            ValueError: Si le répertoire n'est pas valide
+        """
+        from pathlib import Path
+
+        path = Path(directory)
+
+        # Interdire les racines système
+        system_roots = [
+            '/',  # Linux/Unix root
+            '/etc', '/usr', '/var', '/bin', '/sbin',  # Linux system dirs
+            '/System', '/Library', '/Applications',  # macOS system dirs
+            'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)',  # Windows system dirs
+            'C:\\System32', 'C:\\SysWOW64',  # Windows system dirs
+        ]
+
+        resolved_path = path.resolve()
+        resolved_str = str(resolved_path)
+
+        for root in system_roots:
+            if resolved_str.startswith(root) or resolved_str == root.rstrip('\\').rstrip('/'):
+                logger.error(f"Répertoire système interdit détecté: {resolved_str}")
+                raise ValueError(f"Le répertoire {resolved_str} est un répertoire système protégé et ne peut pas être scanné")
+
+        # Limiter la profondeur du répertoire (maximum 10 niveaux)
+        parts = resolved_path.parts
+        depth = len(parts)
+        max_depth = 10
+
+        if depth > max_depth:
+            logger.error(f"Profondeur de répertoire trop grande: {depth} niveaux (maximum autorisé: {max_depth})")
+            raise ValueError(f"La profondeur du répertoire {resolved_str} ({depth} niveaux) dépasse la limite de sécurité ({max_depth} niveaux)")
+
+        logger.info(f"Validation base_directory réussie: {resolved_str} (profondeur: {depth})")
+
+    @staticmethod
     def launch_scan(directory: str = None, db: Session = None, cleanup_deleted: bool = False):
         if not directory:
             docker_directory = os.getenv('MUSIC_PATH', '/music')
@@ -33,7 +77,15 @@ class ScanService:
             docker_directory = f'/music/{converted_directory.lstrip('/')}'
         logger.info(f"MUSIC_PATH: {os.getenv('MUSIC_PATH')}")
         logger.info(f"PLATFORM: {os.getenv('PLATFORM')}")
-        logger.info(f"Répertoire à scanner: {docker_directory}")
+        logger.info(f"Répertoire à scanner avant résolution: {docker_directory}")
+        # SECURITY: Résoudre le chemin pour nettoyer les ../ et éviter Path Traversal
+        from pathlib import Path
+        resolved_docker_directory = str(Path(docker_directory).resolve())
+        logger.info(f"Répertoire à scanner après résolution: {resolved_docker_directory}")
+        docker_directory = resolved_docker_directory
+
+        # SECURITY: Validation renforcée pour base_directory
+        ScanService.validate_base_directory(docker_directory)
 
         # Check for existing active scan
         if db:

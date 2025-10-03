@@ -95,6 +95,13 @@ class MusicIndexer:
             progress_callback: Fonction callback(progress: float) pour suivre la progression
         """
         logger.info("Début de la réindexation complète...")
+
+        # Security: Validate index_dir path before using it
+        normalized = os.path.normpath(self.index_dir)
+        if os.path.isabs(normalized) or '..' in normalized:
+            logger.error(f"Invalid index directory path: {self.index_dir}")
+            raise ValueError(f"Invalid index directory: {self.index_dir}")
+
         if os.path.exists(self.index_dir):
             shutil.rmtree(self.index_dir)
         self.index_dir_actual, self.index_name = await remote_get_or_create_index(self.index_dir)

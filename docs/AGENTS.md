@@ -7,6 +7,7 @@ Avant de committer ou pousser du code, vérifie :
 * [ ] Le projet **démarre correctement dans Docker** avec `docker-compose up`.
 * [ ] Les **3 conteneurs** (FastAPI+GraphQL, Celery worker, NiceGUI frontend) tournent sans erreur.
 * [ ] Le code respecte **PEP8** et les règles définies ci-dessous.
+* [ ] Le code ne contient pas de vulnérabilités ou failles de sécurité potentielles, un contrôle temps réel est effectué via Snyk
 * [ ] Les **tests passent** et aucune régression n’est introduite.
 * [ ] Les commits suivent le format standard (`feat`, `fix`, etc.).
 * [ ] Aucun fichier sensible ou généré n’est committé (`.env`, cache, DB locale, etc.).

@@ -1,4 +1,3 @@
-from backend_worker.services.indexer import MusicIndexer
 from backend_worker.services.music_scan import scan_music_files
 from backend_worker.services.entity_manager import (
     create_or_get_artists_batch,
@@ -19,7 +18,141 @@ import json
 import time
 import os
 
-async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: dict):
+
+async def validate_file_path(file_path: str, base_path: Path) -> Path | None:
+    """
+    Valide qu'un chemin de fichier est dans les limites du répertoire de base avec validation complète.
+
+    Args:
+        file_path: Chemin du fichier à valider
+        base_path: Répertoire de base autorisé (Path résolu)
+
+    Returns:
+        Path résolu validé si le chemin est valide et dans les limites, None sinon
+    """
+    try:
+        logger.debug(f"[VALIDATE_FILE_PATH] Début validation pour: {file_path}")
+
+        # ÉTAPE 1: Validation basique du paramètre d'entrée
+        if not file_path or not isinstance(file_path, str):
+            logger.warning(f"[VALIDATE_FILE_PATH] Chemin de fichier invalide: {file_path}")
+            return None
+
+        if not base_path or not isinstance(base_path, Path):
+            logger.warning(f"[VALIDATE_FILE_PATH] Répertoire de base invalide: {base_path}")
+            return None
+
+        logger.debug("[VALIDATE_FILE_PATH] ✓ Paramètres d'entrée validés")
+
+        # ÉTAPE 2: Conversion en Path et résolution
+        try:
+            path_obj = Path(file_path)
+            if not path_obj.is_absolute():
+                logger.warning(f"[VALIDATE_FILE_PATH] Chemin non absolu détecté: {file_path}")
+                return None
+
+            resolved_path = path_obj.resolve()
+            logger.debug(f"[VALIDATE_FILE_PATH] Chemin résolu: {file_path} -> {resolved_path}")
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"[VALIDATE_FILE_PATH] Impossible de résoudre le chemin {file_path}: {e}")
+            return None
+
+        # ÉTAPE 3: Validation que le chemin est dans le répertoire de base autorisé
+        try:
+            if not base_path.is_absolute():
+                logger.warning(f"[VALIDATE_FILE_PATH] Répertoire de base non absolu: {base_path}")
+                return None
+
+            base_resolved = base_path.resolve()
+            if not resolved_path.is_relative_to(base_resolved):
+                logger.warning(f"[VALIDATE_FILE_PATH] Tentative de traversée de répertoire détectée")
+                logger.warning(f"[VALIDATE_FILE_PATH] Chemin résolu: {resolved_path}")
+                logger.warning(f"[VALIDATE_FILE_PATH] Répertoire de base: {base_resolved}")
+                return None
+
+            logger.debug(f"[VALIDATE_FILE_PATH] ✓ Chemin dans répertoire autorisé: {base_resolved}")
+        except (OSError, ValueError) as e:
+            logger.warning(f"[VALIDATE_FILE_PATH] Erreur de validation du répertoire de base: {e}")
+            return None
+
+        # ÉTAPE 4: Validation de la longueur du nom de fichier
+        filename = resolved_path.name
+        max_filename_length = 255
+        if len(filename) > max_filename_length:
+            logger.warning(f"[VALIDATE_FILE_PATH] Nom de fichier trop long: {len(filename)} caractères")
+            return None
+
+        if len(filename) == 0:
+            logger.warning("[VALIDATE_FILE_PATH] Nom de fichier vide détecté")
+            return None
+
+        logger.debug(f"[VALIDATE_FILE_PATH] ✓ Longueur du nom validée: {len(filename)} caractères")
+
+        # ÉTAPE 5: Vérification des caractères interdits
+        path_str = str(resolved_path)
+
+        # Caractères de contrôle et nuls
+        if '\0' in path_str:
+            logger.warning(f"[VALIDATE_FILE_PATH] Caractère nul détecté: {path_str}")
+            return None
+
+        # Caractères de contrôle problématiques
+        control_chars = set(range(0, 32)) - {9, 10, 13}
+        if any(ord(c) in control_chars for c in path_str):
+            logger.warning(f"[VALIDATE_FILE_PATH] Caractères de contrôle détectés: {path_str}")
+            return None
+
+        # Caractères interdits spécifiques (exclure les caractères valides dans les chemins Windows)
+        forbidden_chars = {'"', '|', '?', '*'}  # Exclure < > : qui peuvent être valides dans les chemins Windows
+        if any(c in path_str for c in forbidden_chars):
+            logger.warning(f"[VALIDATE_FILE_PATH] Caractères interdits détectés: {path_str}")
+            return None
+
+        # Patterns de traversée
+        suspicious_patterns = ['../', '..\\', '/..', '\\..', './', '.\\']
+        for pattern in suspicious_patterns:
+            if pattern in path_str:
+                logger.warning(f"[VALIDATE_FILE_PATH] Pattern de traversée détecté: '{pattern}' dans {path_str}")
+                return None
+
+        logger.debug("[VALIDATE_FILE_PATH] ✓ Validation des caractères réussie")
+
+        # ÉTAPE 6: Vérification de l'existence et du type
+        if not resolved_path.exists():
+            logger.warning(f"[VALIDATE_FILE_PATH] Fichier non trouvé: {resolved_path}")
+            return None
+
+        if not resolved_path.is_file():
+            logger.warning(f"[VALIDATE_FILE_PATH] Le chemin n'est pas un fichier régulier: {resolved_path}")
+            return None
+
+        # ÉTAPE 7: Vérification des permissions de base
+        try:
+            import os
+            if not os.access(resolved_path, os.R_OK):
+                logger.warning(f"[VALIDATE_FILE_PATH] Pas de permission de lecture: {resolved_path}")
+                return None
+
+            # Vérifier que c'est bien un fichier régulier via stat
+            stat_result = resolved_path.stat()
+            if not (stat_result.st_mode & 0o170000 == 0o100000):  # S_IFREG
+                logger.warning(f"[VALIDATE_FILE_PATH] Le chemin n'est pas un fichier régulier: {resolved_path}")
+                return None
+
+            logger.debug(f"[VALIDATE_FILE_PATH] ✓ Existence, type et permissions validés")
+        except (OSError, AttributeError) as e:
+            logger.warning(f"[VALIDATE_FILE_PATH] Erreur de vérification des permissions: {e}")
+            return None
+
+        logger.info(f"[VALIDATE_FILE_PATH] Chemin validé avec succès: {resolved_path}")
+        return resolved_path
+
+    except Exception as e:
+        logger.error(f"[VALIDATE_FILE_PATH] Erreur inattendue lors de la validation de {file_path}: {e}")
+        return None
+
+
+async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: dict, base_path: Path):
     """Traite un lot de métadonnées de fichiers."""
     # Étape 1: Traitement par lots des artistes
     unique_artists_data = {
@@ -65,9 +198,16 @@ async def process_metadata_chunk(client: httpx.AsyncClient, chunk: list, stats: 
 
         # Get file stats for comparison
         try:
-            stat = os.stat(fd["path"])
-            fd["file_mtime"] = stat.st_mtime
-            fd["file_size"] = stat.st_size
+            # SECURITY: Validate path before using it in os.stat
+            validated_path = await validate_file_path(fd["path"], base_path)
+            if validated_path:
+                stat = os.stat(str(validated_path))
+                fd["file_mtime"] = stat.st_mtime
+                fd["file_size"] = stat.st_size
+            else:
+                logger.warning(f"Chemin invalide pour stat: {fd['path']}")
+                fd["file_mtime"] = None
+                fd["file_size"] = None
         except OSError:
             logger.warning(f"Could not stat file {fd['path']}")
             fd["file_mtime"] = None
@@ -165,11 +305,20 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
         artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
         cover_files_json = await settings_service.get_setting(ALBUM_COVER_FILES)
 
+        # SECURITY: Validate and normalize the base directory
+        try:
+            base_path = Path(directory).resolve()
+            logger.info(f"Répertoire de base résolu pour le scan: {base_path}")
+        except (OSError, ValueError) as e:
+            logger.error(f"Répertoire de base invalide: {directory} - {e}")
+            raise ValueError(f"Invalid base directory: {directory}")
+
         scan_config = {
             "template": template,
             "artist_files": artist_files_json if isinstance(artist_files_json, list) else json.loads(artist_files_json or '[]'),
             "cover_files": cover_files_json if isinstance(cover_files_json, list) else json.loads(cover_files_json or '[]'),
-            "music_extensions": {b'.mp3', b'.flac', b'.m4a', b'.ogg', b'.wav'}
+            "music_extensions": {b'.mp3', b'.flac', b'.m4a', b'.ogg', b'.wav'},
+            "base_directory": str(base_path)  # SECURITY: Add resolved base directory for path validation
         }
         template_parts = template.split('/')
         scan_config["artist_depth"] = template_parts.index("{album_artist}") if "{album_artist}" in template_parts else -1
@@ -198,18 +347,32 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
                 if len(file_batch) >= batch_size:
                     logger.info(f"Traitement parallèle d'un batch de {len(file_batch)} fichiers...")
 
-                    # Extraction parallélisée des métadonnées
-                    extracted_metadata = await optimizer.extract_metadata_batch(
-                        [fm['path'].encode('utf-8', 'surrogateescape') for fm in file_batch],
-                        scan_config
-                    )
+                    # SECURITY: Validate all file paths before processing
+                    validated_paths = []
+                    for fm in file_batch:
+                        validated_path = await validate_file_path(fm['path'], base_path)
+                        if validated_path:
+                            validated_paths.append(str(validated_path).encode('utf-8', 'surrogateescape'))
+                        else:
+                            logger.warning(f"Chemin de fichier invalide rejeté: {fm['path']}")
+                            stats['files_processed'] -= 1  # Decrement counter for rejected file
+
+                    if validated_paths:
+                        # Extraction parallélisée des métadonnées
+                        extracted_metadata = await optimizer.extract_metadata_batch(
+                            validated_paths,
+                            scan_config
+                        )
+                    else:
+                        logger.warning("Aucun chemin de fichier valide dans le batch")
+                        extracted_metadata = []
 
                     # Regrouper en chunks pour l'insertion DB
                     for i in range(0, len(extracted_metadata), optimizer.chunk_size):
                         chunk = extracted_metadata[i:i + optimizer.chunk_size]
                         if chunk:
                             await optimizer.process_chunk_with_optimization(
-                                client, chunk, stats, progress_callback
+                                client, chunk, stats, progress_callback, base_path
                             )
 
                     file_batch = []
@@ -217,16 +380,31 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
             # Traiter le dernier batch
             if file_batch:
                 logger.info(f"Traitement du dernier batch de {len(file_batch)} fichiers...")
-                extracted_metadata = await optimizer.extract_metadata_batch(
-                    [fm['path'].encode('utf-8', 'surrogateescape') for fm in file_batch],
-                    scan_config
-                )
+
+                # SECURITY: Validate all file paths before processing
+                validated_paths = []
+                for fm in file_batch:
+                    validated_path = await validate_file_path(fm['path'], base_path)
+                    if validated_path:
+                        validated_paths.append(str(validated_path).encode('utf-8', 'surrogateescape'))
+                    else:
+                        logger.warning(f"Chemin de fichier invalide rejeté: {fm['path']}")
+                        stats['files_processed'] -= 1  # Decrement counter for rejected file
+
+                if validated_paths:
+                    extracted_metadata = await optimizer.extract_metadata_batch(
+                        validated_paths,
+                        scan_config
+                    )
+                else:
+                    logger.warning("Aucun chemin de fichier valide dans le dernier batch")
+                    extracted_metadata = []
 
                 for i in range(0, len(extracted_metadata), optimizer.chunk_size):
                     chunk = extracted_metadata[i:i + optimizer.chunk_size]
                     if chunk:
                         await optimizer.process_chunk_with_optimization(
-                            client, chunk, stats, progress_callback
+                            client, chunk, stats, progress_callback, base_path
                         )
 
         # Étape 4: Scan terminé

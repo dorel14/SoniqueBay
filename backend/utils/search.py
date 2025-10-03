@@ -33,8 +33,11 @@ def get_schema():
 def migrate_index(index_dir: str) -> bool:
     """Vérifie si l'index nécessite une migration et le recrée si nécessaire."""
     try:
-        if exists_in(index_dir):
-            index = open_dir(index_dir)
+        # Utiliser la même validation sécurisée
+        safe_index_dir = validate_index_directory(index_dir)
+
+        if exists_in(safe_index_dir):
+            index = open_dir(safe_index_dir)
             current_schema = index.schema
             new_schema = get_schema()
 
@@ -42,14 +45,15 @@ def migrate_index(index_dir: str) -> bool:
             if set(current_schema.names()) != set(new_schema.names()):
                 logger.warning("Schéma d'index obsolète détecté. Migration nécessaire...")
 
-                # Sauvegarder l'ancien répertoire
-                backup_dir = f"{index_dir}_backup"
-                if os.path.exists(index_dir):
-                    shutil.copytree(index_dir, backup_dir, dirs_exist_ok=True)
+                # Sauvegarder l'ancien répertoire avec un nom sécurisé
+                backup_dir = f"{safe_index_dir}_backup"
+
+                if os.path.exists(safe_index_dir):
+                    shutil.copytree(safe_index_dir, backup_dir, dirs_exist_ok=True)
 
                 # Supprimer et recréer l'index
-                shutil.rmtree(index_dir)
-                os.makedirs(index_dir, exist_ok=True)
+                shutil.rmtree(safe_index_dir)
+                os.makedirs(safe_index_dir, exist_ok=True)
                 return True
 
         return False
@@ -57,21 +61,77 @@ def migrate_index(index_dir: str) -> bool:
         logger.error(f"Erreur lors de la vérification/migration de l'index: {str(e)}")
         return False
 
+def validate_index_directory(index_dir: str) -> str:
+    """
+    Valide et sécurise le nom du répertoire d'index.
+
+    Args:
+        index_dir: Nom du répertoire d'index fourni
+
+    Returns:
+        str: Nom du répertoire sécurisé
+
+    Raises:
+        ValueError: Si le répertoire n'est pas autorisé
+    """
+    if not index_dir or not isinstance(index_dir, str):
+        raise ValueError("Index directory must be a non-empty string")
+
+    # Nettoyer et normaliser le nom
+    cleaned = index_dir.strip()
+    normalized = os.path.normpath(cleaned)
+
+    # Vérifications de sécurité strictes
+    if (os.path.isabs(normalized) or
+        '..' in normalized or
+        '/' in normalized or
+        '\\' in normalized or
+        normalized.startswith('.') or
+        normalized == '' or
+        len(normalized) > 100):  # Limite de longueur raisonnable
+        logger.error(f"Invalid index directory name: {index_dir}")
+        raise ValueError(f"Invalid index directory: {index_dir}")
+
+    # Liste blanche des noms de répertoires autorisés
+    allowed_names = {
+        'search_index',
+        'music_index',
+        'test_index',
+        'temp_index'
+    }
+
+    # Vérifier que le nom est dans la liste blanche
+    if normalized not in allowed_names:
+        logger.error(f"Index directory not in allowed list: {index_dir}")
+        raise ValueError(f"Invalid index directory: {index_dir}")
+
+    return normalized
+
+
 def get_or_create_index(index_dir: str, indexname: str = "music_index"):
     """Récupère l'index existant ou en crée un nouveau."""
-    os.makedirs(index_dir, exist_ok=True)
+    logger.info(f"get_or_create_index called with index_dir: {index_dir}")
+
+    # Utiliser la validation sécurisée
+    try:
+        safe_index_dir = validate_index_directory(index_dir)
+    except ValueError as e:
+        logger.error(f"Index directory validation failed: {e}")
+        raise
+
+    os.makedirs(safe_index_dir, exist_ok=True)
 
     # Vérifier si une migration est nécessaire
     if migrate_index(index_dir):
         logger.info("Création d'un nouvel index avec le schéma mis à jour")
-        return create_in(index_dir, get_schema(), indexname=indexname)
+        return create_in(safe_index_dir, get_schema(), indexname=indexname)
 
     # Si l'index existe, l'ouvrir avec le nom correct
-    if exists_in(index_dir, indexname=indexname):
-        return open_dir(index_dir, indexname=indexname)
+    if exists_in(safe_index_dir, indexname=indexname):
+        return open_dir(safe_index_dir, indexname=indexname)
 
     # Sinon, le créer avec le nom attendu
-    return create_in(index_dir, get_schema(), indexname=indexname)
+    return create_in(safe_index_dir, get_schema(), indexname=indexname)
 
 def add_to_index(index, track):
     """Ajoute une piste à l'index Whoosh."""

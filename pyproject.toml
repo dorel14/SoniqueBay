@@ -36,11 +36,11 @@ git_describe_command = ["git", "describe", "--dirty", "--tags", "--long"]
 [tool.pytest.ini_options]
 addopts = "-p no:benchmark"
 
-# [tool.codeflash]
-# # All paths are relative to this pyproject.toml's directory.
-# module-root = "."
-# tests-root = "tests"
-# test-framework = "pytest"
-# ignore-paths = []
-# git-remote = "SoniqueBay"
-# formatter-cmds = ["disabled"]
+[tool.codeflash]
+# All paths are relative to this pyproject.toml's directory.
+module-root = "."
+tests-root = "tests"
+test-framework = "pytest"
+ignore-paths = []
+git-remote = "SoniqueBay"
+formatter-cmds = ["disabled"]
