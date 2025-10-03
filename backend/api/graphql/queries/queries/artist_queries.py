@@ -48,21 +48,12 @@ class ArtistQueries:
         db = info.context["db"]
         service = ArtistService(db)
         artists, _ = service.get_artists_paginated(skip, limit)
-        result = []
-        for a in artists:
-            artist_data = a.__dict__
-
-            # Extract only the fields that exist in ArtistType
-            data = {
-                'id': artist_data.get('id'),
-                'name': artist_data.get('name'),
-                'musicbrainz_artistid': artist_data.get('musicbrainz_artistid')
-            }
-
-            # Add covers
-            covers = []
-            if hasattr(a, 'covers') and a.covers:
-                covers = [CoverType(
+        return [
+            ArtistType(
+                id=a.id,
+                name=a.name,
+                musicbrainz_artistid=a.musicbrainz_artistid,
+                covers=[CoverType(
                     id=c.id,
                     entity_type=c.entity_type,
                     entity_id=c.entity_id,
@@ -71,8 +62,7 @@ class ArtistQueries:
                     date_added=str(c.date_added),
                     date_modified=str(c.date_modified),
                     mime_type=c.mime_type
-                ) for c in a.covers]
-            data['covers'] = covers
-
-            result.append(ArtistType(**data))
-        return result
+                ) for c in a.covers] if hasattr(a, 'covers') and a.covers else []
+            )
+            for a in artists
+        ]
