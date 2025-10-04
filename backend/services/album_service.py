@@ -146,17 +146,23 @@ class AlbumService:
 
     def read_albums(self, skip=0, limit=100):
         albums = self.db.query(AlbumModel).offset(skip).limit(limit).all()
-        # ...adapter la sortie pour AlbumWithRelations...
-        return [
-            {
-                **album.__dict__,
+        # Precompute current time for missing dates to avoid repeated system calls
+        now = datetime.now(timezone.utc)
+        results = []
+        append = results.append
+        for album in albums:
+            date_added = album.date_added if album.date_added is not None else now
+            date_modified = album.date_modified if album.date_modified is not None else now
+            # Build dict directly rather than using {**album.__dict__, ...} for memory and perf
+            d = album.__dict__.copy()
+            d.update({
                 "covers": [],
                 "cover_url": None,
-                "date_added": album.date_added or datetime.now(timezone.utc),
-                "date_modified": album.date_modified or datetime.now(timezone.utc)
-            }
-            for album in albums
-        ]
+                "date_added": date_added,
+                "date_modified": date_modified,
+            })
+            append(d)
+        return results
 
     def read_album(self, album_id):
         album = self.db.query(AlbumModel).options(joinedload(AlbumModel.covers)).filter(AlbumModel.id == album_id).first()
