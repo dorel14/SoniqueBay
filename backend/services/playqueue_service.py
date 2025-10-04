@@ -60,5 +60,6 @@ class PlayQueueService:
 
     @staticmethod
     def clear_queue() -> PlayQueue:
-        db.truncate()
+        if db.all():
+            db.truncate()
         return PlayQueue()
