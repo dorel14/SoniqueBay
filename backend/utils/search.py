@@ -7,28 +7,34 @@ from backend.utils.logging import logger  # noqa: E402
 
 import os  # noqa: E402
 import shutil  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+_SCHEMA = Schema(
+    id=STORED,  # ID de la base de données
+    path=ID(stored=True, unique=True),
+    title=TEXT(stored=True),
+    artist=TEXT(stored=True),
+    album=TEXT(stored=True),
+    genre=TEXT(stored=True),
+    year=TEXT(stored=True),
+    decade=TEXT(stored=True),  # Pour le filtrage par décennie
+    duration=NUMERIC(stored=True),
+    track_number=STORED,
+    disc_number=STORED,
+    # Ajout des champs MusicBrainz pour faciliter la recherche
+    musicbrainz_id=STORED,
+    musicbrainz_albumid=STORED,
+    musicbrainz_artistid=STORED,
+    musicbrainz_genre=TEXT(stored=True)
+)
+
 configure_whoosh_warnings()
+
+BASE_SEARCH_DIR = Path("search_indexes")
 
 def get_schema():
     """Définit le schéma d'indexation."""
-    return Schema(
-        id=STORED,  # ID de la base de données
-        path=ID(stored=True, unique=True),
-        title=TEXT(stored=True),
-        artist=TEXT(stored=True),
-        album=TEXT(stored=True),
-        genre=TEXT(stored=True),
-        year=TEXT(stored=True),
-        decade=TEXT(stored=True),  # Pour le filtrage par décennie
-        duration=NUMERIC(stored=True),
-        track_number=STORED,
-        disc_number=STORED,
-        # Ajout des champs MusicBrainz pour faciliter la recherche
-        musicbrainz_id=STORED,
-        musicbrainz_albumid=STORED,
-        musicbrainz_artistid=STORED,
-        musicbrainz_genre=TEXT(stored=True)
-    )
+    return _SCHEMA
 
 def migrate_index(index_dir: str) -> bool:
     """Vérifie si l'index nécessite une migration et le recrée si nécessaire."""
@@ -63,13 +69,13 @@ def migrate_index(index_dir: str) -> bool:
 
 def validate_index_directory(index_dir: str) -> str:
     """
-    Valide et sécurise le nom du répertoire d'index.
+    Valide et sécurise le chemin du répertoire d'index.
 
     Args:
         index_dir: Nom du répertoire d'index fourni
 
     Returns:
-        str: Nom du répertoire sécurisé
+        str: Chemin absolu sécurisé du répertoire d'index
 
     Raises:
         ValueError: Si le répertoire n'est pas autorisé
@@ -81,31 +87,49 @@ def validate_index_directory(index_dir: str) -> str:
     cleaned = index_dir.strip()
     normalized = os.path.normpath(cleaned)
 
-    # Vérifications de sécurité strictes
-    if (os.path.isabs(normalized) or
-        '..' in normalized or
-        '/' in normalized or
-        '\\' in normalized or
-        normalized.startswith('.') or
-        normalized == '' or
-        len(normalized) > 100):  # Limite de longueur raisonnable
-        logger.error(f"Invalid index directory name: {index_dir}")
-        raise ValueError(f"Invalid index directory: {index_dir}")
+    base_resolved = BASE_SEARCH_DIR.resolve()
 
-    # Liste blanche des noms de répertoires autorisés
-    allowed_names = {
-        'search_index',
-        'music_index',
-        'test_index',
-        'temp_index'
-    }
+    if os.path.isabs(normalized):
+        # Si c'est un chemin absolu, vérifier qu'il est dans BASE_SEARCH_DIR
+        resolved_path = Path(normalized).resolve()
+        if not resolved_path.is_relative_to(base_resolved):
+            logger.error(f"Absolute path not within base directory: {resolved_path}")
+            raise ValueError(f"Invalid index directory: {index_dir}")
+        return str(resolved_path)
+    else:
+        # Pour les noms relatifs, vérifications de sécurité
+        if ('..' in normalized or
+            '/' in normalized or
+            '\\' in normalized or
+            normalized.startswith('.') or
+            normalized == '' or
+            len(normalized) > 100):  # Limite de longueur raisonnable
+            logger.error(f"Invalid index directory name: {index_dir}")
+            raise ValueError(f"Invalid index directory: {index_dir}")
 
-    # Vérifier que le nom est dans la liste blanche
-    if normalized not in allowed_names:
-        logger.error(f"Index directory not in allowed list: {index_dir}")
-        raise ValueError(f"Invalid index directory: {index_dir}")
+        # Liste blanche des noms de répertoires autorisés
+        allowed_names = {
+            'search_index',
+            'music_index',
+            'test_index',
+            'temp_index'
+        }
 
-    return normalized
+        # Vérifier que le nom est dans la liste blanche
+        if normalized not in allowed_names:
+            logger.error(f"Index directory not in allowed list: {index_dir}")
+            raise ValueError(f"Invalid index directory: {index_dir}")
+
+        # Construire le chemin absolu sécurisé
+        full_path = BASE_SEARCH_DIR / normalized
+        resolved_path = full_path.resolve()
+
+        # Vérifier que le chemin résolu est contenu dans BASE_SEARCH_DIR
+        if not resolved_path.is_relative_to(base_resolved):
+            logger.error(f"Resolved path not within base directory: {resolved_path}")
+            raise ValueError(f"Invalid index directory: {index_dir}")
+
+        return str(resolved_path)
 
 
 def get_or_create_index(index_dir: str, indexname: str = "music_index"):
