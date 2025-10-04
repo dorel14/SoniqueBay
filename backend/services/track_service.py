@@ -1,4 +1,3 @@
-
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -137,13 +136,18 @@ class TrackService:
             query = query.join(TrackModel.genre_tags).filter(GenreTag.name.in_(genre_tags))
         if mood_tags:
             query = query.join(TrackModel.mood_tags).filter(MoodTag.name.in_(mood_tags))
-        query = query.options(
-            joinedload(TrackModel.genre_tags),
-            joinedload(TrackModel.mood_tags),
+        
+        options = []
+        if genre_tags:
+            options.append(joinedload(TrackModel.genre_tags))
+        if mood_tags:
+            options.append(joinedload(TrackModel.mood_tags))
+        options.extend([
             joinedload(TrackModel.album),
             joinedload(TrackModel.genres),
             joinedload(TrackModel.covers)
-        )
+        ])
+        query = query.options(*options)
         return query.all()
 
     def read_tracks(self, skip: int = 0, limit: int = 100):

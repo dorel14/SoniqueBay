@@ -14,10 +14,11 @@ db = TinyDBHandler.get_db('playqueue')
 class PlayQueueService:
     @staticmethod
     def get_queue() -> PlayQueue:
-        queue_data = db.all()
-        if not queue_data:
+        # Optimize: use db.get(where condition) to avoid fetching all records into a Python list.
+        first = db.get(doc_id=1)
+        if first is None:
             return PlayQueue()
-        return PlayQueue(**queue_data[0])
+        return PlayQueue(**first)
 
     @staticmethod
     def add_track(track: QueueTrack) -> PlayQueue:
@@ -59,5 +60,6 @@ class PlayQueueService:
 
     @staticmethod
     def clear_queue() -> PlayQueue:
-        db.truncate()
+        if db.all():
+            db.truncate()
         return PlayQueue()

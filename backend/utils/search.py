@@ -38,24 +38,7 @@ BASE_SEARCH_DIR = Path("search_indexes")
 
 def get_schema():
     """Définit le schéma d'indexation."""
-    return Schema(
-        id=STORED,  # ID de la base de données
-        path=ID(stored=True, unique=True),
-        title=TEXT(stored=True),
-        artist=TEXT(stored=True),
-        album=TEXT(stored=True),
-        genre=TEXT(stored=True),
-        year=TEXT(stored=True),
-        decade=TEXT(stored=True),  # Pour le filtrage par décennie
-        duration=NUMERIC(stored=True),
-        track_number=STORED,
-        disc_number=STORED,
-        # Ajout des champs MusicBrainz pour faciliter la recherche
-        musicbrainz_id=STORED,
-        musicbrainz_albumid=STORED,
-        musicbrainz_artistid=STORED,
-        musicbrainz_genre=TEXT(stored=True)
-    )
+    return _SCHEMA
 
 def migrate_index(index_dir: str) -> bool:
     """Vérifie si l'index nécessite une migration et le recrée si nécessaire."""

@@ -1,4 +1,3 @@
-
 from sqlalchemy import func, or_
 from backend.api.models.artists_model import Artist as ArtistModel
 from sqlalchemy.exc import IntegrityError
@@ -93,8 +92,9 @@ class ArtistService:
             raise Exception(str(e))
 
     def get_artists_paginated(self, skip=0, limit=100):
-        total_count = self.db.query(ArtistModel).count()
-        artists = self.db.query(ArtistModel).order_by(ArtistModel.name).offset(skip).limit(limit).all()
+        query = self.db.query(ArtistModel)
+        total_count = query.count()
+        artists = query.order_by(ArtistModel.name).offset(skip).limit(limit).all()
         return artists, total_count
 
     def read_artist(self, artist_id):
