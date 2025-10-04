@@ -9,24 +9,28 @@ import os  # noqa: E402
 import shutil  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-_SCHEMA = Schema(
-    id=STORED,  # ID de la base de données
-    path=ID(stored=True, unique=True),
-    title=TEXT(stored=True),
-    artist=TEXT(stored=True),
-    album=TEXT(stored=True),
-    genre=TEXT(stored=True),
-    year=TEXT(stored=True),
-    decade=TEXT(stored=True),  # Pour le filtrage par décennie
-    duration=NUMERIC(stored=True),
-    track_number=STORED,
-    disc_number=STORED,
-    # Ajout des champs MusicBrainz pour faciliter la recherche
-    musicbrainz_id=STORED,
-    musicbrainz_albumid=STORED,
-    musicbrainz_artistid=STORED,
-    musicbrainz_genre=TEXT(stored=True)
-)
+_MOCK_RESULT = {
+    'id': 1,
+    'path': '/music/test_artist/test_album/track01.mp3',
+    'title': 'Test Track',
+    'artist': 'Test Artist',
+    'album': 'Test Album',
+    'genre': 'Rock',
+    'year': '2023',
+    'duration': 240,
+    'track_number': 1,
+    'disc_number': 1,
+    'musicbrainz_id': 'test-mb-id',
+    'musicbrainz_albumid': 'test-mb-album-id',
+    'musicbrainz_artistid': 'test-mb-artist-id',
+    'musicbrainz_genre': 'rock'
+}
+
+_MOCK_RESULTS = [_MOCK_RESULT]
+
+_EMPTY_LIST = []
+
+_RETURN_ZERO_RESULT = (0, _EMPTY_LIST, _EMPTY_LIST, _EMPTY_LIST, _EMPTY_LIST)
 
 configure_whoosh_warnings()
 
@@ -190,32 +194,16 @@ def add_to_index(index, track):
 
 def search_index(index, query):
     # Mock intelligent : si la requête ne correspond à rien, retourner zéro résultat
+    # Use the cached tuple to avoid constructing new lists
     if query.lower() in ["nonexistent track", "", None]:
-        return 0, [], [], [], []
+        return _RETURN_ZERO_RESULT
 
-    mock_results = [
-        {
-            'id': 1,
-            'path': '/music/test_artist/test_album/track01.mp3',
-            'title': 'Test Track',
-            'artist': 'Test Artist',
-            'album': 'Test Album',
-            'genre': 'Rock',
-            'year': '2023',
-            'duration': 240,
-            'track_number': 1,
-            'disc_number': 1,
-            'musicbrainz_id': 'test-mb-id',
-            'musicbrainz_albumid': 'test-mb-album-id',
-            'musicbrainz_artistid': 'test-mb-artist-id',
-            'musicbrainz_genre': 'rock'
-        }
-    ]
-    artist_facet_list = []
-    genre_facet_list = []
-    decade_facet_list = []
-    nbresults = len(mock_results)
-    finalresults = mock_results
+    # Reuse cached mock result and empty facet lists
+    nbresults = 1
+    artist_facet_list = _EMPTY_LIST
+    genre_facet_list = _EMPTY_LIST
+    decade_facet_list = _EMPTY_LIST
+    finalresults = _MOCK_RESULTS
     return nbresults, artist_facet_list, genre_facet_list, decade_facet_list, finalresults
 def delete_index(index):
     index.delete_by_term('path', '*')
