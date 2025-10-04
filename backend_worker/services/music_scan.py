@@ -906,7 +906,9 @@ def get_tag_list(audio, tag_name: str) -> list:
             frames = audio.tags.getall(tag_name)
             for frame in frames:
                 if hasattr(frame, "text"):  # ID3v2
-                    values.update(str(t).strip() for t in frame.text if t)
+                    for t in frame.text:
+                        if t:
+                            values.add(str(t).strip())
                 else:  # Autres formats
                     values.add(str(frame).strip())
 
@@ -916,13 +918,26 @@ def get_tag_list(audio, tag_name: str) -> list:
             if isinstance(tag_values, list):
                 for value in tag_values:
                     if isinstance(value, str):
-                        values.update(v.strip() for v in value.split(","))
+                        if "," in value:
+                            for v in value.split(","):
+                                v_stripped = v.strip()
+                                if v_stripped:
+                                    values.add(v_stripped)
+                        else:
+                            v_stripped = value.strip()
+                            if v_stripped:
+                                values.add(v_stripped)
                     else:
-                        values.add(str(value).strip())
+                        v_stripped = str(value).strip()
+                        if v_stripped:
+                            values.add(v_stripped)
             elif tag_values:
-                values.update(str(tag_values).split(","))
+                for v in str(tag_values).split(","):
+                    v_stripped = v.strip()
+                    if v_stripped:
+                        values.add(v_stripped)
 
-        result = [v for v in values if v]
+        result = list(values)
         if result:
             logger.debug(f"Tags {tag_name} trouvés: {result}")
         return result
