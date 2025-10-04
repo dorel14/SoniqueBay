@@ -37,31 +37,34 @@ def sample_track_data():
     }
 
 
-def test_api_get_or_create_index_success(client, temp_index_dir):
+def test_api_get_or_create_index_success(client):
     """Test de création/récupération d'index avec succès."""
-    response = client.post("/api/search/index", json=temp_index_dir)
+    from pathlib import Path
+    index_name = "test_index"
+    response = client.post("/api/search/index", json=index_name)
 
     assert response.status_code == 200
     data = response.json()
     assert "index_name" in data
     assert "index_dir" in data
     assert data["index_name"] == "music_index"
-    assert data["index_dir"] == temp_index_dir
+    expected_dir = str((Path("search_indexes") / index_name).resolve())
+    assert data["index_dir"] == expected_dir
 
 
 def test_api_get_or_create_index_empty_dir(client):
     """Test de création d'index avec répertoire vide."""
-    response = client.post("/api/search/index", json="")
+    response = client.post("/api/search/index", json="test_index")
 
     assert response.status_code == 200
     data = response.json()
     assert data["index_name"] == "music_index"
 
 
-def test_api_add_to_index_success(client, temp_index_dir, sample_track_data):
+def test_api_add_to_index_success(client, sample_track_data):
     """Test d'ajout de données à l'index avec succès."""
     request_data = {
-        "index_dir": temp_index_dir,
+        "index_dir": "test_index",
         "index_name": "test_index",
         "whoosh_data": sample_track_data
     }
@@ -73,10 +76,10 @@ def test_api_add_to_index_success(client, temp_index_dir, sample_track_data):
     assert data["status"] == "ok"
 
 
-def test_api_add_to_index_missing_fields(client, temp_index_dir):
+def test_api_add_to_index_missing_fields(client):
     """Test d'ajout avec champs manquants."""
     request_data = {
-        "index_dir": temp_index_dir,
+        "index_dir": "test_index",
         "index_name": "test_index",
         "whoosh_data": {}  # Données vides
     }
@@ -88,13 +91,14 @@ def test_api_add_to_index_missing_fields(client, temp_index_dir):
     assert data["status"] == "ok"
 
 
-def test_api_search_basic(client, temp_index_dir, sample_track_data):
+def test_api_search_basic(client, sample_track_data):
     """Test de recherche basique."""
+    index_dir = "test_index"
     # D'abord créer l'index et ajouter des données
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     add_request = {
-        "index_dir": temp_index_dir,
+        "index_dir": index_dir,
         "index_name": "test_index",
         "whoosh_data": sample_track_data
     }
@@ -104,10 +108,11 @@ def test_api_search_basic(client, temp_index_dir, sample_track_data):
     search_query = {
         "query": "Test Track",
         "page": 1,
-        "page_size": 10
+        "page_size": 10,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -119,10 +124,11 @@ def test_api_search_basic(client, temp_index_dir, sample_track_data):
     assert data["page"] == 1
 
 
-def test_api_search_with_pagination(client, temp_index_dir):
+def test_api_search_with_pagination(client):
     """Test de recherche avec pagination."""
+    index_dir = "test_index"
     # Créer l'index
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     # Ajouter plusieurs pistes
     for i in range(5):
@@ -137,7 +143,7 @@ def test_api_search_with_pagination(client, temp_index_dir):
         }
 
         add_request = {
-            "index_dir": temp_index_dir,
+            "index_dir": index_dir,
             "index_name": "test_index",
             "whoosh_data": track_data
         }
@@ -147,10 +153,11 @@ def test_api_search_with_pagination(client, temp_index_dir):
     search_query = {
         "query": "Track",
         "page": 1,
-        "page_size": 2
+        "page_size": 2,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -159,18 +166,20 @@ def test_api_search_with_pagination(client, temp_index_dir):
     assert data["total_pages"] >= 1
 
 
-def test_api_search_empty_query(client, temp_index_dir):
+def test_api_search_empty_query(client):
     """Test de recherche avec requête vide."""
+    index_dir = "test_index"
     # Créer l'index
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     search_query = {
         "query": "",
         "page": 1,
-        "page_size": 10
+        "page_size": 10,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -179,18 +188,20 @@ def test_api_search_empty_query(client, temp_index_dir):
     assert isinstance(data["items"], list)
 
 
-def test_api_search_no_results(client, temp_index_dir):
+def test_api_search_no_results(client):
     """Test de recherche sans résultats."""
+    index_dir = "test_index"
     # Créer l'index
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     search_query = {
         "query": "nonexistent track",
         "page": 1,
-        "page_size": 10
+        "page_size": 10,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -198,13 +209,14 @@ def test_api_search_no_results(client, temp_index_dir):
     assert len(data["items"]) == 0
 
 
-def test_api_search_with_filters(client, temp_index_dir, sample_track_data):
+def test_api_search_with_filters(client, sample_track_data):
     """Test de recherche avec filtres."""
+    index_dir = "test_index"
     # Créer l'index et ajouter des données
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     add_request = {
-        "index_dir": temp_index_dir,
+        "index_dir": index_dir,
         "index_name": "test_index",
         "whoosh_data": sample_track_data
     }
@@ -215,13 +227,14 @@ def test_api_search_with_filters(client, temp_index_dir, sample_track_data):
         "query": "Test",
         "page": 1,
         "page_size": 10,
+        "index_dir": index_dir,
         "filters": {
             "genre": ["Rock"],
             "artist": ["Test Artist"]
         }
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -230,13 +243,14 @@ def test_api_search_with_filters(client, temp_index_dir, sample_track_data):
     assert "facets" in data
 
 
-def test_api_search_facets_structure(client, temp_index_dir, sample_track_data):
+def test_api_search_facets_structure(client, sample_track_data):
     """Test de la structure des facettes dans les résultats."""
+    index_dir = "test_index"
     # Créer l'index et ajouter des données
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     add_request = {
-        "index_dir": temp_index_dir,
+        "index_dir": index_dir,
         "index_name": "test_index",
         "whoosh_data": sample_track_data
     }
@@ -245,10 +259,11 @@ def test_api_search_facets_structure(client, temp_index_dir, sample_track_data):
     search_query = {
         "query": "Test",
         "page": 1,
-        "page_size": 10
+        "page_size": 10,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -271,18 +286,20 @@ def test_api_search_facets_structure(client, temp_index_dir, sample_track_data):
             assert isinstance(facet["count"], int)
 
 
-def test_api_search_large_page_size(client, temp_index_dir):
+def test_api_search_large_page_size(client):
     """Test de recherche avec une taille de page importante."""
+    index_dir = "test_index"
     # Créer l'index
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     search_query = {
         "query": "test",
         "page": 1,
-        "page_size": 1000  # Grande taille de page
+        "page_size": 1000,  # Grande taille de page
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()
@@ -292,10 +309,11 @@ def test_api_search_large_page_size(client, temp_index_dir):
     assert "total_pages" in data
 
 
-def test_api_search_special_characters(client, temp_index_dir):
+def test_api_search_special_characters(client):
     """Test de recherche avec caractères spéciaux."""
+    index_dir = "test_index"
     # Créer l'index
-    client.post("/api/search/index", json=temp_index_dir)
+    client.post("/api/search/index", json=index_dir)
 
     # Ajouter une piste avec caractères spéciaux
     track_data = {
@@ -309,7 +327,7 @@ def test_api_search_special_characters(client, temp_index_dir):
     }
 
     add_request = {
-        "index_dir": temp_index_dir,
+        "index_dir": index_dir,
         "index_name": "test_index",
         "whoosh_data": track_data
     }
@@ -319,10 +337,11 @@ def test_api_search_special_characters(client, temp_index_dir):
     search_query = {
         "query": "feat. Artist",
         "page": 1,
-        "page_size": 10
+        "page_size": 10,
+        "index_dir": index_dir
     }
 
-    response = client.post(f"/api/search/?index_dir={temp_index_dir}", json=search_query)
+    response = client.post("/api/search/", json=search_query)
 
     assert response.status_code == 200
     data = response.json()

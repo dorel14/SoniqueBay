@@ -19,6 +19,8 @@ data/
 *.log*
 *.db
 codeflash*
+search_indexes/
+search_index/
 
 # Database files
 *.db
