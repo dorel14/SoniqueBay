@@ -949,15 +949,17 @@ def get_tag_list(audio, tag_name: str) -> list:
 def get_tag(audio, tag_name):
     """Récupère une tag de manière sécurisée."""
     try:
-        if not hasattr(audio, 'tags') or not audio.tags:
+        tags = getattr(audio, 'tags', None)
+        if not tags:
             logger.debug(f"get_tag: no tags for {tag_name}")
             return None
 
         # ID3 tags
-        if hasattr(audio.tags, 'getall'):
+        getall = getattr(tags, 'getall', None)
+        if getall is not None:
             logger.debug(f"get_tag: trying getall for {tag_name}")
             try:
-                frames = audio.tags.getall(tag_name)
+                frames = getall(tag_name)
                 if frames:
                     value = str(frames[0])
                     logger.debug(f"Tag ID3 trouvé {tag_name}: {value}")
@@ -966,14 +968,17 @@ def get_tag(audio, tag_name):
                 logger.debug(f"get_tag: getall AttributeError for {tag_name}: {ae}")
 
         # Tags génériques
-        if hasattr(audio.tags, 'get'):
+        get = getattr(tags, 'get', None)
+        if get is not None:
             logger.debug(f"get_tag: trying get for {tag_name}")
-            value = audio.tags.get(tag_name, [""])[0]
-            if value:
-                if isinstance(value, bytes):
-                    value = value.decode('utf-8')
-                logger.debug(f"Tag générique trouvé {tag_name}: {value}")
-                return str(value)
+            values = get(tag_name, None)
+            if values:
+                value = values[0]
+                if value:
+                    if isinstance(value, bytes):
+                        value = value.decode('utf-8')
+                    logger.debug(f"Tag générique trouvé {tag_name}: {value}")
+                    return str(value)
 
         logger.debug(f"get_tag: no value found for {tag_name}")
         return None
