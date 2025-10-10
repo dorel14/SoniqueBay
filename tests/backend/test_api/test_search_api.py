@@ -40,6 +40,7 @@ def sample_track_data():
 def test_api_get_or_create_index_success(client):
     """Test de création/récupération d'index avec succès."""
     from pathlib import Path
+    import backend.library_api.utils.search
     index_name = "test_index"
     response = client.post("/api/search/index", json=index_name)
 
@@ -48,7 +49,7 @@ def test_api_get_or_create_index_success(client):
     assert "index_name" in data
     assert "index_dir" in data
     assert data["index_name"] == "music_index"
-    expected_dir = str((Path("search_indexes") / index_name).resolve())
+    expected_dir = str((backend.library_api.utils.search.BASE_SEARCH_DIR / index_name).resolve())
     assert data["index_dir"] == expected_dir
 
 
@@ -349,7 +350,7 @@ def test_api_search_special_characters(client):
     assert "items" in data
 
 
-@patch('backend.api.routers.search_api.get_or_create_index')
+@patch('backend.library_api.api.routers.search_api.get_or_create_index')
 def test_api_search_index_error(mock_get_index, client):
     """Test de gestion d'erreur lors de la création de l'index."""
     # Simuler une erreur lors de la création de l'index
@@ -368,7 +369,7 @@ def test_api_search_index_error(mock_get_index, client):
     assert "Index creation failed" in data["detail"]
 
 
-@patch('backend.api.routers.search_api.search_index')
+@patch('backend.library_api.api.routers.search_api.search_index')
 def test_api_search_query_error(mock_search_index, client, temp_index_dir):
     """Test de gestion d'erreur lors de la recherche."""
     # Créer l'index d'abord

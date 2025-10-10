@@ -3,7 +3,7 @@ from typing import Dict, Any
 import pytest
 from strawberry.types import ExecutionResult
 
-from backend.api.graphql.queries.schema import schema
+from backend.library_api.api.graphql.queries.schema import schema
 
 
 class TestContext:

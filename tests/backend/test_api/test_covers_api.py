@@ -1,6 +1,6 @@
 # backend/tests/test_api/test_covers_api.py
 import pytest
-from backend.api.models.covers_model import Cover, EntityCoverType
+from backend.library_api.api.models.covers_model import Cover, EntityCoverType
 
 @pytest.fixture
 def create_test_cover(db_session):

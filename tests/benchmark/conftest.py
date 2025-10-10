@@ -193,8 +193,8 @@ def benchmark_db_session(test_db_engine):
 @pytest.fixture
 def benchmark_client(benchmark_db_session):
     """Client FastAPI pour les benchmarks."""
-    from backend.api_app import create_api
-    from backend.utils.database import get_db, get_session
+    from backend.library_api.api_app import create_api
+    from backend.library_api.utils.database import get_db, get_session
     from fastapi.testclient import TestClient
 
     app = create_api()

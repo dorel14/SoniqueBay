@@ -26,10 +26,18 @@ dependencies = [
     "whoosh-reloaded>=2.7.5",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest-asyncio"]
+
+[tool.setuptools]
+packages.find.where = ["."]
+packages.find.include = ["backend*", "frontend*", "backend_worker*"]
+packages.find.exclude = ["data", "logs", "alembic", "tests", "scripts", "docs", ".githooks", ".github", ".vscode"]
+
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
 local_scheme = "dirty-tag"
-write_to = "src/soniquebay_app/_version_.py"
+write_to = "_version_.py"
 fallback_version = "0.1.0"  # Version utilisée si git n'est pas trouvé
 git_describe_command = ["git", "describe", "--dirty", "--tags", "--long"]
 

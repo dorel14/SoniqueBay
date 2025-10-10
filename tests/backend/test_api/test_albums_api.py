@@ -1,5 +1,5 @@
 # backend/tests/test_api/test_albums_api.py
-from backend.api.models.albums_model import Album
+from backend.library_api.api.models.albums_model import Album
 
 def test_get_albums_empty(client, db_session):
     """Test de récupération d'une liste vide d'albums."""

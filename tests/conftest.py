@@ -3,23 +3,36 @@ import pytest
 import sys
 import os
 import tempfile
+from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 
-from backend.utils.database import Base, get_db, get_session
-from backend.api_app import create_api
-from backend.api.models.artists_model import Artist
-from backend.api.models.albums_model import Album
-from backend.api.models.tracks_model import Track
-from backend.api.models.genres_model import Genre
-from backend.api.models.covers_model import Cover
-from backend.api.models.tags_model import GenreTag, MoodTag
+import backend.library_api.utils.search
+from backend.library_api.utils.database import Base, get_db, get_session
+from backend.library_api.api_app import create_api
+from backend.library_api.api.models.artists_model import Artist
+from backend.library_api.api.models.albums_model import Album
+from backend.library_api.api.models.tracks_model import Track
+from backend.library_api.api.models.genres_model import Genre
+from backend.library_api.api.models.covers_model import Cover
+from backend.library_api.api.models.tags_model import GenreTag, MoodTag
 
 # Ajouter le répertoire racine au sys.path
 root_dir = os.getcwd()
 sys.path.insert(0, root_dir)
 os.environ['PYTHONPATH'] = root_dir
+
+# Fixture pour nettoyer le dossier search_indexes après chaque test
+@pytest.fixture(autouse=True)
+def cleanup_search_indexes():
+    """Nettoie le dossier search_indexes après chaque test."""
+    yield
+    # Nettoyage après le test
+    search_indexes_dir = os.path.join(root_dir, "tests", "search_indexes")
+    if os.path.exists(search_indexes_dir):
+        import shutil
+        shutil.rmtree(search_indexes_dir, ignore_errors=True)
 
 # Base de données SQLite temporaire pour les tests
 @pytest.fixture(scope="function")
@@ -30,10 +43,13 @@ def test_db_engine():
     with open(test_marker_file, 'w') as f:
         f.write('1')
 
+    backend.library_api.utils.search.BASE_SEARCH_DIR = Path(tempfile.mkdtemp())
+
     # Créer un fichier temporaire pour la base de données
     temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
     temp_db.close()
     db_url = f"sqlite:///{temp_db.name}"
+    os.environ['DATABASE_URL'] = db_url
     engine = create_engine(db_url)
     Base.metadata.create_all(bind=engine)
 
@@ -60,6 +76,8 @@ def test_db_engine():
             content_rowid=id
         );
         """))
+        conn.execute(text("CREATE TABLE IF NOT EXISTS function_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, function_name TEXT, args TEXT, kwargs TEXT, result TEXT, timestamp TEXT)"))
+        conn.execute(text("CREATE TABLE IF NOT EXISTS scan_sessions (id TEXT PRIMARY KEY, directory TEXT, status TEXT, last_processed_file TEXT, processed_files INTEGER, total_files INTEGER, task_id TEXT, started_at TEXT, updated_at TEXT)"))
         conn.commit()
     yield engine
     # Properly dispose of all connections before cleanup
@@ -119,6 +137,33 @@ def db_session(test_db_engine):
 def client(db_session):
     """Client de test FastAPI avec une base de données de test."""
     app = create_api()
+
+    # Override de la dépendance get_db pour utiliser notre session de test
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    # Override de la dépendance get_session pour utiliser notre session de test
+    def override_get_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session] = override_get_session
+
+    with TestClient(app) as test_client:
+        yield test_client
+
+
+@pytest.fixture
+def recommender_client(db_session):
+    """Client de test FastAPI pour recommender_api avec une base de données de test."""
+    from backend.recommender_api.api_app import create_api as create_recommender_api
+    app = create_recommender_api()
 
     # Override de la dépendance get_db pour utiliser notre session de test
     def override_get_db():

@@ -1,7 +1,7 @@
 # backend/tests/test_models/test_covers_model.py
 import pytest
 from sqlalchemy.exc import IntegrityError
-from backend.api.models.covers_model import Cover, EntityCoverType
+from backend.library_api.api.models.covers_model import Cover, EntityCoverType
 
 def test_create_cover_for_album(db_session):
     """Test de création d'une cover pour un album."""

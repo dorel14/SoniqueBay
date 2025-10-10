@@ -1,5 +1,5 @@
 # backend/tests/test_api/test_genres_api.py
-from backend.api.models.genres_model import Genre
+from backend.library_api.api.models.genres_model import Genre
 
 def test_get_genres_empty(client, db_session):
     """Test de récupération d'une liste vide de genres."""

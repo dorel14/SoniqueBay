@@ -49,6 +49,11 @@ graph TD
 
 ### ✅ Tâches terminées
 - [x] Analyser le code existant et identifier les problèmes (covers artistes, analyse audio, vecteurs)
+- [x] **Parallélisation des chunks DB** : Implémenter le traitement parallèle des chunks avec `asyncio.gather`
+- [x] **Augmentation de la concurrence** : max_concurrent_files=200, max_concurrent_audio=40, max_parallel_chunks=4
+- [x] **Optimisation des tailles de batch** : file_batch=500, chunk_size=200 pour maximiser le débit
+- [x] **Benchmarks de performance** : Créer `benchmark_scanner_performance.py` pour mesurer les améliorations
+- [x] **Tests unitaires** : Ajouter tests pour la parallélisation dans `test_scanner.py`
 
 ### 🔄 En cours
 - [ ] Corriger la relation manquante entre Track et TrackVector dans le modèle
@@ -115,9 +120,37 @@ graph TD
 
 ---
 
+## Optimisations implémentées - Session 4 octobre 2025
+
+### 🚀 Parallélisation des chunks DB
+- **Avant** : Chunks traités séquentiellement un par un
+- **Après** : Traitement parallèle de 4 chunks simultanément avec `asyncio.gather`
+- **Impact** : Réduction significative du temps d'insertion DB pour gros volumes
+
+### ⚡ Augmentation de la concurrence
+- **max_concurrent_files** : 50 → 200 (+300%)
+- **max_concurrent_audio** : 10 → 40 (+300%)
+- **max_parallel_chunks** : 1 → 4 (nouveau paramètre)
+- **Impact** : Meilleure utilisation des ressources CPU/mémoire
+
+### 📦 Optimisation des tailles de batch
+- **file_batch** : 200 → 500 (+150%) pour extraction
+- **chunk_size** : 500 → 200 (-60%) pour parallélisation
+- **Impact** : Équilibre entre latence réseau et parallélisation
+
+### 🧪 Benchmarks et tests
+- **Nouveau benchmark** : `tests/benchmark/benchmark_scanner_performance.py`
+- **Tests unitaires** : Validation parallélisation dans `test_scanner.py`
+- **Configurations testées** : baseline, optimized, high_concurrency
+
+### 📊 Projections de performance
+- **30 000 tracks** : Objectif < 10 minutes (comme autres outils)
+- **Throughput cible** : 50-100 fichiers/seconde
+- **Utilisation ressources** : Optimisée pour Raspberry Pi 4
+
 ## Métriques cibles d'optimisation
 
-- **Temps de scan** : Réduction de 30-50% grâce aux batch GraphQL et parallélisation
+- **Temps de scan** : Réduction de 50-70% grâce à la parallélisation complète
 - **Utilisation mémoire** : Stable malgré chunks plus gros
 - **Taux d'erreur** : < 5% pour les analyses audio
 - **Couverture données** : 100% des champs d'analyse remplis

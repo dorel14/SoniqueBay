@@ -1,0 +1,19 @@
+Generic single-database configuration.
+
+Commands should be run from the backend/recommender_api/ directory.
+
+Create Migration Script
+=======================
+
+.. code-block:: bash
+
+    cd backend/recommender_api
+    alembic -c alembic_recommender.ini revision -m "create track vectors table"
+
+Run Migration
+=============
+
+.. code-block:: bash
+
+    cd backend/recommender_api
+    alembic -c alembic_recommender.ini upgrade head

@@ -8,10 +8,17 @@ optimise l'utilisation des ressources et fournit des métriques temps réel.
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable, Any, Tuple
 from dataclasses import dataclass, field
 from pathlib import Path
 from backend_worker.utils.logging import logger
+from backend_worker.services.entity_manager import (
+    create_or_get_artists_batch,
+    create_or_get_albums_batch,
+    create_or_update_tracks_batch,
+    create_or_update_cover
+)
+from backend_worker.celery_app import celery
 
 try:
     import psutil
@@ -65,10 +72,11 @@ class ScanOptimizer:
     """
 
     def __init__(self,
-                 max_concurrent_files: int = 50,
-                 max_concurrent_audio: int = 10,
-                 chunk_size: int = 500,
-                 enable_threading: bool = True):
+                 max_concurrent_files: int = 200,
+                 max_concurrent_audio: int = 40,
+                 chunk_size: int = 200,
+                 enable_threading: bool = True,
+                 max_parallel_chunks: int = 4):
         """
         Initialise l'optimiseur de scan.
 
@@ -77,15 +85,18 @@ class ScanOptimizer:
             max_concurrent_audio: Nombre maximum d'analyses audio simultanées
             chunk_size: Taille des chunks pour les insertions DB
             enable_threading: Activer le threading pour les analyses lourdes
+            max_parallel_chunks: Nombre maximum de chunks traités simultanément
         """
         self.max_concurrent_files = max_concurrent_files
         self.max_concurrent_audio = max_concurrent_audio
         self.chunk_size = chunk_size
         self.enable_threading = enable_threading
+        self.max_parallel_chunks = max_parallel_chunks
 
         # Sémaphores pour contrôler la concurrence
         self.file_semaphore = asyncio.Semaphore(max_concurrent_files)
         self.audio_semaphore = asyncio.Semaphore(max_concurrent_audio)
+        self.chunk_semaphore = asyncio.Semaphore(max_parallel_chunks)
 
         # Executor pour les tâches CPU intensives
         self.executor = ThreadPoolExecutor(max_workers=max_concurrent_audio) if enable_threading else None
@@ -97,7 +108,7 @@ class ScanOptimizer:
         self.artist_images_cache: Dict[str, List] = {}
         self.cover_cache: Dict[str, Any] = {}
 
-        logger.info(f"ScanOptimizer initialisé: files={max_concurrent_files}, audio={max_concurrent_audio}, chunk={chunk_size}")
+        logger.info(f"ScanOptimizer initialisé: files={max_concurrent_files}, audio={max_concurrent_audio}, chunk={chunk_size}, parallel_chunks={max_parallel_chunks}")
 
     async def extract_metadata_batch(self, file_paths: List[bytes], scan_config: dict) -> List[Dict]:
         """
@@ -301,6 +312,223 @@ class ScanOptimizer:
         error_penalty = max(0, 100 - (self.metrics.errors_count / max(1, self.metrics.files_processed)) * 1000)
 
         return (speed_score + error_penalty) / 2
+
+    async def collect_entities_for_batch(self, client, extracted_metadata: List[Dict], stats: Dict, base_path: Path) -> Tuple[List, List, List, List]:
+        """
+        Collecte les entités (artistes, albums, pistes, covers) d'un batch pour insertion différée.
+
+        Args:
+            client: Client HTTP
+            extracted_metadata: Métadonnées extraites du batch
+            stats: Statistiques globales
+            base_path: Chemin de base pour validation sécurité
+
+        Returns:
+            Tuple de listes: (artists_data, albums_data, tracks_data, cover_tasks)
+        """
+        artists_data = []
+        albums_data = []
+        tracks_data = []
+        cover_tasks = []
+
+        # Collecter les données des entités sans les insérer
+        for metadata in extracted_metadata:
+            # Collecter les artistes uniques
+            artist_name = metadata.get("artist", "").lower()
+            if artist_name and not any(a.get("name", "").lower() == artist_name for a in artists_data):
+                artists_data.append({
+                    "name": metadata.get("artist"),
+                    "musicbrainz_artistid": metadata.get("musicbrainz_artistid") or metadata.get("musicbrainz_albumartistid")
+                })
+
+            # Collecter les albums (avec clé composite)
+            artist_name = metadata.get("artist", "").lower()
+            album_title = metadata.get("album", "").lower()
+            if artist_name and album_title:
+                album_key = (album_title, artist_name)
+                if not any((a.get("title", "").lower(), a.get("album_artist_name", "")) == album_key for a in albums_data):
+                    albums_data.append({
+                        "title": metadata.get("album"),
+                        "album_artist_name": artist_name,  # Pour mapping après insertion artistes
+                        "release_year": metadata.get("year"),
+                        "musicbrainz_albumid": metadata.get("musicbrainz_albumid")
+                    })
+
+            # Préparer les pistes avec références à résoudre
+            track_data = dict(metadata)
+            track_data["artist_name"] = artist_name
+            track_data["album_title"] = album_title
+            tracks_data.append(track_data)
+
+            # Collecter les tâches de covers
+            if metadata.get("cover_data"):
+                cover_tasks.append(("album", None, metadata["cover_data"], metadata.get("cover_mime_type"), str(Path(metadata["path"]).parent)))
+
+            if metadata.get("artist_images"):
+                cover_tasks.append(("artist_covers", None, metadata.get("artist_path"), metadata["artist_images"]))
+
+        logger.debug(f"Batch collecté: {len(artists_data)} artistes, {len(albums_data)} albums, {len(tracks_data)} pistes, {len(cover_tasks)} covers")
+        return artists_data, albums_data, tracks_data, cover_tasks
+
+    async def insert_all_entities_parallel(self, client, all_artists_data: List, all_albums_data: List,
+                                         all_tracks_data: List, all_cover_tasks: List,
+                                         stats: Dict, progress_callback=None) -> None:
+        """
+        Insère toutes les entités collectées en parallèle avec optimisation maximale.
+
+        Args:
+            client: Client HTTP
+            all_artists_data: Toutes les données d'artistes
+            all_albums_data: Toutes les données d'albums
+            all_tracks_data: Toutes les données de pistes
+            all_cover_tasks: Toutes les tâches de covers
+            stats: Statistiques globales
+            progress_callback: Callback de progression
+        """
+        try:
+            # Étape 1: Dédoublonner et insérer tous les artistes en une fois
+            unique_artists = []
+            seen_artists = set()
+            for artist in all_artists_data:
+                key = (artist.get("name", "").lower(), artist.get("musicbrainz_artistid"))
+                if key not in seen_artists:
+                    unique_artists.append(artist)
+                    seen_artists.add(key)
+
+            if unique_artists:
+                logger.info(f"Insertion parallélisée de {len(unique_artists)} artistes uniques")
+                artist_map = await create_or_get_artists_batch(client, unique_artists)
+                stats['artists_processed'] += len(artist_map)
+
+                # Lancer les tâches d'enrichissement pour les artistes
+                for artist in artist_map.values():
+                    celery.send_task('enrich_artist_task', args=[artist['id']])
+
+                # Mettre à jour la progression
+                if progress_callback:
+                    progress_callback({"current": 25, "total": 100, "percent": 25, "step": f"Inserted {len(unique_artists)} artists"})
+            else:
+                artist_map = {}
+
+            # Étape 2: Préparer et insérer tous les albums
+            unique_albums = []
+            seen_albums = set()
+            for album in all_albums_data:
+                artist_name = album.get("album_artist_name", "")
+                artist = artist_map.get(artist_name)
+                if artist:
+                    album_key = (album.get("title", "").lower(), artist["id"])
+                    if album_key not in seen_albums:
+                        album_data = dict(album)
+                        album_data["album_artist_id"] = artist["id"]
+                        del album_data["album_artist_name"]
+                        unique_albums.append(album_data)
+                        seen_albums.add(album_key)
+
+            if unique_albums:
+                logger.info(f"Insertion parallélisée de {len(unique_albums)} albums uniques")
+                album_map = await create_or_get_albums_batch(client, unique_albums)
+                stats['albums_processed'] += len(album_map)
+
+                # Lancer les tâches d'enrichissement pour les albums
+                for album in album_map.values():
+                    celery.send_task('enrich_album_task', args=[album['id']])
+
+                # Mettre à jour la progression
+                if progress_callback:
+                    progress_callback({"current": 50, "total": 100, "percent": 50, "step": f"Inserted {len(unique_albums)} albums"})
+            else:
+                album_map = {}
+
+            # Étape 3: Préparer et insérer toutes les pistes en parallèle
+            prepared_tracks = []
+            for track in all_tracks_data:
+                artist_name = track.get("artist_name", "")
+                album_title = track.get("album_title", "").lower()
+                artist = artist_map.get(artist_name)
+
+                if artist:
+                    track_data = dict(track)
+                    track_data["track_artist_id"] = artist["id"]
+
+                    # Résoudre l'album si disponible
+                    if album_title:
+                        album_key = (album_title, artist["id"])
+                        album = album_map.get(album_key)
+                        if album:
+                            track_data["album_id"] = album["id"]
+
+                    # Nettoyer les champs temporaires
+                    track_data.pop("artist_name", None)
+                    track_data.pop("album_title", None)
+
+                    prepared_tracks.append(track_data)
+
+            if prepared_tracks:
+                logger.info(f"Insertion parallélisée de {len(prepared_tracks)} pistes")
+
+                # Diviser en batches pour éviter les timeouts
+                batch_size = min(1000, len(prepared_tracks))
+                track_batches = [prepared_tracks[i:i + batch_size] for i in range(0, len(prepared_tracks), batch_size)]
+
+                # Traiter les batches de pistes en parallèle
+                track_tasks = [create_or_update_tracks_batch(client, batch) for batch in track_batches]
+                track_results = await asyncio.gather(*track_tasks)
+
+                total_tracks_processed = sum(len(result) for result in track_results if result)
+                stats['tracks_processed'] += total_tracks_processed
+
+                # Mettre à jour la progression
+                if progress_callback:
+                    progress_callback({"current": 75, "total": 100, "percent": 75, "step": f"Inserted {total_tracks_processed} tracks"})
+            else:
+                logger.warning("Aucune piste préparée pour l'insertion")
+
+            # Étape 4: Traiter toutes les covers en parallèle
+            if all_cover_tasks:
+                logger.info(f"Traitement parallélisé de {len(all_cover_tasks)} tâches de covers")
+
+                cover_tasks = []
+                for cover_task in all_cover_tasks:
+                    if cover_task[0] == "album" and len(cover_task) >= 5:
+                        entity_type, entity_id, cover_data, mime_type, path = cover_task
+                        # Résoudre l'entity_id pour les albums
+                        if entity_id is None and path:
+                            # Trouver l'album correspondant au path
+                            album_title = Path(path).parent.name.lower()
+                            for album_key, album in album_map.items():
+                                if isinstance(album_key, tuple) and len(album_key) >= 1:
+                                    if album_key[0] == album_title:
+                                        entity_id = album["id"]
+                                        break
+
+                        if entity_id:
+                            cover_tasks.append(create_or_update_cover(
+                                client, entity_type, entity_id, cover_data, mime_type, path
+                            ))
+
+                    elif cover_task[0] == "artist_covers" and len(cover_task) >= 4:
+                        _, _, artist_path, artist_images = cover_task
+                        # Résoudre l'artist_id depuis le path
+                        artist_name = Path(artist_path).name.lower() if artist_path else ""
+                        artist = artist_map.get(artist_name)
+                        if artist:
+                            from backend_worker.services.entity_manager import process_artist_covers
+                            cover_tasks.append(process_artist_covers(client, artist["id"], artist_path, artist_images))
+
+                if cover_tasks:
+                    await asyncio.gather(*cover_tasks)
+                    stats['covers_processed'] += len(cover_tasks)
+
+                # Mettre à jour la progression finale
+                if progress_callback:
+                    progress_callback({"current": 100, "total": 100, "percent": 100, "step": f"Processed {len(cover_tasks)} covers"})
+
+            logger.info(f"Insertion parallélisée terminée: {stats}")
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'insertion parallélisée: {e}")
+            raise
 
     async def cleanup(self):
         """Nettoie les ressources."""

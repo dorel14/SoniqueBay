@@ -6,12 +6,13 @@ Script de test pour vérifier les améliorations de sécurité de secure_open_fi
 
 import asyncio
 import tempfile
-import os
 from pathlib import Path
 from backend_worker.services.music_scan import secure_open_file
 from backend_worker.services.scanner import validate_file_path
+import pytest
 
 
+@pytest.mark.asyncio
 async def test_security_improvements():
     """Teste les améliorations de sécurité implémentées."""
 
@@ -67,7 +68,6 @@ async def test_security_improvements():
         # Test 5: Caractères interdits dans le nom de fichier
         print("\n❌ TEST 5: Caractères interdits dans le nom de fichier")
         # Créer un fichier avec des caractères interdits en utilisant l'API os directement
-        import os
         forbidden_filename = "test*file.txt"  # * est interdit dans les noms de fichiers Windows
         forbidden_file_path = temp_path / forbidden_filename
         try:
@@ -90,7 +90,7 @@ async def test_security_improvements():
 
         # Test 6: Nom de fichier trop long
         print("\n❌ TEST 6: Nom de fichier trop long")
-        long_name = "a" * 300 + ".txt"
+        long_name = "a" * 250 + ".txt"
         long_file = temp_path / long_name
         long_file.write_bytes(b"test")
         result = await secure_open_file(long_file, 'rb', allowed_base_paths)

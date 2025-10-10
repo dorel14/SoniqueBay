@@ -109,7 +109,12 @@ async def test_process_chunk_with_optimization_success(caplog):
 
         assert result["success"] is True
         assert result["files_processed"] == 2
-        mock_process.assert_called_once_with(mock_client, chunk, stats)
+        # Vérifier que process_metadata_chunk a été appelé (sans vérifier base_path car il peut être None)
+        mock_process.assert_called_once()
+        args, kwargs = mock_process.call_args
+        assert args[0] == mock_client  # client
+        assert args[1] == chunk        # chunk
+        assert args[2] == stats        # stats
 
     await optimizer.cleanup()
 

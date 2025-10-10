@@ -1,6 +1,5 @@
 # backend/tests/test_integration/test_api_db.py
-from backend.api.models.tracks_model import Track
-# backend/tests/test_integration/test_api_db.py
+from backend.library_api.api.models.tracks_model import Track
 
 def test_create_and_retrieve_track(client, db_session, create_test_artist, create_test_album):
     """Test d'intégration: création d'une piste via API et récupération depuis la BDD."""
