@@ -4,7 +4,7 @@ Benchmarks pour les endpoints API REST.
 """
 import pytest
 
-from backend.api.schemas.tracks_schema import TrackCreate
+from backend.library_api.api.schemas.tracks_schema import TrackCreate
 
 
 class TestAPIRestBenchmark:

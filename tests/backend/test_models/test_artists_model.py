@@ -1,7 +1,7 @@
 # backend/tests/test_models/test_artists_model.py
 import pytest
 from sqlalchemy.exc import IntegrityError
-from backend.api.models.artists_model import Artist
+from backend.library_api.api.models.artists_model import Artist
 
 def test_create_artist(db_session):
     """Test de création d'un artiste en BDD."""
@@ -57,7 +57,7 @@ def test_artist_relationships_with_tracks(db_session):
     db_session.flush()
 
     # Créer des pistes pour cet artiste
-    from backend.api.models.tracks_model import Track
+    from backend.library_api.api.models.tracks_model import Track
     track1 = Track(title="Track 1", path="/path/to/track1.mp3", track_artist_id=artist.id)
     track2 = Track(title="Track 2", path="/path/to/track2.mp3", track_artist_id=artist.id)
     db_session.add(track1)
@@ -79,7 +79,7 @@ def test_artist_relationships_with_albums(db_session):
     db_session.flush()
 
     # Créer des albums pour cet artiste
-    from backend.api.models.albums_model import Album
+    from backend.library_api.api.models.albums_model import Album
     album1 = Album(title="Album 1", album_artist_id=artist.id)
     album2 = Album(title="Album 2", album_artist_id=artist.id)
     db_session.add(album1)

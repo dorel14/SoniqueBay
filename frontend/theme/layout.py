@@ -105,7 +105,7 @@ async def refresh_library():
                 progress_row.update()
                 progress_bar.update()
                 if left_drawer:
-                    left_drawer.open()
+                    left_drawer.toggle()
                 # Enregistre le handler pour ce task_id
                 handler = make_progress_handler(task_id)
                 register_ws_handler(handler)

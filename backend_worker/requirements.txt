@@ -31,3 +31,4 @@ passlib[bcrypt]>=1.7.4
 # Tests
 pytest>=7.3.1
 pytest-asyncio>=0.21.0
+pytest-benchmark>=4.0.0

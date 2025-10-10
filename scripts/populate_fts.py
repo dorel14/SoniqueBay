@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from backend.utils.database import get_db
+from library_api.utils.database import get_db
 from sqlalchemy import text
 
 def populate_fts():

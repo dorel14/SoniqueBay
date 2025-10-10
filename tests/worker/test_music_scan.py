@@ -18,7 +18,7 @@ from backend_worker.services.music_scan import (
     sanitize_path,
     validate_filename
 )
-from backend.services.scan_service import ScanService
+from backend.library_api.services.scan_service import ScanService
 
 def test_get_file_type():
     """Test la détermination du type de fichier."""

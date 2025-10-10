@@ -65,7 +65,7 @@ async def validate_file_path(file_path: str, base_path: Path) -> Path | None:
 
             base_resolved = base_path.resolve()
             if not resolved_path.is_relative_to(base_resolved):
-                logger.warning(f"[VALIDATE_FILE_PATH] Tentative de traversée de répertoire détectée")
+                logger.warning("[VALIDATE_FILE_PATH] Tentative de traversée de répertoire détectée")
                 logger.warning(f"[VALIDATE_FILE_PATH] Chemin résolu: {resolved_path}")
                 logger.warning(f"[VALIDATE_FILE_PATH] Répertoire de base: {base_resolved}")
                 return None
@@ -139,7 +139,7 @@ async def validate_file_path(file_path: str, base_path: Path) -> Path | None:
                 logger.warning(f"[VALIDATE_FILE_PATH] Le chemin n'est pas un fichier régulier: {resolved_path}")
                 return None
 
-            logger.debug(f"[VALIDATE_FILE_PATH] ✓ Existence, type et permissions validés")
+            logger.debug("[VALIDATE_FILE_PATH] ✓ Existence, type et permissions validés")
         except (OSError, AttributeError) as e:
             logger.warning(f"[VALIDATE_FILE_PATH] Erreur de vérification des permissions: {e}")
             return None
@@ -274,14 +274,18 @@ async def count_music_files(directory: str, music_extensions: set) -> int:
             count += 1
     return count
 
-async def scan_music_task(directory: str, progress_callback=None, chunk_size=500, session_id=None, cleanup_deleted: bool = False):
+async def scan_music_task(directory: str, progress_callback=None, chunk_size=200, session_id=None, cleanup_deleted: bool = False,
+                          max_concurrent_files=200, max_concurrent_audio=40, max_parallel_chunks=4):
     """
-    Tâche d'indexation ultra-optimisée avec parallélisation intelligente.
+    Tâche d'indexation ultra-optimisée avec parallélisation intelligente et insertion parallélisée des pistes.
 
     Args:
         directory: Répertoire à scanner
         progress_callback: Fonction de callback pour la progression
         chunk_size: Taille des lots de traitement
+        max_concurrent_files: Nombre maximum de fichiers traités simultanément
+        max_concurrent_audio: Nombre maximum d'analyses audio simultanées
+        max_parallel_chunks: Nombre maximum de chunks traités simultanément
 
     Returns:
         Statistiques du scan avec métriques de performance
@@ -293,10 +297,11 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
 
         # Initialisation de l'optimiseur
         optimizer = ScanOptimizer(
-            max_concurrent_files=100,  # Augmenté pour plus de parallélisation
-            max_concurrent_audio=20,   # Analyses audio parallèles
+            max_concurrent_files=max_concurrent_files,
+            max_concurrent_audio=max_concurrent_audio,
             chunk_size=chunk_size,
-            enable_threading=True
+            enable_threading=True,
+            max_parallel_chunks=max_parallel_chunks
         )
 
         # Étape 1: Récupérer la configuration
@@ -334,10 +339,16 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
             "albums_processed": 0, "tracks_processed": 0, "covers_processed": 0
         }
 
-        # Étape 3: Collecte et traitement par gros chunks avec parallélisation
+        # Collecteurs pour l'insertion parallélisée finale
+        all_artists_data = []
+        all_albums_data = []
+        all_tracks_data = []
+        all_cover_tasks = []
+
+        # Étape 3: Collecte et traitement par gros chunks avec collecte des données
         async with httpx.AsyncClient(timeout=300.0) as client:
             file_batch = []
-            batch_size = 200  # Taille des batches pour l'extraction parallèle
+            batch_size = 500  # Taille des batches pour l'extraction parallèle (augmenté)
 
             async for file_metadata in scan_music_files(directory, scan_config):
                 file_batch.append(file_metadata)
@@ -367,13 +378,15 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
                         logger.warning("Aucun chemin de fichier valide dans le batch")
                         extracted_metadata = []
 
-                    # Regrouper en chunks pour l'insertion DB
-                    for i in range(0, len(extracted_metadata), optimizer.chunk_size):
-                        chunk = extracted_metadata[i:i + optimizer.chunk_size]
-                        if chunk:
-                            await optimizer.process_chunk_with_optimization(
-                                client, chunk, stats, progress_callback, base_path
-                            )
+                    # Collecter les données pour insertion parallélisée finale
+                    batch_artists, batch_albums, batch_tracks, batch_covers = await optimizer.collect_entities_for_batch(
+                        client, extracted_metadata, stats, base_path
+                    )
+
+                    all_artists_data.extend(batch_artists)
+                    all_albums_data.extend(batch_albums)
+                    all_tracks_data.extend(batch_tracks)
+                    all_cover_tasks.extend(batch_covers)
 
                     file_batch = []
 
@@ -400,12 +413,22 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=500
                     logger.warning("Aucun chemin de fichier valide dans le dernier batch")
                     extracted_metadata = []
 
-                for i in range(0, len(extracted_metadata), optimizer.chunk_size):
-                    chunk = extracted_metadata[i:i + optimizer.chunk_size]
-                    if chunk:
-                        await optimizer.process_chunk_with_optimization(
-                            client, chunk, stats, progress_callback, base_path
-                        )
+                # Collecter les données du dernier batch
+                batch_artists, batch_albums, batch_tracks, batch_covers = await optimizer.collect_entities_for_batch(
+                    client, extracted_metadata, stats, base_path
+                )
+
+                all_artists_data.extend(batch_artists)
+                all_albums_data.extend(batch_albums)
+                all_tracks_data.extend(batch_tracks)
+                all_cover_tasks.extend(batch_covers)
+
+            # Étape 4: Insertion parallélisée finale de toutes les entités
+            logger.info(f"Insertion parallélisée finale: {len(all_artists_data)} artistes, {len(all_albums_data)} albums, {len(all_tracks_data)} pistes")
+
+            await optimizer.insert_all_entities_parallel(
+                client, all_artists_data, all_albums_data, all_tracks_data, all_cover_tasks, stats, progress_callback
+            )
 
         # Étape 4: Scan terminé
         if progress_callback:

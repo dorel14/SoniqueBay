@@ -97,7 +97,20 @@ def pagination_section():
     with ui.row().classes('items-center justify-center w-full mt-4'):
         ui.label(f"Page {current_page} / {total_pages}").classes('text-sm text-gray-600')
         ui.space()
-        ui.pagination(min=1, max=max(total_pages, 1), direction_links=True,value=current_page, on_change=lambda e: go_to_page(e.value))
+        ui.pagination(min=1,
+                        max=max(total_pages, 1),
+                        direction_links=True,
+                        value=current_page,
+                        on_change=lambda e: go_to_page(e.value)
+                        ).props('boundary-links \
+                                icon-first=skip_previous \
+                                icon-last=skip_next \
+                                icon-prev=fast_rewind \
+                                icon-next=fast_forward \
+                                circle outlined \
+                                max-pages=10 \
+                                active-color="primary"')
+
 
 async def update_page_size(value: str):
     global page_size, cached_pages, total_pages, current_page

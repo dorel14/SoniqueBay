@@ -1,10 +1,10 @@
 # backend/tests/test_models/test_relations.py
-from backend.api.models.artists_model import Artist
-from backend.api.models.albums_model import Album
-from backend.api.models.tracks_model import Track
-from backend.api.models.genres_model import Genre
-from backend.api.models.tags_model import GenreTag, MoodTag
-from backend.api.models.covers_model import Cover, EntityCoverType
+from backend.library_api.api.models.artists_model import Artist
+from backend.library_api.api.models.albums_model import Album
+from backend.library_api.api.models.tracks_model import Track
+from backend.library_api.api.models.genres_model import Genre
+from backend.library_api.api.models.tags_model import GenreTag, MoodTag
+from backend.library_api.api.models.covers_model import Cover, EntityCoverType
 
 def test_artist_albums_tracks_relationship(db_session):
     """Test des relations complètes artiste -> albums -> pistes."""

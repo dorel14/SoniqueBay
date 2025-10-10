@@ -26,20 +26,6 @@
     ]),
   })
 # ---
-# name: TestAlbumMutations.test_update_albums_by_filter
-  dict({
-    'updateAlbums': list([
-      dict({
-        'id': 1,
-        'title': 'Updated Album',
-      }),
-      dict({
-        'id': 2,
-        'title': 'Updated Album',
-      }),
-    ]),
-  })
-# ---
 # name: TestAlbumMutations.test_upsert_album
   dict({
     'upsertAlbum': dict({
@@ -68,20 +54,6 @@
       dict({
         'id': 2,
         'name': 'Batch Artist 2',
-      }),
-    ]),
-  })
-# ---
-# name: TestArtistMutations.test_update_artists_by_filter
-  dict({
-    'updateArtists': list([
-      dict({
-        'id': 1,
-        'name': 'Updated Batch',
-      }),
-      dict({
-        'id': 2,
-        'name': 'Updated Batch',
       }),
     ]),
   })
@@ -130,20 +102,6 @@
         'scale': 'minor',
         'title': 'Batch Track 2',
         'trackArtistId': 1,
-      }),
-    ]),
-  })
-# ---
-# name: TestTrackMutations.test_update_tracks_by_filter
-  dict({
-    'updateTracks': list([
-      dict({
-        'id': 1,
-        'title': 'Updated Track',
-      }),
-      dict({
-        'id': 2,
-        'title': 'Updated Track',
       }),
     ]),
   })

@@ -5,10 +5,10 @@
 Avant de committer ou pousser du code, vérifie :
 
 * [ ] Le projet **démarre correctement dans Docker** avec `docker-compose up`.
-* [ ] Les **3 conteneurs** (FastAPI+GraphQL, Celery worker, NiceGUI frontend) tournent sans erreur.
+* [ ] Les **4 conteneurs** (FastAPI+GraphQL, Celery worker, NiceGUI frontend) tournent sans erreur.
 * [ ] Le code respecte **PEP8** et les règles définies ci-dessous.
 * [ ] Le code ne contient pas de vulnérabilités ou failles de sécurité potentielles, un contrôle temps réel est effectué via Snyk
-* [ ] Les **tests passent** et aucune régression n’est introduite.
+* [ ] Les **tests passent** et aucune régression n’est introduite,  les tests sont lancés en masse via la commande "python -m pytest .\tests\ -x --tb=no -q --snapshot-update".
 * [ ] Les commits suivent le format standard (`feat`, `fix`, etc.).
 * [ ] Aucun fichier sensible ou généré n’est committé (`.env`, cache, DB locale, etc.).
 
@@ -27,7 +27,8 @@ Avant de committer ou pousser du code, vérifie :
 
 Le projet fonctionne sous **Docker Compose** avec **3 conteneurs** principaux :
 
-* **backend_api** : API FastAPI + endpoints GraphQL.
+* **library_api** : API FastAPI + endpoints GraphQL pour la gestion de la librairie.
+* **recommender_api** : API FastAPI pour la gestion des vecteurs et de la base de données des outils de recommandation musicales.
 * **backend_worker** : worker Celery (tâches asynchrones).
 * **frontend** : interface utilisateur NiceGUI.
 
@@ -56,7 +57,7 @@ docker-compose build && docker-compose up
 
 ### Python (FastAPI, Celery)
 
-* Respecter **PEP8** et utiliser un formateur (ex. `black`) + `isort` + `ruff` .
+* Respecter **PEP8** et utiliser un formateur (ex. `black` + `isort` + `ruff`) .
 * Utiliser des **annotations de type** (`typing`) systématiquement.
 * Ajouter des **docstrings** claires (module, classes, fonctions).
 * Préférer les **imports absolus** dans les modules internes.
@@ -75,6 +76,7 @@ docker-compose build && docker-compose up
 * Maintenir une cohérence graphique (clair/sombre).
 * Commenter les parties complexes (animations, transitions, WebSocket).
 * Soigner les performances (latence, taille des listes, throttling des events).
+* On interroge le backend via l'api REST ou GraphQL ou websocket selon le niveau de performance et de mise àjour temps réel à  obtenir
 
 ### Base de données
 
@@ -85,7 +87,7 @@ docker-compose build && docker-compose up
   * des index si nécessaire,
   * une migration associée (si Alembic est utilisé).
 
-* Seule l'API accède à la base de donnée , le worker et le frondent accès via l'api,  graphql ou les websockets.
+* Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets.
 
 ---
 

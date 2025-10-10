@@ -1,10 +1,9 @@
 # backend/tests/test_models/test_tracks_model.py
 import pytest
 from sqlalchemy.exc import IntegrityError
-from backend.api.models.artists_model import Artist
-from backend.api.models.albums_model import Album
-from backend.api.models.tracks_model import Track
-# backend/tests/test_models/test_tracks_model.py
+from backend.library_api.api.models.artists_model import Artist
+from backend.library_api.api.models.albums_model import Album
+from backend.library_api.api.models.tracks_model import Track
 
 def test_create_track(db_session):
     """Test de création d'une piste en BDD."""
