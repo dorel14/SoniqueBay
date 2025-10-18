@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import requests
-from library_api.utils.settings import get_setting
+from backend.library_api.utils.settings import get_setting
 
 class APIConfigError(Exception):
     pass

@@ -3,16 +3,18 @@ Tests pour sqlite-vec dans SoniqueBay.
 """
 from unittest.mock import patch, MagicMock
 import json
+import sqlite3
 
 from backend.recommender_api.api.models.track_vectors_model import TrackVectorVirtual
 from backend.recommender_api.api.schemas.track_vectors_schema import TrackVectorIn, TrackVectorOut
 from backend.recommender_api.utils.sqlite_vec_init import initialize_sqlite_vec
 
 
-def test_initialize_sqlite_vec_success():
-    """Test l'initialisation réussie de sqlite-vec."""
+def test_initialize_sqlite_vec_system_path_success():
+    """Test l'initialisation réussie de sqlite-vec depuis le chemin système."""
     with patch('backend.recommender_api.utils.sqlite_vec_init.get_vec_connection') as mock_get_conn, \
          patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'):
+        
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
@@ -21,7 +23,7 @@ def test_initialize_sqlite_vec_success():
         # Mock des fonctions sqlite-vec
         mock_cursor.execute.side_effect = [
             None,  # SELECT sqlite_version()
-            None,  # load_extension
+            None,  # DROP TABLE IF EXISTS
             None   # CREATE VIRTUAL TABLE
         ]
         mock_cursor.fetchone.return_value = ("3.40.0",)
@@ -29,23 +31,70 @@ def test_initialize_sqlite_vec_success():
         result = initialize_sqlite_vec()
 
         assert result is True
-        assert mock_cursor.execute.call_count >= 2
+        assert mock_cursor.execute.call_count == 3
+        
+        # Vérifier les appels spécifiques
+        calls = mock_cursor.execute.call_args_list
+        assert "DROP TABLE IF EXISTS track_vectors" in str(calls[1])
+        assert "CREATE VIRTUAL TABLE track_vectors" in str(calls[2])
 
 
-def test_initialize_sqlite_vec_no_vec():
+def test_initialize_sqlite_vec_pip_success():
+    """Test l'initialisation réussie de sqlite-vec depuis le package pip."""
+    with patch('backend.recommender_api.utils.sqlite_vec_init.get_vec_connection') as mock_get_conn, \
+         patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'), \
+         patch('sqlite3.connect') as mock_sqlite_connect:
+        
+        mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_get_conn.return_value = mock_conn
+        
+        # Mock l'échec du chargement système pour tester le fallback pip
+        def mock_load_extension(path):
+            if '/usr/local/lib' in str(path):
+                raise sqlite3.OperationalError("not found")
+            return None
+            
+        mock_conn.load_extension = MagicMock(side_effect=mock_load_extension)
+
+        # Mock des fonctions sqlite-vec
+        mock_cursor.execute.side_effect = [
+            None,  # SELECT sqlite_version()
+            None,  # DROP TABLE IF EXISTS
+            None   # CREATE VIRTUAL TABLE
+        ]
+        mock_cursor.fetchone.return_value = ("3.40.0",)
+
+        result = initialize_sqlite_vec()
+
+        assert result is True
+        assert mock_cursor.execute.call_count == 3
+        
+        # Vérifier les appels spécifiques
+        calls = mock_cursor.execute.call_args_list
+        assert "DROP TABLE IF EXISTS track_vectors" in str(calls[1])
+        assert "CREATE VIRTUAL TABLE track_vectors" in str(calls[2])
+
+
+def test_initialize_sqlite_vec_failure():
     """Test l'initialisation quand sqlite-vec n'est pas disponible."""
     with patch('backend.recommender_api.utils.sqlite_vec_init.get_vec_connection') as mock_get_conn, \
-         patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'):
+         patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'), \
+         patch('sqlite3.connect') as mock_sqlite_connect:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor
         mock_get_conn.return_value = mock_conn
 
-        # Mock version SQLite OK mais CREATE VIRTUAL TABLE échoue
-        mock_cursor.execute.side_effect = [
-            None,  # SELECT sqlite_version()
-            Exception("CREATE VIRTUAL TABLE failed")  # CREATE échoue
-        ]
+        # Mock l'échec du chargement de l'extension
+        def mock_load_extension(path):
+            raise sqlite3.OperationalError("not found")
+            
+        mock_conn.load_extension = MagicMock(side_effect=mock_load_extension)
+        
+        # Mock version SQLite
+        mock_cursor.execute.side_effect = [None]  # Juste pour SELECT sqlite_version()
         mock_cursor.fetchone.return_value = ("3.40.0",)
 
         result = initialize_sqlite_vec()

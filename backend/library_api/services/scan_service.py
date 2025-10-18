@@ -9,6 +9,7 @@ from backend.library_api.utils.logging import logger
 import os
 from backend.library_api.api.models.scan_sessions_model import ScanSession
 from sqlalchemy.orm import Session
+from fastapi import HTTPException
 
 class ScanService:
     @staticmethod
@@ -73,7 +74,12 @@ class ScanService:
             docker_directory = os.getenv('MUSIC_PATH', '/music')
         else:
             converted_directory = ScanService.convert_path_to_docker(directory)
-            docker_directory = f'/music/{converted_directory.lstrip('/')}'
+            # Si le répertoire converti commence déjà par /music, l'utiliser tel quel
+            if converted_directory.startswith('/music'):
+                docker_directory = converted_directory
+            else:
+                # Sinon, l'ajouter au préfixe /music
+                docker_directory = f'/music/{converted_directory.lstrip("/")}'
         logger.info(f"MUSIC_PATH: {os.getenv('MUSIC_PATH')}")
         logger.info(f"PLATFORM: {os.getenv('PLATFORM')}")
         logger.info(f"Répertoire à scanner avant résolution: {docker_directory}")
@@ -110,16 +116,73 @@ class ScanService:
             logger.error(f"Erreur système lors de l'accès à {docker_directory}: {str(e)}")
             raise RuntimeError(f"Erreur système: {str(e)}")
 
-        # Create scan session
-        if db:
-            scan_session = ScanSession(directory=docker_directory, status='running')
-            db.add(scan_session)
-            db.commit()
-            db.refresh(scan_session)
-            logger.info(f"Created scan session {scan_session.id} for {docker_directory}")
+        logger.info(f"Configuration Celery - Broker: {celery.conf.broker_url}")
+        logger.info(f"Configuration Celery - Include: {celery.conf.include}")
 
-        result = celery.send_task("scan_music_task", args=[docker_directory, cleanup_deleted])
-        if db and scan_session:
-            scan_session.task_id = result.id
-            db.commit()
+        # Utiliser directement les variables d'environnement pour éviter les problèmes de configuration Celery
+        backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+        logger.info(f"Configuration Celery - Backend (env): {backend_url}")
+        logger.info(f"Envoi de la tâche scan_music_task vers Celery avec args: {docker_directory}, {cleanup_deleted}")
+
+        # Test de connectivité Redis avant envoi
+        try:
+            from backend.library_api.utils.celery_app import celery as celery_app
+            logger.info(f"Test de connectivité Redis...")
+            # Ping simple pour vérifier la connexion
+            ping_result = celery_app.broker_connection().ensure_connection(max_retries=1)
+            logger.info(f"Connexion Redis OK: {ping_result}")
+
+            # Debug: Vérifier les workers actifs
+            inspect = celery_app.control.inspect()
+            active_workers = inspect.ping()
+            logger.info(f"DEBUG: Workers actifs détectés: {active_workers}")
+
+            # Debug: Vérifier les tâches en attente
+            reserved_tasks = inspect.reserved()
+            active_tasks = inspect.active()
+            logger.info(f"DEBUG: Tâches réservées: {reserved_tasks}")
+            logger.info(f"DEBUG: Tâches actives: {active_tasks}")
+
+        except Exception as redis_error:
+            logger.error(f"Erreur de connectivité Redis: {str(redis_error)}")
+            logger.error(f"Exception Redis type: {type(redis_error)}")
+            raise HTTPException(status_code=500, detail=f"Erreur de connectivité Redis: {str(redis_error)}")
+
+        # Créer la session de scan seulement APRÈS le succès de l'envoi de la tâche
+        scan_session = None
+        try:
+            logger.info(f"Appel de celery.send_task...")
+            # IMPORTANT: Spécifier explicitement la queue worker_scan
+            result = celery.send_task(
+                "scan_music_task",
+                args=[docker_directory, cleanup_deleted],
+                queue="worker_scan"  # Forcer l'envoi vers la bonne queue
+            )
+            logger.info(f"Tâche envoyée avec succès - Task ID: {result.id}")
+            logger.info(f"Tâche envoyée avec succès - Status: {result.status}")
+            logger.info(f"Tâche envoyée avec succès - Backend: {result.backend}")
+            logger.info(f"Tâche envoyée vers la queue: worker_scan")
+
+            # Créer la session de scan seulement si la tâche a été envoyée avec succès
+            if db:
+                scan_session = ScanSession(directory=docker_directory, status='running')
+                db.add(scan_session)
+                db.commit()
+                db.refresh(scan_session)
+                logger.info(f"Created scan session {scan_session.id} for {docker_directory}")
+
+                # Mettre à jour avec le task_id
+                scan_session.task_id = result.id
+                db.commit()
+                logger.info(f"Session de scan mise à jour avec succès - task_id: {result.id}")
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'envoi de la tâche Celery: {str(e)}")
+            logger.error(f"Exception type: {type(e)}")
+            logger.error(f"Exception args: {e.args}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
+
+        logger.info(f"Retour du résultat: task_id={result.id}, status=Scan lancé avec succès sur {docker_directory}")
         return {"task_id": result.id, "status": f"Scan lancé avec succès sur {docker_directory}"}

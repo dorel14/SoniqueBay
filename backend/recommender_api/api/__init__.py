@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 
-from backend.recommender_api.api.routers.track_vectors_api import router as track_vectors_router
+from .routers.track_vectors_api import router as track_vectors_router
 
 # Créer le router principal
 api_router = APIRouter()

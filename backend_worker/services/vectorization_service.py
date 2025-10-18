@@ -36,7 +36,8 @@ class VectorizationService:
 
         Configure les paramètres du modèle d'embedding et l'URL de l'API.
         """
-        self.api_url = os.getenv("API_URL", "http://backend:8001")
+        self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library:8001")
+        self.recommender_api_url = os.getenv("RECOMMENDER_API_URL", "http://recommender:8002")
         # Configuration du modèle d'embedding
         self.embedding_model_name = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         self.text_embedding_dimension = 384  # Dimension par défaut pour all-MiniLM-L6-v2
@@ -242,7 +243,7 @@ class VectorizationService:
                 }
 
                 response = await client.post(
-                    f"{self.api_url}/api/track-vectors/",
+                    f"{self.recommender_api_url}/api/track-vectors/",
                     json=vector_data
                 )
 
@@ -269,7 +270,7 @@ class VectorizationService:
         """
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.api_url}/api/tracks/{track_id}")
+                response = await client.get(f"{self.library_api_url}/api/tracks/{track_id}")
 
                 if response.status_code == 200:
                     return await response.json()
@@ -413,7 +414,7 @@ async def vectorize_and_store_batch(track_ids: List[int]) -> Dict[str, Any]:
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    f"{service.api_url}/api/track-vectors/batch",
+                    f"{service.recommender_api_url}/api/track-vectors/batch",
                     json=vectors_to_store
                 )
 
@@ -456,7 +457,7 @@ async def search_similar_tracks(query_track_id: int, limit: int = 10) -> List[Di
     try:
         # Récupérer le vecteur de la track de référence
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(f"{service.api_url}/api/track-vectors/vec/{query_track_id}")
+            response = await client.get(f"{service.recommender_api_url}/api/track-vectors/vec/{query_track_id}")
 
             if response.status_code != 200:
                 logger.error(f"Vecteur non trouvé pour track {query_track_id}")
@@ -473,7 +474,7 @@ async def search_similar_tracks(query_track_id: int, limit: int = 10) -> List[Di
             }
 
             response = await client.post(
-                f"{service.api_url}/api/track-vectors/search?limit={limit}",
+                f"{service.recommender_api_url}/api/track-vectors/search?limit={limit}",
                 json=search_data
             )
 

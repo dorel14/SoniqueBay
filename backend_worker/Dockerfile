@@ -1,63 +1,61 @@
-FROM python:3.13-slim AS builder
-RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.list && \
+# Stage 1: Builder
+FROM do14500352/soniquebay-base:latest AS builder
+
+# Labels standards OCI
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay Backend Worker" \
+      org.opencontainers.image.description="Service worker pour le traitement des tâches en arrière-plan"
+
+# Installation des dépendances système supplémentaires
+RUN --mount=type=cache,target=/var/cache/apt/builder \
     apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    build-essential \
     cargo \
-    curl \
-    libpq-dev \
     rustc \
-    unixodbc \
-    unixodbc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH="/opt/venv/bin:$PATH"
 WORKDIR /backend_worker
 
-ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
-RUN /install.sh && rm /install.sh
+# Copie et installation des dépendances spécifiques
+COPY --link ./backend_worker/requirements.txt /backend_worker/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
-COPY ./backend_worker/requirements.txt /backend_worker/requirements.txt
-RUN /root/.local/bin/uv venv /opt/venv && \
-    /root/.local/bin/uv pip install --no-cache-dir -r requirements.txt
+# Stage 2: Runner
+FROM do14500352/soniquebay-base:latest AS runner
 
-FROM python:3.13-slim AS runner
-
+# Configuration des variables d'environnement
 ARG LOCALE_LANGUAGE=en_US
 ARG ENV_LOCALE_LANGUAGE
-ENV LOCALE_LANGUAGE=${ENV_LOCALE_LANGUAGE:-${LOCALE_LANGUAGE}}
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+ENV LOCALE_LANGUAGE=${ENV_LOCALE_LANGUAGE:-${LOCALE_LANGUAGE}} \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    PATH="/usr/local/bin:$PATH"
 
 ARG TZ=UTC
 ARG ENV_TZ
 ENV TZ=${ENV_TZ:-${TZ}}
 
-RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.list && \
+# Installation des dépendances système supplémentaires
+RUN --mount=type=cache,target=/var/cache/apt/runner \
     apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    curl \
-    libpq-dev \
     nfs-common \
     cifs-utils \
-    unixodbc \
-    unixodbc-dev \
     locales && \
-    # Générer la locale UTF-8
     sed -i -e 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen && \
     dpkg-reconfigure --frontend=noninteractive locales && \
     update-locale LANG=${LANG} && \
-    # Nettoyage
     rm -rf /var/lib/apt/lists/* && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app \
-    PATH="/opt/venv/bin:$PATH"
-
-COPY --from=builder /opt/venv /opt/venv
+# Copie de l'environnement virtuel et des binaires
+COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder --link /usr/local/bin /usr/local/bin
 
 WORKDIR /app
-CMD ["/opt/venv/bin/celery", "-A", "backend_worker.celery_app", "worker", "--loglevel=debug", "-E"]
 

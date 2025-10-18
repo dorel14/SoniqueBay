@@ -33,7 +33,7 @@ COMMON_EXPANSION_HEADER_CLASSES = 'left text-grey-3' # Pour le texte de l'en-tê
 EXCLUDED_FILES = ["library","artist_details"]
 
 
-API_URL = os.getenv('API_URL', 'http://backend:8001')
+API_URL = os.getenv('API_URL', 'http://library:8001')
 
 def make_progress_handler(task_id):
     def handler(data):
@@ -104,8 +104,8 @@ async def refresh_library():
                 progress_bar.value = 0.0
                 progress_row.update()
                 progress_bar.update()
-                if left_drawer:
-                    left_drawer.toggle()
+                #if left_drawer:
+                    #left_drawer.toggle()
                 # Enregistre le handler pour ce task_id
                 handler = make_progress_handler(task_id)
                 register_ws_handler(handler)

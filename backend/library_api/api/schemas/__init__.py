@@ -12,7 +12,7 @@ from .tracks_schema import TrackBase, TrackCreate, Track, TrackWithRelations
 from .settings_schema import SettingBase, SettingCreate, Setting
 from .search_schema import SearchResult, SearchQuery
 from .scan_schema import ScanRequest
-from ....recommender_api.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
+from backend.recommender_api.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
 
 if TYPE_CHECKING:
     from .albums_schema import Album

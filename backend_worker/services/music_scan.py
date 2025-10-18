@@ -307,7 +307,7 @@ async def secure_open_file(file_path: Path, mode: str = 'rb', allowed_base_paths
                 return None
 
             # Vérifier que le fichier n'est pas trop volumineux (protection DoS)
-            max_file_size = 100 * 1024 * 1024  # 100MB maximum
+            max_file_size = 1000 * 1024 * 1024  # 100MB maximum
             if stat_result.st_size > max_file_size:
                 logger.warning(f"[SECURE_OPEN_FILE] Fichier trop volumineux: {stat_result.st_size} bytes (max: {max_file_size})")
                 return None
@@ -332,8 +332,8 @@ async def secure_open_file(file_path: Path, mode: str = 'rb', allowed_base_paths
         logger.info(f"[SECURE_OPEN_FILE] Ouverture sécurisée du fichier: {final_resolved_path} (mode: {mode})")
         # DIAGNOSTIC: Logger le chemin résolu pour détecter les traversées potentielles
         logger.debug(f"[SECURE_OPEN_FILE] DIAGNOSTIC: Chemin résolu avant ouverture: {final_resolved_path}")
-        # LOG VULNÉRABILITÉ: Ajouter log détaillé pour diagnostic Path Traversal
-        logger.warning(f"[PATH_TRAVERSAL_DIAG] Ouverture de fichier - Chemin final: {str(final_resolved_path)}, allowed_base_paths: {[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+        # LOG DEBUG: Diagnostic pour Path Traversal (niveau debug pour éviter le bruit)
+        logger.debug(f"[PATH_TRAVERSAL_DIAG] Ouverture de fichier - Chemin final: {str(final_resolved_path)}, allowed_base_paths: {[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
         try:
             async with aiofiles.open(final_resolved_path, mode=mode) as f:
                 content = await f.read()
@@ -421,7 +421,8 @@ async def get_cover_art(file_path_str: str, audio, allowed_base_paths: list[Path
 
                         # Vérification supplémentaire: le chemin ne doit pas contenir de composants suspects
                         cover_path_str = str(cover_path)
-                        if '..' in cover_path_str or cover_path_str.startswith('\\'):
+                        # Vérification intelligente: seulement les vraies tentatives de path traversal
+                        if cover_path_str.startswith('\\') or '/../' in cover_path_str or cover_path_str.endswith('/..') or cover_path_str == '..':
                             logger.warning(f"Chemin de cover potentiellement dangereux: {cover_path_str}")
                             continue
 
@@ -440,8 +441,8 @@ async def get_cover_art(file_path_str: str, audio, allowed_base_paths: list[Path
                             logger.error("allowed_base_paths est None dans get_cover_art - Refus d'ouverture pour éviter Path Traversal")
                             return None, None
                         mime_type = mimetypes.guess_type(str(cover_path))[0] or 'image/jpeg'
-                        # LOG VULNÉRABILITÉ: Diagnostic pour Path Traversal dans get_cover_art
-                        logger.warning(f"[PATH_TRAVERSAL_DIAG] get_cover_art - Ouverture cover: chemin original={str(cover_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+                        # LOG DEBUG: Diagnostic pour Path Traversal dans get_cover_art
+                        logger.debug(f"[PATH_TRAVERSAL_DIAG] get_cover_art - Ouverture cover: chemin original={str(cover_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
                         # DIAGNOSTIC: Log before secure_open_file in get_cover_art
                         logger.warning(f"[PATH_TRAVERSAL_DIAG] get_cover_art - Avant ouverture sécurisée: resolved_path={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
                         cover_bytes = await secure_open_file(resolved_path, 'rb', allowed_base_paths=allowed_base_paths)
@@ -479,7 +480,8 @@ def get_file_bitrate(file_path: str) -> int:
         path_obj = Path(file_path)
 
         # Vérifier que le chemin ne contient pas de caractères suspects
-        if '..' in file_path or file_path.startswith('\\'):
+        # Vérification intelligente: seulement les vraies tentatives de path traversal
+        if file_path.startswith('\\') or '/../' in file_path or file_path.endswith('/..') or file_path == '..':
             logger.warning(f"Chemin de fichier potentiellement dangereux pour bitrate: {file_path}")
             return 0
 
@@ -668,7 +670,8 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
 
                 # Vérification supplémentaire: le chemin ne doit pas contenir de composants suspects
                 image_path_str = str(image_path)
-                if '..' in image_path_str or image_path_str.startswith('\\'):
+                # Vérification intelligente: seulement les vraies tentatives de path traversal
+                if image_path_str.startswith('\\') or '/../' in image_path_str or image_path_str.endswith('/..') or image_path_str == '..':
                     logger.warning(f"Chemin d'image d'artiste potentiellement dangereux: {image_path_str}")
                     continue
 
@@ -688,8 +691,8 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
                     return []
                 try:
                     mime_type = mimetypes.guess_type(str(image_path))[0] or 'image/jpeg'
-                    # LOG VULNÉRABILITÉ: Diagnostic pour Path Traversal dans get_artist_images
-                    logger.warning(f"[PATH_TRAVERSAL_DIAG] get_artist_images - Ouverture image artiste: chemin original={str(image_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+                    # LOG DEBUG: Diagnostic pour Path Traversal dans get_artist_images
+                    logger.debug(f"[PATH_TRAVERSAL_DIAG] get_artist_images - Ouverture image artiste: chemin original={str(image_path)}, résolu={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
                     # DIAGNOSTIC: Log before secure_open_file in get_artist_images
                     logger.warning(f"[PATH_TRAVERSAL_DIAG] get_artist_images - Avant ouverture sécurisée: resolved_path={str(resolved_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
                     image_bytes = await secure_open_file(resolved_path, 'rb', allowed_base_paths=allowed_base_paths)
@@ -751,7 +754,8 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
             return None
 
         # Vérification supplémentaire: le chemin ne doit pas contenir de caractères suspects
-        if '..' in file_path_str or file_path_str.startswith('\\'):
+        # Vérification intelligente: seulement les vraies tentatives de path traversal
+        if file_path_str.startswith('\\') or '/../' in file_path_str or file_path_str.endswith('/..') or file_path_str == '..':
             logger.warning(f"Chemin de fichier potentiellement dangereux: {file_path_str}")
             return None
 
@@ -783,7 +787,7 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
                 return None
 
             # DIAGNOSTIC: Log path before secure_open_file in process_file
-            logger.warning(f"[PATH_TRAVERSAL_DIAG] process_file - Avant ouverture sécurisée: current_path={str(current_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
+            logger.debug(f"[PATH_TRAVERSAL_DIAG] process_file - Avant ouverture sécurisée: current_path={str(current_path)}, allowed_base_paths={[str(p) for p in allowed_base_paths] if allowed_base_paths else 'None'}")
             # SECURITY: Utiliser la fonction sécurisée pour ouvrir le fichier
             file_content = await secure_open_file(current_path, 'rb', allowed_base_paths=allowed_base_paths)
             if file_content is None:
@@ -846,7 +850,9 @@ async def async_walk(path: Path):
 
             # Vérification supplémentaire: le répertoire ne doit pas contenir de caractères suspects
             dirpath_str = str(dirpath)
-            if '..' in dirpath_str or dirpath_str.startswith('\\'):
+            # Vérification intelligente: seulement les vraies tentatives de path traversal
+            # Exclure les noms d'artistes légitimes qui contiennent ".." comme "Fred again.."
+            if dirpath_str.startswith('\\') or '/../' in dirpath_str or dirpath_str.endswith('/..') or dirpath_str == '..':
                 logger.warning(f"Chemin de répertoire potentiellement dangereux: {dirpath_str}")
                 continue
 

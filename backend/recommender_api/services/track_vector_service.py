@@ -6,9 +6,9 @@ Dépendances : backend.api.models.track_vectors_model, backend.api.schemas.track
 """
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
-from backend.recommender_api.api.models.track_vectors_model import TrackVector, TrackVectorVirtual
-from backend.recommender_api.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse, TrackVectorIn, TrackVectorOut
-from backend.recommender_api.utils.logging import logger
+from api.models.track_vectors_model import TrackVector, TrackVectorVirtual
+from api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse, TrackVectorIn, TrackVectorOut
+from utils.logging import logger
 
 
 class TrackVectorService:

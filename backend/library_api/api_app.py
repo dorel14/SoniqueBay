@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fastapi import FastAPI, WebSocket, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from contextlib import asynccontextmanager
 from backend.library_api.utils import settings
 from strawberry.fastapi import GraphQLRouter, BaseContext
@@ -13,13 +16,9 @@ from backend.library_api.utils.settings import Settings
 from backend.library_api.services.settings_service import SettingsService
 import redis.asyncio as redis
 from backend.library_api.utils.database import get_session
-from backend.recommender_api.utils.sqlite_vec_init import initialize_sqlite_vec
-import alembic.config
-import alembic.command
-import os
-# Initialiser la base de données avec les migrations
-alembic_cfg = alembic.config.Config(os.path.join(os.path.dirname(__file__), "..", "..", "alembic.ini"))
-alembic.command.upgrade(alembic_cfg, "head")
+from alembic.config import Config
+from alembic import command
+import asyncio
 
 # Importer les routes avant toute autre initialisation
 from backend.library_api.api import api_router  # noqa: E402
@@ -47,8 +46,28 @@ async def lifespan(app: FastAPI):
     # Code d'initialisation (startup)
     logger.info("Démarrage de l'API...")
     await SettingsService().initialize_default_settings()
-    # Initialiser sqlite-vec
-    initialize_sqlite_vec()
+
+    # Exécuter les migrations Alembic automatiquement de manière bloquante
+    try:
+        logger.info("Exécution des migrations Alembic...")
+        # Créer un objet Config vide
+        alembic_cfg = Config()
+        # Configurer les chemins
+        alembic_cfg.set_main_option("script_location", "/app/alembic")
+        alembic_cfg.set_main_option("config_file", "/app/alembic.ini")
+        
+        try:
+            # Exécuter la commande upgrade
+            command.upgrade(alembic_cfg, "head")
+            logger.info("Migrations Alembic appliquées avec succès.")
+        except Exception as migration_error:
+            logger.error(f"Erreur pendant l'exécution des migrations: {str(migration_error)}")
+            raise RuntimeError(f"Échec des migrations: {str(migration_error)}")
+            
+    except Exception as config_error:
+        logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
+        raise RuntimeError(f"Échec de la configuration Alembic: {str(config_error)}")
+
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):
@@ -143,7 +162,12 @@ async def global_ws(websocket: WebSocket):
             await redis_client.close()
         logger.info("WebSocket disconnected.")
 
-
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
 
 
 def create_api():

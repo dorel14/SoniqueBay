@@ -28,6 +28,7 @@ README.md
 *.ps1
 
 **/data/*/*
+**/celery_beat_data/*/*
 
 #exceptions
 !**/datas/.gitkeep 

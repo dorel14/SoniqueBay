@@ -1,19 +1,28 @@
 services:
+
     redis:
-        image: redis:7
-        restart: unless-stopped
-        volumes:
-            - redis-data:/data
-        command: ["redis-server", "--appendonly", "yes", "appendfsync", "everysec", "save", "60", "1000"]
-        ports:
-            - "6379:6379"
+            image: redis:7
+            restart: unless-stopped
+            volumes:
+                - redis-data:/data
+            command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "60", "1000"]
+            ports:
+                - "6379:6379"
+            networks:
+                default:
+                    aliases:
+                        - redis
     library_service:
         build:
             context: .
-            dockerfile: ./backend/library_api/Dockerfile
+            dockerfile: backend/library_api/Dockerfile
         ports:
             - "8001:8001"
         hostname: library
+        networks:
+            default:
+                aliases:
+                    - library
         restart: unless-stopped
         env_file:
             - .env
@@ -23,10 +32,12 @@ services:
             - NAS_USER=djdmd14
             - NAS_PASS=mc30314500
             - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_LIBRARY=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - HEALTHCHECK_PORT=8001
+        command: ["python3", "-m", "uvicorn", "backend.library_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
         volumes:
-            - library-dir:/library
-            - db-data:/library/data
+            - ./backend:/app/backend
+            - db-data:/app/backend/library_api/data
             - music-share:/music:ro
         healthcheck:
             test: ["CMD-SHELL", "/healthcheck.sh"]
@@ -37,19 +48,25 @@ services:
     recommender_service:
         build:
             context: .
-            dockerfile: ./backend/recomender_api/Dockerfile
+            dockerfile: backend/recommender_api/Dockerfile
         ports:
-            - "8001:8001"
+            - "8002:8002"
         hostname: recommender
+        networks:
+            default:
+                aliases:
+                    - recommender
         restart: unless-stopped
         env_file:
             - .env
         environment:
             - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_LIBRARY=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - HEALTHCHECK_PORT=8002
+        command: ["python3", "-m", "uvicorn", "backend.recommender_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8002"]
         volumes:
-            - recommender-dir:/recommender
-            - recommender-db-data:/recommender/data
+            - ./backend:/app/backend
+            - recommender-db-data:/app/backend/recommender_api/data
         healthcheck:
             test: ["CMD-SHELL", "/healthcheck.sh"]
             interval: 30s
@@ -71,9 +88,70 @@ services:
             - NAS_PASS=mc30314500
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - LIBRARY_API_URL=http://library:8001
+            - RECOMMENDER_API_URL=http://recommender:8002
+        command: [
+            "celery", "-A", "backend_worker.celery_app", "worker",
+            "-Q", "worker_scan,worker_extract,worker_insert_bulk,worker_cover,worker_metadata,worker_vector,worker_deferred",
+            "-n", "worker_main@%h",
+            "--pool=threads",
+            "--autoscale=8,2",
+            "--loglevel=info"
+            ]
+        volumes:
+            - ./backend_worker:/app/backend_worker
+            - ./backend:/app/backend
+            - music-share:/music:ro
+        healthcheck:
+            test: ["CMD", "celery", "-A", "backend_worker.celery_app.celery", "status"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+    celery_beat:
+        build:
+            context: .
+            dockerfile: ./backend_worker/Dockerfile
+        depends_on:
+            - redis
+        env_file:
+            - .env
+        environment:
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - CELERY_BEAT_DB=/app/backend_worker/celery_beat_data/celerybeat-schedule.db
         volumes:
             - .:/app
+            - celery-beat-data:/app/data
+        command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
+        healthcheck:
+            test: ["CMD", "pgrep", "-f", "celery.*beat"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+    worker_deferred:
+        build:
+            context: .
+            dockerfile: ./backend_worker/Dockerfile
+        depends_on:
+            - redis
+        env_file:
+            - .env
+        environment:
+            - PLATFORM=${PLATFORM:-windows}
+            - MUSIC_PATH=/music
+            - NAS_USER=djdmd14
+            - NAS_PASS=mc30314500
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - LIBRARY_API_URL=http://library:8001
+            - RECOMMENDER_API_URL=http://recommender:8002
+        volumes:
+            - ./backend_worker:/app/backend_worker
+            - ./backend:/app/backend
             - music-share:/music:ro
+        command: ["celery", "-A", "backend_worker.celery_app", "worker", "-Q", "worker_deferred", "-c", "2", "--loglevel=info", "-E"]
         healthcheck:
             test: ["CMD", "celery", "-A", "backend_worker.celery_app.celery", "status"]
             interval: 30s
@@ -83,16 +161,22 @@ services:
     frontend:
         build:
             context: .
-            dockerfile: ./frontend/Dockerfile
+            dockerfile: frontend/Dockerfile
         ports:
             - "8080:8080"
         depends_on:
-            backend:
+            library_service:
                 condition: service_healthy
+            recommender_service:
+                condition: service_healthy
+        restart: unless-stopped
         env_file:
             - .env
+        environment:
+            - API_URL=http://library:8001
+            - RECOMMENDER_API_URL=http://recommender:8002
         volumes:
-            - frontend-dir:/frontend
+            - ./frontend:/app/frontend
         healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:8080"]
             interval: 10s
@@ -100,17 +184,11 @@ services:
             retries: 3
             start_period: 10s
 volumes:
-    library-dir:
+    redis-data:
         driver: local
         driver_opts:
             type: none
-            device: ./backend/library_api
-            o: bind
-    recommender-dir:
-        driver: local
-        driver_opts:
-            type: none
-            device: ./backend/recomender_api
+            device: ${PWD}/backend_worker/redis_data
             o: bind
     db-data:
         driver: local
@@ -122,16 +200,16 @@ volumes:
         driver: local
         driver_opts:
             type: none
-            device: ./backend/recomender_api/data
-            o: bind
-    frontend-dir:
-        driver: local
-        driver_opts:
-            type: none
-            device: ./frontend
+            device: ./backend/recommender_api/data
             o: bind
     music-share:
         driver_opts:
             type: cifs
             device: //SRV_NAS/music
-            o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8
+            o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8,dir_mode=0755,file_mode=0644
+    celery-beat-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/backend_worker/celery_beat_data
+            o: bind
