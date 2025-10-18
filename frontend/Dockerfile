@@ -1,40 +1,38 @@
-# For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.13-slim AS builder
-# Create the sources.list file if it doesn't exist
-RUN touch /etc/apt/sources.list
-# Add the default debian repository
-RUN echo "deb http://deb.debian.org/debian bookworm main" >> /etc/apt/sources.list
+# Stage 1: Builder
+FROM do14500352/soniquebay-base:latest AS builder
 
-RUN sed -i 's|http://deb.debian.org|http://ftp.fr.debian.org|g' /etc/apt/sources.list
-#Prepare apt files
-RUN apt update \
-    && apt-get install -y apt-transport-https \
-&&  apt install -y libpq-dev \
+# Labels standards OCI
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay Frontend" \
+      org.opencontainers.image.description="Interface utilisateur de l'application SoniqueBay"
+
+# Installation des dépendances système supplémentaires
+RUN --mount=type=cache,target=/var/cache/apt/builder \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     build-essential \
-    rustc cargo \
-    unixodbc \
-    unixodbc-dev\
-    curl \
-&&	apt-get clean && rm -rf /var/lib/apt/lists/*
+    rustc \
+    cargo \
+    && rm -rf /var/lib/apt/lists/*
 
-# Activate the virtual environment
-ENV PATH="/opt/venv/bin:$PATH"
+WORKDIR /app/frontend
 
-WORKDIR /frontend
+# Copie et installation des dépendances spécifiques
+COPY --link ./frontend/requirements.txt ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r requirements.txt
 
-ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
-RUN /install.sh && rm /install.sh
+# Stage 2: Runner
+FROM do14500352/soniquebay-base:latest AS runner
 
-# Install pip requirements
-COPY ./frontend /frontend
-RUN /root/.local/bin/uv venv /opt/venv
-RUN /root/.local/bin/uv pip install --no-cache -r requirements.txt
-
-# final stage
-FROM python:3.13-slim AS runner
-
+# Configuration des variables d'environnement
 ARG LOCALE_LANGUAGE=en_US
 ARG ENV_LOCALE_LANGUAGE
 ENV LOCALE_LANGUAGE=${ENV_LOCALE_LANGUAGE:-${LOCALE_LANGUAGE}}
@@ -43,40 +41,19 @@ ARG TZ=UTC
 ARG ENV_TZ
 ENV TZ=${ENV_TZ:-${TZ}}
 
-RUN touch /etc/apt/sources.list
-# Add the default debian repository
-RUN echo "deb http://deb.debian.org/debian bookworm main" >> /etc/apt/sources.list
-
-RUN sed -i 's|http://deb.debian.org|http://ftp.fr.debian.org|g' /etc/apt/sources.list
-
-
-#Prepare apt files
-RUN apt-get update \
-    && apt-get install -y apt-transport-https \
-&& apt install -y libpq-dev \
+# Installation des dépendances système supplémentaires
+RUN --mount=type=cache,target=/var/cache/apt/runner \
+    apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
-    unixodbc \
-    unixodbc-dev\
-    curl\
-&&	apt-get clean && rm -rf /var/lib/apt/lists/* \
-&& ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-# Keeps Python from generating .pyc files in the container
-# Turns off buffering for easier container logging
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1\
-    PATH="/opt/venv/bin:$PATH"
+# Copie de l'environnement virtuel et des fichiers
+COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --link ./frontend /app/frontend
+
+WORKDIR /app/frontend
 
 
-COPY --from=builder /opt/venv /opt/venv
-
-
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-#Permet de forcer le vidage de cahche des varaibles d'environnement
-ARG CACHEBUST=1
-
-WORKDIR /frontend
-
-
-CMD ["python", "start_ui.py"]
+CMD ["python", "/app/frontend/start_ui.py"]

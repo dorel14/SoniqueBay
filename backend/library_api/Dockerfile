@@ -1,67 +1,54 @@
-FROM python:3.13-slim AS builder
-RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.list && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    build-essential \
-    cargo \
-    curl \
-    libpq-dev \
-    rustc \
-    unixodbc \
-    unixodbc-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Stage 1: Builder
+FROM do14500352/soniquebay-base:latest AS builder
 
-ENV PATH="/opt/venv/bin:$PATH"
-WORKDIR /backend
+WORKDIR /app
 
-ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
-RUN /install.sh && rm /install.sh
+# Labels standards OCI
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay Library API" \
+      org.opencontainers.image.description="Service API de gestion de la bibliothèque musicale"
 
-COPY ./backend/requirements.txt /backend/requirements.txt
-RUN /root/.local/bin/uv venv /opt/venv && \
-    /root/.local/bin/uv pip install --no-cache-dir -r requirements.txt
+# Configuration du timeout UV
+ENV UV_TIMEOUT=300 \
+    UV_HTTP_TIMEOUT=180
 
-FROM python:3.13-slim AS runner
+# Copie et installation des dépendances spécifiques
+COPY --link backend/library_api/requirements.txt ./
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    uv pip install --system -r requirements.txt && \
+    # Vérification de l'installation
+    python3 -m uvicorn --version && \
+    ln -sf $(which python3) /usr/local/bin/python
 
-ARG LOCALE_LANGUAGE=en_US
-ARG ENV_LOCALE_LANGUAGE
-ENV LOCALE_LANGUAGE=${ENV_LOCALE_LANGUAGE:-${LOCALE_LANGUAGE}}
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+# Stage 2: Runner
+FROM do14500352/soniquebay-base:latest AS runner
 
-ARG TZ=UTC
-ARG ENV_TZ
-ENV TZ=${ENV_TZ:-${TZ}}
+WORKDIR /app
 
-RUN echo "deb http://ftp.fr.debian.org/debian bookworm main" > /etc/apt/sources.list && \
-    apt-get update && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    curl \
-    gcc \
-    g++ \
-    libpq-dev \
-    nfs-common \
-    cifs-utils \
-    unixodbc \
-    unixodbc-dev && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PATH="/opt/venv/bin:$PATH"
-
-COPY --from=builder /opt/venv /opt/venv
-
-WORKDIR /backend
-#COPY ./backend .
-COPY ../alembic.ini /alembic.ini
-COPY ../alembic /alembic
-COPY scripts/healthcheck.sh /healthcheck.sh
+# Copie de l'environnement virtuel et des fichiers
+COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --link scripts/healthcheck.sh /healthcheck.sh
 RUN chmod +x /healthcheck.sh && \
-    sed -i 's|script_location = alembic|script_location = /alembic|' /alembic.ini && \
-    sed -i 's|prepend_sys_path = .|prepend_sys_path = /backend|' /alembic.ini
+    # Vérification finale
+    python3 -m uvicorn --version && \
+    ln -sf $(which python3) /usr/local/bin/python
 
-CMD ["python", "/backend/start_api.py"]
+# Ajout de l'entrée par défaut
+CMD ["python3", "-m", "uvicorn", "backend.library_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD /healthcheck.sh
+# Copie des fichiers de l'application
+COPY --link backend/library_api /app/backend/library_api
+COPY --link alembic /app/alembic
+COPY --link alembic.ini /app/alembic.ini
+
+# Configuration du healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD /healthcheck.sh
+

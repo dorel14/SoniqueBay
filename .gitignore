@@ -21,6 +21,8 @@ data/
 codeflash*
 search_indexes/
 search_index/
+redis_data/
+celery_beat_data/
 
 # Database files
 *.db
@@ -33,3 +35,15 @@ search_index/
 
 # Virtual environments
 .venv
+
+# Generated benchmark files
+tests/benchmark/benchmark_report.html
+tests/benchmark/benchmark_results.json
+tests/benchmark/comprehensive_benchmark_results.json
+tests/benchmark/scanner_benchmark_results.json
+
+# Celery beat schedule
+celerybeat-schedule.db
+
+# Logs
+tests/backend/logs.log

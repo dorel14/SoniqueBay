@@ -1,7 +1,7 @@
 import httpx
 from typing import Optional
 import os
-from library_api.utils.logging import logger
+from backend.recommender_api.utils.logging import logger
 
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api')
 

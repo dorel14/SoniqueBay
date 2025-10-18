@@ -6,10 +6,12 @@ from sqlalchemy import pool
 from alembic import context
 from backend.recommender_api.utils.database import get_database_url, Base
 from backend.recommender_api.api.models.listening_history_model import ListeningHistory  # noqa: F401
-from backend.recommender_api.api.models.track_vectors_model import TrackVector, TrackVectorVirtual  # noqa: F401
+from backend.recommender_api.api.models.track_vectors_model import TrackVectorVirtual  # noqa: F401
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+# Set script_location directly instead of relying on the ini file
+config.set_main_option("script_location", "backend/recommender_api/alembic_recommender")
 db_url = get_database_url()
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

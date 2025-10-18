@@ -53,10 +53,11 @@ async def startup():
 
 app.on_startup(startup)
 register_dynamic_routes()
-ui.run(title='SoniqueBay')
-ui.run(host='0.0.0.0',
-        title=f'SoniqueBay v{version}',
-                favicon='./static/favicon.ico',
-                reload=True,
-                uvicorn_reload_dirs='/frontend',
-                show=False,)
+ui.run(
+    host='0.0.0.0',
+    title=f'SoniqueBay v{version}',
+    favicon='./static/favicon.ico',
+    reload=True,
+    uvicorn_reload_dirs='/app/frontend',
+    show=False,
+)

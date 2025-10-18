@@ -1,4 +1,5 @@
 from __future__ import annotations
+import sqlite3
 from sqlalchemy import Integer, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.ext.mutable import MutableList
@@ -38,32 +39,14 @@ class VecTableMixin:
         return result
 
 
-# Ancien modèle pour compatibilité (sera supprimé)
-class TrackVector(Base):
-    __tablename__ = 'track_vectors'
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id', ondelete='CASCADE'), nullable=False)
-    vector_data: Mapped[list] = mapped_column(MutableList.as_mutable(JSONList))  # Stocke sous forme de liste JSON
-    # Relations
-    # track: Mapped["Track"] = relationship("Track", back_populates="vectors")  # type: ignore # noqa: F821
-
-    __table_args__ = (
-        # Index pour les lookups rapides par track_id
-        Index('idx_track_vectors_track_id', 'track_id'),
-    )
-
-    def __repr__(self):
-        return f"<TrackVector(track_id='{self.track_id}', vector_data='{self.vector_data[:20]}...')>"  # Display first 20 characters of vector data
-
-
 # Nouveau modèle pour sqlite-vec (table virtuelle)
 class TrackVectorVirtual(VecTableMixin, Base):
     """
     Modèle pour la table virtuelle sqlite-vec track_vectors.
     Utilise vec0 pour le stockage optimisé des vecteurs.
     """
-    __tablename__ = 'track_vectors_virtual'
+    __tablename__ = 'track_vectors'
+    __table_args__ = {'extend_existing': True}
 
     track_id: Mapped[int] = mapped_column(Integer, primary_key=True)
     embedding: Mapped[list] = mapped_column(MutableList.as_mutable(JSONList))  # Stockage JSON pour compatibilité
@@ -89,9 +72,12 @@ class TrackVectorVirtual(VecTableMixin, Base):
 
         try:
             cls.execute(sql, (track_id, embedding_json), commit=True)
+        except sqlite3.Error as e:
+            logger.error(f"Erreur SQLite lors de l'insertion du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec de l'insertion du vecteur: {str(e)}") from e
         except Exception as e:
-            logger.error(f"Error in insert_vector: {e}")
-            raise
+            logger.error(f"Erreur inattendue lors de l'insertion du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec inattendu de l'insertion du vecteur: {str(e)}") from e
 
     @classmethod
     def search_similar(cls, query_embedding: list, limit: int = 10):
@@ -110,9 +96,12 @@ class TrackVectorVirtual(VecTableMixin, Base):
 
         try:
             rows = cls.execute(sql, (query_json, limit)).fetchall()
+        except sqlite3.Error as e:
+            logger.error(f"Erreur SQLite lors de la recherche de vecteurs similaires: {e}")
+            raise RuntimeError(f"Échec de la recherche de vecteurs similaires: {str(e)}") from e
         except Exception as e:
-            logger.error(f"Error in search_similar: {e}")
-            raise
+            logger.error(f"Erreur inattendue lors de la recherche de vecteurs similaires: {e}")
+            raise RuntimeError(f"Échec inattendu de la recherche: {str(e)}") from e
 
         return [{'track_id': row[0], 'distance': float(row[1])} for row in rows]
 
@@ -154,9 +143,12 @@ class TrackVectorVirtual(VecTableMixin, Base):
 
         try:
             row = cls.execute(sql, (track_id,)).fetchone()
+        except sqlite3.Error as e:
+            logger.error(f"Erreur SQLite lors de la récupération du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec de la récupération du vecteur: {str(e)}") from e
         except Exception as e:
-            logger.error(f"Error in get_vector: {e}")
-            raise
+            logger.error(f"Erreur inattendue lors de la récupération du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec inattendu de la récupération: {str(e)}") from e
 
         if row:
             return {
@@ -177,6 +169,9 @@ class TrackVectorVirtual(VecTableMixin, Base):
 
         try:
             cls.execute(sql, (track_id,), commit=True)
+        except sqlite3.Error as e:
+            logger.error(f"Erreur SQLite lors de la suppression du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec de la suppression du vecteur: {str(e)}") from e
         except Exception as e:
-            logger.error(f"Error in delete_vector: {e}")
-            raise
+            logger.error(f"Erreur inattendue lors de la suppression du vecteur pour track_id={track_id}: {e}")
+            raise RuntimeError(f"Échec inattendu de la suppression: {str(e)}") from e

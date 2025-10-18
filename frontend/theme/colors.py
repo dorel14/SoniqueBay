@@ -27,8 +27,11 @@ THEME_DARK = {
 
 
 def apply_theme():
+    dark_mode_state = ui.dark_mode()
+    
     def update_colors(is_dark: bool):
         theme = THEME_DARK if is_dark else THEME_LIGHT
         ui.colors(**theme)
-    ui.dark_mode().bind_value_to(update_colors)
-    update_colors(ui.dark_mode().value)
+    
+    dark_mode_state.on('value_change', lambda e: update_colors(e.value))
+    update_colors(dark_mode_state.value)

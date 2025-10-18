@@ -3,23 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from fastapi import FastAPI, WebSocket, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from contextlib import asynccontextmanager
-from backend.library_api.utils import settings
+from backend.recommender_api.utils import settings
 from strawberry.fastapi import BaseContext
 from sqlalchemy.orm import Session
 from typing import Annotated
-from backend.library_api.utils.logging import logger
-from backend.library_api.utils.settings import Settings
-from backend.library_api.services.settings_service import SettingsService
+from backend.recommender_api.utils.logging import logger
+from backend.recommender_api.utils.settings import Settings
 import redis.asyncio as redis
-from backend.library_api.utils.database import get_session
+from backend.recommender_api.utils.database import get_session
 from backend.recommender_api.utils.sqlite_vec_init import initialize_sqlite_vec
-import alembic.config
-import alembic.command
-import os
-# Initialiser la base de données avec les migrations
-alembic_cfg = alembic.config.Config(os.path.join(os.path.dirname(__file__), "alembic_recommender.ini"))
-alembic.command.upgrade(alembic_cfg, "head")
+from alembic.config import Config
+from alembic import command
 
 # Importer les routes avant toute autre initialisation
 from backend.recommender_api.api import api_router  # noqa: E402
@@ -44,9 +42,24 @@ async def lifespan(app: FastAPI):
     """Gestionnaire de lifespan pour l'application FastAPI."""
     # Code d'initialisation (startup)
     logger.info("Démarrage de l'API...")
-    await SettingsService().initialize_default_settings()
-    # Initialiser sqlite-vec
-    initialize_sqlite_vec()
+    # Exécuter les migrations Alembic automatiquement
+    try:
+        logger.info("Exécution des migrations Alembic pour recommender...")
+        # Configurer Alembic avec le script_location direct
+        alembic_cfg = Config()
+        alembic_cfg.set_main_option("script_location", "backend/recommender_api/alembic_recommender")
+        # Exécuter la commande upgrade
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Migrations Alembic recommender appliquées avec succès.")
+    except Exception as e:
+        logger.error(f"Erreur lors de l'exécution des migrations Alembic recommender: {str(e)}")
+        raise RuntimeError(f"Échec des migrations Alembic recommender: {str(e)}")
+        # Initialiser sqlite-vec
+    try:
+        initialize_sqlite_vec()
+    except Exception as e:
+        logger.error(f"Erreur lors de l'initialisation de sqlite-vec: {e}")
+
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):
@@ -143,6 +156,12 @@ async def global_ws(websocket: WebSocket):
             await redis_client.close()
         logger.info("WebSocket disconnected.")
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
+    )
 
 
 

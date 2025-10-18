@@ -27,6 +27,9 @@ def get_vec_connection():
             raise ValueError("Seules les bases SQLite sont supportées pour sqlite-vec")
 
         _vec_conn = sqlite3.connect(db_path)
+        # Autoriser l'utilisation des extensions SQLite
+        _vec_conn.execute("PRAGMA trusted_schema = ON;")
+        _vec_conn.execute("PRAGMA module_list = ON;")
         logger.info(f"Connexion sqlite-vec établie: {db_path}")
 
     return _vec_conn
@@ -49,64 +52,62 @@ def create_vector_tables():
         try:
             conn.enable_load_extension(True)
             logger.info("load_extension activée sur la connexion sqlite3")
+            
+            # Vérifier les permissions du fichier
+            try:
+                import sqlite_vec
+                vec_module_path = os.path.dirname(sqlite_vec.__file__)
+                vec_so_path = os.path.join(vec_module_path, 'vec0.so')
+                logger.info(f"Permissions du fichier vec0.so: {oct(os.stat(vec_so_path).st_mode)}")
+            except Exception as e:
+                logger.warning(f"Impossible de vérifier les permissions: {e}")
 
-            # Essayer de charger depuis le répertoire du projet d'abord
-            vec_path = os.path.join(os.path.dirname(__file__), '..', '..', 'sqlite-vec', 'vec0')
-            logger.info(f"Chemin projet essayé: {vec_path}.so / {vec_path}.dll")
-            if os.path.exists(vec_path + '.so'):
-                logger.info(f"Fichier {vec_path}.so trouvé, chargement...")
-                conn.load_extension(vec_path)
-                logger.info("Extension sqlite-vec chargée depuis le répertoire du projet (.so)")
-            elif os.path.exists(vec_path + '.dll'):
-                logger.info(f"Fichier {vec_path}.dll trouvé, chargement...")
-                conn.load_extension(vec_path)
-                logger.info("Extension sqlite-vec chargée depuis le répertoire du projet (.dll)")
-            else:
-                logger.warning("Aucun fichier trouvé dans le répertoire projet, essai système")
-                # Charger depuis le système
+            # Essayer de charger depuis le package pip d'abord
+            try:
+                # Chercher d'abord dans le chemin système
                 try:
-                    conn.load_extension('vec0')
-                    logger.info("Extension sqlite-vec chargée depuis le système")
+                    conn.load_extension('/usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so')
+                    logger.info("Extension sqlite-vec chargée depuis le chemin système")
+                    return True
                 except Exception as sys_e:
-                    logger.error(f"Échec chargement système: {sys_e}")
-                    # Essayer les chemins courants pour sqlite-vec installé via pip
-                    import sqlite_vec
-                    vec_module_path = os.path.dirname(sqlite_vec.__file__)
-                    possible_paths = [
-                        os.path.join(vec_module_path, 'vec0'),
-                        '/usr/local/lib/sqlite-vec/vec0',
-                        '/opt/venv/lib/python3.13/site-packages/sqlite_vec/vec0'
-                    ]
-                    for path in possible_paths:
-                        logger.info(f"Essai chemin alternatif: {path}")
-                        if os.path.exists(path + '.so'):
-                            logger.info(f"Fichier trouvé: {path}.so, chargement...")
-                            conn.load_extension(path)
-                            logger.info("Extension sqlite-vec chargée depuis chemin alternatif")
-                            break
-                        elif os.path.exists(path):
-                            logger.info(f"Fichier trouvé sans extension: {path}, chargement...")
-                            conn.load_extension(path)
-                            logger.info("Extension sqlite-vec chargée depuis chemin alternatif (sans ext)")
-                            break
-                    else:
-                        logger.error("Aucun chemin alternatif n'a fonctionné")
-                        raise sys_e
+                    logger.warning(f"Échec du chargement depuis le chemin système: {sys_e}")
 
-            conn.enable_load_extension(False)
+                # Essayer ensuite via le package pip
+                import sqlite_vec
+                vec_module_path = os.path.dirname(sqlite_vec.__file__)
+                vec_path = os.path.join(vec_module_path, 'vec0.so')
+                logger.info(f"Tentative de chargement depuis le package pip: {vec_path}")
+                
+                if os.path.exists(vec_path):
+                    conn.load_extension(vec_path)
+                    logger.info("Extension sqlite-vec chargée depuis le package pip")
+                    return True
+                else:
+                    raise FileNotFoundError(f"Extension non trouvée dans {vec_path}")
+                    
+            except Exception as e:
+                logger.error(f"Échec du chargement de l'extension: {e}")
+                raise RuntimeError("Impossible de charger l'extension sqlite-vec") from e
+
+            # Ne pas désactiver le chargement d'extension ici car on en a encore besoin
         except Exception as e:
-            logger.error(f"Impossible de charger l'extension sqlite-vec: {e}")
-            return False
+            logger.error(f"Impossible de charger l'extension sqlite-vec: {str(e)}")
+            logger.error("Vérifiez que le package sqlite-vec est installé: pip install sqlite-vec")
+            raise RuntimeError("Échec de l'initialisation de sqlite-vec") from e
 
         # Créer la table virtuelle track_vectors pour vérifier la disponibilité de sqlite-vec
         try:
+            # Supprimer la table si elle existe pour la recréer avec la bonne configuration
+            cursor.execute("DROP TABLE IF EXISTS track_vectors")
+            # Ne pas recharger l'extension ici car déjà chargée plus haut
+            # Créer la table virtuelle avec la dimension spécifiée et l'index
             cursor.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS track_vectors
-                USING vec0(
-                    track_id INTEGER PRIMARY KEY,
-                    embedding TEXT
+                CREATE VIRTUAL TABLE IF NOT EXISTS track_vectors USING vec0(
+                    id INTEGER PRIMARY KEY,
+                    embedding FLOAT[384]
                 );
             """)
+            
             conn.commit()
             logger.info("Table virtuelle track_vectors créée avec succès - sqlite-vec est disponible")
             return True

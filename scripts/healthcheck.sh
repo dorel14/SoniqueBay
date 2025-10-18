@@ -1,16 +1,15 @@
 #!/bin/bash
 
-# Désactiver la redirection automatique de curl
-# Afficher les entêtes pour le débogage
-status_code=$(curl -s -o /dev/null -w "%{http_code}" \
-              --max-redirs 0 \
-              --no-location \
-              http://localhost:8001/api/healthcheck)
+# Vérification de l'endpoint healthcheck
+# L'option -f fait échouer silencieusement curl en cas d'erreur HTTP
+# L'option -s supprime la barre de progression
+response=$(curl -f -s http://localhost:${HEALTHCHECK_PORT:-8000}/api/healthcheck)
+status=$?
 
-echo "Status code: $status_code"
-
-if [ "$status_code" -eq 200 ]; then
+if [ $status -eq 0 ]; then
+    # Le service répond correctement
     exit 0
 else
+    # Le service ne répond pas
     exit 1
 fi
