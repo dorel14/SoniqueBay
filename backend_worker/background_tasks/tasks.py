@@ -1,6 +1,6 @@
 import asyncio
 import httpx
-
+import os
 from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 from backend_worker.services.scanner import scan_music_task
@@ -34,7 +34,7 @@ def scan_music_tasks(self, directory: str, cleanup_deleted: bool = False):
             logger.error(f"DEBUG: Erreur lors de l'inspection des tâches actives: {e}")
 
         # Debug: Vérifier les variables d'environnement
-        import os
+
         logger.info(f"DEBUG: CELERY_BROKER_URL: {os.getenv('CELERY_BROKER_URL', 'NOT SET')}")
         logger.info(f"DEBUG: CELERY_RESULT_BACKEND: {os.getenv('CELERY_RESULT_BACKEND', 'NOT SET')}")
 
@@ -48,6 +48,13 @@ def scan_music_tasks(self, directory: str, cleanup_deleted: bool = False):
 
         def progress_callback(progress):
             # progress = {"current": x, "total": y, "percent": z}
+            # DIAGNOSTIC: Vérifier le format du progress
+            logger.debug(f"[scan_music_task] Progress callback appelé avec: {progress} (type: {type(progress)})")
+            if isinstance(progress, dict):
+                logger.debug(f"[scan_music_task] Clés du progress: {list(progress.keys())}")
+                for key, value in progress.items():
+                    logger.debug(f"[scan_music_task] Progress {key}: {value} (type: {type(value)})")
+
             payload = {
                 "task_id": self.request.id,
                 **progress
@@ -58,7 +65,7 @@ def scan_music_tasks(self, directory: str, cleanup_deleted: bool = False):
             # Update scan session progress
             try:
                 import httpx
-                api_url = "http://backend:8001"
+                api_url = os.getenv("BACKEND_API_URL", "http://library:8001")
                 # Find session by task_id
                 response = httpx.get(f"{api_url}/api/scan-sessions/", timeout=5)
                 if response.status_code == 200:
@@ -91,7 +98,7 @@ def scan_music_tasks(self, directory: str, cleanup_deleted: bool = False):
         # Tenter de mettre à jour la session de scan
         try:
             import httpx
-            api_url = "http://backend:8001"
+            api_url = os.getenv("BACKEND_API_URL", "http://library:8001")
             response = httpx.get(f"{api_url}/api/scan-sessions/", timeout=5)
             if response.status_code == 200:
                 sessions = response.json()
@@ -154,7 +161,7 @@ def cleanup_deleted_tracks_task(directory: str):
     logger.info(f"Démarrage du nettoyage des pistes supprimées pour {directory}")
 
     # Get all tracks in DB for this directory
-    api_url = "http://backend:8001"
+    api_url = os.getenv("BACKEND_API_URL", "http://library:8001")
     try:
         response = httpx.get(f"{api_url}/api/tracks/", timeout=30)
         if response.status_code != 200:

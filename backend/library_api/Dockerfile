@@ -32,21 +32,22 @@ FROM do14500352/soniquebay-base:latest AS runner
 
 WORKDIR /app
 
+# Copie des fichiers de l'application D'ABORD
+COPY --link backend/library_api /app/backend/library_api
+COPY --link alembic /app/alembic
+COPY --link alembic.ini /app/alembic.ini
+
 # Copie de l'environnement virtuel et des fichiers
 COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --link scripts/healthcheck.sh /healthcheck.sh
 RUN chmod +x /healthcheck.sh && \
     # Vérification finale
+    python3 -c "import strawberry; print('strawberry import successful')" && \
     python3 -m uvicorn --version && \
     ln -sf $(which python3) /usr/local/bin/python
 
 # Ajout de l'entrée par défaut
 CMD ["python3", "-m", "uvicorn", "backend.library_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
-
-# Copie des fichiers de l'application
-COPY --link backend/library_api /app/backend/library_api
-COPY --link alembic /app/alembic
-COPY --link alembic.ini /app/alembic.ini
 
 # Configuration du healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

@@ -41,18 +41,48 @@ def get_database_url():
 
     raise ValueError(f"Base de données non supportée: {db_type}")
 
-# Créer l'engine après la définition de l'URL
-if os.getenv('DB_TYPE', 'sqlite').lower() == 'sqlite':
-    engine = create_engine(get_database_url(), connect_args={"check_same_thread": False})
+# Configuration optimisée pour les batches
+def get_engine_config():
+    """Retourne la configuration optimisée pour l'engine selon le type de DB."""
+    base_config = {
+        'pool_size': 20,                    # Connexions permanentes
+        'max_overflow': 50,                 # Connexions supplémentaires si nécessaire
+        'pool_pre_ping': True,              # Vérification des connexions
+        'pool_recycle': 3600,               # Recycle des connexions toutes les heures
+        'echo': False                       # Désactiver le logging SQL en production
+    }
 
+    if os.getenv('DB_TYPE', 'sqlite').lower() == 'sqlite':
+        # Optimisations spécifiques à SQLite pour les batches
+        sqlite_config = {
+            **base_config,
+            'connect_args': {
+                "check_same_thread": False,
+                # Optimisations pour les insertions en batch
+                "timeout": 30,              # Timeout plus long pour les transactions
+            }
+        }
+        return sqlite_config
+    else:
+        # Configuration pour PostgreSQL/MySQL
+        return base_config
+
+# Créer l'engine avec la configuration optimisée
+engine = create_engine(get_database_url(), **get_engine_config())
+
+# Configuration spécifique selon le type de base de données
+if os.getenv('DB_TYPE', 'sqlite').lower() == 'sqlite':
     # Enable foreign key support for SQLite
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        # Optimisations pour les performances de batch
+        cursor.execute("PRAGMA journal_mode=WAL")      # Mode WAL pour les écritures concurrentes
+        cursor.execute("PRAGMA synchronous=NORMAL")    # Équilibre performance/sécurité
+        cursor.execute("PRAGMA cache_size=10000")     # Cache plus grand (en pages de 1KB)
+        cursor.execute("PRAGMA temp_store=memory")    # Stockage temporaire en mémoire
         cursor.close()
-else:
-    engine = create_engine(get_database_url())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():

@@ -56,4 +56,4 @@ COPY --link ./frontend /app/frontend
 WORKDIR /app/frontend
 
 
-CMD ["python", "/app/frontend/start_ui.py"]
+CMD ["python", "start_ui.py"]

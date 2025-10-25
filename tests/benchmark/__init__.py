@@ -1,12 +1,6 @@
-# tests/benchmark/__init__.py
 """
-Module de benchmarks pour mesurer les performances de l'application SoniqueBay.
+Tests de benchmark pour mesurer les performances du système.
 
-Ce module contient des benchmarks pour :
-- Services audio (analyse Librosa, extraction de caractéristiques)
-- API REST (endpoints CRUD, recherche, batch operations)
-- API GraphQL (queries et mutations)
-- Base de données (opérations CRUD, requêtes complexes)
+Ce package contient les benchmarks pour valider les améliorations
+de performance du système de scan optimisé.
 """
-
-__version__ = "1.0.0"

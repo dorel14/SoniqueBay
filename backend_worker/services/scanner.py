@@ -304,11 +304,89 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=200
             max_parallel_chunks=max_parallel_chunks
         )
 
-        # Étape 1: Récupérer la configuration
-        settings_service = SettingsService()
-        template = await settings_service.get_setting(MUSIC_PATH_TEMPLATE)
-        artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
-        cover_files_json = await settings_service.get_setting(ALBUM_COVER_FILES)
+        # Étape 1: Récupérer la configuration avec gestion d'erreur robuste
+        api_url = os.getenv('API_URL', 'http://library:8001')
+        logger.info(f"[Scanner] Initialisation du service de paramètres avec URL: {api_url}")
+        settings_service = SettingsService(api_url)
+
+        max_retries = 3
+        retry_delay = 2.0
+
+        # DIAGNOSTIC: Vérifier les valeurs initiales
+        logger.debug(f"[Scanner] Valeurs initiales - retry_delay: {retry_delay} (type: {type(retry_delay)})")
+        logger.debug(f"[Scanner] Valeurs initiales - max_retries: {max_retries} (type: {type(max_retries)})")
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"[Scanner] Récupération du template de chemin musical (tentative {attempt + 1}/{max_retries})...")
+                template = await settings_service.get_setting(MUSIC_PATH_TEMPLATE)
+
+                # CORRECTION: Vérifier et corriger le type du template
+                logger.debug(f"[Scanner] Type du template: {type(template)}")
+                if isinstance(template, dict):
+                    logger.error(f"[Scanner] ERREUR: Template est un dictionnaire: {template}")
+                    # CORRECTION: Essayer de corriger automatiquement
+                    if 'value' in template:
+                        template = template['value']
+                    elif len(template) == 1:
+                        template = list(template.values())[0]
+                    else:
+                        logger.error(f"[Scanner] Impossible de corriger le template automatiquement")
+                        template = None
+
+                if template:
+                    logger.info(f"[Scanner] Template récupéré: {template}")
+                else:
+                    logger.warning(f"[Scanner] Template vide reçu, utilisation de la valeur par défaut")
+                    template = "{album_artist}/{album}/{track_num} {title}"
+
+                logger.info(f"[Scanner] Récupération des fichiers d'images d'artistes...")
+                artist_files_json = await settings_service.get_setting(ARTIST_IMAGE_FILES)
+                logger.info(f"[Scanner] Fichiers d'artistes récupérés: {artist_files_json}")
+                # CORRECTION: Vérifier et corriger le type des paramètres récupérés
+                logger.debug(f"[Scanner] Type de artist_files_json: {type(artist_files_json)}")
+                if isinstance(artist_files_json, dict):
+                    logger.error(f"[Scanner] ERREUR: artist_files_json est un dictionnaire: {artist_files_json}")
+                    # CORRECTION: Essayer de corriger automatiquement
+                    if 'value' in artist_files_json:
+                        artist_files_json = artist_files_json['value']
+                    elif len(artist_files_json) == 1:
+                        artist_files_json = list(artist_files_json.values())[0]
+                    else:
+                        logger.error(f"[Scanner] Impossible de corriger artist_files_json automatiquement")
+                        artist_files_json = "[]"
+
+                logger.info(f"[Scanner] Récupération des fichiers de couverture d'albums...")
+                cover_files_json = await settings_service.get_setting(ALBUM_COVER_FILES)
+                logger.info(f"[Scanner] Fichiers de couverture récupérés: {cover_files_json}")
+                # CORRECTION: Vérifier et corriger le type des paramètres récupérés
+                logger.debug(f"[Scanner] Type de cover_files_json: {type(cover_files_json)}")
+                if isinstance(cover_files_json, dict):
+                    logger.error(f"[Scanner] ERREUR: cover_files_json est un dictionnaire: {cover_files_json}")
+                    # CORRECTION: Essayer de corriger automatiquement
+                    if 'value' in cover_files_json:
+                        cover_files_json = cover_files_json['value']
+                    elif len(cover_files_json) == 1:
+                        cover_files_json = list(cover_files_json.values())[0]
+                    else:
+                        logger.error(f"[Scanner] Impossible de corriger cover_files_json automatiquement")
+                        cover_files_json = "[]"
+                break  # Succès, sortir de la boucle de retry
+
+            except Exception as e:
+                logger.error(f"[Scanner] Erreur lors de la récupération des paramètres (tentative {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"[Scanner] Nouvelle tentative dans {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 1.5  # Backoff exponentiel
+                else:
+                    logger.error(f"[Scanner] Échec définitif après {max_retries} tentatives")
+                    logger.error(f"[Scanner] Cela indique que l'API n'est pas accessible sur {settings_service.api_url}")
+                    # Au lieu de lever l'exception, utiliser des valeurs par défaut
+                    logger.warning(f"[Scanner] Utilisation de valeurs par défaut pour continuer le scan")
+                    template = "{album_artist}/{album}/{track_num} {title}"
+                    artist_files_json = "[]"
+                    cover_files_json = "[]"
 
         # SECURITY: Validate and normalize the base directory
         try:
@@ -317,6 +395,19 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=200
         except (OSError, ValueError) as e:
             logger.error(f"Répertoire de base invalide: {directory} - {e}")
             raise ValueError(f"Invalid base directory: {directory}")
+
+        # CORRECTION: S'assurer que les paramètres ne sont pas des dictionnaires
+        if isinstance(template, dict):
+            logger.error(f"[Scanner] Template toujours un dictionnaire après correction: {template}")
+            template = "{album_artist}/{album}/{track_num} {title}"
+
+        if isinstance(artist_files_json, dict):
+            logger.error(f"[Scanner] artist_files_json toujours un dictionnaire après correction: {artist_files_json}")
+            artist_files_json = "[]"
+
+        if isinstance(cover_files_json, dict):
+            logger.error(f"[Scanner] cover_files_json toujours un dictionnaire après correction: {cover_files_json}")
+            cover_files_json = "[]"
 
         scan_config = {
             "template": template,
@@ -346,7 +437,10 @@ async def scan_music_task(directory: str, progress_callback=None, chunk_size=200
         all_cover_tasks = []
 
         # Étape 3: Collecte et traitement par gros chunks avec collecte des données
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        # DIAGNOSTIC: Vérifier le timeout httpx
+        timeout_value = 300.0
+        logger.debug(f"[Scanner] Timeout httpx initial: {timeout_value} (type: {type(timeout_value)})")
+        async with httpx.AsyncClient(timeout=timeout_value) as client:
             file_batch = []
             batch_size = 500  # Taille des batches pour l'extraction parallèle (augmenté)
 

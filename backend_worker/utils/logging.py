@@ -14,7 +14,8 @@ log_queue = multiprocessing.Queue(-1)
 date_format = "%Y%m%d"
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
-logdir = os.path.join(parentdir, '/logs')
+# Utiliser un chemin relatif pour les logs dans le répertoire de l'application
+logdir = os.path.join(parentdir, 'logs')
 logfiles = os.path.join(logdir, 'soniquebay - '+ datetime.today().strftime(date_format) +'.log')
 
 

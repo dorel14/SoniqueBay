@@ -70,8 +70,17 @@ class ScanService:
 
     @staticmethod
     def launch_scan(directory: str = None, db: Session = None, cleanup_deleted: bool = False):
+        # DIAGNOSTIC: Vérifier toutes les variables d'environnement disponibles
+        logger.info("=== DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
+        for key in sorted(os.environ.keys()):
+            if any(env_var in key for env_var in ['MUSIC', 'PLATFORM', 'CELERY', 'DOCKER']):
+                logger.info(f"ENV: {key}={os.environ[key]}")
+
         if not directory:
-            docker_directory = os.getenv('MUSIC_PATH', '/music')
+            music_path_env = os.getenv('MUSIC_PATH')
+            logger.info(f"MUSIC_PATH env var: '{music_path_env}' (type: {type(music_path_env)})")
+            docker_directory = music_path_env if music_path_env else '/music'
+            logger.info(f"Using default directory: '{docker_directory}'")
         else:
             converted_directory = ScanService.convert_path_to_docker(directory)
             # Si le répertoire converti commence déjà par /music, l'utiliser tel quel
@@ -80,9 +89,39 @@ class ScanService:
             else:
                 # Sinon, l'ajouter au préfixe /music
                 docker_directory = f'/music/{converted_directory.lstrip("/")}'
+
         logger.info(f"MUSIC_PATH: {os.getenv('MUSIC_PATH')}")
         logger.info(f"PLATFORM: {os.getenv('PLATFORM')}")
         logger.info(f"Répertoire à scanner avant résolution: {docker_directory}")
+
+        # DIAGNOSTIC: Vérifier si le répertoire existe et ses permissions
+        logger.info(f"=== DIAGNOSTIC RÉPERTOIRE {docker_directory} ===")
+        if os.path.exists(docker_directory):
+            logger.info(f"✓ Répertoire existe: {docker_directory}")
+            try:
+                stat_info = os.stat(docker_directory)
+                logger.info(f"✓ Stat réussi: mode={oct(stat_info.st_mode)}, uid={stat_info.st_uid}, gid={stat_info.st_gid}")
+                try:
+                    contents = os.listdir(docker_directory)
+                    logger.info(f"✓ Liste contents réussi: {len(contents)} éléments")
+                    logger.info(f"Premiers éléments: {contents[:5]}")
+                except Exception as list_error:
+                    logger.error(f"✗ Erreur listdir: {list_error}")
+            except Exception as stat_error:
+                logger.error(f"✗ Erreur stat: {stat_error}")
+        else:
+            logger.error(f"✗ Répertoire n'existe PAS: {docker_directory}")
+            # Lister le répertoire parent pour diagnostic
+            parent_dir = os.path.dirname(docker_directory)
+            if os.path.exists(parent_dir):
+                logger.info(f"Parent existe: {parent_dir}")
+                try:
+                    parent_contents = os.listdir(parent_dir)
+                    logger.info(f"Contents parent: {parent_contents}")
+                except Exception as parent_error:
+                    logger.error(f"Erreur listdir parent: {parent_error}")
+            else:
+                logger.error(f"✗ Parent n'existe pas non plus: {parent_dir}")
         # SECURITY: Résoudre le chemin pour nettoyer les ../ et éviter Path Traversal
         from pathlib import Path
         resolved_docker_directory = str(Path(docker_directory).resolve())
@@ -152,16 +191,16 @@ class ScanService:
         scan_session = None
         try:
             logger.info(f"Appel de celery.send_task...")
-            # IMPORTANT: Spécifier explicitement la queue worker_scan
+            # IMPORTANT: Spécifier explicitement la queue scan (celle écoutée par les workers)
             result = celery.send_task(
                 "scan_music_task",
                 args=[docker_directory, cleanup_deleted],
-                queue="worker_scan"  # Forcer l'envoi vers la bonne queue
+                queue="scan"  # Queue écoutée par les scan-workers
             )
             logger.info(f"Tâche envoyée avec succès - Task ID: {result.id}")
             logger.info(f"Tâche envoyée avec succès - Status: {result.status}")
             logger.info(f"Tâche envoyée avec succès - Backend: {result.backend}")
-            logger.info(f"Tâche envoyée vers la queue: worker_scan")
+            logger.info(f"Tâche envoyée vers la queue: scan")
 
             # Créer la session de scan seulement si la tâche a été envoyée avec succès
             if db:

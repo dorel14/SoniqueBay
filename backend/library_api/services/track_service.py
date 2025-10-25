@@ -87,36 +87,163 @@ class TrackService:
         return track
 
     def create_or_update_tracks_batch(self, tracks_data: List[TrackCreate]):
-        result = []
+        """
+        Crée ou met à jour des pistes en batch de manière optimisée.
+
+        Args:
+            tracks_data: Liste des données de pistes à traiter
+
+        Returns:
+            Liste des pistes créées ou mises à jour
+        """
+        if not tracks_data:
+            return []
+
+        logger.info(f"[TRACK_BATCH] Traitement de {len(tracks_data)} pistes en batch")
+
+        # Étape 1: Récupérer tous les chemins existants en une seule requête
+        paths = [data.path for data in tracks_data if data.path]
+        existing_tracks_by_path = {}
+
+        if paths:
+            existing_tracks = self.session.query(TrackModel).filter(TrackModel.path.in_(paths)).all()
+            existing_tracks_by_path = {track.path: track for track in existing_tracks}
+
+        # Étape 2: Séparer les tracks à créer et à mettre à jour
+        tracks_to_create = []
+        tracks_to_update = []
+
         for data in tracks_data:
-            existing = self.session.query(TrackModel).filter(TrackModel.path == data.path).first()
+            existing = existing_tracks_by_path.get(data.path)
             if existing:
-                # Check if file has changed
+                # Vérifier si le fichier a changé
+                file_changed = True
                 if hasattr(data, 'file_mtime') and hasattr(data, 'file_size'):
-                    logger.debug(f"Checking file change for track {existing.id}: existing mtime={getattr(existing, 'file_mtime', 'N/A')}, new mtime={data.file_mtime}")
                     try:
                         if (existing.file_mtime == data.file_mtime and
                             existing.file_size == data.file_size):
-                            # File unchanged, skip update
-                            result.append(existing)
-                            continue
-                    except AttributeError as e:
-                        logger.error(f"AttributeError accessing file_mtime on track {existing.id}: {e}")
-                        # If column doesn't exist, assume file changed and update
+                            file_changed = False
+                    except AttributeError:
+                        # Si les colonnes n'existent pas, considérer que le fichier a changé
+                        pass
 
-                # Update existing track
+                if file_changed:
+                    tracks_to_update.append((existing, data))
+                # Sinon, on garde la piste existante telle quelle
+            else:
+                tracks_to_create.append(data)
+
+        logger.info(f"[TRACK_BATCH] {len(tracks_to_create)} à créer, {len(tracks_to_update)} à mettre à jour")
+
+        result = []
+
+        # Étape 3: Création en batch
+        if tracks_to_create:
+            created_tracks = self._create_tracks_batch_optimized(tracks_to_create)
+            result.extend(created_tracks)
+
+        # Étape 4: Mise à jour en batch
+        if tracks_to_update:
+            updated_tracks = self._update_tracks_batch_optimized(tracks_to_update)
+            result.extend(updated_tracks)
+
+        # Étape 5: Ajouter les pistes inchangées
+        unchanged_paths = []
+        for data in tracks_data:
+            existing = existing_tracks_by_path.get(data.path)
+            if existing:
+                file_changed = True
+                if hasattr(data, 'file_mtime') and hasattr(data, 'file_size'):
+                    try:
+                        if (existing.file_mtime == data.file_mtime and
+                            existing.file_size == data.file_size):
+                            file_changed = False
+                    except AttributeError:
+                        file_changed = True
+
+                if not file_changed:
+                    unchanged_paths.append(data.path)
+
+        if unchanged_paths:
+            unchanged_tracks = self.session.query(TrackModel).filter(TrackModel.path.in_(unchanged_paths)).all()
+            result.extend(unchanged_tracks)
+
+        logger.info(f"[TRACK_BATCH] Batch terminé: {len(result)} pistes traitées")
+        return result
+
+    def _create_tracks_batch_optimized(self, tracks_data: List[TrackCreate]):
+        """Crée plusieurs pistes en une seule transaction."""
+        try:
+            # Préparer les objets TrackModel
+            tracks_to_insert = []
+            for data in tracks_data:
+                track = TrackModel(
+                    title=data.title,
+                    path=data.path,
+                    track_artist_id=data.track_artist_id,
+                    album_id=data.album_id,
+                    genre=data.genre,
+                    bpm=data.bpm,
+                    key=data.key,
+                    scale=data.scale,
+                    duration=data.duration,
+                    track_number=data.track_number,
+                    disc_number=data.disc_number,
+                    musicbrainz_id=data.musicbrainz_id,
+                    year=data.year,
+                    featured_artists=data.featured_artists,
+                    file_type=data.file_type,
+                    bitrate=data.bitrate,
+                    file_mtime=data.file_mtime,
+                    file_size=data.file_size
+                )
+                tracks_to_insert.append(track)
+
+            # Insertion en batch
+            self.session.add_all(tracks_to_insert)
+            self.session.commit()
+
+            # Refresh pour récupérer les IDs générés
+            for track in tracks_to_insert:
+                self.session.refresh(track)
+
+            logger.info(f"[TRACK_BATCH] {len(tracks_to_insert)} pistes créées en batch")
+            return tracks_to_insert
+
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[TRACK_BATCH] Erreur création batch: {e}")
+            raise
+
+    def _update_tracks_batch_optimized(self, tracks_to_update: List[tuple]):
+        """Met à jour plusieurs pistes en une seule transaction."""
+        try:
+            updated_tracks = []
+
+            for existing, data in tracks_to_update:
+                # Mise à jour des champs
                 update_data = data.model_dump(exclude_unset=True, exclude_none=True)
                 for field, value in update_data.items():
                     if hasattr(existing, field):
                         setattr(existing, field, value)
+
                 existing.date_modified = func.now()
-                self.session.commit()
-                self.session.refresh(existing)
-                result.append(existing)
-            else:
-                created = self.create_track(data)
-                result.append(created)
-        return result
+                updated_tracks.append(existing)
+
+            # Commit unique pour toutes les mises à jour
+            self.session.commit()
+
+            # Refresh pour s'assurer que les données sont à jour
+            for track in updated_tracks:
+                self.session.refresh(track)
+
+            logger.info(f"[TRACK_BATCH] {len(updated_tracks)} pistes mises à jour en batch")
+            return updated_tracks
+
+        except Exception as e:
+            self.session.rollback()
+            logger.error(f"[TRACK_BATCH] Erreur mise à jour batch: {e}")
+            raise
 
     def search_tracks(self,
         title: Optional[str], artist: Optional[str], album: Optional[str], genre: Optional[str], year: Optional[str],
