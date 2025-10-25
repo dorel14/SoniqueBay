@@ -4,6 +4,13 @@ from backend.library_api.api.graphql.types.tracks_type import TrackType, TrackCr
 
 
 @strawberry.type
+class BatchResult:
+    success: bool
+    tracks_processed: int
+    message: str
+
+
+@strawberry.type
 class TrackMutations:
     """Mutations for tracks."""
 
@@ -85,6 +92,94 @@ class TrackMutations:
             acoustid_fingerprint=track.acoustid_fingerprint,
             covers=[]
         )
+
+    @strawberry.type
+    class BatchResult:
+        success: bool
+        tracks_processed: int
+        message: str
+
+    @strawberry.mutation
+    def create_tracks_batch_massive(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> BatchResult:
+        """
+        Crée un batch massif de pistes avec optimisation maximale.
+
+        Utilise des transactions uniques et des optimisations SQLAlchemy
+        pour traiter des volumes très importants de données.
+
+        Args:
+            data: Liste des pistes à créer
+            info: Contexte GraphQL
+
+        Returns:
+            Résultat du traitement en batch
+        """
+        from backend.library_api.services.track_service import TrackService
+        from backend.library_api.api.schemas.tracks_schema import TrackCreate
+        from backend.library_api.utils.logging import logger
+        session = info.context.session
+        service = TrackService(session)
+
+        try:
+            logger.info(f"[MASSIVE_BATCH] Traitement de {len(data)} pistes en batch massif")
+
+            # Convertir les objets Strawberry en objets Pydantic
+            tracks_data = []
+            for track_input in data:
+                track_data_dict = {
+                    'title': track_input.title,
+                    'path': track_input.path,
+                    'track_artist_id': track_input.track_artist_id,
+                    'album_id': track_input.album_id,
+                    'duration': track_input.duration,
+                    'track_number': track_input.track_number,
+                    'disc_number': track_input.disc_number,
+                    'year': track_input.year,
+                    'genre': track_input.genre,
+                    'file_type': track_input.file_type,
+                    'bitrate': track_input.bitrate,
+                    'featured_artists': track_input.featured_artists,
+                    'bpm': track_input.bpm,
+                    'key': track_input.key,
+                    'scale': track_input.scale,
+                    'danceability': track_input.danceability,
+                    'mood_happy': track_input.mood_happy,
+                    'mood_aggressive': track_input.mood_aggressive,
+                    'mood_party': track_input.mood_party,
+                    'mood_relaxed': track_input.mood_relaxed,
+                    'instrumental': track_input.instrumental,
+                    'acoustic': track_input.acoustic,
+                    'tonal': track_input.tonal,
+                    'camelot_key': track_input.camelot_key,
+                    'genre_main': track_input.genre_main,
+                    'musicbrainz_id': track_input.musicbrainz_id,
+                    'musicbrainz_albumid': track_input.musicbrainz_albumid,
+                    'musicbrainz_artistid': track_input.musicbrainz_artistid,
+                    'musicbrainz_albumartistid': track_input.musicbrainz_albumartistid,
+                    'acoustid_fingerprint': track_input.acoustid_fingerprint,
+                    'file_mtime': track_input.file_mtime,
+                    'file_size': track_input.file_size
+                }
+                tracks_data.append(TrackCreate(**track_data_dict))
+
+            # Utiliser la méthode optimisée pour les batches massifs
+            tracks = service.create_or_update_tracks_batch(tracks_data)
+
+            logger.info(f"[MASSIVE_BATCH] Batch massif terminé: {len(tracks)} pistes traitées")
+
+            return BatchResult(
+                success=True,
+                tracks_processed=len(tracks),
+                message=f"Batch massif de {len(tracks)} pistes traité avec succès"
+            )
+
+        except Exception as e:
+            logger.error(f"[MASSIVE_BATCH] Erreur batch massif: {str(e)}")
+            return BatchResult(
+                success=False,
+                tracks_processed=0,
+                message=f"Erreur: {str(e)}"
+            )
 
     @strawberry.mutation
     def create_tracks(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> list[TrackType]:

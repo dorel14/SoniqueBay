@@ -57,5 +57,13 @@ RUN --mount=type=cache,target=/var/cache/apt/runner \
 COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder --link /usr/local/bin /usr/local/bin
 
+# Copie des fichiers de l'application worker
+COPY --link ./backend_worker /app/backend_worker
+COPY --link ./backend /app/backend
+
+# Vérification que celery est disponible
+RUN celery --version && \
+    python3 -c "import celery; print('celery import successful')"
+
 WORKDIR /app
 

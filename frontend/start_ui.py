@@ -58,6 +58,6 @@ ui.run(
     title=f'SoniqueBay v{version}',
     favicon='./static/favicon.ico',
     reload=True,
-    uvicorn_reload_dirs='/app/frontend',
+    uvicorn_reload_dirs='./',
     show=False,
 )

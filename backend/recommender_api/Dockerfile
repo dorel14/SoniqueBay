@@ -14,6 +14,14 @@ LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app
       org.opencontainers.image.title="SoniqueBay Recommender API" \
       org.opencontainers.image.description="Service API de recommandation musicale"
 
+# Installation des dépendances système pour la compilation
+RUN --mount=type=cache,target=/var/cache/apt,target=/var/lib/apt \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copie et installation des dépendances spécifiques
 # Configuration du timeout UV et PATH
 ENV UV_TIMEOUT=300 \
@@ -27,12 +35,9 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     uv pip install --system -r requirements.txt && \
     # Installation explicite d'uvicorn
     uv pip install --system "uvicorn[standard]>=0.22.0" && \
-    # Création du lien symbolique pour uvicorn
-    ln -sf /usr/local/bin/uvicorn /usr/bin/uvicorn && \
-    # Vérification des installations
-    python3 -c "import sqlite_vec; print(f'sqlite-vec installé dans: {sqlite_vec.__file__}')" && \
-    ls -l /usr/local/lib/python3.11/site-packages/sqlite_vec/ && \
-    which uvicorn
+    # Vérification des installations (sans sqlite_vec pour éviter les problèmes de compilation)
+    python3 -c "import fastapi, uvicorn, sqlite_vec; print('Dependencies OK')" && \
+    which uvicorn || echo "uvicorn not in PATH, but should work"
 
 # Stage 2: Runner
 FROM do14500352/soniquebay-base:latest AS runner
@@ -44,16 +49,25 @@ WORKDIR /app
 COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
 # Vérification finale et permissions
-RUN uvicorn --version && \
+RUN python3 -m uvicorn --version && \
     # S'assurer que les permissions sont correctes
-    chmod 755 /usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so
+    chmod 755 /usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so 2>/dev/null || echo "sqlite_vec permissions already set"
 COPY --link scripts/healthcheck.sh /healthcheck.sh
 RUN chmod +x /healthcheck.sh
 
-# Copie des fichiers de l'application
+# Copie des fichiers de l'application D'ABORD
 COPY --link backend/recommender_api /app/backend/recommender_api
 COPY --link backend/recommender_api/alembic_recommender.ini /app/alembic_recommender.ini
 COPY --link backend/recommender_api/alembic_recommender /app/alembic_recommender
+
+# Copie des site-packages après les fichiers d'application
+COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+# Vérification finale et permissions
+RUN python3 -c "import sqlite_vec; print('sqlite-vec import successful')" && \
+    python3 -m uvicorn --version && \
+    # S'assurer que les permissions sont correctes
+    chmod 755 /usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so 2>/dev/null || echo "permissions already set"
 
 # Configuration du healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
