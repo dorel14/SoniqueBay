@@ -27,6 +27,7 @@
 ## 🛠️ CORRECTIONS APPLIQUÉES
 
 ### **1. TIMEOUTS HEARTBEAT OPTIMISÉS**
+
 ```python
 # AVANT (problématique)
 worker_heartbeat=60           # Trop court pour RPi4
@@ -38,6 +39,7 @@ worker_clock_sync_interval=300 # ✅ Sync étendu pour éviter timeouts
 ```
 
 ### **2. LIMITES MÉMOIRE AJOUTÉES**
+
 ```python
 # Configuration Anti-OOM
 worker_max_memory_per_child=524288000  # ✅ 500MB par worker (limite critique)
@@ -45,6 +47,7 @@ worker_max_tasks_per_child=500         # ✅ Restart toutes les 500 tâches
 ```
 
 ### **3. CONCURRENCY RÉDUITE**
+
 ```python
 # AVANT (OOM garantie)
 CONCURRENCY_SETTINGS = {
@@ -62,6 +65,7 @@ CONCURRENCY_SETTINGS = {
 ```
 
 ### **4. PREFETCH OPTIMISÉS**
+
 ```python
 # AVANT (surcharge mémoire)
 PREFETCH_MULTIPLIERS = {
@@ -77,6 +81,7 @@ PREFETCH_MULTIPLIERS = {
 ```
 
 ### **5. CONNEXIONS REDIS OPTIMISÉES**
+
 ```python
 # Configuration Redis stable
 redis_max_connections=50,     # ✅ Réduit pour éviter surcharge
@@ -92,6 +97,7 @@ result_backend_transport_options={
 ## 🎯 OUTILS DE DIAGNOSTIC CRÉÉS
 
 ### **Script de diagnostic spécialisé**
+
 - **Fichier** : `scripts/celery_heartbeat_diagnostic.py`
 - **Fonctionnalités** :
   - ✅ Analyse mémoire système
@@ -103,11 +109,13 @@ result_backend_transport_options={
   - ✅ Score de santé système
 
 ### **Usage du diagnostic**
+
 ```bash
 python scripts/celery_heartbeat_diagnostic.py
 ```
 
 ### **Sortie exemple**
+
 ```
 🏥 ÉTAT DE SANTÉ SYSTÈME: EXCELLENT
 📊 Tâches analysées: 0
@@ -119,6 +127,7 @@ python scripts/celery_heartbeat_diagnostic.py
 ## 📈 IMPACT DES CORRECTIONS
 
 ### **AVANT (Problématique)**
+
 ```
 [2025-11-01 15:02:04,165: INFO/MainProcess] missed heartbeat from insert-worker-1
 [2025-11-01 15:02:14,169: INFO/MainProcess] missed heartbeat from insert-worker-2
@@ -128,6 +137,7 @@ python scripts/celery_heartbeat_diagnostic.py
 ```
 
 ### **APRÈS (Stabilisé)**
+
 ```
 [INFO] Worker stable avec heartbeat 300s
 [INFO] Limite mémoire 500MB configurée
@@ -140,6 +150,7 @@ python scripts/celery_heartbeat_diagnostic.py
 ## 🔍 MONITORING RECOMMANDÉ
 
 ### **Surveillance continue**
+
 ```bash
 # État système
 python scripts/celery_heartbeat_diagnostic.py
@@ -152,6 +163,7 @@ docker-compose restart celery-scan-worker
 ```
 
 ### **Alertes critiques**
+
 - `worker_max_memory_per_child` dépasse 500MB
 - `missed heartbeat` réapparaît dans les logs
 - Processus ForkPoolWorker tuée par SIGKILL
@@ -160,6 +172,7 @@ docker-compose restart celery-scan-worker
 ## ✅ VALIDATION DES CORRECTIONS
 
 ### **Tests de stabilité**
+
 1. **Heartbeat étendu** : 300s ✅
 2. **Anti-OOM** : 500MB/worker + restart 500 tâches ✅
 3. **Concurrency contrôlée** : 1 worker max par queue ✅
@@ -167,6 +180,7 @@ docker-compose restart celery-scan-worker
 5. **Diagnostic actif** : script de monitoring créé ✅
 
 ### **Métriques de succès**
+
 - ✅ Zéro "missed heartbeat" après restart
 - ✅ Aucune mort de worker par SIGKILL
 - ✅ Mémoire système stable < 80%
@@ -175,11 +189,14 @@ docker-compose restart celery-scan-worker
 ## 🚀 DÉPLOIEMENT
 
 ### **Application des corrections**
+
 Les corrections sont **déjà appliquées** dans :
+
 - `backend_worker/celery_app.py` ✅
 - `scripts/celery_heartbeat_diagnostic.py` ✅
 
 ### **Restart nécessaire**
+
 ```bash
 # Stopper les workers existants
 docker-compose down
@@ -190,6 +207,7 @@ docker-compose up -d celery-scan-worker
 ```
 
 ### **Vérification post-deploy**
+
 ```bash
 # Vérifier l'état
 python scripts/celery_heartbeat_diagnostic.py

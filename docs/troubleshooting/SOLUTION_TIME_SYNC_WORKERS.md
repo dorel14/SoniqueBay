@@ -51,6 +51,7 @@ timesync:
 #### Synchronisation timezone pour tous les services
 
 Ajout de :
+
 - Volume : `- /etc/localtime:/etc/localtime:ro`
 - Dépendance : `timesync: condition: service_started`
 
@@ -75,6 +76,7 @@ task_max_retries=3,  # Plus de tentatives
 ## Script de validation
 
 Création de `scripts/validate_time_sync.py` pour :
+
 - Vérifier la cohérence des horloges entre conteneurs
 - Tester la connectivité Redis
 - Afficher l'état des services Docker
@@ -83,6 +85,7 @@ Création de `scripts/validate_time_sync.py` pour :
 ## Utilisation
 
 ### Déploiement
+
 ```bash
 # Redémarrer les services avec la nouvelle configuration
 docker-compose down
@@ -96,6 +99,7 @@ python scripts/validate_time_sync.py
 ```
 
 ### Monitoring continu
+
 Le script peut être exécuté régulièrement pour surveiller la synchronisation :
 
 ```bash

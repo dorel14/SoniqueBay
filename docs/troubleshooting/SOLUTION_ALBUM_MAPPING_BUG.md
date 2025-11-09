@@ -27,12 +27,14 @@ Dans la fonction `_resolve_albums_references()` du fichier `backend_worker/backg
 ### 1. Validation des Types avant `.startswith()`
 
 **Avant (ligne 1449) :**
+
 ```python
 if album_mapping[album_key].startswith("TEMP_ALBUM"):
     albums_to_create.append(album)
 ```
 
 **Après :**
+
 ```python
 album_id = album_mapping[album_key]
 # Vérifier si l'ID est un string temporaire (nouvel album à créer)
@@ -43,6 +45,7 @@ if isinstance(album_id, str) and album_id.startswith("TEMP_ALBUM"):
 ### 2. Validation lors du Remplacement des IDs Temporaires
 
 **Avant :**
+
 ```python
 if mapping == temp_id:
     album_mapping[album_key] = created_album['id']
@@ -50,6 +53,7 @@ if mapping == temp_id:
 ```
 
 **Après :**
+
 ```python
 # Vérifier si c'est un string temporaire avant comparaison
 if isinstance(mapping, str) and mapping == temp_id:
@@ -81,11 +85,13 @@ if isinstance(mapping, str) and mapping == temp_id:
 ## Impact de la Correction
 
 ### Avant
+
 - Erreur `AttributeError` lors de la résolution d'albums existants
 - Échec de l'insertion en base de données
 - Tâche Celery terminée en FAILURE
 
 ### Après
+
 - Résolution correcte des albums existants et nouveaux
 - Insertion réussie en base de données
 - Pas de régression sur les fonctionnalités existantes

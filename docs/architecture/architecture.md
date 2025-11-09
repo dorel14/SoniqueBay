@@ -4,7 +4,7 @@
 
 SoniqueBay est une application de gestion de bibliothèque musicale avec une architecture moderne utilisant FastAPI, GraphQL, Celery et PostgreSQL/SQLite.
 
-L'ensemble de cette applcation doit fonctionner sans problème sur un raspberry pi 4 ,  il faut donc optimiser le code pour gérer au mieux les ressources 
+L'ensemble de cette applcation doit fonctionner sans problème sur un raspberry pi 4 ,  il faut donc optimiser le code pour gérer au mieux les ressources
 
 ## Architecture générale
 
@@ -51,6 +51,7 @@ graph TB
 ## Composants principaux
 
 ### 1. API FastAPI
+
 - **Endpoints REST** : Gestion CRUD des entités
 - **GraphQL API** : Requêtes complexes et mutations batch
 - **Server-Sent Events (SSE)** : Streaming de progression en temps réel
@@ -58,12 +59,14 @@ graph TB
 - **Middleware** : CORS, logging, health checks
 
 ### 2. Workers Celery
+
 - **Scan Worker** : Indexation des fichiers musicaux
 - **Audio Analysis Worker** : Extraction des caractéristiques audio
 - **Vectorization Worker** : Génération des embeddings
 - **Enrichment Worker** : Enrichissement des métadonnées
 
 ### 3. Services métier
+
 - **TrackService** : Gestion des pistes
 - **ArtistService** : Gestion des artistes
 - **AlbumService** : Gestion des albums
@@ -73,11 +76,13 @@ graph TB
 ## Optimisations implementées
 
 ### 1. Traitement par lots (Batch Processing)
+
 - **GraphQL Mutations** : `create_artists`, `create_albums`, `create_tracks`
 - **Chunk Size** : 500 éléments par lot (vs 200 précédemment)
 - **Async/Await** : Traitement asynchrone complet
 
 ### 2. Index de base de données
+
 ```sql
 -- Index optimisés pour les scans
 CREATE INDEX idx_tracks_path ON tracks(path);
@@ -88,12 +93,14 @@ CREATE INDEX idx_track_vectors_track_id ON track_vectors(track_id);
 ```
 
 ### 3. Métriques de performance
+
 - **Temps de scan** : Mesuré par chunk et total
 - **Débit** : Fichiers/seconde
 - **Utilisation mémoire** : Monitoring des workers
 - **Taux d'erreur** : Suivi des échecs
 
 ### 4. Gestion d'erreurs améliorée
+
 - **Retry logic** : Mécanisme de reprise automatique
 - **Circuit breaker** : Protection contre les pannes
 - **Logging structuré** : Traces détaillées pour debugging
@@ -101,6 +108,7 @@ CREATE INDEX idx_track_vectors_track_id ON track_vectors(track_id);
 ## Nouveaux endpoints
 
 ### API Track Vectors
+
 ```
 POST   /api/track-vectors/          # Créer un vecteur
 GET    /api/track-vectors/{id}      # Récupérer un vecteur
@@ -110,12 +118,14 @@ GET    /api/track-vectors/          # Lister les vecteurs
 ```
 
 ### API Audio Analysis
+
 ```
 POST   /api/tracks/analyze-audio           # Lancer l'analyse audio
 PUT    /api/tracks/{id}/features          # Mettre à jour les features
 ```
 
 ### GraphQL Mutations optimisées
+
 ```graphql
 mutation CreateArtists($artists: [ArtistCreateInput!]!) {
     create_artists(data: $artists) {
@@ -139,6 +149,7 @@ mutation CreateTracks($tracks: [TrackCreateInput!]!) {
 ## Workflows optimisés
 
 ### 1. Scan de bibliothèque
+
 ```mermaid
 graph TD
     A[Déclenchement scan] --> B[Comptage fichiers]
@@ -151,6 +162,7 @@ graph TD
 ```
 
 ### 2. Analyse audio
+
 ```mermaid
 graph TD
     A[Track sans features] --> B[Librosa analysis]
@@ -161,6 +173,7 @@ graph TD
 ```
 
 ### 3. Vectorisation
+
 ```mermaid
 graph TD
     A[Track metadata] --> B[Génération embedding]
@@ -172,6 +185,7 @@ graph TD
 ## Streaming en Temps Réel (SSE)
 
 ### Architecture SSE
+
 ```mermaid
 graph TD
     A[Frontend UI] --> B[register_sse_handler]
@@ -192,17 +206,20 @@ graph TD
 ### Composants SSE
 
 #### 1. Backend SSE Endpoint
+
 - **URL** : `/api/events`
 - **Méthode** : GET
 - **Format** : Server-Sent Events standard
 - **Canaux Redis** : "progress", "notifications"
 
 #### 2. Workers avec Progression
+
 - **Fonction** : `publish_event("progress", data, channel="progress")`
 - **Format** : JSON avec `type: "progress"`, `task_id`, `step`, `percent`
 - **Fréquence** : Mise à jour toutes les 100 opérations
 
 #### 3. Client SSE Frontend
+
 - **Connexion** : HTTP persistante vers `/api/events`
 - **Handlers** : `register_sse_handler(handler_function)`
 - **Reconnexion** : Automatique en cas de déconnexion
@@ -220,6 +237,7 @@ graph TD
 ## Configuration
 
 ### Variables d'environnement
+
 ```bash
 # API
 API_URL=http://backend:8001
@@ -240,6 +258,7 @@ SCAN_TIMEOUT=300
 ```
 
 ### Indexes recommandés
+
 ```sql
 -- Performance scan
 CREATE INDEX CONCURRENTLY idx_tracks_scan_perf ON tracks(date_added, path);
@@ -254,6 +273,7 @@ CREATE INDEX CONCURRENTLY idx_track_vectors_search ON track_vectors USING ivffla
 ## Monitoring et observabilité
 
 ### Métriques collectées
+
 - `scan_duration_seconds` : Durée totale du scan
 - `scan_files_processed_total` : Nombre de fichiers traités
 - `scan_chunks_processed_total` : Nombre de chunks traités
@@ -262,6 +282,7 @@ CREATE INDEX CONCURRENTLY idx_track_vectors_search ON track_vectors USING ivffla
 - `api_request_duration_seconds` : Latence des API
 
 ### Événements Server-Sent Events (SSE)
+
 ```json
 {
   "type": "progress",
@@ -278,11 +299,13 @@ CREATE INDEX CONCURRENTLY idx_track_vectors_search ON track_vectors USING ivffla
 ```
 
 ### Nouveaux endpoints SSE
+
 ```
 GET    /api/events              # Streaming SSE de progression
 ```
 
 ### Configuration SSE
+
 ```bash
 # Variables d'environnement
 SSE_URL=http://library:8001/api/events
@@ -296,12 +319,14 @@ notifications                   # Canal pour les notifications générales
 ## Tests et validation
 
 ### Tests d'intégration
+
 - **test_graphql_batch_operations** : Validation GraphQL batch
 - **test_vectorization_workflow** : Workflow complet vectorisation
 - **test_scan_performance_metrics** : Métriques de performance
 - **test_chunk_size_optimization** : Optimisation chunks
 
 ### Benchmarks cibles
+
 - **Scan performance** : 500+ fichiers/minute
 - **Audio analysis** : 50+ fichiers/minute
 - **Vectorization** : 100+ fichiers/minute
@@ -311,11 +336,13 @@ notifications                   # Canal pour les notifications générales
 ## Évolutivité
 
 ### Scaling horizontal
+
 - **Workers Celery** : Ajout de workers pour + de parallélisation
 - **Database** : PostgreSQL avec pgvector pour scaling
 - **Cache** : Redis cluster pour haute disponibilité
 
 ### Optimisations futures
+
 - **GPU acceleration** : Pour l'analyse audio intensive
 - **Distributed processing** : Apache Spark pour gros volumes
 - **Real-time indexing** : Elasticsearch pour recherche instantanée

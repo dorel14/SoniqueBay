@@ -64,19 +64,23 @@ backend_worker/
 ### Plan d'Exécution
 
 #### Étape 1: Créer la nouvelle structure
+
 - Créer les dossiers `workers/scan/`, `workers/metadata/`, etc.
 - Créer `celery_tasks.py` centralisé
 
 #### Étape 2: Migrer les fichiers
+
 - **Supprimer** les modules non utilisés : `optimized_*.py`
 - **Renommer et déplacer** les fichiers existants
 - **Extraire** les responsabilités multiples en fichiers séparés
 
 #### Étape 3: Corriger les imports
+
 - Mettre à jour tous les imports dans le codebase
 - Mettre à jour la configuration Celery
 
 #### Étape 4: Tester
+
 - Vérifier que toutes les tâches Celery fonctionnent
 - Tester les workflows de scan → enrichissement → vectorisation
 

@@ -30,11 +30,13 @@ graph TB
 **Fichier :** `backend/library_api/api_app.py`
 
 **Fonctionnalité :**
+
 - Écoute les canaux Redis "notifications" et "progress"
 - Stream les événements SSE vers les clients connectés
 - Format SSE standard : `data: <json>\n\n`
 
 **Code :**
+
 ```python
 @app.get("/api/events")
 async def sse_endpoint(request: Request):
@@ -63,12 +65,14 @@ async def sse_endpoint(request: Request):
 ### 2. Workers avec Messages de Progression
 
 **Fichiers :**
+
 - `backend_worker/background_tasks/optimized_scan.py`
 - `backend_worker/background_tasks/optimized_extract.py`
 - `backend_worker/background_tasks/optimized_batch.py`
 - `backend_worker/background_tasks/optimized_insert.py`
 
 **Format des messages :**
+
 ```python
 publish_event("progress", {
     "type": "progress",
@@ -85,11 +89,13 @@ publish_event("progress", {
 **Fichier :** `frontend/websocket_manager/ws_client.py`
 
 **Fonctionnalités :**
+
 - Connexion HTTP persistante vers `/api/events`
 - Traitement des messages SSE
 - Distribution vers les handlers enregistrés
 
 **Code :**
+
 ```python
 async def connect_sse():
     import httpx
@@ -109,11 +115,13 @@ async def connect_sse():
 **Fichier :** `frontend/theme/layout.py`
 
 **Fonctionnalité :**
+
 - Reçoit les messages de progression SSE
 - Met à jour la barre de progression UI
 - Filtre par `task_id` et `type`
 
 **Code :**
+
 ```python
 def make_progress_handler(task_id):
     def handler(data):
@@ -132,6 +140,7 @@ def make_progress_handler(task_id):
 ## Avantages de SSE vs WebSocket
 
 ### ✅ SSE (Server-Sent Events)
+
 - **HTTP standard** : Utilise des connexions HTTP normales
 - **Auto-reconnexion** : Les navigateurs reconnectent automatiquement
 - **Simplicité** : Plus simple à implémenter et déboguer
@@ -139,6 +148,7 @@ def make_progress_handler(task_id):
 - **Compatibilité** : Fonctionne avec tous les proxies et load balancers
 
 ### ❌ WebSocket (Ancien système)
+
 - **Problèmes de connexion** : Ne fonctionnait pas correctement
 - **Complexité** : Plus complexe à gérer
 - **Overhead** : Plus de ressources utilisées
@@ -216,6 +226,7 @@ docker logs library_api | grep SSE
 ### Problèmes courants
 
 #### 1. Connexion SSE échoue
+
 ```bash
 # Vérifier la connectivité réseau
 curl http://library:8001/api/events
@@ -225,6 +236,7 @@ docker logs library_api | grep SSE
 ```
 
 #### 2. Messages non reçus
+
 ```bash
 # Vérifier Redis
 docker exec redis redis-cli PUBLISH progress '{"type":"progress","test":"message"}'
@@ -234,6 +246,7 @@ docker logs backend_worker | grep progress
 ```
 
 #### 3. Barre de progression ne se met pas à jour
+
 ```bash
 # Vérifier les logs frontend
 tail -f /logs/soniquebay-*.log | grep progress

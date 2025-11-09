@@ -3,6 +3,7 @@
 ## **ANALYSE DE LA CONFIGURATION ACTUELLE**
 
 ### **Problèmes identifiés :**
+
 1. **Prefetch multiplier trop faible** (1-4 au lieu de 8-16)
 2. **Concurrency mal adaptée** (1-2 workers au lieu de 8-16)
 3. **Pas de séparation des queues** par type de tâche
@@ -342,6 +343,7 @@ services:
 ## **COMMANDES DE DÉPLOIEMENT**
 
 ### **Démarrage des workers optimisés :**
+
 ```bash
 # Workers Scan (I/O)
 celery -A backend_worker worker --hostname=scan-1@%h --queues=scan --concurrency=16 --prefetch-multiplier=16 --loglevel=INFO
@@ -354,6 +356,7 @@ celery -A backend_worker worker --hostname=insert-1@%h --queues=insert --concurr
 ```
 
 ### **Monitoring des performances :**
+
 ```bash
 # Surveiller les queues
 celery -A backend_worker inspect active_queues
@@ -368,17 +371,20 @@ celery -A backend_worker inspect stats
 ## **BÉNÉFICES ATTENDUS**
 
 ### **Performance :**
+
 - **×10 à ×20** plus de débit grâce à la parallélisation massive
 - **Utilisation CPU** : 80-90% au lieu de 10-20%
 - **Latence réduite** : Files d'attente optimisées
 - **Mémoire optimisée** : Pas de surcharge mémoire
 
 ### **Fiabilité :**
+
 - **Tolérance aux pannes** : Workers peuvent redémarrer indépendamment
 - **Reprise sur erreur** : Tâches automatiquement reroutées
 - **Monitoring avancé** : Visibilité complète du pipeline
 
 ### **Évolutivité :**
+
 - **Ajout facile** de nouveaux workers
 - **Répartition de charge** automatique
 - **Configuration dynamique** selon la charge
