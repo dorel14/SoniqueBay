@@ -39,7 +39,6 @@ def sample_track_data():
 
 def test_api_get_or_create_index_success(client):
     """Test de création/récupération d'index avec succès."""
-    from pathlib import Path
     import backend.library_api.utils.search
     index_name = "test_index"
     response = client.post("/api/search/index", json=index_name)

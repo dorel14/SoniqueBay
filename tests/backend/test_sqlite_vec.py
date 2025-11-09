@@ -43,7 +43,7 @@ def test_initialize_sqlite_vec_pip_success():
     """Test l'initialisation réussie de sqlite-vec depuis le package pip."""
     with patch('backend.recommender_api.utils.sqlite_vec_init.get_vec_connection') as mock_get_conn, \
          patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'), \
-         patch('sqlite3.connect') as mock_sqlite_connect:
+         patch('sqlite3.connect'):
         
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -81,7 +81,7 @@ def test_initialize_sqlite_vec_failure():
     """Test l'initialisation quand sqlite-vec n'est pas disponible."""
     with patch('backend.recommender_api.utils.sqlite_vec_init.get_vec_connection') as mock_get_conn, \
          patch('backend.recommender_api.utils.sqlite_vec_init.get_database_url', return_value='sqlite:///test.db'), \
-         patch('sqlite3.connect') as mock_sqlite_connect:
+         patch('sqlite3.connect'):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_conn.cursor.return_value = mock_cursor

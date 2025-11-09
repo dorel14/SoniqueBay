@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import patch, MagicMock
 from backend_worker.background_tasks.tasks import cleanup_deleted_tracks_task
 

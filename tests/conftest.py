@@ -3,10 +3,16 @@ import pytest
 import sys
 import os
 import tempfile
+import asyncio
+import logging
 from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, MagicMock
+
+# Ajout des imports pour les nouvelles fixtures
+import httpx
 
 import backend.library_api.utils.search
 from backend.library_api.utils.database import Base, get_db, get_session
@@ -17,6 +23,10 @@ from backend.library_api.api.models.tracks_model import Track
 from backend.library_api.api.models.genres_model import Genre
 from backend.library_api.api.models.covers_model import Cover
 from backend.library_api.api.models.tags_model import GenreTag, MoodTag
+
+# Configuration pytest pour les tests asynchrones
+pytest_plugins = ("pytest_asyncio",)
+pytest_asyncio_default_mode = "auto"
 
 # Ajouter le répertoire racine au sys.path
 root_dir = os.getcwd()
@@ -98,6 +108,237 @@ def test_db_engine():
         os.unlink(test_marker_file)
     except (OSError, PermissionError):
         pass
+
+# ===== NOUVELLES FIXTURES POUR TESTS API ET WORKERS =====
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture
+def mock_http_client():
+    """Mock HTTP client pour les tests API."""
+    client = AsyncMock()
+    
+    # Mock par défaut pour les réponses HTTP
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success"}
+    mock_response.text = '{"status": "success"}'
+    client.get.return_value = mock_response
+    client.post.return_value = mock_response
+    client.put.return_value = mock_response
+    client.delete.return_value = mock_response
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+    
+    return client
+
+
+@pytest.fixture
+def mock_redis():
+    """Mock Redis pour les tests."""
+    redis_mock = MagicMock()
+    redis_mock.publish.return_value = True
+    redis_mock.get.return_value = None
+    redis_mock.set.return_value = True
+    redis_mock.delete.return_value = True
+    redis_mock.ping.return_value = True
+    return redis_mock
+
+
+@pytest.fixture
+def sample_audio_file(temp_dir):
+    """Fichier audio de test."""
+    audio_file = temp_dir / "test_audio.wav"
+    audio_file.write_bytes(b"dummy audio data for testing")
+    return audio_file
+
+
+@pytest.fixture
+def sample_metadata():
+    """Métadonnées d'exemple pour les tests."""
+    return {
+        "title": "Test Track",
+        "artist": "Test Artist",
+        "album": "Test Album",
+        "year": "2023",
+        "duration": 180,
+        "track_number": 1,
+        "bpm": 120,
+        "genre": "Electronic",
+        "file_type": "audio/wav",
+        "path": "/music/test.mp3"
+    }
+
+
+@pytest.fixture
+def mock_graphql_response():
+    """Réponse GraphQL de test."""
+    return {
+        "data": {
+            "createArtists": [
+                {"id": 1, "name": "Test Artist", "musicbrainzArtistid": "test-mbid"}
+            ],
+            "createAlbums": [
+                {"id": 101, "title": "Test Album", "albumArtistId": 1}
+            ],
+            "createTracks": [
+                {"id": 1001, "title": "Test Track", "trackArtistId": 1, "albumId": 101}
+            ]
+        }
+    }
+
+
+@pytest.fixture
+async def api_client():
+    """Client API asynchrone pour les tests."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        yield client
+
+
+@pytest.fixture
+def mock_celery_task():
+    """Mock de tâche Celery."""
+    task = MagicMock()
+    task.delay.return_value = MagicMock(id="test-task-id", status="PENDING")
+    return task
+
+
+@pytest.fixture
+def mock_settings_service():
+    """Mock du service de configuration."""
+    service = MagicMock()
+    service.get_api_url.return_value = "http://test-api:8001"
+    service.get_redis_host.return_value = "test-redis"
+    return service
+
+
+# ===== FIXTURES SPÉCIALISÉES POUR WORKERS =====
+
+@pytest.fixture
+def mock_worker_services():
+    """Mock des services worker pour les tests."""
+    services = {
+        'audio_features': MagicMock(),
+        'vectorization': MagicMock(),
+        'coverart': MagicMock(),
+        'enrichment': MagicMock(),
+        'redis_cache': MagicMock()
+    }
+    
+    # Configuration par défaut
+    services['audio_features'].analyze_audio.return_value = {
+        "bpm": 120.0,
+        "key": "C",
+        "danceability": 0.8
+    }
+    
+    services['vectorization'].vectorize.return_value = {
+        "success": True,
+        "vector": [0.1, 0.2, 0.3]
+    }
+    
+    services['coverart'].process_cover.return_value = {
+        "success": True,
+        "cover_id": 1
+    }
+    
+    return services
+
+
+@pytest.fixture
+def mock_tinydb():
+    """Mock TinyDB pour les tests."""
+    db_mock = MagicMock()
+    db_mock.all.return_value = []
+    db_mock.insert.return_value = {"doc_id": 1}
+    db_mock.remove.return_value = True
+    db_mock.update.return_value = True
+    return db_mock
+
+
+# ===== CONFIGURATION CLIENT API POUR TESTS BACKEND =====
+
+@pytest.fixture
+def client_config():
+    """Configuration du client pour les tests d'API backend."""
+    base_url = os.getenv("TEST_API_URL", "http://localhost:8001")
+    
+    class ClientConfig:
+        def __init__(self):
+            self.base_url = base_url
+            self.client = httpx.AsyncClient(timeout=30.0)
+    
+    config = ClientConfig()
+    
+    yield {
+        "base_url": config.base_url,
+        "client": config.client,
+        "headers": {
+            "Content-Type": "application/json",
+            "User-Agent": "SoniqueBay-Test/1.0"
+        }
+    }
+    
+    # Cleanup
+    if hasattr(config.client, 'aclose'):
+        asyncio.create_task(config.client.aclose())
+
+
+# ===== MARKERS PERSONNALISÉS =====
+
+def pytest_configure(config):
+    """Configuration des marqueurs pytest personnalisés."""
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
+    config.addinivalue_line(
+        "markers", "integration: marks tests as integration tests"
+    )
+    config.addinivalue_line(
+        "markers", "unit: marks tests as unit tests"
+    )
+    config.addinivalue_line(
+        "markers", "api: marks tests that require API access"
+    )
+    config.addinivalue_line(
+        "markers", "database: marks tests that require database"
+    )
+    config.addinivalue_line(
+        "markers", "worker: marks tests for worker services"
+    )
+    config.addinivalue_line(
+        "markers", "benchmark: marks tests for performance benchmarks"
+    )
+
+
+# ===== FIXTURES AUTOAUTILISÉES =====
+
+@pytest.fixture(autouse=True)
+def setup_test_environment():
+    """Configuration automatique de l'environnement de test."""
+    # Variables d'environnement de test
+    os.environ["API_URL"] = os.getenv("TEST_API_URL", "http://test-api:8001")
+    os.environ["REDIS_HOST"] = os.getenv("TEST_REDIS_HOST", "test-redis")
+    os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    os.environ["TESTING"] = "true"
+    
+    # Configuration du logging pour les tests
+    logging.getLogger("backend_worker").setLevel(logging.DEBUG)
+    logging.getLogger("tests").setLevel(logging.DEBUG)
+    
+    yield
+    
+    # Cleanup après les tests
+    test_env_vars = ["API_URL", "REDIS_HOST", "DATABASE_URL", "TESTING"]
+    for var in test_env_vars:
+        if var in os.environ:
+            del os.environ[var]
 
 
 @pytest.fixture(scope="function")

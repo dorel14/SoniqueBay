@@ -1,6 +1,8 @@
 from __future__ import annotations
 import strawberry
+from pydantic import ValidationError
 from backend.library_api.api.graphql.types.tracks_type import TrackType, TrackCreateInput, TrackUpdateInput
+from backend.library_api.utils.graphql_validation_logger import log_graphql_validation_error, log_graphql_mutation_entry, log_graphql_mutation_success, log_graphql_mutation_error
 
 
 @strawberry.type
@@ -19,7 +21,7 @@ class TrackMutations:
         """Create a new track."""
         from backend.library_api.services.track_service import TrackService
         from backend.library_api.api.schemas.tracks_schema import TrackCreate
-        session = info.context.db
+        session = info.context.session
         service = TrackService(session)
 
         # Convertir l'objet Strawberry en objet Pydantic
@@ -117,6 +119,8 @@ class TrackMutations:
         from backend.library_api.services.track_service import TrackService
         from backend.library_api.api.schemas.tracks_schema import TrackCreate
         from backend.library_api.utils.logging import logger
+        
+        log_graphql_mutation_entry("create_tracks_batch_massive", len(data) if data else 0)
         session = info.context.session
         service = TrackService(session)
 
@@ -166,6 +170,7 @@ class TrackMutations:
             tracks = service.create_or_update_tracks_batch(tracks_data)
 
             logger.info(f"[MASSIVE_BATCH] Batch massif terminé: {len(tracks)} pistes traitées")
+            log_graphql_mutation_success("create_tracks_batch_massive", len(tracks))
 
             return BatchResult(
                 success=True,
@@ -173,7 +178,22 @@ class TrackMutations:
                 message=f"Batch massif de {len(tracks)} pistes traité avec succès"
             )
 
+        except ValidationError as e:
+            # Gestion spécifique des erreurs de validation Pydantic
+            log_graphql_validation_error(
+                mutation_name="create_tracks_batch_massive",
+                operation="batch_massive",
+                graphql_data=[track_input.__dict__ for track_input in data] if data else [],
+                validation_error=e,
+                info=info
+            )
+            return BatchResult(
+                success=False,
+                tracks_processed=0,
+                message=f"Erreur de validation: {str(e)}"
+            )
         except Exception as e:
+            log_graphql_mutation_error("create_tracks_batch_massive", e)
             logger.error(f"[MASSIVE_BATCH] Erreur batch massif: {str(e)}")
             return BatchResult(
                 success=False,
@@ -186,7 +206,9 @@ class TrackMutations:
         """Create multiple tracks in batch."""
         from backend.library_api.services.track_service import TrackService
         from backend.library_api.api.schemas.tracks_schema import TrackCreate
-        session = info.context.db
+
+        log_graphql_mutation_entry("create_tracks", len(data) if data else 0)
+        session = info.context.session
         service = TrackService(session)
 
         # Convertir les objets Strawberry en objets Pydantic
@@ -227,6 +249,7 @@ class TrackMutations:
             tracks_data.append(TrackCreate(**track_data_dict))
 
         tracks = service.create_or_update_tracks_batch(tracks_data)
+        log_graphql_mutation_success("create_tracks", len(tracks))
         return [
             TrackType(
                 id=track.id,
@@ -269,7 +292,7 @@ class TrackMutations:
     def update_track_by_id(self, data: TrackUpdateInput, info: strawberry.types.Info) -> TrackType:
         """Update a track by ID."""
         from backend.library_api.services.track_service import TrackService
-        session = info.context.db
+        session = info.context.session
         service = TrackService(session)
 
         # Créer un dictionnaire avec tous les champs pour l'update
@@ -349,7 +372,7 @@ class TrackMutations:
         """Upsert a track (create if not exists, update if exists)."""
         from backend.library_api.services.track_service import TrackService
         from backend.library_api.api.schemas.tracks_schema import TrackCreate
-        session = info.context.db
+        session = info.context.session
         service = TrackService(session)
 
         # Convertir l'objet Strawberry en objet Pydantic
@@ -427,7 +450,7 @@ class TrackMutations:
     def update_tracks(self, filter: str, data: str, info: strawberry.types.Info) -> list[TrackType]:
         """Update multiple tracks by filter."""
         from backend.library_api.services.track_service import TrackService
-        session = info.context.db
+        session = info.context.session
         service = TrackService(session)
         filter_data = {"title": {"icontains": filter}}
         update_data = {"title": data}

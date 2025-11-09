@@ -20,7 +20,7 @@ from backend_worker.services.scan_optimizer import ScanOptimizer
 
 
 try:
-    import pytest_benchmark
+    import pytest_benchmark  # noqa: F401
     HAS_PYTEST_BENCHMARK = True
 except ImportError:
     HAS_PYTEST_BENCHMARK = False

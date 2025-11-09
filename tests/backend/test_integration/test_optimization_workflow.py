@@ -237,7 +237,7 @@ async def test_scan_performance_metrics(client, db_session):
 @pytest.mark.asyncio
 async def test_chunk_size_optimization(client, db_session):
     """Test de l'optimisation de la taille des chunks."""
-    from backend_worker.services.scanner import scan_music_task
+    from backend_worker.background_tasks.scan_worker import scan_music_task
 
     # Simuler plusieurs fichiers
     mock_files = [

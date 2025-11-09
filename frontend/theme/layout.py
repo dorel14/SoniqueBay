@@ -1,11 +1,11 @@
 import os
 import inspect
 from nicegui import ui, app
-from config import PAGES_DIR
+from frontend.config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
-from utils.logging import logger
-from websocket_manager.ws_client import register_ws_handler
+from frontend.utils.logging import logger
+from frontend.websocket_manager.ws_client import register_sse_handler
 import asyncio
 import httpx
 
@@ -88,7 +88,7 @@ async def refresh_library():
     progress_row = app.storage.client.get('progress_row')
     progress_bar = app.storage.client.get('progress_bar')
     progress_label = app.storage.client.get('progress_label')
-    left_drawer = app.storage.client.get('left_drawer')
+    app.storage.client.get('left_drawer')
 
     if not all([progress_row, progress_label, progress_bar]):
         logger.warning("Éléments de la barre de progression non trouvés dans le stockage du client.")
@@ -108,7 +108,7 @@ async def refresh_library():
                     #left_drawer.toggle()
                 # Enregistre le handler pour ce task_id
                 handler = make_progress_handler(task_id)
-                register_ws_handler(handler)
+                register_sse_handler(handler)
             else:
                 logger.info(f"Erreur lors de l'actualisation de la bibliothèque: {response.status_code}")
         except httpx.RequestError as e:

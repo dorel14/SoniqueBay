@@ -18,7 +18,7 @@ import redis.asyncio as redis
 from backend.library_api.utils.database import get_session
 from alembic.config import Config
 from alembic import command
-import asyncio
+
 
 # Importer les routes avant toute autre initialisation
 from backend.library_api.api import api_router  # noqa: E402
@@ -29,6 +29,11 @@ from backend.library_api.api.graphql.queries.schema import schema # noqa: E402
 class AppContext(BaseContext):
     settings: Settings
     session: Session
+
+    @property
+    def db(self):
+        """Alias for session to maintain compatibility."""
+        return self.session
 
 SessionDep = Annotated[Session, Depends(get_session)]
 
@@ -85,12 +90,25 @@ app = FastAPI(title="SoniqueBay API",
             openapi_url="/api/openapi.json",
             lifespan=lifespan)
 
-# Configuration CORS avec origins explicites
+# Configuration CORS avec origins explicites (incluant Docker)
 origins = [
     "http://localhost:8080",  # Frontend NiceGUI
     "http://127.0.0.1:8080",
     "ws://localhost:8080",
-    "ws://127.0.0.1:8080"
+    "ws://127.0.0.1:8080",
+    # Origins Docker pour les workers
+    "http://api:8001",
+    "http://library:8001",
+    "http://backend:8001",
+    "http://scan-worker-1:8001",
+    "http://scan-worker-2:8001",
+    "http://insert-worker-1:8001",
+    "http://insert-worker-2:8001",
+    "http://batch-worker:8001",
+    "http://extract-worker-1:8001",
+    "http://extract-worker-2:8001",
+    "http://vector-worker:8001",
+    "http://deferred-worker:8001"
 ]
 
 app.add_middleware(
@@ -106,7 +124,16 @@ async def log_requests(request: Request, call_next):
     logger.info(f"URL demandée: {request.url}")
     logger.info(f"Base URL: {request.base_url}")
     logger.info(f"Path params: {request.path_params}")
+    logger.info(f"Headers: {dict(request.headers)}")
+    
     response = await call_next(request)
+    
+    # Log des réponses pour déboguer les erreurs 307
+    if response.status_code == 307:
+        logger.warning(f"⚠️ REDIRECT 307: {request.url} -> {response.headers.get('location')}")
+    elif response.status_code >= 400:
+        logger.error(f"❌ ERROR {response.status_code}: {request.url}")
+    
     return response
 
 
@@ -161,6 +188,8 @@ async def global_ws(websocket: WebSocket):
         if redis_client:
             await redis_client.close()
         logger.info("WebSocket disconnected.")
+
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

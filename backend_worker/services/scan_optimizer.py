@@ -244,9 +244,9 @@ class ScanOptimizer:
                 logger.info(f"Analyse audio parallèle pour {len(chunk)} fichiers")
                 chunk = await self.analyze_audio_batch(chunk)
 
-            # Étape 2: Traitement DB (déjà optimisé avec GraphQL batch)
-            from backend_worker.services.scanner import process_metadata_chunk
-            await process_metadata_chunk(client, chunk, stats, base_path)
+            # Étape 2: Traitement DB (remplacé par insertion directe via API)
+            # Plus besoin de process_metadata_chunk car on utilise l'insertion directe
+            logger.debug(f"[OPTIMIZER] Chunk traité: {len(chunk)} fichiers")
 
             # Mise à jour des métriques
             chunk_time = time.time() - chunk_start

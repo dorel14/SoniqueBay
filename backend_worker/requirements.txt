@@ -7,7 +7,7 @@ eventlet>=0.33.0
 mutagen>=1.46.0
 librosa>=0.10.0
 torch>=2.0.0
-sentence-transformers[cpu]>=2.2.0
+sentence-transformers>=2.2.0
 scikit-learn>=1.7.2
 
 # HTTP et WebSocket
@@ -26,10 +26,15 @@ python-multipart>=0.0.6
 aiofiles>=23.1.0
 pathlib>=1.0.1
 psutil>=5.9.0
+nest-asyncio>=1.6.0
 
 # Sécurité
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+
+# Web Framework pour API HTTP
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
 
 # Tests
 pytest>=7.3.1

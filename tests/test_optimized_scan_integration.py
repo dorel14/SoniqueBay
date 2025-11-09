@@ -8,7 +8,6 @@ Valide que toutes les étapes fonctionnent ensemble correctement.
 
 import asyncio
 import tempfile
-import os
 import time
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -54,8 +53,6 @@ class TestScanIntegration:
 
             # Test du pipeline complet avec mocks
             metadata_results = []
-            batch_results = []
-            insert_results = []
 
             # 1. Mock de l'extraction
             with patch('backend_worker.background_tasks.optimized_extract.extract_single_file_metadata') as mock_extract:

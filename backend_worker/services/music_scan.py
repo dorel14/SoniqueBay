@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+"""
+Optimisation des performances : Séparation des covers des scans de tracks.
+
+Les covers et images d'artistes sont maintenant extraites de manière différée
+pour optimiser les performances des scans de tracks. Les métadonnées principales
+sont extraites rapidement, et les covers sont traitées en arrière-plan via
+la queue 'deferred'.
+
+Changements :
+- extract_metadata() : Extrait uniquement les métadonnées de base (sans covers)
+- extract_embedded_covers() : Extrait les covers intégrées des métadonnées audio
+- extract_artist_images() : Extrait les images d'artistes des dossiers
+- process_file() : Supprimé l'extraction d'images d'artistes pour optimisation
+- Tâches Celery : extract_embedded_covers_batch et extract_artist_images_batch pour traitement différé
+"""
 
 from pathlib import Path
 from mutagen import File
@@ -553,26 +568,29 @@ def get_musicbrainz_tags(audio):
 
 
 async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[Path] | None = None):
-    """Extrait les métadonnées d'un objet audio Mutagen."""
+    """Extrait les métadonnées d'un objet audio Mutagen (sans covers pour optimisation)."""
     try:
-        # L'objet 'audio' est déjà chargé, on l'utilise directement
-        cover_data, mime_type = await get_cover_art(file_path_str, audio=audio, allowed_base_paths=allowed_base_paths)
-        
-        # Extraire les métadonnées musicales de base
+        # Extraire les métadonnées musicales de base (sans covers)
+        # Récupérer les genres multiples et les splitter
+        genre_tag = get_tag(audio, "genre")
+        genres = []
+        if genre_tag:
+            # Splitter les genres séparés par des virgules ou autres séparateurs
+            genres = [g.strip() for g in genre_tag.replace('/', ',').replace(';', ',').split(',') if g.strip()]
+
         metadata = {
             "path": file_path_str,
             "title": get_tag(audio, "title") or Path(file_path_str).stem,
             "artist": get_tag(audio, "artist") or get_tag(audio, "TPE1") or get_tag(audio, "TPE2"),
             "album": get_tag(audio, "album") or Path(file_path_str).parent.name,
-            "genre": get_tag(audio, "genre"),
+            "genre": genre_tag,  # Garder le genre original pour compatibilité
+            "genres": genres,    # Ajouter la liste des genres splittés
             "year": get_tag(audio, "date") or get_tag(audio, "TDRC"),
             "track_number": get_tag(audio, "tracknumber") or get_tag(audio, "TRCK"),
             "disc_number": get_tag(audio, "discnumber") or get_tag(audio, "TPOS"),
             "duration": int(audio.info.length) if hasattr(audio.info, 'length') else 0,
             "file_type": get_file_type(file_path_str),
             "bitrate": int(audio.info.bitrate / 1000) if hasattr(audio.info, 'bitrate') and audio.info.bitrate else 0,
-            "cover_data": cover_data,
-            "cover_mime_type": mime_type,
             "tags": serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
         }
 
@@ -617,6 +635,72 @@ async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[P
 
     except Exception as e:
         logger.error(f"Erreur d'extraction des métadonnées pour {file_path_str}: {str(e)}")
+        return {"path": file_path_str, "error": str(e)}
+
+
+async def extract_embedded_covers(audio, file_path_str: str, allowed_base_paths: list[Path] | None = None):
+    """Extrait les covers intégrées des métadonnées audio (tracks/albums)."""
+    try:
+        cover_data, mime_type = await get_cover_art(file_path_str, audio=audio, allowed_base_paths=allowed_base_paths)
+        return {
+            "path": file_path_str,
+            "cover_data": cover_data,
+            "cover_mime_type": mime_type,
+            "type": "embedded"
+        }
+    except Exception as e:
+        logger.error(f"Erreur d'extraction des covers intégrées pour {file_path_str}: {str(e)}")
+        return {"path": file_path_str, "error": str(e)}
+
+
+async def extract_artist_images(file_path_str: str, allowed_base_paths: list[Path] | None = None):
+    """Extrait les images d'artistes des dossiers (tâche séparée pour optimisation)."""
+    try:
+        parts = Path(file_path_str).parts
+        artist_depth = 3  # Par défaut, ajuster selon config
+        artist_path = Path(*parts[:artist_depth]) if len(parts) > artist_depth else Path(file_path_str).parent
+        artist_images = await get_artist_images(str(artist_path), allowed_base_paths=allowed_base_paths)
+
+        return {
+            "path": file_path_str,
+            "artist_path": str(artist_path),
+            "artist_images": artist_images,
+            "type": "artist"
+        }
+    except Exception as e:
+        logger.error(f"Erreur d'extraction des images d'artistes pour {file_path_str}: {str(e)}")
+        return {"path": file_path_str, "error": str(e)}
+
+
+async def extract_covers_and_images(audio, file_path_str: str, allowed_base_paths: list[Path] | None = None):
+    """Extrait les covers intégrées et les images d'artistes pour un fichier."""
+    try:
+        # Extraire les covers intégrées
+        embedded_result = await extract_embedded_covers(audio, file_path_str, allowed_base_paths)
+
+        # Extraire les images d'artistes
+        artist_result = await extract_artist_images(file_path_str, allowed_base_paths)
+
+        # Combiner les résultats
+        combined_result = {
+            "path": file_path_str,
+            "cover_data": embedded_result.get("cover_data"),
+            "cover_mime_type": embedded_result.get("cover_mime_type"),
+            "artist_path": artist_result.get("artist_path"),
+            "artist_images": artist_result.get("artist_images"),
+            "type": "combined"
+        }
+
+        # Si erreur dans l'un des extractions, ajouter l'erreur
+        if "error" in embedded_result:
+            combined_result["embedded_error"] = embedded_result["error"]
+        if "error" in artist_result:
+            combined_result["artist_error"] = artist_result["error"]
+
+        return combined_result
+
+    except Exception as e:
+        logger.error(f"Erreur d'extraction des covers et images pour {file_path_str}: {str(e)}")
         return {"path": file_path_str, "error": str(e)}
 
 async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | None = None) -> list[tuple[str, str]]:
@@ -711,7 +795,7 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
         logger.error(f"Erreur recherche images artiste dans {artist_path}: {str(e)}")
         return []
 
-async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: dict, cover_cache: dict):
+async def process_file(file_path_bytes, scan_config: dict):
     """
     Traite un fichier musical à partir de son chemin en bytes.
     Retourne un dictionnaire de métadonnées ou None si erreur.
@@ -814,17 +898,8 @@ async def process_file(file_path_bytes, scan_config: dict, artist_images_cache: 
         artist_path = Path(*parts[:artist_depth]) if artist_depth > 0 and len(parts) > artist_depth else file_path.parent
         artist_path_str = str(artist_path)
 
-        artist_images = []
-        if artist_path_str in artist_images_cache:
-            artist_images = artist_images_cache[artist_path_str]
-        elif artist_path.exists():
-            # Note: get_artist_images appelle toujours settings_service. On pourrait optimiser davantage.
-            artist_images = await get_artist_images(artist_path_str, allowed_base_paths=allowed_base_paths)
-            artist_images_cache[artist_path_str] = artist_images
-
         metadata = await extract_metadata(audio, file_path_str, allowed_base_paths=allowed_base_paths)
         metadata["artist_path"] = artist_path_str
-        metadata["artist_images"] = artist_images
 
         logger.debug(f"Métadonnées extraites pour {file_path_str}")
         return metadata
@@ -871,8 +946,6 @@ async def async_walk(path: Path):
 async def scan_music_files(directory: str, scan_config: dict):
     """Générateur asynchrone ultra-optimisé qui scanne les fichiers musicaux."""
     path = Path(directory)
-    artist_images_cache = {}
-    cover_cache = {}
 
     # Augmenter la parallélisation pour l'extraction de base
     semaphore = asyncio.Semaphore(100)  # Augmenté de 20 à 100
@@ -880,7 +953,7 @@ async def scan_music_files(directory: str, scan_config: dict):
     async def process_and_yield(file_path_bytes):
         async with semaphore:
             return await process_file(
-                file_path_bytes, scan_config, artist_images_cache, cover_cache
+                file_path_bytes, scan_config
             )
 
     # Optimiser le batching pour réduire la surcharge asyncio

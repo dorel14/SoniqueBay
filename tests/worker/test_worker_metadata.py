@@ -3,8 +3,7 @@ Tests pour Worker Metadata - Enrichissement des métadonnées
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from backend_worker.background_tasks.worker_metadata import (
     enrich_tracks_batch_task,
     analyze_audio_features_task,
@@ -125,7 +124,7 @@ class TestWorkerMetadata:
             result = update_track_metadata_task(1, metadata_updates)
 
             assert result["track_id"] == 1
-            assert result["success"] == True
+            assert result["success"]
             assert "bpm" in result["updated_fields"]
             assert "key" in result["updated_fields"]
 

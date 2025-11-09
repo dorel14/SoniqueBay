@@ -1,4 +1,11 @@
-from backend.recommender_api.api.models.listening_history_model import *
-from backend.recommender_api.api.models.track_vectors_model import *
+# -*- coding: UTF-8 -*-
+"""
+Recommender API Models Package
 
-__all__ = []
+SQLAlchemy models for the recommender database.
+"""
+
+from .listening_history_model import ListeningHistory
+from .track_vectors_model import TrackVectorVirtual as TrackVector
+
+__all__ = ["ListeningHistory", "TrackVector"]

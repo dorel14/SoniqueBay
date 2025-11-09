@@ -12,7 +12,7 @@ class ArtistQueries:
 
     @strawberry.field
     def artist(self, info: strawberry.types.Info, id: int) -> Optional[ArtistType]:
-        db = info.context["db"]
+        db = info.context.session
         service = ArtistService(db)
         artist = service.read_artist(id)
         if artist:
@@ -45,7 +45,7 @@ class ArtistQueries:
 
     @strawberry.field
     def artists(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[ArtistType]:
-        db = info.context["db"]
+        db = info.context.session
         service = ArtistService(db)
         artists, _ = service.get_artists_paginated(skip, limit)
         return [

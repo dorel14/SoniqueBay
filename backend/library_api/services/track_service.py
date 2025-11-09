@@ -90,6 +90,8 @@ class TrackService:
         """
         Crée ou met à jour des pistes en batch de manière optimisée.
 
+        Gère correctement les contraintes d'unicité sur path et musicbrainz_id.
+
         Args:
             tracks_data: Liste des données de pistes à traiter
 
@@ -101,20 +103,42 @@ class TrackService:
 
         logger.info(f"[TRACK_BATCH] Traitement de {len(tracks_data)} pistes en batch")
 
-        # Étape 1: Récupérer tous les chemins existants en une seule requête
+        # Étape 1: Récupérer tous les paths et musicbrainz_id existants
         paths = [data.path for data in tracks_data if data.path]
+        mbid_values = [data.musicbrainz_id for data in tracks_data if data.musicbrainz_id]
+        
         existing_tracks_by_path = {}
+        existing_tracks_by_mbid = {}
 
+        # Requête pour récupérer les tracks existantes par path
         if paths:
             existing_tracks = self.session.query(TrackModel).filter(TrackModel.path.in_(paths)).all()
             existing_tracks_by_path = {track.path: track for track in existing_tracks}
 
-        # Étape 2: Séparer les tracks à créer et à mettre à jour
+        # Requête pour récupérer les tracks existantes par musicbrainz_id
+        if mbid_values:
+            existing_mbid_tracks = self.session.query(TrackModel).filter(
+                TrackModel.musicbrainz_id.in_(mbid_values)
+            ).all()
+            existing_tracks_by_mbid = {track.musicbrainz_id: track for track in existing_mbid_tracks}
+
+        # Étape 2: Séparer les tracks en évitant les doublons de musicbrainz_id
         tracks_to_create = []
         tracks_to_update = []
+        tracks_to_return_unchanged = []
+        processed_mbids = set()  # Pour éviter les doublons de musicbrainz_id
 
         for data in tracks_data:
-            existing = existing_tracks_by_path.get(data.path)
+            existing = None
+
+            # Recherche prioritaire par musicbrainz_id (contrainte d'unicité)
+            if data.musicbrainz_id and data.musicbrainz_id in existing_tracks_by_mbid:
+                existing = existing_tracks_by_mbid[data.musicbrainz_id]
+                processed_mbids.add(data.musicbrainz_id)
+            # Sinon recherche par path
+            elif data.path and data.path in existing_tracks_by_path:
+                existing = existing_tracks_by_path[data.path]
+
             if existing:
                 # Vérifier si le fichier a changé
                 file_changed = True
@@ -129,15 +153,17 @@ class TrackService:
 
                 if file_changed:
                     tracks_to_update.append((existing, data))
-                # Sinon, on garde la piste existante telle quelle
+                else:
+                    # Track inchangée, la retourner directement
+                    tracks_to_return_unchanged.append(existing)
             else:
                 tracks_to_create.append(data)
 
-        logger.info(f"[TRACK_BATCH] {len(tracks_to_create)} à créer, {len(tracks_to_update)} à mettre à jour")
+        logger.info(f"[TRACK_BATCH] {len(tracks_to_create)} à créer, {len(tracks_to_update)} à mettre à jour, {len(tracks_to_return_unchanged)} inchangées, {len(processed_mbids)} MBIDs ignorés (doublons)")
 
         result = []
 
-        # Étape 3: Création en batch
+        # Étape 3: Création en batch avec gestion d'erreur améliorée
         if tracks_to_create:
             created_tracks = self._create_tracks_batch_optimized(tracks_to_create)
             result.extend(created_tracks)
@@ -147,36 +173,48 @@ class TrackService:
             updated_tracks = self._update_tracks_batch_optimized(tracks_to_update)
             result.extend(updated_tracks)
 
-        # Étape 5: Ajouter les pistes inchangées
-        unchanged_paths = []
-        for data in tracks_data:
-            existing = existing_tracks_by_path.get(data.path)
-            if existing:
-                file_changed = True
-                if hasattr(data, 'file_mtime') and hasattr(data, 'file_size'):
-                    try:
-                        if (existing.file_mtime == data.file_mtime and
-                            existing.file_size == data.file_size):
-                            file_changed = False
-                    except AttributeError:
-                        file_changed = True
-
-                if not file_changed:
-                    unchanged_paths.append(data.path)
-
-        if unchanged_paths:
-            unchanged_tracks = self.session.query(TrackModel).filter(TrackModel.path.in_(unchanged_paths)).all()
-            result.extend(unchanged_tracks)
+        # Étape 5: Ajouter les pistes inchangées directement (pas besoin de requête DB)
+        result.extend(tracks_to_return_unchanged)
 
         logger.info(f"[TRACK_BATCH] Batch terminé: {len(result)} pistes traitées")
         return result
 
     def _create_tracks_batch_optimized(self, tracks_data: List[TrackCreate]):
-        """Crée plusieurs pistes en une seule transaction."""
+        """Crée plusieurs pistes en une seule transaction avec gestion robuste des contraintes d'unicité."""
         try:
-            # Préparer les objets TrackModel
+            # Préparer les objets TrackModel avec dédoublonnage préalable
             tracks_to_insert = []
+            seen_paths = set()
+            seen_mbids = set()
+            
             for data in tracks_data:
+                # Éviter les doublons par path
+                if data.path and data.path in seen_paths:
+                    logger.warning(f"[TRACK_BATCH] Path déjà présent dans le batch: {data.path}")
+                    continue
+                    
+                # Éviter les doublons par musicbrainz_id
+                if data.musicbrainz_id and data.musicbrainz_id in seen_mbids:
+                    logger.warning(f"[TRACK_BATCH] MBID déjà présent dans le batch: {data.musicbrainz_id}")
+                    continue
+                
+                # Vérifier si la track existe déjà en base (path ou MBID)
+                existing = None
+                if data.musicbrainz_id:
+                    existing = self.session.query(TrackModel).filter(
+                        TrackModel.musicbrainz_id == data.musicbrainz_id
+                    ).first()
+                    
+                if not existing and data.path:
+                    existing = self.session.query(TrackModel).filter(
+                        TrackModel.path == data.path
+                    ).first()
+                
+                if existing:
+                    logger.warning(f"[TRACK_BATCH] Track déjà existante ignorée: {data.title} (ID: {existing.id})")
+                    continue
+                    
+                # Créer la nouvelle track
                 track = TrackModel(
                     title=data.title,
                     path=data.path,
@@ -198,10 +236,65 @@ class TrackService:
                     file_size=data.file_size
                 )
                 tracks_to_insert.append(track)
+                
+                # Marquer comme vu
+                if data.path:
+                    seen_paths.add(data.path)
+                if data.musicbrainz_id:
+                    seen_mbids.add(data.musicbrainz_id)
 
-            # Insertion en batch
-            self.session.add_all(tracks_to_insert)
-            self.session.commit()
+            if not tracks_to_insert:
+                logger.warning("[TRACK_BATCH] Aucune track valide à insérer")
+                return []
+
+            # Insertion en batch avec gestion d'erreur spécifique
+            try:
+                self.session.add_all(tracks_to_insert)
+                self.session.commit()
+            except IntegrityError as e:
+                self.session.rollback()
+                
+                # Gestion spécifique des violations de contrainte
+                if "UNIQUE constraint failed: tracks.musicbrainz_id" in str(e):
+                    logger.error("[TRACK_BATCH] Violation contrainte musicbrainz_id. Vérification des doublons...")
+                    # Vérifier quels MBIDs causent problème
+                    for track_data in tracks_data:
+                        if track_data.musicbrainz_id:
+                            existing = self.session.query(TrackModel).filter(
+                                TrackModel.musicbrainz_id == track_data.musicbrainz_id
+                            ).first()
+                            if existing:
+                                logger.warning(f"[TRACK_BATCH] MBID existant: {track_data.musicbrainz_id} → Track ID: {existing.id}")
+                    
+                    # Réessayer l'insertion sans les MBIDs problématiques
+                    tracks_without_mbid = []
+                    for track in tracks_to_insert:
+                        if not track.musicbrainz_id:
+                            tracks_without_mbid.append(track)
+                    
+                    if tracks_without_mbid:
+                        logger.info(f"[TRACK_BATCH] Réinsertion sans MBIDs: {len(tracks_without_mbid)} tracks")
+                        try:
+                            self.session.add_all(tracks_without_mbid)
+                            self.session.commit()
+                            tracks_to_insert = tracks_without_mbid
+                        except Exception as retry_e:
+                            self.session.rollback()
+                            logger.error(f"[TRACK_BATCH] Erreur lors de la réinsertion: {retry_e}")
+                            raise retry_e
+                    else:
+                        raise e
+                        
+                elif "UNIQUE constraint failed: tracks.path" in str(e):
+                    logger.error("[TRACK_BATCH] Violation contrainte path. Vérification des doublons...")
+                    raise Exception("Conflit de chemin détecté - certaines tracks existent déjà")
+                else:
+                    logger.error(f"[TRACK_BATCH] Violation de contrainte non gérée: {e}")
+                    raise e
+            except Exception as e:
+                self.session.rollback()
+                logger.error(f"[TRACK_BATCH] Erreur création batch: {e}")
+                raise
 
             # Refresh pour récupérer les IDs générés
             for track in tracks_to_insert:
@@ -211,7 +304,8 @@ class TrackService:
             return tracks_to_insert
 
         except Exception as e:
-            self.session.rollback()
+            if self.session.is_active:
+                self.session.rollback()
             logger.error(f"[TRACK_BATCH] Erreur création batch: {e}")
             raise
 

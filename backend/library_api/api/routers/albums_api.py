@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
+from pydantic import ValidationError
 from backend.library_api.api.schemas.pagination_schema import PaginatedAlbums
 from sqlalchemy.orm import Session as SQLAlchemySession
 from backend.library_api.api.schemas.albums_schema import AlbumCreate, AlbumUpdate, Album, AlbumWithRelations
@@ -6,6 +7,7 @@ from backend.library_api.api.schemas.tracks_schema import Track
 from typing import List, Optional
 from backend.library_api.utils.database import get_db
 from backend.library_api.utils.logging import logger
+from backend.library_api.utils.validation_logger import log_validation_error
 from backend.library_api.services.album_service import AlbumService
 
 router = APIRouter(prefix="/api/albums", tags=["albums"])
@@ -24,22 +26,42 @@ async def search_albums(
     return [Album.model_validate(album) for album in albums]
 
 @router.post("/batch", response_model=List[AlbumWithRelations])
-def create_albums_batch(albums: List[AlbumCreate], db: SQLAlchemySession = Depends(get_db)):
+def create_albums_batch(albums: List[AlbumCreate], request: Request = None, db: SQLAlchemySession = Depends(get_db)):
     """Crée ou récupère plusieurs albums en une seule fois (batch)."""
     service = AlbumService(db)
     try:
         result = service.create_albums_batch(albums)
         return result
+    except ValidationError as e:
+        # Gestion spécifique des erreurs de validation Pydantic
+        log_validation_error(
+            endpoint="/api/albums/batch",
+            method="POST",
+            request_data=[album.model_dump() for album in albums] if albums else [],
+            validation_error=e,
+            request=request
+        )
+        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
     except Exception as e:
         logger.error(f"Erreur lors de la création en batch d'albums: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Album, status_code=status.HTTP_201_CREATED)
-def create_album(album: AlbumCreate, db: SQLAlchemySession = Depends(get_db)):
+def create_album(album: AlbumCreate, request: Request = None, db: SQLAlchemySession = Depends(get_db)):
     service = AlbumService(db)
     try:
         created_album = service.create_album(album)
         return Album.model_validate(created_album)
+    except ValidationError as e:
+        # Gestion spécifique des erreurs de validation Pydantic
+        log_validation_error(
+            endpoint="/api/albums",
+            method="POST",
+            request_data=album.model_dump() if album else {},
+            validation_error=e,
+            request=request
+        )
+        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
     except Exception as e:
         logger.error(f"Erreur lors de la création d'un album: {e}")
         raise HTTPException(status_code=500, detail=str(e))

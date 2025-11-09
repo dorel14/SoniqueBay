@@ -9,6 +9,7 @@ import json
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService
 from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
+# ✅ CORRIGÉ: Imports locaux pour éviter les circularités
 
 
 def snake_to_camel(s: str) -> str:
@@ -33,8 +34,10 @@ settings_service = SettingsService()
 artist_cache = TTLCache(maxsize=100, ttl=3600)
 album_cache = TTLCache(maxsize=100, ttl=3600)
 genre_cache = TTLCache(maxsize=50, ttl=3600)
+genre_tag_cache = TTLCache(maxsize=100, ttl=3600)
+mood_tag_cache = TTLCache(maxsize=100, ttl=3600)
 track_cache = TTLCache(maxsize=1000, ttl=3600)
-api_url = os.getenv("API_URL", "http://backend:8001")
+api_url = os.getenv("API_URL", "http://api:8001")
 
 def publish_library_update():
     r = redis.Redis(host='redis', port=6379, db=0)
@@ -72,7 +75,7 @@ async def execute_graphql_query(client: httpx.AsyncClient, query: str, variables
         if response.status_code != 200:
             raise Exception(f"GraphQL request failed: {response.status_code} - {response.text}")
 
-        result = await response.json()
+        result = response.json()
         logger.debug(f"GraphQL response: {result}")
 
         if "errors" in result:
@@ -171,7 +174,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             )
 
             if response.status_code in (200, 201):
-                result = await response.json()
+                result = response.json()
                 logger.info(f"Cover mise à jour pour {entity_type} {entity_id}")
                 return result
             elif response.status_code == 404:
@@ -194,7 +197,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
             )
 
             if response.status_code in (200, 201):
-                result = await response.json()
+                result = response.json()
                 logger.info(f"Cover créée pour {entity_type} {entity_id}")
                 return result
             else:
@@ -230,10 +233,8 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         )
 
         if response.status_code == 200:
-            genres = await response.json()
+            genres = response.json()
             if genres:
-
-
                 genre = genres[0]
                 genre_cache[genre_name.lower()] = genre
                 logger.debug(f"Genre trouvé: {genre_name}")
@@ -248,7 +249,7 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         )
 
         if response.status_code in (200, 201):
-            genre = await response.json()
+            genre = response.json()
             genre_cache[genre_name.lower()] = genre
             logger.info(f"Nouveau genre créé: {genre_name}")
             return genre
@@ -258,6 +259,100 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
 
     except Exception as e:
         logger.error(f"Erreur pour genre {genre_name}: {str(e)}")
+        return None
+
+
+async def create_or_get_genre_tag(client: httpx.AsyncClient, tag_name: str) -> Optional[Dict]:
+    """Créer ou récupérer un tag de genre."""
+    try:
+        if not tag_name:
+            return None
+
+        # Vérifier le cache
+        cache_key = tag_name.lower()
+        if cache_key in genre_tag_cache:
+            return genre_tag_cache[cache_key]
+
+        # Rechercher le tag par nom
+        response = await client.get(
+            f"{api_url}/api/genre-tags/",
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            tags = response.json()
+            for tag in tags:
+                if tag.get('name', '').lower() == tag_name.lower():
+                    genre_tag_cache[cache_key] = tag
+                    logger.debug(f"Genre tag trouvé: {tag_name}")
+                    return tag
+
+        # Créer le tag s'il n'existe pas
+        create_data = {"name": tag_name}
+        response = await client.post(
+            f"{api_url}/api/genre-tags/",
+            json=create_data,
+            timeout=10
+        )
+
+        if response.status_code in (200, 201):
+            tag = response.json()
+            genre_tag_cache[cache_key] = tag
+            logger.info(f"Nouveau genre tag créé: {tag_name}")
+            return tag
+        else:
+            logger.error(f"Erreur création genre tag {tag_name}: {response.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Erreur pour genre tag {tag_name}: {str(e)}")
+        return None
+
+
+async def create_or_get_mood_tag(client: httpx.AsyncClient, tag_name: str) -> Optional[Dict]:
+    """Créer ou récupérer un tag d'humeur."""
+    try:
+        if not tag_name:
+            return None
+
+        # Vérifier le cache
+        cache_key = tag_name.lower()
+        if cache_key in mood_tag_cache:
+            return mood_tag_cache[cache_key]
+
+        # Rechercher le tag par nom
+        response = await client.get(
+            f"{api_url}/api/mood-tags/",
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            tags = response.json()
+            for tag in tags:
+                if tag.get('name', '').lower() == tag_name.lower():
+                    mood_tag_cache[cache_key] = tag
+                    logger.debug(f"Mood tag trouvé: {tag_name}")
+                    return tag
+
+        # Créer le tag s'il n'existe pas
+        create_data = {"name": tag_name}
+        response = await client.post(
+            f"{api_url}/api/mood-tags/",
+            json=create_data,
+            timeout=10
+        )
+
+        if response.status_code in (200, 201):
+            tag = response.json()
+            mood_tag_cache[cache_key] = tag
+            logger.info(f"Nouveau mood tag créé: {tag_name}")
+            return tag
+        else:
+            logger.error(f"Erreur création mood tag {tag_name}: {response.text}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Erreur pour mood tag {tag_name}: {str(e)}")
         return None
 
 def update_missing_info(entity: Dict, new_data: Dict) -> bool:
@@ -287,39 +382,78 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
 
         logger.info(f"Traitement en batch de {len(artists_data)} artistes via GraphQL")
 
-        # Construire la mutation GraphQL
-        mutation = """
-        mutation CreateArtists($artists: [ArtistCreateInput!]!) {
-            createArtists(data: $artists) {
-                id
-                name
-                musicbrainzArtistid
+        # Nettoyer les données d'artistes - supprimer les champs non supportés par le schéma
+        cleaned_artists_data = []
+        for artist in artists_data:
+            cleaned_artist = {
+                'name': artist.get('name'),
+                'musicbrainzArtistid': artist.get('musicbrainz_artistid') or artist.get('musicbrainzArtistid')
             }
-        }
-        """
+            # Supprimer les clés None et les champs non supportés
+            cleaned_artist = {k: v for k, v in cleaned_artist.items() if v is not None}
+            cleaned_artists_data.append(cleaned_artist)
 
-        # Convertir les clés snake_case en camelCase pour GraphQL
-        converted_artists_data = convert_dict_keys_to_camel(artists_data)
-        variables = {"artists": converted_artists_data}
-        logger.debug(f"GraphQL variables for CreateArtists: {variables}")
+        # Vérifier le cache avant les appels API
+        from backend_worker.services.cache_service import cache_service
+        cached_artists = {}
+        artists_to_fetch = []
+        artist_map = {}  # Initialiser artist_map
 
-        # Exécuter la requête GraphQL
-        result = await execute_graphql_query(client, mutation, variables)
+        for artist in cleaned_artists_data:
+            cache_key = f"artist:{artist['name'].lower()}"
+            cached = cache_service.get("lastfm", cache_key)
+            if cached:
+                cached_artists[artist['name'].lower()] = cached
+                logger.debug(f"[CACHE] Artiste trouvé en cache: {artist['name']}")
+            else:
+                artists_to_fetch.append(artist)
 
-        if "createArtists" in result:
-            artists = result["createArtists"]
-            # Créer un dictionnaire pour un accès facile par nom ou mbid
-            artist_map = {
-                (artist.get('musicbrainzArtistid') or artist['name'].lower()): artist
-                for artist in artists
+        # Construire la mutation GraphQL seulement pour les artistes non cachés
+        if artists_to_fetch:
+            mutation = """
+            mutation CreateArtists($artists: [ArtistCreateInput!]!) {
+                createArtists(data: $artists) {
+                    id
+                    name
+                    musicbrainzArtistid
+                }
             }
-            logger.info(f"{len(artists)} artistes traités avec succès en batch via GraphQL")
-            logger.debug(f"Artist map keys: {list(artist_map.keys())}")
-            publish_library_update()  # Publier la mise à jour de la bibliothèque
-            return artist_map
-        else:
-            logger.error(f"Réponse GraphQL inattendue: {result}")
-            return {}
+            """
+
+            # Convertir les clés snake_case en camelCase pour GraphQL
+            converted_artists_data = convert_dict_keys_to_camel(artists_to_fetch)
+            variables = {"artists": converted_artists_data}
+            logger.debug(f"GraphQL variables for CreateArtists: {variables}")
+
+            # Exécuter la requête GraphQL
+            result = await execute_graphql_query(client, mutation, variables)
+
+            if "createArtists" in result:
+                artists = result["createArtists"]
+                # Créer un dictionnaire pour un accès facile par nom ou mbid
+                for artist in artists:
+                    key = (artist.get('musicbrainzArtistid') or artist['name'].lower())
+                    artist_map[key] = artist
+                    # Mettre en cache pour les futures requêtes
+                    cache_key = f"artist:{artist['name'].lower()}"
+                    cache_service.set("lastfm", cache_key, artist, ttl=3600)
+                logger.info(f"{len(artists)} artistes traités avec succès en batch via GraphQL")
+            else:
+                logger.error(f"Réponse GraphQL inattendue: {result}")
+                return {}
+
+        # Combiner les résultats du cache et de l'API
+        final_artist_map = {}
+        for artist in cleaned_artists_data:
+            key = artist['name'].lower()
+            if key in cached_artists:
+                final_artist_map[key] = cached_artists[key]
+            elif key in artist_map:
+                final_artist_map[key] = artist_map[key]
+
+        logger.debug(f"Artist map keys: {list(final_artist_map.keys())}")
+        publish_library_update()  # Publier la mise à jour de la bibliothèque
+        return final_artist_map
 
     except Exception as e:
         logger.error(f"Erreur lors du traitement en batch des artistes: {str(e)}")
@@ -342,39 +476,82 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
 
         logger.info(f"Traitement en batch de {len(albums_data)} albums via GraphQL")
 
-        # Construire la mutation GraphQL
-        mutation = """
-        mutation CreateAlbums($albums: [AlbumCreateInput!]!) {
-            createAlbums(data: $albums) {
-                id
-                title
-                albumArtistId
-                releaseYear
-                musicbrainzAlbumid
+        # Nettoyer les données d'albums - supprimer les champs non supportés par le schéma
+        cleaned_albums_data = []
+        for album in albums_data:
+            cleaned_album = {
+                'title': album.get('title'),
+                'album_artist_id': album.get('album_artist_id'),  # Champ requis
+                'release_year': album.get('release_year'),
+                'musicbrainz_albumid': album.get('musicbrainz_albumid') or album.get('musicbrainzAlbumid')
             }
-        }
-        """
+            # Supprimer les clés None et les champs non supportés
+            cleaned_album = {k: v for k, v in cleaned_album.items() if v is not None}
+            cleaned_albums_data.append(cleaned_album)
 
-        # Convertir les clés snake_case en camelCase pour GraphQL
-        converted_albums_data = convert_dict_keys_to_camel(albums_data)
-        variables = {"albums": converted_albums_data}
+        # Vérifier le cache avant les appels API
+        from backend_worker.services.cache_service import cache_service
+        cached_albums = {}
+        albums_to_fetch = []
+        album_map = {}  # Initialiser album_map
 
-        # Exécuter la requête GraphQL
-        result = await execute_graphql_query(client, mutation, variables)
+        for album in cleaned_albums_data:
+            # Créer une clé de cache basée sur titre + artist_id
+            cache_key = f"album:{album['title'].lower()}:{album.get('album_artist_id', 'unknown')}"
+            cached = cache_service.get("lastfm", cache_key)
+            if cached:
+                cached_albums[cache_key] = cached
+                logger.debug(f"[CACHE] Album trouvé en cache: {album['title']}")
+            else:
+                albums_to_fetch.append(album)
 
-        if "createAlbums" in result:
-            albums = result["createAlbums"]
-            # Clé: (titre, artist_id) ou mbid
-            album_map = {
-                (album.get('musicbrainzAlbumid') or (album['title'].lower(), album['albumArtistId'])): album
-                for album in albums
+        # Construire la mutation GraphQL seulement pour les albums non cachés
+        if albums_to_fetch:
+            mutation = """
+            mutation CreateAlbums($albums: [AlbumCreateInput!]!) {
+                createAlbums(data: $albums) {
+                    id
+                    title
+                    albumArtistId
+                    releaseYear
+                    musicbrainzAlbumid
+                }
             }
-            logger.info(f"{len(albums)} albums traités avec succès en batch via GraphQL")
-            publish_library_update()  # Publier la mise à jour de la bibliothèque
-            return album_map
-        else:
-            logger.error(f"Réponse GraphQL inattendue: {result}")
-            return {}
+            """
+
+            # Convertir les clés snake_case en camelCase pour GraphQL
+            converted_albums_data = convert_dict_keys_to_camel(albums_to_fetch)
+            variables = {"albums": converted_albums_data}
+
+            # Exécuter la requête GraphQL
+            result = await execute_graphql_query(client, mutation, variables)
+
+            if "createAlbums" in result:
+                albums = result["createAlbums"]
+                # Clé: (titre, artist_id) ou mbid
+                for album in albums:
+                    key = (album.get('musicbrainzAlbumid') or (album['title'].lower(), album['albumArtistId']))
+                    album_map[key] = album
+                    # Mettre en cache pour les futures requêtes
+                    cache_key = f"album:{album['title'].lower()}:{album['albumArtistId']}"
+                    cache_service.set("lastfm", cache_key, album, ttl=3600)
+                logger.info(f"{len(albums)} albums traités avec succès en batch via GraphQL")
+            else:
+                logger.error(f"Réponse GraphQL inattendue: {result}")
+                return {}
+
+        # Combiner les résultats du cache et de l'API
+        final_album_map = {}
+        for album in cleaned_albums_data:
+            key = (album.get('musicbrainz_albumid') or (album['title'].lower(), album['album_artist_id']))
+            cache_key = f"album:{album['title'].lower()}:{album.get('album_artist_id', 'unknown')}"
+            if cache_key in cached_albums:
+                final_album_map[key] = cached_albums[cache_key]
+            elif key in album_map:
+                final_album_map[key] = album_map[key]
+
+        publish_library_update()  # Publier la mise à jour de la bibliothèque
+        return final_album_map
 
     except Exception as e:
         logger.error(f"Exception lors du traitement en batch des albums: {str(e)}")
@@ -638,4 +815,108 @@ async def process_artist_covers(client: httpx.AsyncClient, artist_id: int,
         try:
             publish_library_update()
         except Exception as e:
-            logger.error(f"Erreur publication mise à jour artiste {artist_id}: {str(e)}")
+            logger.warning(f"Erreur publication update cover artiste {artist_id}: {str(e)}")
+
+async def on_artists_inserted_callback(artist_ids: List[int]) -> None:
+    """
+    Hook callback appelé après l'insertion d'artistes.
+    Déclenche automatiquement le traitement des images d'artistes.
+    
+    Args:
+        artist_ids: Liste des IDs d'artistes insérés
+    """
+    try:
+        if not artist_ids:
+            logger.debug("Aucun artiste à traiter pour les images")
+            return
+            
+        logger.info(f"[CALLBACK] Déclenchement traitement images pour {len(artist_ids)} artistes")
+        
+        # Déclencher la tâche de traitement des images d'artistes
+        from backend_worker.covers_tasks import process_artist_images
+        task_result = process_artist_images.delay(artist_ids, priority="normal")
+        
+        logger.info(f"[CALLBACK] Tâche d'images artistes déclenchée avec ID: {task_result.id}")
+        
+    except Exception as e:
+        logger.error(f"[CALLBACK] Erreur lors du déclenchement du traitement d'images artistes: {str(e)}")
+
+
+async def on_albums_inserted_callback(album_ids: List[int]) -> None:
+    """
+    Hook callback appelé après l'insertion d'albums.
+    Déclenche automatiquement le traitement des covers d'albums.
+    
+    Args:
+        album_ids: Liste des IDs d'albums insérés
+    """
+    try:
+        if not album_ids:
+            logger.debug("Aucun album à traiter pour les covers")
+            return
+            
+        logger.info(f"[CALLBACK] Déclenchement traitement covers pour {len(album_ids)} albums")
+        
+        # Déclencher la tâche de traitement des covers d'albums
+        from backend_worker.covers_tasks import process_album_covers
+        task_result = process_album_covers.delay(album_ids, priority="normal")
+        
+        logger.info(f"[CALLBACK] Tâche de covers albums déclenchée avec ID: {task_result.id}")
+        
+    except Exception as e:
+        logger.error(f"[CALLBACK] Erreur lors du déclenchement du traitement de covers albums: {str(e)}")
+
+
+async def on_tracks_inserted_callback(track_data_list: List[Dict]) -> None:
+    """
+    Hook callback appelé après l'insertion de tracks.
+    Extrait et traite les images embedded et déclenche le traitement des covers.
+    
+    Args:
+        track_data_list: Liste des données de tracks avec métadonnées d'images
+    """
+    try:
+        if not track_data_list:
+            logger.debug("Aucune track à traiter pour les images")
+            return
+            
+        logger.info(f"[CALLBACK] Traitement images pour {len(track_data_list)} tracks")
+        
+        # Séparer les covers d'albums et images d'artistes
+        album_covers = []
+        artist_images = []
+        
+        for track_data in track_data_list:
+            # Extraire les covers d'albums embedded
+            if track_data.get("cover_data"):
+                album_covers.append({
+                    "album_id": track_data.get("album_id"),
+                    "cover_data": track_data["cover_data"],
+                    "mime_type": track_data.get("cover_mime_type"),
+                    "path": track_data.get("path")
+                })
+            
+            # Extraire les images d'artistes embedded
+            if track_data.get("artist_images"):
+                artist_images.append({
+                    "artist_id": track_data.get("track_artist_id"),
+                    "images": track_data["artist_images"],
+                    "path": track_data.get("artist_path")
+                })
+        
+        # Déclencher le traitement des covers d'albums si nécessaire
+        if album_covers:
+            logger.info(f"[CALLBACK] Déclenchement traitement {len(album_covers)} covers albums depuis tracks")
+            from backend_worker.covers_tasks import process_track_covers_batch
+            task_result = process_track_covers_batch.delay(album_covers)
+            logger.info(f"[CALLBACK] Tâche covers albums depuis tracks déclenchée: {task_result.id}")
+        
+        # Déclencher le traitement des images d'artistes si nécessaire
+        if artist_images:
+            logger.info(f"[CALLBACK] Déclenchement traitement {len(artist_images)} images artistes depuis tracks")
+            from backend_worker.covers_tasks import process_artist_images_batch
+            task_result = process_artist_images_batch.delay(artist_images)
+            logger.info(f"[CALLBACK] Tâche images artistes depuis tracks déclenchée: {task_result.id}")
+            
+    except Exception as e:
+        logger.error(f"[CALLBACK] Erreur lors du traitement des images depuis tracks: {str(e)}")

@@ -9,7 +9,7 @@ class TrackBase(BaseModel):
     path: str = Field(..., description="Chemin du fichier")
     track_artist_id: int = Field(..., description="ID de l'artiste principal")
     album_id: Optional[int] = Field(None, description="ID de l'album")
-    duration: Optional[float] = None
+    duration: Optional[int] = None
     track_number: Optional[str] = Field(None, description="Numéro de piste (ex: '01/12')")
     disc_number: Optional[str] = Field(None, description="Numéro de disque (ex: '1/2')")
     year: Optional[str] = Field(None, description="Année de sortie")

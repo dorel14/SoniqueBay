@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import requests
+import httpx
 from backend.library_api.utils.settings import get_setting
 
 class APIConfigError(Exception):
@@ -23,9 +23,10 @@ def get_api_settings():
 def get_listenbrainz_recommendations():
     settings = get_api_settings()
     url = f'https://api.listenbrainz.org/1/user/{settings["listenbrainz_user"]}/recommendations'
-    r = requests.get(url)
-    if r.status_code == 200:
-        return [r['recording_msid'] for r in r.json().get('payload', {}).get('recommendations', [])]
+    with httpx.Client() as client:
+        r = client.get(url)
+        if r.status_code == 200:
+            return [r['recording_msid'] for r in r.json().get('payload', {}).get('recommendations', [])]
     return []
 
 def get_lastfm_similar(track_title, artist_name):
@@ -38,10 +39,11 @@ def get_lastfm_similar(track_title, artist_name):
         'api_key': settings['lastfm_api_key'],
         'format': 'json'
     }
-    r = requests.get(url, params=params)
-    if r.status_code == 200:
-        return [
-            (t['name'], t['artist']['name'])
-            for t in r.json().get('similartracks', {}).get('track', [])
-        ]
+    with httpx.Client() as client:
+        r = client.get(url, params=params)
+        if r.status_code == 200:
+            return [
+                (t['name'], t['artist']['name'])
+                for t in r.json().get('similartracks', {}).get('track', [])
+            ]
     return []
