@@ -1,11 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
+from pydantic import ValidationError
 from sqlalchemy.orm import Session as SQLAlchemySession
 
 from typing import List, Optional
+import json
+import asyncio
+import redis.asyncio as redis
 from backend.library_api.utils.database import get_db
 from backend.library_api.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.library_api.api.models.tracks_model import Track as TrackModel
 from backend.library_api.utils.logging import logger
+from backend.library_api.utils.validation_logger import log_validation_error
 from backend.library_api.services.track_service import TrackService
 
 router = APIRouter(prefix="/api/tracks", tags=["tracks"])
@@ -33,21 +38,161 @@ async def search_tracks(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/batch", response_model=List[Track])
-async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], db: SQLAlchemySession = Depends(get_db)):
+async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request: Request = None, db: SQLAlchemySession = Depends(get_db)):
     service = TrackService(db)
     try:
         result = service.create_or_update_tracks_batch(tracks_data)
+
+        # Publier les événements via Redis pour déclencher la vectorisation
+        # Note: La communication se fait maintenant via Redis PubSub au lieu d'appels HTTP directs
+        # pour respecter la séparation des conteneurs
+        try:
+            import asyncio
+            import redis.asyncio as redis
+
+            async def publish_vectorization_events():
+                try:
+                    # Connexion Redis pour publier les événements
+                    redis_client = redis.Redis(
+                        host='redis',
+                        port=6379,
+                        db=0,
+                        decode_responses=True
+                    )
+
+                    for track in result:
+                        # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
+                        event_data = {
+                            "track_id": str(track.id),
+                            "title": track.title,
+                            "genre": track.genre or "",
+                            "year": track.year,
+                            "duration": track.duration,
+                            "bitrate": track.bitrate,
+                            "bpm": track.bpm,
+                            "key": track.key,
+                            "scale": track.scale,
+                            "danceability": track.danceability,
+                            "mood_happy": track.mood_happy,
+                            "mood_aggressive": track.mood_aggressive,
+                            "mood_party": track.mood_party,
+                            "mood_relaxed": track.mood_relaxed,
+                            "instrumental": track.instrumental,
+                            "acoustic": track.acoustic,
+                            "tonal": track.tonal,
+                            "genre_main": getattr(track, 'genre_main', None),
+                            "camelot_key": getattr(track, 'camelot_key', None),
+                            # Utiliser les tags directs si disponibles, sinon liste vide
+                            "genre_tags": getattr(track, 'genre_tags', []) or [],
+                            "mood_tags": getattr(track, 'mood_tags', []) or []
+                        }
+
+                        await redis_client.publish("tracks.to_vectorize", json.dumps({
+                            "type": "track_created",
+                            "timestamp": asyncio.get_event_loop().time(),
+                            **event_data
+                        }))
+
+                    await redis_client.close()
+
+                except Exception as e:
+                    logger.warning(f"Erreur publication événements vectorisation batch: {e}")
+
+            # Lancer la publication de manière asynchrone (non-bloquante)
+            asyncio.create_task(publish_vectorization_events())
+
+        except Exception as e:
+            logger.warning(f"Erreur initialisation publication vectorisation batch: {e}")
+            # Ne pas échouer la création de tracks pour autant
+
         return [Track.model_validate(t) for t in result]
+    except ValidationError as e:
+        # Gestion spécifique des erreurs de validation Pydantic
+        log_validation_error(
+            endpoint="/api/tracks/batch",
+            method="POST",
+            request_data=[track.model_dump() for track in tracks_data] if tracks_data else [],
+            validation_error=e,
+            request=request
+        )
+        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
     except Exception as e:
         logger.error(f"Erreur batch pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Track)
-async def create_track(track: TrackCreate, db: SQLAlchemySession = Depends(get_db)):
+async def create_track(track: TrackCreate, request: Request = None, db: SQLAlchemySession = Depends(get_db)):
     service = TrackService(db)
     try:
         created = service.create_track(track)
+
+        # Publier l'événement via Redis pour déclencher la vectorisation
+        try:
+            async def publish_vectorization_event():
+                try:
+                    # Connexion Redis pour publier l'événement
+                    redis_client = redis.Redis(
+                        host='redis',
+                        port=6379,
+                        db=0,
+                        decode_responses=True
+                    )
+
+                    # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
+                    event_data = {
+                        "track_id": str(created.id),
+                        "title": created.title,
+                        "genre": created.genre or "",
+                        "year": created.year,
+                        "duration": created.duration,
+                        "bitrate": created.bitrate,
+                        "bpm": created.bpm,
+                        "key": created.key,
+                        "scale": created.scale,
+                        "danceability": created.danceability,
+                        "mood_happy": created.mood_happy,
+                        "mood_aggressive": created.mood_aggressive,
+                        "mood_party": created.mood_party,
+                        "mood_relaxed": created.mood_relaxed,
+                        "instrumental": created.instrumental,
+                        "acoustic": created.acoustic,
+                        "tonal": created.tonal,
+                        "genre_main": getattr(created, 'genre_main', None),
+                        "camelot_key": getattr(created, 'camelot_key', None),
+                        # Utiliser les tags directs si disponibles, sinon liste vide
+                        "genre_tags": getattr(created, 'genre_tags', []) or [],
+                        "mood_tags": getattr(created, 'mood_tags', []) or []
+                    }
+
+                    await redis_client.publish("tracks.to_vectorize", json.dumps({
+                        "type": "track_created",
+                        "timestamp": asyncio.get_event_loop().time(),
+                        **event_data
+                    }))
+
+                    await redis_client.close()
+
+                except Exception as e:
+                    logger.warning(f"Erreur publication événement vectorisation: {e}")
+
+            # Lancer la publication de manière asynchrone (non-bloquante)
+            asyncio.create_task(publish_vectorization_event())
+
+        except Exception as e:
+            logger.warning(f"Erreur initialisation publication vectorisation: {e}")
+            # Ne pas échouer la création de track pour autant
+
         return Track.model_validate(created)
+    except ValidationError as e:
+        # Gestion spécifique des erreurs de validation Pydantic
+        log_validation_error(
+            endpoint="/api/tracks",
+            method="POST",
+            request_data=track.model_dump() if track else {},
+            validation_error=e,
+            request=request
+        )
+        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
     except Exception as e:
         logger.error(f"Erreur création piste: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -222,6 +367,66 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
         updated_track = service.update_track(track_id, track)
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
+
+        # Publier l'événement via Redis pour déclencher la vectorisation si des métadonnées importantes ont changé
+        try:
+            # Vérifier si des champs impactant la vectorisation ont été modifiés
+            important_fields = ['title', 'artist_id', 'album_id', 'genre', 'year', 'duration', 'bitrate', 'bpm', 'key', 'scale']
+            if any(getattr(track, field, None) is not None for field in important_fields):
+
+                async def publish_vectorization_event():
+                    try:
+                        # Connexion Redis pour publier l'événement
+                        redis_client = redis.Redis(
+                            host='redis',
+                            port=6379,
+                            db=0,
+                            decode_responses=True
+                        )
+
+                        # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
+                        event_data = {
+                            "track_id": str(updated_track.id),
+                            "title": updated_track.title,
+                            "genre": updated_track.genre or "",
+                            "year": updated_track.year,
+                            "duration": updated_track.duration,
+                            "bitrate": updated_track.bitrate,
+                            "bpm": updated_track.bpm,
+                            "key": updated_track.key,
+                            "scale": updated_track.scale,
+                            "danceability": updated_track.danceability,
+                            "mood_happy": updated_track.mood_happy,
+                            "mood_aggressive": updated_track.mood_aggressive,
+                            "mood_party": updated_track.mood_party,
+                            "mood_relaxed": updated_track.mood_relaxed,
+                            "instrumental": updated_track.instrumental,
+                            "acoustic": updated_track.acoustic,
+                            "tonal": updated_track.tonal,
+                            "genre_main": getattr(updated_track, 'genre_main', None),
+                            "camelot_key": getattr(updated_track, 'camelot_key', None),
+                            # Utiliser les tags directs si disponibles, sinon liste vide
+                            "genre_tags": getattr(updated_track, 'genre_tags', []) or [],
+                            "mood_tags": getattr(updated_track, 'mood_tags', []) or []
+                        }
+
+                        await redis_client.publish("tracks.to_vectorize", json.dumps({
+                            "type": "track_updated",
+                            "timestamp": asyncio.get_event_loop().time(),
+                            **event_data
+                        }))
+
+                        await redis_client.close()
+
+                    except Exception as e:
+                        logger.warning(f"Erreur publication événement vectorisation update: {e}")
+
+                # Lancer la publication de manière asynchrone (non-bloquante)
+                asyncio.create_task(publish_vectorization_event())
+
+        except Exception as e:
+            logger.warning(f"Erreur initialisation publication vectorisation update: {e}")
+            # Ne pas échouer la mise à jour de track pour autant
 
         # Conversion et retour
         return Track.model_validate(updated_track)

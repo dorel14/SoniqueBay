@@ -3,8 +3,7 @@ Tests pour Worker Cover - Gestion asynchrone des covers
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from backend_worker.background_tasks.worker_cover import (
     process_album_covers_task,
     process_artist_images_task,

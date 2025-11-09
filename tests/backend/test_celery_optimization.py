@@ -6,7 +6,6 @@ fonctionne correctement et améliore les performances.
 """
 
 import pytest
-import os
 from unittest.mock import patch, MagicMock
 
 from backend_worker.celery_app import (

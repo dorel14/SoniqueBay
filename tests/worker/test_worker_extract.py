@@ -3,8 +3,6 @@ Tests pour Worker Extract - Extraction des métadonnées des fichiers individuel
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
 from backend_worker.background_tasks.worker_extract import (
     extract_file_metadata_task,
     extract_batch_metadata_task,

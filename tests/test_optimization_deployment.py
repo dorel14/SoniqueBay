@@ -95,9 +95,9 @@ class DeploymentTest:
         self.log("Test configuration Celery...")
 
         try:
-            from backend_worker.celery_app import celery, task_queues
+            from backend_worker.celery_app import task_queues
 
-            self.log(f"✓ Celery importé avec succès")
+            self.log("✓ Celery importé avec succès")
             self.log(f"✓ {len(task_queues)} queues configurées")
 
             # Vérifier les nouvelles queues
@@ -294,7 +294,6 @@ class DeploymentTest:
         try:
             # Test d'import des modules asynchrones
             from backend_worker.background_tasks.optimized_scan import scan_directory_parallel
-            from backend_worker.background_tasks.optimized_extract import extract_metadata_batch
 
             self.log("✓ Imports asynchrones OK")
 
@@ -410,13 +409,13 @@ class DeploymentTest:
             self.log("3. Surveiller les performances")
             self.log("4. Déployer en production")
 
-            report = self.generate_deployment_report()
+            self.generate_deployment_report()
             return True
         else:
             self.log("💥 TROP D'ERREURS - DÉPLOIEMENT NON RECOMMANDÉ")
             self.log("Corriger les erreurs avant déploiement")
 
-            report = self.generate_deployment_report()
+            self.generate_deployment_report()
             return False
 
 

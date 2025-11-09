@@ -24,7 +24,7 @@ WORKDIR /backend_worker
 # Copie et installation des dépendances spécifiques
 COPY --link ./backend_worker/requirements.txt /backend_worker/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+    UV_HTTP_TIMEOUT=300 uv pip install --system --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 # Stage 2: Runner
 FROM do14500352/soniquebay-base:latest AS runner
@@ -64,6 +64,9 @@ COPY --link ./backend /app/backend
 # Vérification que celery est disponible
 RUN celery --version && \
     python3 -c "import celery; print('celery import successful')"
+
+# Copie de l'application API
+COPY --link ./backend_worker/api_app.py /app/backend_worker/api_app.py
 
 WORKDIR /app
 

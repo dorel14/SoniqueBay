@@ -8,7 +8,7 @@ ARTIST_IMAGE_FILES = "artist_image_files"
 MUSIC_PATH_TEMPLATE = "music_path_template"
 _settings_cache = {}
 class SettingsService:
-    def __init__(self, api_url: str = os.getenv('API_URL', 'http://library:8001')):
+    def __init__(self, api_url: str = os.getenv('API_URL', 'http://api:8001')):
         self.api_url = f"{api_url}/api/settings"
 
     async def get_setting(self, key: str) -> Any:
@@ -49,13 +49,13 @@ class SettingsService:
                             logger.error(f"[SettingsService] Clés du dictionnaire: {list(value.keys())}")
                             # CORRECTION: Essayer d'extraire une valeur par défaut depuis le dictionnaire
                             if 'value' in value:
-                                logger.warning(f"[SettingsService] Correction: Utilisation de value par défaut depuis le dictionnaire")
+                                logger.warning("[SettingsService] Correction: Utilisation de value par défaut depuis le dictionnaire")
                                 value = value['value']
                             elif len(value) == 1:
-                                logger.warning(f"[SettingsService] Correction: Utilisation de la première valeur du dictionnaire")
+                                logger.warning("[SettingsService] Correction: Utilisation de la première valeur du dictionnaire")
                                 value = list(value.values())[0]
                             else:
-                                logger.error(f"[SettingsService] Impossible de corriger automatiquement le dictionnaire")
+                                logger.error("[SettingsService] Impossible de corriger automatiquement le dictionnaire")
                                 value = None
 
                         _settings_cache[key] = value

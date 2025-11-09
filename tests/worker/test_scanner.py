@@ -1,9 +1,7 @@
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-import logging
+from unittest.mock import patch
 
 from backend_worker.services.scanner import count_music_files
-from backend_worker.utils.logging import logger
 
 @pytest.mark.asyncio
 async def test_count_music_files():

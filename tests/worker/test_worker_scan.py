@@ -3,7 +3,6 @@ Tests pour Worker Scan - Détection et extraction des métadonnées brutes
 """
 
 import pytest
-import asyncio
 from unittest.mock import patch, MagicMock, AsyncMock
 from backend_worker.background_tasks.worker_scan import (
     scan_directory_task,
@@ -152,7 +151,7 @@ class TestWorkerScan:
         }
 
         with patch('pathlib.Path.exists', return_value=True):
-            assert _validate_metadata(valid_metadata) == True
+            assert _validate_metadata(valid_metadata)
 
     def test_validate_metadata_missing_required_fields(self):
         """Test validation de métadonnées avec champs requis manquants."""
@@ -164,7 +163,7 @@ class TestWorkerScan:
             "artist": "Test Artist"
         }
 
-        assert _validate_metadata(invalid_metadata) == False
+        assert not _validate_metadata(invalid_metadata)
 
     def test_validate_metadata_invalid_path(self):
         """Test validation de métadonnées avec chemin invalide."""
@@ -176,7 +175,7 @@ class TestWorkerScan:
             "artist": "Test Artist"
         }
 
-        assert _validate_metadata(invalid_metadata) == False
+        assert not _validate_metadata(invalid_metadata)
 
     def test_enrich_basic_metadata(self):
         """Test enrichissement basique des métadonnées."""

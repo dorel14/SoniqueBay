@@ -3,8 +3,7 @@ Tests pour Worker Insert Bulk - Insertion en masse des tracks
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from backend_worker.background_tasks.worker_insert_bulk import (
     insert_tracks_batch_task,
     upsert_entities_batch_task,
@@ -38,7 +37,7 @@ class TestWorkerInsertBulk:
             result = insert_tracks_batch_task(tracks_batch, "test_batch")
 
             assert result["batch_id"] == "test_batch"
-            assert result["success"] == True
+            assert result["success"]
             assert result["inserted"] == 2
             assert result["total_processed"] == 2
 
@@ -88,7 +87,7 @@ class TestWorkerInsertBulk:
             result = upsert_entities_batch_task(entities_data, "test_upsert")
 
             assert result["batch_id"] == "test_upsert"
-            assert result["success"] == True
+            assert result["success"]
             assert "artists" in result
             assert "albums" in result
             assert "tracks" in result
@@ -168,7 +167,7 @@ class TestWorkerInsertBulk:
         }
 
         with patch('pathlib.Path.exists', return_value=True):
-            assert _validate_track(valid_track) == True
+            assert _validate_track(valid_track)
 
     def test_validate_track_missing_title(self):
         """Test validation d'une track sans titre."""
@@ -180,7 +179,7 @@ class TestWorkerInsertBulk:
             # Manque title
         }
 
-        assert _validate_track(invalid_track) == False
+        assert not _validate_track(invalid_track)
 
     def test_validate_track_invalid_path(self):
         """Test validation d'une track avec chemin invalide."""
@@ -192,7 +191,7 @@ class TestWorkerInsertBulk:
             "artist": "Test Artist"
         }
 
-        assert _validate_track(invalid_track) == False
+        assert not _validate_track(invalid_track)
 
     def test_group_metadata_by_entities(self):
         """Test regroupement des métadonnées par entités."""

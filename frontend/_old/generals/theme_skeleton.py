@@ -1,8 +1,7 @@
 from contextlib import contextmanager
 
-from ...utils.logging import logger
-from ...theme.menu import menu
-from .library_tree import library_tree
+from frontend.utils.logging import logger
+from frontend.theme.menu import menu
 from frontend.theme.colors import apply_theme
 from frontend.websocket_manager.ws_client import register_ws_handler
 from nicegui import ui
@@ -104,11 +103,9 @@ def frame(navigation_title: str):
             ui.label('Tout droits réservés').classes('text-xs')
 
     with ui.left_drawer().classes('bg-primary') as left_drawer:
-        with ui.column().classes('w-full p-4') as drawer_content:
+        with ui.column().classes('w-full p-4'):
             ui.label('Bibliothèque').classes('text-lg font-bold  text-gray-200').style('font-family: Poppins')
             ui.separator().classes('w-full')
-            # Appeler library_tree avec le conteneur parent
-            asyncio.create_task(library_tree(drawer_content))
             ui.separator().classes('w-full')
             with ui.row().classes('items-center q-my-sm object-bottom'):
                 ui.button(text='Actualiser la bibliothèque',on_click=lambda: asyncio.create_task(refresh_library(progress_label, progress_row, progress_bar)),

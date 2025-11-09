@@ -15,6 +15,7 @@ from .routers.search_api import router as search_router
 from .routers.covers_api import router as covers_router
 from .routers.library_api import router as library_router
 from .routers.celery_tasks_api import router as celery_tasks_router
+from .routers.sse_api import router as sse_router
 
 
 
@@ -37,6 +38,7 @@ ROUTERS = [
     search_router,
     library_router,
     celery_tasks_router,
+    sse_router,
 ]
 
 

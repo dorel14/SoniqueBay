@@ -12,7 +12,7 @@ class AlbumQueries:
 
     @strawberry.field
     def album(self, info: strawberry.types.Info, id: int) -> Optional[AlbumType]:
-        db = info.context["db"]
+        db = info.context.session
         service = AlbumService(db)
         album = service.read_album(id)
         if album:
@@ -50,7 +50,7 @@ class AlbumQueries:
 
     @strawberry.field
     def albums(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[AlbumType]:
-        db = info.context["db"]
+        db = info.context.session
         service = AlbumService(db)
         albums = service.read_albums(skip, limit)
         result = []

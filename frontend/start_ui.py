@@ -10,7 +10,7 @@ import asyncio
 from main import register_dynamic_routes
 sys.path.append(str(Path(__file__).parent.parent))
 from _version_ import __version__ as version
-from websocket_manager.ws_client import connect_websocket
+from websocket_manager.ws_client import connect_websocket, connect_sse
 
 app.add_middleware(
         CORSMiddleware,
@@ -48,6 +48,12 @@ async def startup():
         print("WebSocket connecté avec succès")
     except Exception as e:
         print(f"Erreur de connexion WebSocket (l'application continuera sans WebSocket): {str(e)}")
+
+    try:
+        await connect_sse()
+        print("SSE connecté avec succès")
+    except Exception as e:
+        print(f"Erreur de connexion SSE (l'application continuera sans SSE): {str(e)}")
 
 
 

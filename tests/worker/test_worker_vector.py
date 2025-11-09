@@ -3,8 +3,7 @@ Tests pour Worker Vector - Calcul et stockage des vecteurs
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 from backend_worker.background_tasks.worker_vector import (
     vectorize_tracks_batch_task,
     vectorize_single_track_task,

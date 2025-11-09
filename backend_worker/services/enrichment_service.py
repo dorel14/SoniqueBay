@@ -5,7 +5,7 @@ from backend_worker.services.lastfm_service import get_lastfm_artist_image
 from backend_worker.services.coverart_service import get_coverart_image
 from backend_worker.services.entity_manager import create_or_update_cover
 
-api_url = os.getenv("API_URL", "http://backend:8001")
+api_url = os.getenv("API_URL", "http://api:8001")
 
 async def enrich_artist(artist_id: int):
     """

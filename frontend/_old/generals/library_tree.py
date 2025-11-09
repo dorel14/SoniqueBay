@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
 from nicegui import ui, app
-from utils.music_tree_data import get_albums_for_artist
-from utils.music_tree_data import get_library_tree
+from frontend.utils.music_tree_data import get_albums_for_artist
+from frontend.utils.music_tree_data import get_library_tree
 from frontend.websocket_manager.ws_client import register_ws_handler
-from ...utils.logging import logger
+from frontend.utils.logging import logger
 
 def make_library_update_handler(tree):
     async def handler(data):
