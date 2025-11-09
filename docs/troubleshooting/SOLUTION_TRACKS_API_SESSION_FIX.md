@@ -2,7 +2,8 @@
 
 ## Problème identifié
 
-**Erreur** : 
+**Erreur** :
+
 ```
 2025-11-01 15:08:17,524 :: WARNING :: tracks_api.py:107 - publish_vectorization_events() :: Erreur publication événements vectorisation batch: Parent instance <Track at 0x7ffa640ec310> is not bound to a Session; lazy load operation of attribute 'artist' cannot proceed
 ```
@@ -14,6 +15,7 @@
 Remplacement de l'accès aux relations par les champs directs de l'objet Track :
 
 ### Avant (problématique)
+
 ```python
 # Accès aux relations (détachées de la session)
 metadata = {
@@ -26,6 +28,7 @@ metadata = {
 ```
 
 ### Après (corrigé)
+
 ```python
 # Champs directs uniquement
 event_data = {

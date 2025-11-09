@@ -74,6 +74,7 @@ services:
 ### Canal: `vectorization`
 
 #### track_created
+
 ```json
 {
   "type": "track_created",
@@ -92,6 +93,7 @@ services:
 ```
 
 #### track_updated
+
 ```json
 {
   "type": "track_updated",
@@ -104,12 +106,14 @@ services:
 ## 🚀 Tâches Celery
 
 ### calculate_vector
+
 - **Queue**: `vectorization`
 - **Fonction**: Calcule et stocke le vecteur d'une track
 - **Retry**: Automatique avec backoff exponentiel
 - **Timeout**: 60 minutes (Raspberry Pi friendly)
 
 ### calculate_vector_if_needed
+
 - **Queue**: `vectorization`
 - **Fonction**: Vérifie si le vecteur existe avant calcul
 - **Priorité**: Plus basse que `calculate_vector`
@@ -117,6 +121,7 @@ services:
 ## 🗄️ Stockage des vecteurs
 
 ### Base de données
+
 - **SQLite** avec extension **sqlite-vec**
 - **Table**: `track_vectors` (embedding, metadata)
 - **Table virtuelle**: `track_vectors_virtual` (recherche vectorielle)
@@ -145,12 +150,14 @@ POST /api/track-vectors/search
 ## 🔍 Recherche de similarité
 
 ### Algorithme
+
 1. **Embedding de requête** : sentence-transformers + features numériques
 2. **Recherche vectorielle** : cosine similarity via sqlite-vec
 3. **Filtres** : genre, année, exclusion même artiste
 4. **Résultats** : tracks similaires avec score de distance
 
 ### Exemple de requête
+
 ```python
 # Recherche tracks similaires
 similar_tracks = search_similar_tracks(
@@ -167,6 +174,7 @@ similar_tracks = search_similar_tracks(
 ## 🧪 Tests
 
 ### Tests unitaires
+
 ```bash
 # Tests d'intégration vectorisation
 pytest tests/worker/test_vectorization_integration.py -v
@@ -179,6 +187,7 @@ pytest tests/worker/test_worker_metadata.py::test_calculate_vector -v
 ```
 
 ### Tests d'intégration
+
 ```bash
 # Test flux complet
 pytest tests/test_vectorization_flow.py -v
@@ -190,12 +199,14 @@ pytest tests/benchmark/test_vectorization_performance.py -v
 ## 📈 Optimisations Raspberry Pi
 
 ### Ressources limitées
+
 - **Workers**: 2 max (4 cœurs Raspberry Pi)
 - **Timeouts**: 60s par fichier, 120s insertion
 - **Batches**: 25 fichiers extraction, 100 artistes/albums
 - **Connexions**: 10 Redis, 20 HTTP max
 
 ### Vectorisation CPU-friendly
+
 - **Modèle**: all-MiniLM-L6-v2 (léger, 384 dimensions)
 - **Threading**: Limité pour éviter surcharge CPU
 - **Cache**: Redis pour éviter recalculs
@@ -203,6 +214,7 @@ pytest tests/benchmark/test_vectorization_performance.py -v
 ## 🔧 Déploiement
 
 ### Démarrage des services
+
 ```bash
 # 1. Démarrer l'infrastructure
 docker-compose up -d redis library_service recommender_service
@@ -216,6 +228,7 @@ docker-compose logs worker | grep vectorization
 ```
 
 ### Monitoring
+
 ```bash
 # État Redis
 redis-cli INFO
@@ -232,6 +245,7 @@ docker-compose logs vectorization_listener
 ### Problèmes courants
 
 #### Vectorisation ne se déclenche pas
+
 ```bash
 # Vérifier connexion Redis
 docker-compose exec redis redis-cli PING
@@ -244,6 +258,7 @@ celery -A backend_worker.celery_app inspect registered
 ```
 
 #### Erreurs de calcul de vecteurs
+
 ```bash
 # Vérifier modèle sentence-transformers
 python -c "from sentence_transformers import SentenceTransformer; print('OK')"
@@ -253,6 +268,7 @@ docker-compose exec recommender_service python -c "import sqlite_vec; print('OK'
 ```
 
 #### Performance lente
+
 ```bash
 # Réduire batch size
 # Augmenter timeouts si nécessaire
@@ -262,12 +278,14 @@ docker-compose exec recommender_service python -c "import sqlite_vec; print('OK'
 ## 🔮 Extensions futures
 
 ### Améliorations planifiées
+
 - **Vectorisation covers**: Embeddings d'images d'albums
 - **Vectorisation harmonique**: Clés musicales et gammes
 - **Vectorisation temporelle**: BPM et structure rythmique
 - **Recherche multi-modale**: Texte + audio + image
 
 ### APIs étendues
+
 - **Recherche par playlist**: Vecteurs de playlists entières
 - **Recommandations contextuelles**: Basées sur historique d'écoute
 - **Clustering automatique**: Groupement de tracks similaires

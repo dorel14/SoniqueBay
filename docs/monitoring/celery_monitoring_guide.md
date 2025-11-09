@@ -7,6 +7,7 @@ Ce système de monitoring mesure automatiquement la taille des arguments de vos 
 ## Fichiers du système
 
 ### 1. `backend_worker/utils/celery_monitor.py`
+
 - **Fonction** : Module principal de monitoring
 - **Fonctions clés** :
   - `measure_celery_task_size()` : Mesure la taille des arguments d'une tâche
@@ -15,17 +16,20 @@ Ce système de monitoring mesure automatiquement la taille des arguments de vos 
   - `auto_configure_celery_limits()` : Propose une limite optimale
 
 ### 2. `backend_worker/celery_app.py` (modifié)
+
 - **Intégration** : Signal `task_prerun` qui capture les tâches avant exécution
 - **Mesure automatique** : Chaque tâche est mesurée et ses statistiques mises à jour
 - **Rapport shutdown** : Statistiques complètes lors de l'arrêt du worker
 
 ### 3. `scripts/check_celery_metrics.py`
+
 - **Utilisation** : Script autonome pour consulter les métriques
 - **Commande** : `python scripts/check_celery_metrics.py`
 
 ## Comment ça marche
 
 ### Capture automatique
+
 ```python
 @task_prerun.connect
 def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
@@ -34,6 +38,7 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
 ```
 
 ### Mesure de la taille
+
 ```python
 def measure_json_size(obj: Any) -> int:
     json_str = json.dumps(obj, ensure_ascii=False, separators=(',', ':'))
@@ -43,15 +48,18 @@ def measure_json_size(obj: Any) -> int:
 ## Utilisation pratique
 
 ### 1. Monitoring passif
+
 Le système fonctionne automatiquement. Les métriques s'accumulent dans `CELERY_SIZE_METRICS`.
 
 ### 2. Consultation des statistiques
+
 ```bash
 # Voir le rapport complet
 python scripts/check_celery_metrics.py
 ```
 
 Exemple de sortie :
+
 ```
 === MÉTRIQUES DE TAILLE CELERY ===
 Tâches analysées: 15
@@ -71,7 +79,9 @@ Recommandations:
 ```
 
 ### 3. Application des recommandations
+
 Si le rapport recommande une limite de 150,000 caractères :
+
 ```python
 # Dans celery_app.py, remplacer :
 celery.amqp.argsrepr_maxsize = 150000
@@ -79,6 +89,7 @@ celery.amqp.kwargsrepr_maxsize = 150000
 ```
 
 ### 4. Remise à zéro des métriques
+
 ```python
 from backend_worker.utils.celery_monitor import reset_metrics
 reset_metrics()
@@ -87,7 +98,9 @@ reset_metrics()
 ## Détection des problèmes
 
 ### Rapports d'alerte automatique
+
 Les tâches avec des arguments > 1KB sont loggées avec un rapport détaillé :
+
 ```
 [CELERY MONITOR] Tâche: extract_metadata_batch
 [CELERY MONITOR] ID: 5ff7c033-b6c3-4a88-8b46-9d175f7a7b98
@@ -97,7 +110,9 @@ Les tâches avec des arguments > 1KB sont loggées avec un rapport détaillé :
 ```
 
 ### Rapport final du worker
+
 À l'arrêt du worker, un rapport complet est généré :
+
 ```
 [WORKER SHUTDOWN] Rapport final monitoring worker extract-worker-1@08bdfa40a251:
 [WORKER SHUTDOWN] Tâches analysées: 127
@@ -118,17 +133,20 @@ Les tâches avec des arguments > 1KB sont loggées avec un rapport détaillé :
 ## Dépannage
 
 ### Le problème persiste
+
 1. Vérifiez les métriques : `python scripts/check_celery_metrics.py`
 2. Appliquez la limite recommandée
 3. Redémarrez les workers Celery
 4. Vérifiez que la limite est bien appliquée
 
 ### Aucune métrique n'est collectée
+
 1. Vérifiez les logs pour les messages `[TASK PRERUN]`
 2. Confirmez que les workers Celery tournent bien
 3. Exécutez quelques tâches pour générer des métriques
 
 ### Interprétation des logs
+
 - `✓` : Taille acceptable, pas de troncature
 - `⚠ TRONQUÉ` : Dépasse la limite actuelle
 
@@ -142,6 +160,7 @@ Les tâches avec des arguments > 1KB sont loggées avec un rapport détaillé :
 ## Évolution future
 
 Le système peut être étendu pour :
+
 - Sauvegarder les métriques en base
 - Envoyer des alertes automatiques
 - Ajuster les limites dynamiquement
