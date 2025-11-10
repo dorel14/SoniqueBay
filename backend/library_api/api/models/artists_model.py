@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, func
+from sqlalchemy import String, Integer, DateTime, func, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 from backend.library_api.api.models.covers_model import Cover
@@ -26,3 +26,8 @@ class Artist(Base):
     )
     # Ajout de la relation avec les genres
     genres: Mapped[list["Genre"]] = relationship("Genre", secondary="artist_genres", back_populates="artists") # type: ignore # noqa: F821
+
+    __table_args__ = (
+        # Index pour les recherches par nom d'artiste
+        Index('idx_artist_name', 'name'),
+    )

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, status
+from fastapi_cache.decorator import cache
 from backend.library_api.api.schemas.pagination_schema import PaginatedArtists
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
@@ -11,14 +12,17 @@ router = APIRouter(prefix="/api/artists", tags=["artists"])
 
 # Déplacer la route search AVANT les routes avec paramètres
 @router.get("/search", response_model=List[Artist])
+@cache(expire=300)  # Cache for 5 minutes
 async def search_artists(
     name: Optional[str] = Query(None),
     musicbrainz_artistid: Optional[str] = Query(None),
     genre: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=1000),
     db: SQLAlchemySession = Depends(get_db)
 ):
     service = ArtistService(db)
-    artists = service.search_artists(name, musicbrainz_artistid, genre)
+    artists = service.search_artists(name, musicbrainz_artistid, genre, skip, limit)
     return [Artist.model_validate(a) for a in artists]
 
 @router.post("/batch", response_model=List[Artist])

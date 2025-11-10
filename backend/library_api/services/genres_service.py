@@ -15,17 +15,26 @@ class GenreService:
     def __init__(self, db: SQLAlchemySession):
         self.session = db
 
-    def search_genres(self, name: Optional[str] = None) -> List[dict]:
+    def search_genres(self, name: Optional[str] = None, skip: int = 0, limit: Optional[int] = None) -> List[dict]:
         if name:
             sql = text("""
                 SELECT id, name, date_added, date_modified
                 FROM genres
                 WHERE LOWER(name) LIKE :name_pattern
+                LIMIT :limit OFFSET :skip
             """)
-            result = self.session.execute(sql, {"name_pattern": f"%{name.lower()}%"})
+            result = self.session.execute(sql, {
+                "name_pattern": f"%{name.lower()}%",
+                "limit": limit if limit is not None else 1000,
+                "skip": skip
+            })
         else:
-            sql = text("SELECT id, name, date_added, date_modified FROM genres")
-            result = self.session.execute(sql)
+            sql = text("SELECT id, name, date_added, date_modified FROM genres LIMIT :limit OFFSET :skip")
+            result = self.session.execute(sql, {
+                "limit": limit if limit is not None else 1000,
+                "skip": skip
+            })
+
         genres = []
         for row in result:
             genre_data = {
@@ -35,6 +44,7 @@ class GenreService:
                 "date_modified": row.date_modified if isinstance(row.date_modified, datetime) else None
             }
             genres.append(genre_data)
+
         return genres
 
     def create_genre(self, genre: GenreCreate) -> GenreModel:

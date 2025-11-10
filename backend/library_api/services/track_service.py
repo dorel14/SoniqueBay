@@ -50,6 +50,7 @@ class TrackService:
         """
         self.session = session
 
+
     def create_track(self, data: TrackCreate):
         """
         Crée une nouvelle piste dans la base de données.
@@ -341,7 +342,8 @@ class TrackService:
 
     def search_tracks(self,
         title: Optional[str], artist: Optional[str], album: Optional[str], genre: Optional[str], year: Optional[str],
-        path: Optional[str], musicbrainz_id: Optional[str], genre_tags: Optional[List[str]], mood_tags: Optional[List[str]]
+        path: Optional[str], musicbrainz_id: Optional[str], genre_tags: Optional[List[str]], mood_tags: Optional[List[str]],
+        skip: int = 0, limit: Optional[int] = None
     ):
         query = self.session.query(TrackModel)
         if title:
@@ -362,7 +364,7 @@ class TrackService:
             query = query.join(TrackModel.genre_tags).filter(GenreTag.name.in_(genre_tags))
         if mood_tags:
             query = query.join(TrackModel.mood_tags).filter(MoodTag.name.in_(mood_tags))
-        
+
         options = []
         if genre_tags:
             options.append(joinedload(TrackModel.genre_tags))
@@ -374,7 +376,14 @@ class TrackService:
             joinedload(TrackModel.covers)
         ])
         query = query.options(*options)
-        return query.all()
+
+        # Appliquer la pagination
+        if limit is not None:
+            query = query.offset(skip).limit(limit)
+
+        tracks = query.all()
+
+        return tracks
 
     def read_tracks(self, skip: int = 0, limit: int = 100):
         tracks = (

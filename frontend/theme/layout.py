@@ -82,6 +82,19 @@ async def hide_progress():
         progress_row.visible = False
         progress_row.update()
 
+async def delete_scan_session(session_id: str, dialog) -> None:
+    """Supprime une session de scan par son ID."""
+    async with httpx.AsyncClient() as http_client:
+        try:
+            response = await http_client.delete(f"{API_URL}/api/scan-sessions/{session_id}")
+            if response.status_code == 200:
+                logger.info(f"Session de scan {session_id} supprimée avec succès.")
+                dialog.close()
+            else:
+                logger.info(f"Erreur lors de la suppression de la session de scan {session_id}: {response.status_code}")
+        except httpx.RequestError as e:
+            logger.info(f"Erreur de requête HTTP lors de la suppression de la session de scan {session_id}: {e}")
+
 async def refresh_library():
     """Actualise la bibliothèque musicale."""
     # Récupération des éléments de la barre de progression depuis le stockage du client
@@ -95,6 +108,22 @@ async def refresh_library():
         return
 
     async with httpx.AsyncClient() as http_client: # Renommé pour éviter la confusion avec le paramètre client
+        try:
+            logger.info("Recherche d'une actualisation de bibliothèque en cours...")
+            response = await http_client.get(f"{API_URL}/api/scanscan-sessions")
+            if response.status_code == 200:
+                sessions = response.json()
+                for session in sessions:
+                    if session['status'] in ('running', 'pending'):
+                        logger.info("Une actualisation de bibliothèque est déjà en cours.")
+                        with ui.dialog() as dialog:
+                            ui.label("Une actualisation de la bibliothèque est déjà en cours, voulez-vous l'annuler ?")
+                            ui.button('OK', on_click=delete_scan_session(session.get('id'), dialog)).props('flat color=primary')
+            else:
+                logger.info(f"Erreur lors de la vérification des sessions de scan: {response.status_code}")
+        except httpx.RequestError as e:
+            logger.info(f"Erreur de requête HTTP lors de la vérification des sessions de scan: {e}")
+            return
         try:
             response = await http_client.post(f"{API_URL}/api/scan")
             if response.status_code in (200, 201):

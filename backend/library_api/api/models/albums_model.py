@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, ForeignKey, func
+from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Index
 from datetime import datetime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.library_api.utils.database import Base
@@ -25,6 +25,11 @@ class Album(Base):
         lazy="selectin",
         foreign_keys=[Cover.entity_id],
         viewonly=True
+    )
+
+    __table_args__ = (
+        # Index pour les recherches par titre d'album
+        Index('idx_album_title', 'title'),
     )
 
     def __repr__(self):
