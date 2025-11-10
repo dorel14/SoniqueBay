@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
- 
+from fastapi_cache.decorator import cache
+
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
 from backend.library_api.utils.database import get_db
@@ -11,14 +12,17 @@ from backend.library_api.services.genres_service import GenreService
 router = APIRouter(prefix="/api/genres", tags=["genres"])
 
 @router.get("/search", response_model=List[Genre])
+@cache(expire=300)  # Cache for 5 minutes
 async def search_genres(
     name: Optional[str] = Query(None, description="Nom du genre à rechercher"),
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=1000),
     db: SQLAlchemySession = Depends(get_db)
 ):
     """Recherche des genres par nom."""
     service = GenreService(db)
     try:
-        return service.search_genres(name)
+        return service.search_genres(name, skip, limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
 

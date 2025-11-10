@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from pydantic import ValidationError
 from sqlalchemy.orm import Session as SQLAlchemySession
+from fastapi_cache import FastAPICache
 
 from typing import List, Optional
 import json
@@ -26,13 +27,44 @@ async def search_tracks(
     musicbrainz_id: Optional[str] = Query(None),
     genre_tags: Optional[List[str]] = Query(None),
     mood_tags: Optional[List[str]] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=1000),
     db: SQLAlchemySession = Depends(get_db)
 ):
     """Recherche avancée de pistes."""
     service = TrackService(db)
     try:
-        tracks = service.search_tracks(title, artist, album, genre, year, path, musicbrainz_id, genre_tags, mood_tags)
-        return [Track.model_validate(t) for t in tracks]
+        # Create cache key
+        cache_key = f"tracks_search:{title or ''}:{artist or ''}:{album or ''}:{genre or ''}:{year or ''}:{path or ''}:{musicbrainz_id or ''}:{','.join(sorted(genre_tags or []))}:{','.join(sorted(mood_tags or []))}:{skip}:{limit or 'none'}"
+
+        # Try to get from cache
+        cached_result = await FastAPICache.get_backend().get(cache_key)
+        if cached_result:
+            logger.info("Cache hit for tracks search")
+            tracks_data = json.loads(cached_result.decode('utf-8'))
+            return [Track.model_validate(t) for t in tracks_data]
+
+        tracks = service.search_tracks(title, artist, album, genre, year, path, musicbrainz_id, genre_tags, mood_tags, skip, limit)
+        tracks_data = [Track.model_validate(t).model_dump() for t in tracks]
+
+        # Convert datetime objects to strings for JSON serialization
+        def serialize_for_json(obj):
+            if isinstance(obj, dict):
+                return {k: serialize_for_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [serialize_for_json(item) for item in obj]
+            elif hasattr(obj, 'isoformat'):  # datetime objects
+                return obj.isoformat()
+            else:
+                return obj
+
+        serializable_tracks_data = serialize_for_json(tracks_data)
+
+        # Cache the result
+        await FastAPICache.get_backend().set(cache_key, json.dumps(serializable_tracks_data).encode('utf-8'), expire=300)
+        logger.info("Cached tracks search result")
+
+        return tracks_data
     except Exception as e:
         logger.error(f"Erreur recherche pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

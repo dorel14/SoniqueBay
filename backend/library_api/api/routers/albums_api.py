@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
+from fastapi_cache.decorator import cache
 from pydantic import ValidationError
 from backend.library_api.api.schemas.pagination_schema import PaginatedAlbums
 from sqlalchemy.orm import Session as SQLAlchemySession
@@ -13,16 +14,19 @@ from backend.library_api.services.album_service import AlbumService
 router = APIRouter(prefix="/api/albums", tags=["albums"])
 
 @router.get("/search", response_model=List[Album])
+@cache(expire=300)  # Cache for 5 minutes
 async def search_albums(
     title: Optional[str] = Query(None),
     artist_id: Optional[int] = Query(None),
     musicbrainz_albumid: Optional[str] = Query(None),
     musicbrainz_albumartistid: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: Optional[int] = Query(None, ge=1, le=1000),
     db: SQLAlchemySession = Depends(get_db)
 ):
     """Recherche des albums avec critères MusicBrainz."""
     service = AlbumService(db)
-    albums = service.search_albums(title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid)
+    albums = service.search_albums(title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid, skip, limit)
     return [Album.model_validate(album) for album in albums]
 
 @router.post("/batch", response_model=List[AlbumWithRelations])

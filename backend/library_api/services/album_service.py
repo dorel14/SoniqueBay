@@ -11,7 +11,7 @@ class AlbumService:
     def __init__(self, db):
         self.db = db
 
-    def search_albums(self, title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid):
+    def search_albums(self, title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid, skip=0, limit=None):
         query = self.db.query(AlbumModel)
         if title:
             query = query.filter(func.lower(AlbumModel.title).like(f"%{title.lower()}%"))
@@ -21,7 +21,14 @@ class AlbumService:
             query = query.filter(AlbumModel.musicbrainz_albumid == musicbrainz_albumid)
         if musicbrainz_albumartistid:
             query = query.filter(AlbumModel.musicbrainz_albumartistid == musicbrainz_albumartistid)
-        return query.all()
+
+        # Appliquer la pagination
+        if limit is not None:
+            query = query.offset(skip).limit(limit)
+
+        albums = query.all()
+
+        return albums
 
     def create_albums_batch(self, albums):
         """Crée ou récupère plusieurs albums en une seule fois (batch)."""

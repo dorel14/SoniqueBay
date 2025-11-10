@@ -272,6 +272,21 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
         genre_tags = set()
         mood_tags = set()
 
+        # Fonction helper pour splitter et nettoyer les tags
+        def split_and_clean_tags(value_str: str) -> list:
+            """Split les tags sur ; , / et nettoie les valeurs."""
+            if not value_str:
+                return []
+            # Split sur les séparateurs ; , /
+            parts = value_str.replace(';', ',').replace('/', ',').split(',')
+            # Nettoyer et filtrer
+            cleaned = []
+            for part in parts:
+                part = part.strip()
+                if part and not part.isdigit() and not part.startswith('0.'):
+                    cleaned.append(part)
+            return cleaned
+
         # Parcours de tous les tags
         for tag_name, values in tags.items():
             # Caractéristiques audio
@@ -301,10 +316,13 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
                         float(value_str)
                         continue  # Skip si c'est un nombre
                     except ValueError:
-                        if 'genre' in tag_name_lower and not value_str.startswith('0.'):
-                            genre_tags.add(value_str)
-                        elif 'mood' in tag_name_lower and not value_str.startswith('0.'):
-                            mood_tags.add(value_str)
+                        # Splitter les tags sur les séparateurs
+                        split_tags = split_and_clean_tags(value_str)
+                        for tag in split_tags:
+                            if 'genre' in tag_name_lower:
+                                genre_tags.add(tag)
+                            elif 'mood' in tag_name_lower:
+                                mood_tags.add(tag)
             else:
                 # Pour les tags non 'ab:', vérifier quand même les valeurs invalides
                 for value in (values if isinstance(values, list) else [values]):
@@ -312,8 +330,8 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
                         raise ValueError(f"Valeur invalide dans les tags: {tag_name} = {value}")
 
         # Mise à jour des tags dans les features
-        features['genre_tags'] = [tag for tag in genre_tags if not any(c.isdigit() for c in tag)]
-        features['mood_tags'] = [tag for tag in mood_tags if not any(c.isdigit() for c in tag)]
+        features['genre_tags'] = list(genre_tags)
+        features['mood_tags'] = list(mood_tags)
 
         # Log des résultats
         if genre_tags or mood_tags:

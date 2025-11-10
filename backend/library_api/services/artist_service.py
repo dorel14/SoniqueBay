@@ -6,7 +6,7 @@ class ArtistService:
     def __init__(self, db):
         self.db = db
 
-    def search_artists(self, name=None, musicbrainz_artistid=None, genre=None):
+    def search_artists(self, name=None, musicbrainz_artistid=None, genre=None, skip=0, limit=None):
         query = self.db.query(ArtistModel)
         if name:
             query = query.filter(func.lower(ArtistModel.name).like(f"%{name.lower()}%"))
@@ -14,7 +14,14 @@ class ArtistService:
             query = query.filter(ArtistModel.musicbrainz_artistid == musicbrainz_artistid)
         if genre:
             query = query.filter(func.lower(ArtistModel.genre).like(f"%{genre.lower()}%"))
-        return query.all()
+
+        # Appliquer la pagination
+        if limit is not None:
+            query = query.offset(skip).limit(limit)
+
+        artists = query.all()
+
+        return artists
 
     def create_artists_batch(self, artists):
         artist_names = {a.name for a in artists if a.name}

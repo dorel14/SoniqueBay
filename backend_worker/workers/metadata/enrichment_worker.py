@@ -69,6 +69,49 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
             logger.error(f"[METADATA] Erreur lecture {file_path}: {e}")
             return None
 
+        # Fonction de nettoyage des genres
+        def clean_genre(raw_genre):
+            if not raw_genre:
+                return None
+
+            # Liste de genres musicaux valides (minuscules pour comparaison)
+            valid_genres = {
+                'rock', 'pop', 'jazz', 'blues', 'classical', 'electronic', 'hip-hop', 'rap',
+                'reggae', 'country', 'folk', 'metal', 'punk', 'alternative', 'indie', 'r&b',
+                'soul', 'funk', 'disco', 'techno', 'house', 'trance', 'ambient', 'soundtrack',
+                'world', 'latin', 'dance', 'gospel', 'christian', 'new age', 'instrumental',
+                'vocal', 'opera', 'musical', 'comedy', 'spoken word', 'audiobook', 'podcast'
+            }
+
+            # Nettoyer et normaliser
+            cleaned = raw_genre.strip().lower()
+
+            # Vérifier si c'est un genre valide
+            if cleaned in valid_genres:
+                return raw_genre.strip()  # Retourner la version originale avec casse
+
+            # Vérifier si c'est une variante (ex: "rock & roll" -> "rock")
+            for valid_genre in valid_genres:
+                if valid_genre in cleaned or cleaned in valid_genre:
+                    return raw_genre.strip()
+
+            # Si ce n'est pas un genre valide, vérifier si c'est un nom d'artiste connu
+            # Liste d'artistes courants qui pourraient être confondus avec des genres
+            known_artists = {
+                'christina aguilera', 'madonna', 'beyoncé', 'lady gaga', 'britney spears',
+                'michael jackson', 'elvis presley', 'the beatles', 'queen', 'pink floyd',
+                'led zeppelin', 'rolling stones', 'bob dylan', 'david bowie', 'prince',
+                'stevie wonder', 'aretha franklin', 'james brown', 'ray charles', 'louis armstrong'
+            }
+
+            if cleaned in known_artists:
+                logger.warning(f"Genre invalide détecté (nom d'artiste): '{raw_genre}' dans {file_path}")
+                return None
+
+            # Pour les autres cas, logger un avertissement et retourner None
+            logger.warning(f"Genre suspect détecté: '{raw_genre}' dans {file_path}")
+            return None
+
         # Extraction des métadonnées de base
         try:
             metadata = {
@@ -76,7 +119,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                 "title": get_tag(audio, "title") or file_path_obj.stem,
                 "artist": get_tag(audio, "artist") or get_tag(audio, "TPE1") or get_tag(audio, "TPE2"),
                 "album": get_tag(audio, "album") or file_path_obj.parent.name,
-                "genre": get_tag(audio, "genre"),
+                "genre": clean_genre(get_tag(audio, "genre")),
                 "year": get_tag(audio, "date") or get_tag(audio, "TDRC"),
                 "track_number": get_tag(audio, "tracknumber") or get_tag(audio, "TRCK"),
                 "disc_number": get_tag(audio, "discnumber") or get_tag(audio, "TPOS"),

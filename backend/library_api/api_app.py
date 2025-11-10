@@ -1,7 +1,9 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
+import os
 from dataclasses import dataclass
-from fastapi import FastAPI, WebSocket, status, Request, Depends
+from fastapi import FastAPI, WebSocket, status, Request, Response, Depends
+from fastapi.routing import APIRoute
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -18,6 +20,9 @@ import redis.asyncio as redis
 from backend.library_api.utils.database import get_session
 from alembic.config import Config
 from alembic import command
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
 
 
 # Importer les routes avant toute autre initialisation
@@ -41,9 +46,67 @@ async def get_context(session: SessionDep):
         """Context passed to all GraphQL functions. Give database access"""
         return AppContext(settings=settings, session=session)
 
-graphql_app = GraphQLRouter(schema,
-                            graphql_ide="graphiql",
-                            context_getter=get_context)
+@cache(expire=300)
+async def cached_graphql_endpoint(request: Request):
+    """Endpoint GraphQL avec cache."""
+    return await graphql_app(request)
+
+# Créer un router personnalisé pour GraphQL avec cache
+
+class CachedGraphQLRoute(APIRoute):
+    def get_route_handler(self):
+        original_route_handler = super().get_route_handler()
+
+        async def custom_route_handler(request: Request) -> Response:
+            # Pour les requêtes GET (introspection), pas de cache
+            if request.method == "GET":
+                return await original_route_handler(request)
+
+            # Pour les requêtes POST (queries/mutations), appliquer le cache
+            # Utiliser le corps de la requête comme clé de cache
+            body = await request.body()
+            cache_key = f"graphql:{hash(body)}"
+
+            # Vérifier le cache
+            cached_result = await FastAPICache.get_backend().get(cache_key)
+            if cached_result:
+                import json
+                cached_data = json.loads(cached_result.decode('utf-8'))
+                return Response(
+                    content=json.dumps(cached_data),
+                    media_type="application/json",
+                    status_code=200
+                )
+
+            # Si pas en cache, exécuter la requête
+            response = await original_route_handler(request)
+
+            # Mettre en cache seulement pour les queries (pas les mutations)
+            if request.method == "POST" and body:
+                try:
+                    body_data = json.loads(body)
+                    # Ne cacher que les queries, pas les mutations
+                    if body_data.get('query', '').strip().upper().startswith('QUERY'):
+                        response_body = response.body
+                        await FastAPICache.get_backend().set(
+                            cache_key,
+                            response_body,
+                            expire=300
+                        )
+                except Exception:
+                    pass  # Ne pas échouer si le parsing échoue
+
+            return response
+
+        return custom_route_handler
+
+# Créer le router GraphQL avec cache personnalisé
+graphql_app = GraphQLRouter(
+    schema,
+    graphql_ide="graphiql",
+    context_getter=get_context,
+    route_class=CachedGraphQLRoute
+)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,14 +115,21 @@ async def lifespan(app: FastAPI):
     logger.info("Démarrage de l'API...")
     await SettingsService().initialize_default_settings()
 
+    # Initialiser le cache Redis
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    redis_client = redis.from_url(redis_url)
+    FastAPICache.init(RedisBackend(redis_client), prefix="fastapi-cache")
+    logger.info(f"Cache Redis initialisé avec URL: {redis_url}")
+
     # Exécuter les migrations Alembic automatiquement de manière bloquante
     try:
         logger.info("Exécution des migrations Alembic...")
         # Créer un objet Config vide
         alembic_cfg = Config()
-        # Configurer les chemins
-        alembic_cfg.set_main_option("script_location", "/app/alembic")
-        alembic_cfg.set_main_option("config_file", "/app/alembic.ini")
+        # Configurer les chemins pour l'environnement local
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        alembic_cfg.set_main_option("script_location", os.path.join(project_root, "alembic"))
+        alembic_cfg.set_main_option("config_file", os.path.join(project_root, "alembic.ini"))
         
         try:
             # Exécuter la commande upgrade
