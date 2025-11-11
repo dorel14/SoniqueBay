@@ -6,8 +6,9 @@ eventlet>=0.33.0
 # Gestion des fichiers audio et métadonnées
 mutagen>=1.46.0
 librosa>=0.10.0
-torch>=2.0.0
-sentence-transformers>=2.2.0
+pillow>=12.0.0
+#torch>=2.0.0
+#sentence-transformers>=2.2.0
 scikit-learn>=1.7.2
 
 # HTTP et WebSocket

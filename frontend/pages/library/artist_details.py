@@ -95,20 +95,21 @@ async def artist_container(artist_id: int):
                     ui.image(cover_data).classes('w-full h-full object-cover')
                 # Zone infos artiste
                 with ui.column().classes('flex-grow'):
-                    ui.label(artist_data['name']).classes('text-2xl font-bold text-gray-10')
+                    ui.label(artist_data['name']).classes('text-2xl font-bold text-gray-100')
                     ui.separator()
-                    with ui.row().classes('gap-4 text-sm mt-2 text-gray-10'):
+                    with ui.row().classes('gap-4 text-sm mt-2 text-gray-100'):
                         albums_count = ui.label()
                         ui.label()
                         albums_count.set_text(f"Albums: {len(artist_data.get('albums', []))}")
         with ui.row().classes('w-full items-center justify-between mt-4'):
             albums_list = await get_artist_albums(artist_id)
             if albums_list:
-                albums_container = ui.row().classes('w-full')
-                with albums_container:
+                with ui.grid(columns='repeat(auto-fill, minmax(200px, 1fr))').classes('gap-4 p-4 w-full justify-center'):
                     for album in albums_list:
                         album_id_value = album.get('id')
-                        with ui.card().classes('w-full w-48 h-48').tight().on('click', lambda artist_id=artist_id, album_id=album_id_value: artist_tracks_container.refresh(artist_id=artist_id, album_id=album_id)):
+                        with ui.card().tight().classes(
+                            'cursor-pointer hover:scale-105 transition-all duration-200 w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
+                        ).on('click', lambda artist_id=artist_id, album_id=album_id_value: artist_tracks_container.refresh(artist_id=artist_id, album_id=album_id)):
                             # Check if album is a dictionary before calling get()
                             if isinstance(album, dict):
                                 if album.get('covers') and isinstance(album.get('covers'), list) and len(album.get('covers')) > 0:
@@ -119,10 +120,12 @@ async def artist_container(artist_id: int):
                             else:
                                 logger.error(f"Unexpected album type: {type(album)}")
                                 cover_data = sonique_bay_logo # provide a default
-                            ui.image(cover_data).classes('w-full h-48 object-cover')
+                            ui.image(cover_data).classes('aspect-[4/3] w-full object-cover')
                             ui.separator()
-                            with ui.card_section():
-                                ui.label(album['title']).classes('text-sm font-semibold')
+                            with ui.card_section().classes(
+                                'flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'
+                            ):
+                                ui.label(album['title']).classes('text-sm font-semibold text-gray-20')
                                 ui.label(f"Année: {album.get('release_year', 'N/A')}").classes('text-sm text-gray-600')
                             with ui.card_actions().classes('w-full justify-end mt-3'):
                                 ui.icon('play_circle_outline').classes('text-xl cursor-pointer')

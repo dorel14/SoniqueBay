@@ -22,6 +22,13 @@ def register_page(path: str, render_function: callable):
 def register_dynamic_routes():
     logger.info(f"Registering dynamic routes from {PAGES_DIR}")
 
+    # Define main page with subpages
+    @ui.page('/')
+    def main_page():
+        # Main page content
+        ui.label('Welcome to SoniqueBay').classes('text-2xl font-bold')
+
+    # Register subpages dynamically
     for filepath in glob.glob(f'{PAGES_DIR}/**/*.py', recursive=True):
         if os.path.basename(filepath).startswith('__'):
             continue

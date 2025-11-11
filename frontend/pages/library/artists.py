@@ -39,6 +39,13 @@ async def get_artists(skip: int, limit: int):
     else:
         ui.notify(f"Erreur lors de la récupération des artistes: {response.text}", color='negative')
         return []
+def on_artist_click(artistid):
+    try:
+        logger.info(f"Navigation vers les détails de l'artiste {artistid}")
+        ui.navigate.to(f"/library/artist_details?id={artistid}")
+    except Exception as e:
+        logger.error(f"Erreur lors de la navigation vers l'artiste {artistid}: {e}")
+    
 
 @ui.refreshable
 async def artist_view(page: int):
@@ -65,24 +72,32 @@ async def artist_view(page: int):
 
     logger.info(f"Chargement de la page {page}")
     with artists_column:
-        with ui.row().classes('items-center justify-center w-full'):
-            with ui.grid(columns=5).classes('gap-4'):
-                for artist in artists_list:
-                    with ui.card().classes('w-full w-48 h-48').tight():
-                        cover_data = artist.get('covers')
-                        if cover_data and len(cover_data) > 0:
-                            ui.image(cover_data[0].get('cover_data', ''))
-                        else:
-                            logger.warning(f"Aucun cover trouvé pour l'artiste {artist['id']}, utilisation du logo par défaut.")
-                            ui.image(sonique_bay_logo)
-                        ui.separator().classes('my-2')
-                        with ui.card_section():
-                            ui.label(artist['name']).classes('text-sm font-bold')
-                            with ui.row().classes('w-full justify-around mt-2'):
-                                with ui.link(target=f"/library/artist_details?id={artist['id']}").classes('cursor-pointer'):
-                                    ui.icon('o_info').classes('text-xl cursor-pointer')
-                                ui.icon('play_circle_outline').classes('text-xl cursor-pointer')
-                                ui.icon('o_favorite_border').classes('text-xl cursor-pointer')
+    # ✅ Grille responsive directement dans la colonne
+        with ui.grid(columns='repeat(auto-fill, minmax(200px, 1fr))').classes('gap-4 p-4 w-full justify-center'):
+            for artist in artists_list:
+                with ui.card().tight().classes(
+                'cursor-pointer hover:scale-105 transition-all duration-200 '
+                'w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
+            ).on('click', lambda e, a=artist['id']: on_artist_click(a)):
+
+                    cover_data = artist.get('covers')
+                    if cover_data and len(cover_data) > 0:
+                        ui.image(cover_data[0].get('cover_data', '')).classes('aspect-[4/3] w-full object-cover')
+                    else:
+                        logger.warning(f"Aucun cover trouvé pour l'artiste {artist['id']}, utilisation du logo par défaut.")
+                        ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
+
+                    with ui.card_section().classes(
+                        'flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'):
+                        label = ui.label(artist['name']).classes(
+                            'text-sm font-semibold w-full mb-2 line-clamp-1 overflow-hidden text-ellipsis break-words leading-tight'
+                            )
+                        ui.tooltip(artist['name']).props('anchor="bottom middle" self="top middle" transition-show="fade" transition-hide="fade"').classes(
+                            'bg-gray-800 text-white text-xs p-2 rounded-lg shadow-md max-w-[220px]').bind_text_from(label)
+            # Icônes centrées sous le nom
+                        with ui.row().classes('justify-center gap-3 w-full'):
+                            ui.icon('play_circle_outline').classes('text-xl cursor-pointer')
+                            ui.icon('o_favorite_border').classes('text-xl cursor-pointer')
 
     spinner.visible = False
     ui.run_javascript(f'window.history.replaceState(null, "", "?page={current_page}")')

@@ -1,6 +1,7 @@
 # Stage 1: Builder
-FROM do14500352/soniquebay-base:latest AS builder
+FROM python:3.11-slim-bullseye AS builder
 
+ARG BUILD_DATE
 # Labels standards OCI
 LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
       org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
@@ -22,15 +23,27 @@ RUN --mount=type=cache,target=/var/cache/apt/builder \
     cargo \
     && rm -rf /var/lib/apt/lists/*
 
+# Installation de uv via le script officiel (plus rapide que pip install uv)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -sf /root/.local/bin/uv /usr/local/bin/uv && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH="/root/.local/bin:$PATH"
+
 WORKDIR /app/frontend
 
 # Copie et installation des dépendances spécifiques
 COPY --link ./frontend/requirements.txt ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r requirements.txt
+ENV UV_TIMEOUT=300 \
+    UV_HTTP_TIMEOUT=180
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    /root/.local/bin/uv pip install --target /install_frontend --no-cache-dir -r requirements.txt || true
 
 # Stage 2: Runner
-FROM do14500352/soniquebay-base:latest AS runner
+
+FROM soniquebay/base:optim AS runner
 
 # Configuration des variables d'environnement
 ARG LOCALE_LANGUAGE=en_US
@@ -41,19 +54,22 @@ ARG TZ=UTC
 ARG ENV_TZ
 ENV TZ=${ENV_TZ:-${TZ}}
 
-# Installation des dépendances système supplémentaires
-RUN --mount=type=cache,target=/var/cache/apt/runner \
-    apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# Créer les répertoires de données et logs avec permissions correctes
+USER root
+RUN mkdir -p /logs /app/frontend/data /app/data && \
+    chown -R soniquebay:soniquebay /logs /app/frontend/data /app/data
 
-# Copie de l'environnement virtuel et des fichiers
-COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copier l'entrypoint qui appliquera chown sur les volumes montés au démarrage
+COPY --link ./frontend/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Copier les packages Python depuis le builder (uv pip install --target génère directement site-packages)
+COPY --from=builder /install_frontend /usr/local/lib/python3.11/site-packages
+
+# Copier les fichiers applicatifs
 COPY --link ./frontend /app/frontend
 
 WORKDIR /app/frontend
 
-
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["python", "start_ui.py"]
