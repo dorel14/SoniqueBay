@@ -31,4 +31,17 @@ README.md
 **/celery_beat_data/*/*
 
 #exceptions
-!**/datas/.gitkeep 
+!**/datas/.gitkeep
+
+# Exclude tests, logs and large directories that are not needed in build context
+tests/
+backend/tests/
+frontend/tests/
+logs/
+node_modules/
+.venv/
+dist/
+build/
+coverage/
+*.sqlite
+*.db

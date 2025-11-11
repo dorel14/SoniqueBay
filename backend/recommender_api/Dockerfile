@@ -1,5 +1,6 @@
 # Stage 1: Builder
-FROM do14500352/soniquebay-base:latest AS builder
+FROM python:3.11-slim-bullseye AS builder
+ARG BUILD_DATE
 
 WORKDIR /app
 
@@ -14,62 +15,64 @@ LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app
       org.opencontainers.image.title="SoniqueBay Recommender API" \
       org.opencontainers.image.description="Service API de recommandation musicale"
 
-# Installation des dépendances système pour la compilation
-RUN --mount=type=cache,target=/var/cache/apt,target=/var/lib/apt \
+# Installation des dépendances système pour la compilation (builder only)
+RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     python3-dev \
+    libpq-dev \
+    unixodbc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copie et installation des dépendances spécifiques
-# Configuration du timeout UV et PATH
+# Configuration du timeout uv et PATH
 ENV UV_TIMEOUT=300 \
     UV_HTTP_TIMEOUT=180 \
     PATH="/usr/local/bin:$PATH"
 
-COPY --link backend/recommender_api/requirements.txt ./
-# Installation des dépendances avec UV et cache
-RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    --mount=type=cache,target=/root/.cache/pip,sharing=locked \
-    uv pip install --system -r requirements.txt && \
-    # Installation explicite d'uvicorn
-    uv pip install --system "uvicorn[standard]>=0.22.0" && \
-    # Vérification des installations (sans sqlite_vec pour éviter les problèmes de compilation)
-    python3 -c "import fastapi, uvicorn, sqlite_vec; print('Dependencies OK')" && \
-    which uvicorn || echo "uvicorn not in PATH, but should work"
+# Installation de uv via le script officiel (plus rapide que pip install uv)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -sf /root/.local/bin/uv /usr/local/bin/uv && \
+    rm -rf /var/lib/apt/lists/*
 
-# Stage 2: Runner
-FROM do14500352/soniquebay-base:latest AS runner
+ENV PATH="/root/.local/bin:$PATH"
+
+COPY --link backend/recommender_api/requirements.txt ./
+# Utiliser uv pip install directement pour installer toutes les dépendances (+ dépendances transitives) dans /install_recommender
+# uv gère les dépendances transitives mieux que pip wheel et est plus rapide
+RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
+    /root/.local/bin/uv pip install --target /install_recommender --no-cache-dir -r requirements.txt || true
+
+# Stage 2: Runner (use shared base image)
+FROM soniquebay/base:optim AS runner
 
 WORKDIR /app
 
-# Copie de l'environnement virtuel et des fichiers
-# Copie des packages Python
-COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Copy the built python packages from builder
+COPY --from=builder /install_recommender /usr/local/lib/python3.11/site-packages
 
-# Vérification finale et permissions
-RUN python3 -m uvicorn --version && \
-    # S'assurer que les permissions sont correctes
-    chmod 755 /usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so 2>/dev/null || echo "sqlite_vec permissions already set"
+# Bring in healthcheck script and app files
 COPY --link scripts/healthcheck.sh /healthcheck.sh
-RUN chmod +x /healthcheck.sh
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends gosu && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /logs /app/backend/recommender_api/data /app/data && \
+    chown -R soniquebay:soniquebay /logs /app/backend/recommender_api/data /app/data && \
+    chmod +x /healthcheck.sh
 
-# Copie des fichiers de l'application D'ABORD
+# Copier le script d'entrypoint qui appliquera chown sur les volumes montés au démarrage
+COPY --link backend/recommender_api/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 COPY --link backend/recommender_api /app/backend/recommender_api
 COPY --link backend/recommender_api/alembic_recommender.ini /app/alembic_recommender.ini
 COPY --link backend/recommender_api/alembic_recommender /app/alembic_recommender
 
-# Copie des site-packages après les fichiers d'application
-COPY --from=builder --link /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+# Ensure sqlite_vec permissions if present
+RUN python3 -c "import sqlite_vec; print('sqlite-vec import check')" 2>/dev/null || true
+RUN python3 -m uvicorn --version 2>/dev/null || true
 
-# Vérification finale et permissions
-RUN python3 -c "import sqlite_vec; print('sqlite-vec import successful')" && \
-    python3 -m uvicorn --version && \
-    # S'assurer que les permissions sont correctes
-    chmod 755 /usr/local/lib/python3.11/site-packages/sqlite_vec/vec0.so 2>/dev/null || echo "permissions already set"
-
-# Configuration du healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD /healthcheck.sh
+# Laisser l'entrypoint s'exécuter en tant que root ; il basculera proprement vers l'utilisateur non-root
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 

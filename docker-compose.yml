@@ -50,26 +50,24 @@ services:
     ports:
       - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
       interval: 5s
       timeout: 3s
-      retries: 10
-      start_period: 30s
+      retries: 20
+      start_period: 60s
     depends_on:
       timesync:
         condition: service_started
 
   # === FLOWER (monitoring) ===
   flower:
-    image: soniquebay-worker
+    image: mher/flower:latest
     container_name: soniquebay-flower
     restart: unless-stopped
     command:
       - celery
       - --broker=redis://redis:6379/0
       - --result-backend=redis://redis:6379/0
-      - -A
-      - backend_worker.celery_app
       - flower
       - --url_prefix=flower
       - --auto_refresh=True
@@ -82,12 +80,15 @@ services:
       - --persistent=True
       - --enable_events=True
     depends_on:
-      redis:
-        condition: service_healthy
-      timesync:
-        condition: service_started
-      worker-base:
-        condition: service_completed_successfully
+        redis:
+            condition: service_healthy
+        timesync:
+            condition: service_started
+        worker-base:
+            condition: service_completed_successfully
+        frontend:
+            condition: service_healthy
+    
     ports:
       - "5555:5555"
     environment:
@@ -195,7 +196,7 @@ services:
       dockerfile: frontend/Dockerfile
     container_name: soniquebay-frontend
     restart: unless-stopped
-    command: ["python", "start_ui.py"]
+    command: ["sh", "-c", "python start_ui.py"]
     volumes:
       - ./frontend:/app/frontend
       - ./logs:/app/logs
