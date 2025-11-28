@@ -77,8 +77,8 @@ async def test_library_api_integration():
     logger.info("=== TEST LIBRARY API INTEGRATION ===")
 
     # Mock de la création de track
-    from backend.library_api.api.routers.tracks_api import create_track
-    from backend.library_api.api.schemas.tracks_schema import TrackCreate
+    from backend.api.routers.tracks_api import create_track
+    from backend.api.schemas.tracks_schema import TrackCreate
 
     # Données de test (avec track_artist_id requis)
     track_data = TrackCreate(
@@ -90,7 +90,7 @@ async def test_library_api_integration():
     )
 
     # Mock du service
-    with patch('backend.library_api.api.routers.tracks_api.TrackService') as mock_service_class:
+    with patch('backend.api.api.routers.tracks_api.TrackService') as mock_service_class:
         mock_service = AsyncMock()
         mock_service_class.return_value = mock_service
 
@@ -121,7 +121,7 @@ async def test_library_api_integration():
         mock_service.create_track.return_value = mock_track
 
         # Mock de la session DB
-        with patch('backend.library_api.api.routers.tracks_api.get_db') as mock_get_db:
+        with patch('backend.api.api.routers.tracks_api.get_db') as mock_get_db:
             mock_db = AsyncMock()
             mock_get_db.return_value = mock_db
 
@@ -136,7 +136,7 @@ async def test_recommender_api():
     """Test des endpoints Recommender API."""
     logger.info("=== TEST RECOMMENDER API ===")
 
-    from backend.recommender_api.api.routers.track_vectors_api import router
+    from backend.api.routers.track_vectors_api import router
 
     # Vérifier que les routes existent
     routes = [route.path for route in router.routes if hasattr(route, 'path')]

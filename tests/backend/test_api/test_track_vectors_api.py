@@ -3,7 +3,7 @@
 
 import pytest
 from unittest.mock import patch, MagicMock
-from backend.recommender_api.api.schemas.track_vectors_schema import TrackVectorIn, TrackVectorOut, TrackVectorResponse
+from backend.api.schemas.track_vectors_schema import TrackVectorIn, TrackVectorOut, TrackVectorResponse
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def sample_vector_in():
     )
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.create_or_update_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.create_or_update_vector')
 def test_create_track_vector_success(mock_create_vector, recommender_client, db_session, create_test_track):
     """Test de création d'un vecteur avec succès."""
     track = create_test_track()
@@ -46,7 +46,7 @@ def test_create_track_vector_success(mock_create_vector, recommender_client, db_
     assert data["vector_data"] == [0.1, 0.2, 0.3, 0.4, 0.5]
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.create_or_update_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.create_or_update_vector')
 def test_create_track_vector_track_not_found(mock_create_vector, recommender_client, db_session):
     """Test de création d'un vecteur pour une track inexistante."""
     mock_create_vector.side_effect = ValueError("Track with id 999 not found")
@@ -61,7 +61,7 @@ def test_create_track_vector_track_not_found(mock_create_vector, recommender_cli
     assert "Track with id 999 not found" in response.json()["detail"]
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.get_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.get_vector')
 def test_get_track_vector_success(mock_get_vector, recommender_client, db_session, create_test_track):
     """Test de récupération d'un vecteur existant."""
     track = create_test_track()
@@ -78,7 +78,7 @@ def test_get_track_vector_success(mock_get_vector, recommender_client, db_sessio
     assert data["vector_data"] == [0.1, 0.2, 0.3, 0.4, 0.5]
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.get_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.get_vector')
 def test_get_track_vector_not_found(mock_get_vector, recommender_client, db_session):
     """Test de récupération d'un vecteur inexistant."""
     mock_get_vector.side_effect = ValueError("Vector not found")
@@ -88,7 +88,7 @@ def test_get_track_vector_not_found(mock_get_vector, recommender_client, db_sess
     assert "Vector not found" in response.json()["detail"]
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.delete_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.delete_vector')
 def test_delete_track_vector_success(mock_delete_vector, recommender_client, db_session, create_test_track):
     """Test de suppression d'un vecteur avec succès."""
     track = create_test_track()
@@ -97,7 +97,7 @@ def test_delete_track_vector_success(mock_delete_vector, recommender_client, db_
     assert response.status_code == 204
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.delete_vector')
+@patch('backend.api.services.track_vector_service.TrackVectorService.delete_vector')
 def test_delete_track_vector_not_found(mock_delete_vector, recommender_client, db_session):
     """Test de suppression d'un vecteur inexistant."""
     mock_delete_vector.side_effect = ValueError("Vector not found")
@@ -107,7 +107,7 @@ def test_delete_track_vector_not_found(mock_delete_vector, recommender_client, d
     assert "Vector not found" in response.json()["detail"]
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.list_vectors')
+@patch('backend.api.services.track_vector_service.TrackVectorService.list_vectors')
 def test_list_track_vectors_empty(mock_list_vectors, recommender_client, db_session):
     """Test de listage des vecteurs quand la liste est vide."""
     mock_list_vectors.return_value = []
@@ -118,7 +118,7 @@ def test_list_track_vectors_empty(mock_list_vectors, recommender_client, db_sess
     assert data == []
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.list_vectors')
+@patch('backend.api.services.track_vector_service.TrackVectorService.list_vectors')
 def test_list_track_vectors_with_data(mock_list_vectors, recommender_client, db_session, create_test_track):
     """Test de listage des vecteurs avec données."""
     track1 = create_test_track(path="/path/to/track1.mp3")
@@ -136,7 +136,7 @@ def test_list_track_vectors_with_data(mock_list_vectors, recommender_client, db_
     assert data[1]["track_id"] == track2.id
 
 
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.list_vectors')
+@patch('backend.api.services.track_vector_service.TrackVectorService.list_vectors')
 def test_list_track_vectors_with_pagination(mock_list_vectors, recommender_client, db_session, create_test_track):
     """Test de listage avec pagination."""
     track = create_test_track()
@@ -150,8 +150,8 @@ def test_list_track_vectors_with_pagination(mock_list_vectors, recommender_clien
     assert len(data) == 1
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.search_similar_vectors')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.search_similar_vectors')
 def test_search_similar_vectors_success(mock_search_similar, mock_get_conn, recommender_client, sample_vector_in):
     """Test de recherche de vecteurs similaires avec succès."""
     # Mock la connexion sqlite-vec
@@ -174,8 +174,8 @@ def test_search_similar_vectors_success(mock_search_similar, mock_get_conn, reco
     assert data[0]["distance"] == 0.1
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.search_similar_vectors')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.search_similar_vectors')
 def test_search_similar_vectors_with_limit(mock_search_similar, mock_get_conn, recommender_client, sample_vector_in):
     """Test de recherche avec limite."""
     # Mock la connexion sqlite-vec
@@ -194,8 +194,8 @@ def test_search_similar_vectors_with_limit(mock_search_similar, mock_get_conn, r
     assert len(data) == 1
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.create_vectors_batch')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.create_vectors_batch')
 def test_create_vectors_batch_success(mock_create_batch, mock_get_conn, recommender_client):
     """Test de création en batch avec succès."""
     # Mock la connexion sqlite-vec
@@ -213,8 +213,8 @@ def test_create_vectors_batch_success(mock_create_batch, mock_get_conn, recommen
     assert response.status_code == 201
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.get_vector_virtual')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.get_vector_virtual')
 def test_get_vector_virtual_success(mock_get_vector_virtual, mock_get_conn, recommender_client):
     """Test de récupération d'un vecteur virtuel avec succès."""
     # Mock la connexion sqlite-vec
@@ -231,8 +231,8 @@ def test_get_vector_virtual_success(mock_get_vector_virtual, mock_get_conn, reco
     assert data["track_id"] == 1
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.get_vector_virtual')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.get_vector_virtual')
 def test_get_vector_virtual_not_found(mock_get_vector_virtual, mock_get_conn, recommender_client):
     """Test de récupération d'un vecteur virtuel inexistant."""
     # Mock la connexion sqlite-vec
@@ -248,8 +248,8 @@ def test_get_vector_virtual_not_found(mock_get_vector_virtual, mock_get_conn, re
     assert "Vector not found" in response.json()["detail"]
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.delete_vector_virtual')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.delete_vector_virtual')
 def test_delete_vector_virtual_success(mock_delete_vector_virtual, mock_get_conn, recommender_client):
     """Test de suppression d'un vecteur virtuel avec succès."""
     # Mock la connexion sqlite-vec
@@ -262,8 +262,8 @@ def test_delete_vector_virtual_success(mock_delete_vector_virtual, mock_get_conn
     assert response.status_code == 204
 
 
-@patch('backend.recommender_api.api.models.track_vectors_model.get_vec_connection')
-@patch('backend.recommender_api.services.track_vector_service.TrackVectorService.delete_vector_virtual')
+@patch('backend.api.api.models.track_vectors_model.get_vec_connection')
+@patch('backend.api.services.track_vector_service.TrackVectorService.delete_vector_virtual')
 def test_delete_vector_virtual_not_found(mock_delete_vector_virtual, mock_get_conn, recommender_client):
     """Test de suppression d'un vecteur virtuel inexistant."""
     # Mock la connexion sqlite-vec

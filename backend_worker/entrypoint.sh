@@ -5,6 +5,9 @@ set -e
 mkdir -p /app/backend_worker/logs /app/backend_worker/data /app/data /logs
 chown -R soniquebay:soniquebay /app/backend_worker/logs /app/backend_worker/data /app/data /logs || true
 
+# Wait for PostgreSQL to be ready
+/wait
+
 # If first arg looks like an option, prepend the default command
 if [ "${1#-}" != "$1" ]; then
   set -- celery "$@"

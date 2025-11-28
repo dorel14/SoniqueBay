@@ -23,6 +23,7 @@ search_indexes/
 search_index/
 redis_data/
 celery_beat_data/
+pg_db/
 
 # Database files
 *.db

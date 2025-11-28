@@ -1,7 +1,7 @@
 ## 1. Architecture
 
 - **Framework** : FastAPI
-- **Base de données** : SQLite pour stockage local et léger
+- **Base de données** : PostgreSQL pour stockage robuste
 - **Communication temps réel** : WebSocket avec le frontend
 - **Tâches asynchrones** : `asyncio` ou Celery pour indexation et vectorisation
 

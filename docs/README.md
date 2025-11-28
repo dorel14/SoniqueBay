@@ -11,8 +11,9 @@ Documentation générale sur l'architecture du projet SoniqueBay.
 **Fichiers clés :**
 
 - [`architecture.md`](architecture/architecture.md) - Architecture générale du projet
-- [`refactor.md`](architecture/refactor.md) - Plan de refactorisation globale  
+- [`refactor.md`](architecture/refactor.md) - Plan de refactorisation globale
 - [`scan_optimization_plan.md`](architecture/scan_optimization_plan.md) - Plan d'optimisation du système de scan
+- [`api_refactor_summary.md`](architecture/api_refactor_summary.md) - Résumé de la refactorisation API (SQLite → PostgreSQL)
 
 ### 📁 [`guides/`](guides/)
 
@@ -90,6 +91,15 @@ Cette documentation est maintenue par l'équipe de développement. Pour ajouter 
 3. **Supprimez** les documents obsolètes lors des refactorisations
 4. **Mettez à jour** ce README si vous ajoutez de nouvelles catégories
 
+## Changements Récents
+
+### Refactorisation backend/api (Novembre 2025)
+- **Migration base de données** : Passage de SQLite à PostgreSQL comme base par défaut
+- **Suppression code obsolète** : Suppression de TinyDB, sqlite-vec, et références SQLite
+- **Restructuration** : Fusion des dossiers `backend/api/api/` dans `backend/api/`
+- **Services mis à jour** : PlayQueue maintenant stocké dans PostgreSQL pour persistance
+- **Dépendances nettoyées** : Suppression de `aiosqlite`, `tinydb`, `sqlite-vec` des requirements
+
 ## Contribution
 
 Toutes les contributions à la documentation sont les bienvenues. Assurez-vous que vos documents :
@@ -101,4 +111,4 @@ Toutes les contributions à la documentation sont les bienvenues. Assurez-vous q
 
 ---
 
-*Dernière mise à jour : Novembre 2025*
+*Dernière mise à jour : Novembre 2025 - Refactorisation API : passage à PostgreSQL/Redis, suppression SQLite/TinyDB*

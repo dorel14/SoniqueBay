@@ -1,0 +1,14 @@
+{
+    "githooks.directory": ".git/hooks",
+    "githooks.autoInstall": true,
+    "githooks.supported": [
+        "pre-commit"
+    ],
+    "terminal.integrated.profiles": {
+        "SoniqueBay": {
+            "path": "powershell.exe",
+            "args": ["-NoExit", "-Command", ". '${workspaceFolder}\\profile.ps1'"]
+        }
+    },
+    "terminal.integrated.defaultProfile.windows": "SoniqueBay"
+}

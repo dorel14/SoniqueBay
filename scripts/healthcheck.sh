@@ -12,18 +12,32 @@ PORT=${HEALTHCHECK_PORT:-8000}
 
 echo "Healthcheck: Container $(hostname) on port $PORT"
 
-# Déterminer l'URL basée sur le nom du conteneur et le port
+# Vérifier la résolution DNS du host
 if [[ "$(hostname)" == *"api"* ]] || [ "$PORT" = "8001" ]; then
+    SERVICE_HOST="api"
     SERVICE_URL="http://api:8001/api/healthcheck"
-elif [[ "$(hostname)" == *"recommender"* ]] || [ "$PORT" = "8002" ]; then
-    SERVICE_URL="http://recommender:8002/api/healthcheck"
 else
+    SERVICE_HOST="localhost"
     SERVICE_URL="http://localhost:$PORT/api/healthcheck"
 fi
 
+echo "Healthcheck: Resolving $SERVICE_HOST..."
+nslookup $SERVICE_HOST 2>/dev/null || echo "Healthcheck: DNS resolution failed for $SERVICE_HOST"
+
+# Vérifier la connectivité réseau
+echo "Healthcheck: Pinging $SERVICE_HOST..."
+ping -c 1 -W 2 $SERVICE_HOST >/dev/null 2>&1 && echo "Healthcheck: Ping successful" || echo "Healthcheck: Ping failed"
+
+# Vérifier si le port est ouvert
+echo "Healthcheck: Checking if port $PORT is open on $SERVICE_HOST..."
+nc -z -w5 $SERVICE_HOST $PORT >/dev/null 2>&1 && echo "Healthcheck: Port $PORT is open" || echo "Healthcheck: Port $PORT is closed"
+
 echo "Healthcheck: Testing $SERVICE_URL"
-response=$(curl -f -s --max-time 10 --connect-timeout 5 $SERVICE_URL 2>&1)
+response=$(curl -v -f -s --max-time 10 --connect-timeout 5 $SERVICE_URL 2>&1)
 curl_status=$?
+
+echo "Healthcheck: Curl status: $curl_status"
+echo "Healthcheck: Full response: $response"
 
 if [ $curl_status -eq 0 ]; then
     echo "Healthcheck: Service is healthy"

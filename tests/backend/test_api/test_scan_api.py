@@ -3,13 +3,13 @@
 
 import pytest
 from unittest.mock import Mock
-from backend.library_api.api.routers.scan_api import convert_path_to_docker
+from backend.api.routers.scan_api import convert_path_to_docker
 
 
 @pytest.fixture
 def mock_celery(mocker):
     """Fixture pour mocker Celery."""
-    mock_celery = mocker.patch('backend.recommender_api.utils.celery_app.celery')
+    mock_celery = mocker.patch('backend.api.utils.celery_app.celery')
     mock_result = Mock()
     mock_result.id = "test-task-id"
     mock_celery.send_task.return_value = mock_result
@@ -20,18 +20,18 @@ def mock_celery(mocker):
 def mock_os(mocker):
     """Fixture pour mocker les fonctions os."""
     # Mock os.getenv
-    mocker.patch('backend.library_api.services.scan_service.os.getenv', return_value='/music')
+    mocker.patch('backend.api.services.scan_service.os.getenv', return_value='/music')
 
     # Mock os.path.exists
-    mocker.patch('backend.library_api.services.scan_service.os.path.exists', return_value=True)
+    mocker.patch('backend.api.services.scan_service.os.path.exists', return_value=True)
 
     # Mock os.stat to return proper stat result with read permissions
     mock_stat = mocker.Mock()
     mock_stat.st_mode = 0o755  # rwxr-xr-x permissions
-    mocker.patch('backend.library_api.services.scan_service.os.stat', return_value=mock_stat)
+    mocker.patch('backend.api.services.scan_service.os.stat', return_value=mock_stat)
 
     # Mock os.listdir
-    mocker.patch('backend.library_api.services.scan_service.os.listdir', return_value=['file1.mp3', 'file2.mp3'])
+    mocker.patch('backend.api.services.scan_service.os.listdir', return_value=['file1.mp3', 'file2.mp3'])
 
 
 def test_launch_scan_default_directory(client, mock_celery, mock_os):
@@ -62,10 +62,10 @@ def test_launch_scan_with_directory(client, mock_celery, mock_os):
 
 def test_launch_scan_directory_not_exists(client, mock_celery, mocker):
     """Test de lancement de scan avec répertoire inexistant."""
-    mocker.patch('backend.library_api.services.scan_service.os.getenv', return_value='/music')
-    mocker.patch('backend.library_api.services.scan_service.os.path.exists', return_value=False)  # Chemin n'existe pas
-    mocker.patch('backend.library_api.services.scan_service.os.stat')
-    mocker.patch('backend.library_api.services.scan_service.os.listdir', return_value=['file1.mp3'])
+    mocker.patch('backend.api.services.scan_service.os.getenv', return_value='/music')
+    mocker.patch('backend.api.services.scan_service.os.path.exists', return_value=False)  # Chemin n'existe pas
+    mocker.patch('backend.api.services.scan_service.os.stat')
+    mocker.patch('backend.api.services.scan_service.os.listdir', return_value=['file1.mp3'])
 
     response = client.post("/api/scan", json={"directory": "nonexistent"})
     assert response.status_code == 400
@@ -75,10 +75,10 @@ def test_launch_scan_directory_not_exists(client, mock_celery, mocker):
 
 def test_launch_scan_exception(client, mock_celery, mocker):
     """Test de gestion d'exception lors du lancement de scan."""
-    mocker.patch('backend.library_api.services.scan_service.os.getenv', return_value='/music')
-    mocker.patch('backend.library_api.services.scan_service.os.path.exists', return_value=True)
-    mocker.patch('backend.library_api.services.scan_service.os.stat')
-    mocker.patch('backend.library_api.services.scan_service.os.listdir', side_effect=Exception("Test exception"))
+    mocker.patch('backend.api.services.scan_service.os.getenv', return_value='/music')
+    mocker.patch('backend.api.services.scan_service.os.path.exists', return_value=True)
+    mocker.patch('backend.api.services.scan_service.os.stat')
+    mocker.patch('backend.api.services.scan_service.os.listdir', side_effect=Exception("Test exception"))
 
     response = client.post("/api/scan")
     assert response.status_code == 500

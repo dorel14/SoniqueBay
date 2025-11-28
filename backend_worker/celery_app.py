@@ -56,18 +56,30 @@ celery = Celery(
     include=[
         # Tâches Celery centralisées
         'backend_worker.celery_tasks',
-        
+
         # Workers avec tâches Celery définies
         'backend_worker.workers.vectorization.monitoring_worker',
         'backend_worker.workers.deferred.deferred_enrichment_worker',
-        
+
         # Nouvelle pipeline de scan
         'backend_worker.workers.metadata.extract_metadata_worker',
         'backend_worker.workers.batch.process_entities_worker',
         'backend_worker.workers.insert.insert_batch_worker',
-        
+
+        # Artist GMM workers
+        'backend_worker.workers.artist_gmm.artist_gmm_worker',
+
+        # Last.fm workers
+        'backend_worker.workers.lastfm.lastfm_worker',
+
+        # Vectorization workers
+        'backend_worker.workers.vectorization.track_vectorization_worker',
+
         # Legacy pour compatibilité (à supprimer progressivement)
         'backend_worker.tasks.main_tasks',
+
+        # Tâches de maintenance
+        'backend_worker.tasks.maintenance_tasks',
     ]
 )
 
@@ -219,6 +231,13 @@ task_queues = {
 
     # Queue par défaut (compatibilité)
     'celery': {'exchange': 'celery', 'routing_key': 'celery'},
+
+    # Queue MAINTENANCE (tâches de nettoyage et monitoring)
+    'maintenance': {
+        'exchange': 'maintenance',
+        'routing_key': 'maintenance',
+        'delivery_mode': 1,  # Non-persistant (tâches légères)
+    },
 }
 
 # === ROUTAGE OPTIMISÉ - NOUVELLE ARCHITECTURE ===
@@ -278,6 +297,9 @@ CONCURRENCY_SETTINGS = {
 
     # Tâches monitoring léger
     'vectorization_monitoring': 1,  # ✅ OPTIMISÉ: 1 worker max (léger)
+
+    # Tâches de maintenance
+    'maintenance': 1,  # ✅ OPTIMISÉ: 1 worker max (tâches légères)
 }
 
 @worker_init.connect

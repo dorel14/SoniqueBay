@@ -1,3 +1,8 @@
+# Étape d'extraction de version
+FROM python:3.11-slim AS version_extractor
+COPY _version_.py /_version_.py
+RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
+
 # Builder stage: installer les outils natifs (Rust/Cargo) et construire les dépendances spécifiques au worker
 FROM python:3.11-slim-bullseye AS builder
 ARG BUILD_DATE
@@ -40,6 +45,9 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
 
 # Runner stage: réutiliser l'image de base optimisée et copier uniquement les artefacts runtime
 FROM soniquebay/base:optim AS runner
+
+# Copier la version extraite
+COPY --from=version_extractor /version.txt /version.txt
 
 # Variables d'environnement et locale
 ARG LOCALE_LANGUAGE=en_US
@@ -87,9 +95,23 @@ COPY --link ./backend /app/backend
 COPY --link ./backend_worker/api_app.py /app/backend_worker/api_app.py
 
 WORKDIR /app
+# Add docker-compose-wait tool
+ENV WAIT_VERSION=2.12.0
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/$WAIT_VERSION/wait /wait
+RUN chmod +x /wait
 
 # Vérification que celery est disponible (smoke-test)
 RUN python3 -c "import celery; print('celery import check')" || true
+
+# Labels standards OCI
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="$(cat /version.txt)" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay Backend Worker" \
+      org.opencontainers.image.description="Service worker pour le traitement des tâches en arrière-plan"
 
 # Laisser l'entrypoint s'exécuter en tant que root ; il basculera proprement vers l'utilisateur non-root
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

@@ -1,3 +1,8 @@
+# Étape d'extraction de version
+FROM python:3.11-slim AS version_extractor
+COPY _version_.py /_version_.py
+RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
+
 # Stage 1: Builder
 FROM python:3.11-slim-bullseye AS builder
 
@@ -33,6 +38,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Stage 2: Runner (image finale allégée)
 FROM python:3.11-slim-bullseye AS runner
 
+# Copier la version extraite
+COPY --from=version_extractor /version.txt /version.txt
+
 # Configuration de l'environnement runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -57,7 +65,7 @@ RUN useradd --create-home --shell /bin/bash soniquebay && \
 # Labels standards OCI
 LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
       org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="$(cat /version.txt)" \
       org.opencontainers.image.authors="SoniqueBay Team" \
       org.opencontainers.image.vendor="SoniqueBay" \
       org.opencontainers.image.licenses="MIT" \

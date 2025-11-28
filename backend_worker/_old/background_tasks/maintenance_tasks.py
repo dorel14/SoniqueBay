@@ -191,7 +191,7 @@ def validate_system_integrity_task() -> dict:
             stats = deferred_queue_service.get_queue_stats("deferred_enrichment")
             checks["redis_connection"] = "error" not in stats
             checks["queue_access"] = checks["redis_connection"]
-        except:
+        except Exception:
             pass
 
         # Autres vérifications pourraient être ajoutées

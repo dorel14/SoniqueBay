@@ -2,9 +2,9 @@
 
 ## Vue d'ensemble
 
-SoniqueBay est une application de gestion de bibliothèque musicale avec une architecture moderne utilisant FastAPI, GraphQL, Celery et PostgreSQL/SQLite.
+SoniqueBay est une application de gestion de bibliothèque musicale avec une architecture moderne utilisant FastAPI, GraphQL, Celery et PostgreSQL/Redis.
 
-L'ensemble de cette applcation doit fonctionner sans problème sur un raspberry pi 4 ,  il faut donc optimiser le code pour gérer au mieux les ressources
+L'ensemble de cette application doit fonctionner sans problème sur un raspberry pi 4 ,  il faut donc optimiser le code pour gérer au mieux les ressources
 
 ## Architecture générale
 
@@ -29,7 +29,7 @@ graph TB
 
     subgraph "Data Layer"
         PG[(PostgreSQL)]
-        REDIS[(Redis)]
+        REDIS[(Redis Cache)]
         FS[(File System)]
     end
 

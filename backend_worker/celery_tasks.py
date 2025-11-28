@@ -326,7 +326,6 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 
 # === TÂCHES D'INSERTION ===
 # Import de la vraie implémentation depuis insert_batch_worker.py
-from backend_worker.workers.insert.insert_batch_worker import insert_batch_direct  # noqa: E402
 
 
 # === TÂCHES DE VECTORISATION ===
@@ -364,12 +363,6 @@ def calculate_vector(self, track_id: int, metadata: dict):
 
 # === TÂCHES DE COVERS ===
 # Import des vraies tâches de covers depuis covers_tasks.py
-from backend_worker.covers_tasks import (  # noqa: E402
-    process_artist_images,
-    process_album_covers,
-    process_track_covers_batch,
-    process_artist_images_batch
-)
 
 @celery.task(name="covers.extract_embedded", queue="deferred", bind=True)
 def extract_embedded_covers(self, file_paths: list[str]):

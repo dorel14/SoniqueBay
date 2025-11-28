@@ -22,6 +22,34 @@ services:
       default:
         aliases:
           - timesync
+  db:
+    build:
+      context: .
+      dockerfile: db_folder/Dockerfile
+      args:
+        LOCALE_LANGUAGE: ${LOCALE_LANGUAGE}
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - db
+    container_name: soniquebay-postgres
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    user: root
+    volumes:
+      - ./db_folder/pg_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
 
   # === IMAGE PARTAGÉE WORKER ===
   worker-base:
@@ -30,6 +58,14 @@ services:
       dockerfile: backend_worker/Dockerfile
     env_file:
       - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - WAIT_HOSTS=${POSTGRES_HOST}:${POSTGRES_PORT}
+      - WAIT_TIMEOUT=300
+      - WAIT_SLEEP_INTERVAL=30
+      - WAIT_HOST_CONNECT_TIMEOUT=30
     image: soniquebay-worker
     container_name: soniquebay-worker-base
     command: ["echo", "Base image built"]
@@ -97,24 +133,32 @@ services:
     networks:
       default:
 
-  # === API LIBRARY - OPTIMISÉ POUR RASPBERRY PI ===
-  library_service:
+  # === API - OPTIMISÉ POUR RASPBERRY PI ===
+  api_service:
     build:
       context: .
-      dockerfile: backend/library_api/Dockerfile
+      dockerfile: backend/api/Dockerfile
     container_name: soniquebay-api
     restart: unless-stopped
-    command: ["python3", "-m", "uvicorn", "backend.library_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
     volumes:
       - ./backend:/app/backend
-      - db-data:/app/backend/library_api/data
+      - db-data:/app/backend/api/data
       - music-share:/music:ro
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
+    env_file:
+      - .env
     environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - WAIT_HOSTS=${POSTGRES_HOST}:${POSTGRES_PORT}
+      - WAIT_TIMEOUT=300
+      - WAIT_SLEEP_INTERVAL=30
+      - WAIT_HOST_CONNECT_TIMEOUT=30
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DATABASE_URL=sqlite:////app/backend/library_api/data/music.db
       - HEALTHCHECK_PORT=8001
       - PLATFORM=${PLATFORM:-windows}
       - MUSIC_PATH=/music
@@ -125,11 +169,13 @@ services:
         condition: service_healthy
       timesync:
         condition: service_started
+      db:
+        condition: service_healthy
     networks:
       default:
         aliases:
-          - library
           - api
+          - library
     ports:
       - "8001:8001"
     healthcheck:
@@ -147,47 +193,6 @@ services:
           cpus: '0.25'
           memory: 256M
 
-  # === API RECOMMENDER ===
-  recommender_service:
-    build:
-      context: .
-      dockerfile: backend/recommender_api/Dockerfile
-    container_name: soniquebay-recommender
-    restart: unless-stopped
-    command: ["python3", "-m", "uvicorn", "backend.recommender_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8002"]
-    volumes:
-      - ./backend:/app/backend
-      - recommender-db-data:/app/backend/recommender_api/data
-      - ./logs:/app/logs
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - REDIS_CONNECTION_RETRIES=10
-      - REDIS_CONNECTION_RETRY_DELAY=5
-      - HEALTHCHECK_PORT=8002
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      default:
-        aliases:
-          - recommender
-    ports:
-      - "8002:8002"
-    healthcheck:
-      test: ["CMD-SHELL", "/healthcheck.sh"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 768M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   # === FRONTEND ===
   frontend:
@@ -203,12 +208,9 @@ services:
     env_file:
         - .env
     environment:
-      - API_URL=http://library:8001
-      - RECOMMENDER_API_URL=http://recommender:8002
+      - API_URL=http://api:8001
     depends_on:
-      library_service:
-        condition: service_healthy
-      recommender_service:
+      api_service:
         condition: service_healthy
     networks:
       default:
@@ -266,7 +268,7 @@ services:
         condition: service_healthy
       timesync:
         condition: service_started
-      library_service:
+      api_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -305,7 +307,6 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - API_URL=http://library:8001
-      - RECOMMENDER_API_URL=http://recommender:8002
       - WORKER_TYPE=scan
       - MUSIC_PATH=/music
       - PLATFORM=docker
@@ -314,7 +315,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      library_service:
+      api_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -406,6 +407,8 @@ services:
       - NAS_USER=${NAS_USER:-""}
       - NAS_PASS=${NAS_PASS:-""}
     depends_on:
+      db:
+        condition: service_healthy
       redis:
         condition: service_healthy
       timesync:
@@ -450,7 +453,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      library_service:
+      api_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -492,7 +495,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      library_service:
+      api_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -533,7 +536,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      library_service:
+      api_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -574,8 +577,6 @@ services:
       - RECOMMENDER_API_URL=http://recommender:8002
     depends_on:
       redis:
-        condition: service_healthy
-      recommender_service:
         condition: service_healthy
       worker-base:
         condition: service_completed_successfully
@@ -674,8 +675,7 @@ services:
     restart: unless-stopped
     depends_on:
       - redis
-      - library_service
-      - recommender_service
+      - api_service
       - worker-base
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -743,13 +743,7 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ./backend/library_api/data
-      o: bind
-  recommender-db-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./backend/recommender_api/data
+      device: ./backend/api/data
       o: bind
   music-share:
     driver: local

@@ -1,0 +1,67 @@
+# Stage 1: Builder
+FROM python:3.11-slim-bullseye AS builder
+
+# Configuration des variables d'environnement pour le build
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_TIMEOUT=1800 \
+    UV_BUILD_JOBS=4
+
+WORKDIR /app
+
+# Installer outils de compilation et dépendances système nécessaires uniquement pour la compilation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    python3-dev \
+    libpq-dev \
+    unixodbc-dev \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Installer uv dans le builder (utilisé pour installer les dépendances)
+RUN pip install --no-cache-dir uv
+
+# Copie et construction des dépendances Python communes en wheels puis installation dans /install
+COPY requirements-common.txt ./
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip setuptools wheel && \
+    pip wheel -r requirements-common.txt -w /wheels --no-cache-dir || true && \
+    pip install --no-deps --target=/install --no-cache-dir --find-links=/wheels -r requirements-common.txt || pip install --target=/install --no-cache-dir -r requirements-common.txt
+
+# Stage 2: Runner (image finale allégée)
+FROM python:3.11-slim-bullseye AS runner
+
+# Configuration de l'environnement runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+# Installer uniquement les dépendances système runtime (pas les -dev)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    curl \
+    libpq5 \
+    unixodbc \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copier les packages Python construits dans builder
+COPY --from=builder /install /usr/local/lib/python3.11/site-packages
+
+# Créer un utilisateur non-root pour l'exécution
+RUN useradd --create-home --shell /bin/bash soniquebay && \
+    mkdir -p /app && chown -R soniquebay:soniquebay /app /usr/local/lib/python3.11/site-packages
+
+# Labels standards OCI
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay Base Image" \
+      org.opencontainers.image.description="Image de base Python pour les services SoniqueBay"
+
+USER soniquebay

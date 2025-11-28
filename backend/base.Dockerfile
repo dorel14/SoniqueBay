@@ -1,10 +1,18 @@
+# Étape d'extraction de version
+FROM python:3.11-slim AS version_extractor
+COPY _version_.py /_version_.py
+RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
+
 # Image de base avec uv préinstallé
 FROM python:3.13-slim AS base
+
+# Copier la version extraite
+COPY --from=version_extractor /version.txt /version.txt
 
 # Labels pour le cache et la traçabilité
 LABEL org.opencontainers.image.source="https://github.com/your-repo/SoniqueBay-app"
 LABEL org.opencontainers.image.description="Image de base Python avec uv"
-LABEL org.opencontainers.image.version="1.0"
+LABEL org.opencontainers.image.version="$(cat /version.txt)"
 
 # Configuration des variables d'environnement
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -27,6 +35,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     /install.sh && rm /install.sh
 
 WORKDIR /app
+# Add docker-compose-wait tool
+ENV WAIT_VERSION 2.12.0
+ADD https://github.com/ufoscout/docker-compose-wait/releases/download/$WAIT_VERSION/wait /wait
+RUN chmod +x /wait
 
 # Création et activation de l'environnement virtuel
 RUN --mount=type=cache,target=/root/.cache/uv \

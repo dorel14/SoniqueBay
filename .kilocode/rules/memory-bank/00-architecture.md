@@ -7,7 +7,7 @@ SoniqueBay est une application musicale modulaire (library + player + IA) foncti
 - Frontend : NiceGUI + SSE & WebSocket pour le temps réel
 - Backend principal : FastAPI + GraphQL
 - Workers : Celery (scan / audio / vectorisation / enrichissement)
-- Base : PostgreSQL/SQLite + Redis cache
+- Base : PostgreSQL + Redis cache
 - Cible hardware : Raspberry Pi 4 (optimisations obligatoires)
 
 ## Principes d'architecture

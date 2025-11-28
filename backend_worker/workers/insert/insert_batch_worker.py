@@ -31,6 +31,7 @@ from backend_worker.services.entity_manager import (
     on_tracks_inserted_callback,
     execute_graphql_query
 )
+from backend_worker.services.deferred_queue_service import deferred_queue_service
 
 
 @celery.task(name="insert.direct_batch", queue="insert", bind=True)
@@ -48,6 +49,141 @@ def insert_batch_direct(self, insertion_data: Dict[str, Any]):
     """
     # Exécuter la logique asynchrone dans un event loop synchrone
     return asyncio.run(_insert_batch_direct_async(self, insertion_data))
+
+
+async def enqueue_enrichment_tasks_for_artists(client: httpx.AsyncClient, artist_ids: List[int], library_api_url: str) -> None:
+    """
+    Enqueue des tâches d'enrichissement pour les artistes qui n'ont pas de covers.
+
+    Args:
+        client: Client HTTP asynchrone
+        artist_ids: Liste des IDs d'artistes insérés
+        library_api_url: URL de l'API library
+    """
+    try:
+        if not artist_ids:
+            logger.debug("[ENRICHMENT] Aucun artiste à traiter")
+            return
+
+        logger.info(f"[ENRICHMENT] Vérification covers pour {len(artist_ids)} artistes: {artist_ids}")
+
+        enqueued_count = 0
+
+        for artist_id in artist_ids:
+            try:
+                logger.debug(f"[ENRICHMENT] Vérification cover pour artiste {artist_id}")
+                # Vérifier si l'artiste a déjà une cover
+                response = await client.get(f"{library_api_url}/api/covers/artist/{artist_id}")
+                logger.debug(f"[ENRICHMENT] Réponse API covers pour artiste {artist_id}: {response.status_code}")
+
+                if response.status_code == 200:
+                    cover_data = response.json()
+                    if cover_data:
+                        logger.debug(f"[ENRICHMENT] Artiste {artist_id} a déjà une cover, skip")
+                        continue
+
+                logger.info(f"[ENRICHMENT] Artiste {artist_id} n'a pas de cover, enqueue tâche")
+
+                # Enqueue tâche d'enrichissement artiste
+                task_data = {
+                    "type": "artist",
+                    "id": artist_id
+                }
+
+                success = deferred_queue_service.enqueue_task(
+                    "deferred_enrichment",
+                    task_data,
+                    priority="normal",
+                    delay_seconds=60  # Délai de 1 minute pour éviter surcharge immédiate
+                )
+
+                if success:
+                    logger.info(f"[ENRICHMENT] ✅ Tâche enrichissement enqueued pour artiste {artist_id}")
+                    enqueued_count += 1
+                else:
+                    logger.warning(f"[ENRICHMENT] ❌ Échec enqueue tâche artiste {artist_id}")
+
+            except Exception as e:
+                logger.error(f"[ENRICHMENT] Erreur vérification artiste {artist_id}: {str(e)}")
+
+        logger.info(f"[ENRICHMENT] Total tâches enqueued pour artistes: {enqueued_count}/{len(artist_ids)}")
+
+    except Exception as e:
+        logger.error(f"[ENRICHMENT] Erreur générale enqueue artistes: {str(e)}")
+
+
+async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_ids: List[int], library_api_url: str) -> None:
+    """
+    Enqueue des tâches d'enrichissement pour les albums qui n'ont pas de covers.
+
+    Args:
+        client: Client HTTP asynchrone
+        album_ids: Liste des IDs d'albums insérés
+        library_api_url: URL de l'API library
+    """
+    try:
+        if not album_ids:
+            logger.debug("[ENRICHMENT] Aucun album à traiter")
+            return
+
+        logger.info(f"[ENRICHMENT] Vérification covers pour {len(album_ids)} albums: {album_ids}")
+
+        enqueued_count = 0
+
+        for album_id in album_ids:
+            try:
+                logger.debug(f"[ENRICHMENT] Vérification cover pour album {album_id}")
+                # Vérifier si l'album a déjà une cover
+                response = await client.get(f"{library_api_url}/api/covers/album/{album_id}")
+                logger.debug(f"[ENRICHMENT] Réponse API covers pour album {album_id}: {response.status_code}")
+
+                if response.status_code == 200:
+                    cover_data = response.json()
+                    if cover_data:
+                        logger.debug(f"[ENRICHMENT] Album {album_id} a déjà une cover, skip")
+                        continue
+
+                # Récupérer les infos de l'album pour avoir le MBID
+                album_response = await client.get(f"{library_api_url}/api/albums/{album_id}")
+                logger.debug(f"[ENRICHMENT] Réponse API album pour album {album_id}: {album_response.status_code}")
+
+                if album_response.status_code != 200:
+                    logger.warning(f"[ENRICHMENT] Impossible de récupérer album {album_id}")
+                    continue
+
+                album_data = album_response.json()
+                mb_release_id = album_data.get("musicbrainz_albumid")
+                logger.debug(f"[ENRICHMENT] Album {album_id} MBID: {mb_release_id}")
+
+                logger.info(f"[ENRICHMENT] Album {album_id} n'a pas de cover, enqueue tâche")
+
+                # Enqueue tâche d'enrichissement album
+                task_data = {
+                    "type": "album",
+                    "id": album_id,
+                    "mb_release_id": mb_release_id
+                }
+
+                success = deferred_queue_service.enqueue_task(
+                    "deferred_enrichment",
+                    task_data,
+                    priority="normal",
+                    delay_seconds=120  # Délai de 2 minutes pour les albums
+                )
+
+                if success:
+                    logger.info(f"[ENRICHMENT] ✅ Tâche enrichissement enqueued pour album {album_id}")
+                    enqueued_count += 1
+                else:
+                    logger.warning(f"[ENRICHMENT] ❌ Échec enqueue tâche album {album_id}")
+
+            except Exception as e:
+                logger.error(f"[ENRICHMENT] Erreur vérification album {album_id}: {str(e)}")
+
+        logger.info(f"[ENRICHMENT] Total tâches enqueued pour albums: {enqueued_count}/{len(album_ids)}")
+
+    except Exception as e:
+        logger.error(f"[ENRICHMENT] Erreur générale enqueue albums: {str(e)}")
 
 
 async def process_genres_and_tags_for_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
@@ -302,6 +438,8 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         artist_ids = [artist.get('id') for artist in artist_map.values() if artist.get('id')]
                         if artist_ids:
                             await on_artists_inserted_callback(artist_ids)
+                            # Enqueue tâches d'enrichissement pour les artistes sans covers
+                            await enqueue_enrichment_tasks_for_artists(client, artist_ids, library_api_url)
 
                 # Étape 2: Traitement des albums via entity_manager
                 if albums_data:
@@ -368,6 +506,8 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         album_ids = [album.get('id') for album in album_map.values() if album.get('id')]
                         if album_ids:
                             await on_albums_inserted_callback(album_ids)
+                            # Enqueue tâches d'enrichissement pour les albums sans covers
+                            await enqueue_enrichment_tasks_for_albums(client, album_ids, library_api_url)
 
                 # Étape 3: Traitement des tracks via entity_manager
                 if tracks_data:
