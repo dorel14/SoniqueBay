@@ -1,0 +1,43 @@
+#Gestion des tâches
+celery>=5.5.3
+redis>=4.2.0
+flower>=2.0.0
+eventlet>=0.33.0
+# Gestion des fichiers audio et métadonnées
+mutagen>=1.46.0
+librosa>=0.10.0
+pillow>=12.0.0
+#torch>=2.0.0
+#sentence-transformers>=2.2.0
+scikit-learn>=1.7.2
+
+# HTTP et WebSocket
+httpx>=0.24.0
+websockets>=11.0.3
+
+# Stockage et Index de recherche
+whoosh-reloaded >=2.7.4
+tinydb>=4.8.0
+cachetools>=5.3.2
+
+# Utils
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+aiofiles>=23.1.0
+pathlib>=1.0.1
+psutil>=5.9.0
+nest-asyncio>=1.6.0
+
+# Sécurité
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Web Framework pour API HTTP
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+
+# Tests
+pytest>=7.3.1
+pytest-asyncio>=0.21.0
+pytest-benchmark>=4.0.0

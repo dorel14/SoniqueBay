@@ -1,6 +1,6 @@
 import os
 import inspect
-from nicegui import ui, app
+from nicegui import ui, app, events
 from frontend.config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
@@ -15,6 +15,7 @@ CUSTOM_LABELS = {
     'library': '🎵 Bibliothèque',
     'artists': '🎨 Artistes',
     'albums': '💿 Albums',
+    'search': '🔍 Recherche',
     'downloads': '⬇️ Téléchargements',
     'settings': '⚙️ Paramètres',
     'api_docs': '📚 Documentation API',
@@ -22,7 +23,7 @@ CUSTOM_LABELS = {
 
 
 
-MENU_ORDER = ['homepage', 'library', 'recommendations','downloads', 'settings']
+MENU_ORDER = ['homepage', 'library', 'search', 'recommendations','downloads', 'settings']
 def label_for(name: str) -> str:
     return CUSTOM_LABELS.get(name, name.replace('_', ' ').capitalize())
 
@@ -34,6 +35,30 @@ EXCLUDED_FILES = ["library","artist_details"]
 
 
 API_URL = os.getenv('API_URL', 'http://library:8001')
+
+running_query = None
+search_field = None
+results = None
+
+async def search(e: events.ValueChangeEventArguments) -> None:
+    global running_query
+    if running_query and not running_query.done():
+        running_query.cancel()
+    results.clear()
+    if not e.value.strip():
+        return
+    running_query = asyncio.create_task(httpx.AsyncClient().get(f'{API_URL}/api/search/typeahead?q={e.value}'))
+    try:
+        response = await running_query
+        data = response.json()
+        items = data.get('items', [])
+        with results:
+            for item in items[:5]:  # limit to 5 for performance
+                artist = item.get('artist', 'Unknown')
+                title = item.get('title', 'Unknown')
+                ui.label(f"{artist} - {title}").classes('cursor-pointer hover:bg-white/10 p-2 text-white').on_click(lambda item=item: ui.open(f'/library?search={item.get("title", "")}'))
+    except Exception as ex:
+        logger.error(f"Search error: {ex}")
 
 def make_progress_handler(task_id):
     def handler(data):
@@ -258,6 +283,21 @@ def wrap_with_layout(render_page):
 
     with ui.header().classes(replace='row items-center'):
         toggle_button = ui.button(icon='menu').props('flat color=white')
+        ui.space()
+        with ui.column():
+            with ui.row().classes('items-center gap-2'):
+                search_field = ui.input(placeholder='Rechercher...', on_change=search)\
+                    .props('dense rounded outlined clearable')\
+                    .classes('bg-white/10 text-white placeholder-white flex-1')\
+                    .on('keydown.enter', lambda: perform_full_search(search_field.value))
+                search_button = ui.button(icon='search', on_click=lambda: perform_full_search(search_field.value))\
+                    .props('flat dense color=white')
+            results = ui.column()
+
+            def perform_full_search(query: str):
+                """Effectue une recherche complète et navigue vers la page de résultats."""
+                if query.strip():
+                    ui.navigate.to(f'/search?q={query.strip()}')
         ui.space()
         ui.label('Sonique Bay').classes('font-bold text-lg').style('font-family: Poppins')
         ui.space()

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from backend.library_api.api.models.scan_sessions_model import ScanSession
-from backend.library_api.services.scan_service import ScanService
+from backend.api.models.scan_sessions_model import ScanSession
+from backend.api.services.scan_service import ScanService
 
 def test_scan_session_creation(db_session: Session):
     """Test creation of scan session."""
@@ -24,7 +24,7 @@ def test_scan_service_launch_scan(db_session: Session, mocker):
     # Mock celery task
     mock_task = mocker.MagicMock()
     mock_task.id = "test-task-id"
-    mocker.patch('backend.library_api.utils.celery_app.celery.send_task', return_value=mock_task)
+    mocker.patch('backend.api.utils.celery_app.celery.send_task', return_value=mock_task)
 
     # Mock database operations to avoid threading issues
     mock_session = mocker.MagicMock()

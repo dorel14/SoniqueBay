@@ -1,3 +1,8 @@
+# Étape d'extraction de version
+FROM python:3.11-slim AS version_extractor
+COPY _version_.py /_version_.py
+RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
+
 # Stage 1: Builder
 FROM python:3.11-slim-bullseye AS builder
 
@@ -44,6 +49,9 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
 # Stage 2: Runner
 
 FROM soniquebay/base:optim AS runner
+
+# Copier la version extraite
+COPY --from=version_extractor /version.txt /version.txt
 
 # Configuration des variables d'environnement
 ARG LOCALE_LANGUAGE=en_US

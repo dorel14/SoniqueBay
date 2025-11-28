@@ -29,7 +29,7 @@
 - Last.fm / ListenBrainz / Napster enrichissement
 
 ## Data Layer
-- DB = PostgreSQL ou SQLite
+- DB = PostgreSQL
 - Redis = cache + pub/sub SSE
 - Access DB uniquement via API
 

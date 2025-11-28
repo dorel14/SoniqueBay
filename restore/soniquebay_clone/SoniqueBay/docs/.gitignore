@@ -1,0 +1,24 @@
+# Fichiers temporaires et générés automatiquement
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Fichiers de backup
+*.bak
+*.backup
+*~
+
+# Fichiers d'IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Documentation générée automatiquement (si applicable)
+docs/_build/
+docs/.doctrees/

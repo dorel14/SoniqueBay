@@ -1,0 +1,771 @@
+# Docker Compose optimisé pour SoniqueBay - Raspberry Pi 4
+# Intègre toutes les optimisations du scan-optimized avec les services de base
+# Optimisations RPi4 : limites CPU/mémoire, Redis optimisé, pools threads, monitoring Flower
+
+services:
+  # === TIME SYNC SERVICE (OPTIMISÉ) ===
+  timesync:
+    image: ubuntu:22.04
+    container_name: soniquebay-timesync
+    restart: unless-stopped
+    command: >
+      sh -c "
+        echo 'Time sync service started'
+        echo 'Raspberry Pi uses NTP via systemd-timesyncd'
+        echo 'UTC time: '$(date -u)
+        sleep infinity
+      "
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./logs:/var/log
+    networks:
+      default:
+        aliases:
+          - timesync
+
+  # === IMAGE PARTAGÉE WORKER ===
+  worker-base:
+    build:
+      context: .
+      dockerfile: backend_worker/Dockerfile
+    env_file:
+      - .env
+    image: soniquebay-worker
+    container_name: soniquebay-worker-base
+    command: ["echo", "Base image built"]
+
+  # === REDIS (broker + backend) ===
+  redis:
+    image: redis:7
+    container_name: soniquebay-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "300", "100", "--tcp-keepalive", "300", "--timeout", "300", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      default:
+        aliases:
+          - redis
+    ports:
+      - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 60s
+    depends_on:
+      timesync:
+        condition: service_started
+
+  # === FLOWER (monitoring) ===
+  flower:
+    image: mher/flower:latest
+    container_name: soniquebay-flower
+    restart: unless-stopped
+    command:
+      - celery
+      - --broker=redis://redis:6379/0
+      - --result-backend=redis://redis:6379/0
+      - flower
+      - --url_prefix=flower
+      - --auto_refresh=True
+      - --inspect_timeout=60000
+      - --max_tasks=1000
+      - --loglevel=INFO
+      - --retry
+      - --retry-delay=10
+      - --retry-max=5
+      - --persistent=True
+      - --enable_events=True
+    depends_on:
+        redis:
+            condition: service_healthy
+        timesync:
+            condition: service_started
+        worker-base:
+            condition: service_completed_successfully
+        frontend:
+            condition: service_healthy
+    
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    networks:
+      default:
+
+  # === API LIBRARY - OPTIMISÉ POUR RASPBERRY PI ===
+  library_service:
+    build:
+      context: .
+      dockerfile: backend/library_api/Dockerfile
+    container_name: soniquebay-api
+    restart: unless-stopped
+    command: ["python3", "-m", "uvicorn", "backend.library_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
+    volumes:
+      - ./backend:/app/backend
+      - db-data:/app/backend/library_api/data
+      - music-share:/music:ro
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATABASE_URL=sqlite:////app/backend/library_api/data/music.db
+      - HEALTHCHECK_PORT=8001
+      - PLATFORM=${PLATFORM:-windows}
+      - MUSIC_PATH=/music
+      - NAS_USER=${NAS_USER:-""}
+      - NAS_PASS=${NAS_PASS:-""}
+    depends_on:
+      redis:
+        condition: service_healthy
+      timesync:
+        condition: service_started
+    networks:
+      default:
+        aliases:
+          - library
+          - api
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'  # Réduit pour Raspberry Pi
+          memory: 768M  # Augmenté pour éviter SIGKILL
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # === API RECOMMENDER ===
+  recommender_service:
+    build:
+      context: .
+      dockerfile: backend/recommender_api/Dockerfile
+    container_name: soniquebay-recommender
+    restart: unless-stopped
+    command: ["python3", "-m", "uvicorn", "backend.recommender_api.api_app:create_api", "--host", "0.0.0.0", "--port", "8002"]
+    volumes:
+      - ./backend:/app/backend
+      - recommender-db-data:/app/backend/recommender_api/data
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_CONNECTION_RETRIES=10
+      - REDIS_CONNECTION_RETRY_DELAY=5
+      - HEALTHCHECK_PORT=8002
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - recommender
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test: ["CMD-SHELL", "/healthcheck.sh"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # === FRONTEND ===
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: soniquebay-frontend
+    restart: unless-stopped
+    command: ["sh", "-c", "python start_ui.py"]
+    volumes:
+      - ./frontend:/app/frontend
+      - ./logs:/app/logs
+    env_file:
+        - .env
+    environment:
+      - API_URL=http://library:8001
+      - RECOMMENDER_API_URL=http://recommender:8002
+    depends_on:
+      library_service:
+        condition: service_healthy
+      recommender_service:
+        condition: service_healthy
+    networks:
+      default:
+        aliases:
+          - frontend
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  # === SCAN WORKERS (I/O bound) - OPTIMISÉ POUR RASPBERRY PI ===
+  scan-worker-1:
+    image: soniquebay-worker
+    container_name: soniquebay-scan-1
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=scan-worker-1@%h
+      --queues=scan
+      --concurrency=2
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - music-share:/music:ro
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - API_URL=http://library:8001
+      - RECOMMENDER_API_URL=http://recommender:8002
+      - WORKER_TYPE=scan
+      - MUSIC_PATH=/music
+      - PLATFORM=docker
+      - NAS_USER=${NAS_USER:-""}
+      - NAS_PASS=${NAS_PASS:-""}
+    depends_on:
+      redis:
+        condition: service_healthy
+      timesync:
+        condition: service_started
+      library_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - scan-worker-1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'  # Réduit pour Raspberry Pi
+          memory: 1G  # Augmenté pour éviter SIGKILL
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  scan-worker-2:
+    image: soniquebay-worker
+    container_name: soniquebay-scan-2
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=scan-worker-2@%h
+      --queues=scan
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - music-share:/music:ro
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - API_URL=http://library:8001
+      - RECOMMENDER_API_URL=http://recommender:8002
+      - WORKER_TYPE=scan
+      - MUSIC_PATH=/music
+      - PLATFORM=docker
+      - NAS_USER=${NAS_USER:-""}
+      - NAS_PASS=${NAS_PASS:-""}
+    depends_on:
+      redis:
+        condition: service_healthy
+      library_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - scan-worker-2
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'  # Réduit pour Raspberry Pi
+          memory: 512M  # Augmenté pour éviter SIGKILL
+        reservations:
+          cpus: '0.1'
+          memory: 256M
+
+  # === EXTRACT WORKERS (CPU bound) - OPTIMISÉ POUR RASPBERRY PI ===
+  extract-worker-1:
+    image: soniquebay-worker
+    container_name: soniquebay-extract-1
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=extract-worker-1@%h
+      --queues=extract
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./scripts:/app/scripts
+      - music-share:/music:ro
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=extract
+      - MUSIC_PATH=/music
+      - PLATFORM=docker
+      - NAS_USER=${NAS_USER:-""}
+      - NAS_PASS=${NAS_PASS:-""}
+      - API_URL=http://library:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      scan-worker-1:
+        condition: service_started
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - extract-worker-1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'  # Réduit pour Raspberry Pi
+          memory: 512M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  extract-worker-2:
+    image: soniquebay-worker
+    container_name: soniquebay-extract-2
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=extract-worker-2@%h
+      --queues=extract
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - music-share:/music:ro
+      - ./logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=extract
+      - MUSIC_PATH=/music
+      - PLATFORM=docker
+      - NAS_USER=${NAS_USER:-""}
+      - NAS_PASS=${NAS_PASS:-""}
+    depends_on:
+      redis:
+        condition: service_healthy
+      timesync:
+        condition: service_started
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - extract-worker-2
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'  # Réduit pour Raspberry Pi
+          memory: 256M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # === BATCH / BULK WORKER (memory heavy) - OPTIMISÉ POUR RASPBERRY PI ===
+  batch-worker:
+    image: soniquebay-worker
+    container_name: soniquebay-batch
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=batch-worker@%h
+      --queues=batch
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=batch
+      - API_URL=http://library:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      library_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - batch-worker
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'  # Réduit pour Raspberry Pi
+          memory: 512M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # === INSERT WORKERS (DB-bound via API) - OPTIMISÉ POUR RASPBERRY PI ===
+  insert-worker-1:
+    image: soniquebay-worker
+    container_name: soniquebay-insert-1
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=insert-worker-1@%h
+      --queues=insert
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=threads
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=insert
+      - LIBRARY_API_URL=http://api:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      library_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - insert-worker-1
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'  # Réduit pour Raspberry Pi
+          memory: 256M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  insert-worker-2:
+    image: soniquebay-worker
+    container_name: soniquebay-insert-2
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=insert-worker-2@%h
+      --queues=insert
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=threads
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=insert
+      - LIBRARY_API_URL=http://api:8001
+    depends_on:
+      redis:
+        condition: service_healthy
+      library_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - insert-worker-2
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'  # Réduit pour Raspberry Pi
+          memory: 256M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # === VECTOR WORKER (CPU heavy) - OPTIMISÉ POUR RASPBERRY PI ===
+  vector-worker:
+    image: soniquebay-worker
+    container_name: soniquebay-vector
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=vector-worker@%h
+      --queues=vector
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=prefork
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=vector
+      - RECOMMENDER_API_URL=http://recommender:8002
+    depends_on:
+      redis:
+        condition: service_healthy
+      recommender_service:
+        condition: service_healthy
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - vector-worker
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'  # Réduit pour Raspberry Pi
+          memory: 512M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # === DEFERRED (background low-priority mixed tasks) - OPTIMISÉ POUR RASPBERRY PI ===
+  deferred-worker:
+    image: soniquebay-worker
+    container_name: soniquebay-deferred
+    restart: unless-stopped
+    command: >
+      celery -A backend_worker.celery_app worker
+      -E
+      --hostname=deferred-worker@%h
+      --queues=deferred
+      --concurrency=1
+      --prefetch-multiplier=1
+      --pool=threads
+      --loglevel=INFO
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./logs:/app/logs
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - WORKER_TYPE=deferred
+    depends_on:
+      redis:
+        condition: service_healthy
+      timesync:
+        condition: service_started
+      worker-base:
+        condition: service_completed_successfully
+    networks:
+      default:
+        aliases:
+          - deferred-worker
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'  # Réduit pour Raspberry Pi
+          memory: 256M  # Réduit pour Raspberry Pi
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # === WORKERS UNIQUES (du docker-compose.yml original) ===
+  # Worker principal supprimé car il causait des blocages multiprocessing
+
+  celery_beat:
+    image: soniquebay-worker
+    container_name: soniquebay-celery-beat
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_BEAT_DB=/app/backend_worker/celery_beat_data/celerybeat-schedule.db
+    volumes:
+      - .:/app
+      - celery-beat-data:/app/data
+      - ./logs:/app/logs
+    command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
+    networks:
+      default:
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "celery.*beat"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  vectorization_listener:
+    image: soniquebay-worker
+    container_name: soniquebay-vectorization-listener
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - library_service
+      - recommender_service
+      - worker-base
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - LIBRARY_API_URL=http://library:8001
+      - RECOMMENDER_API_URL=http://recommender:8002
+    volumes:
+      - ./backend_worker:/app/backend_worker
+      - ./backend:/app/backend
+      - ./scripts:/app/scripts
+      - ./logs:/app/logs
+    command: ["python3", "/app/backend_worker/vectorization_listener.py"]
+    networks:
+      default:
+        aliases:
+          - vectorization_listener
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "vectorization_listener"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+  celery-monitor:
+    image: getkanchi/kanchi:latest
+    container_name: soniquebay-celery-monitor
+    restart: unless-stopped
+    ports:
+        - "8765:8765"
+        - "3000:3000"
+    environment:
+        - CELERY_BROKER_URL=redis://redis:6379/0
+        - AUTH_ENABLED:"false"
+        - LOG_LEVEL:"DEBUG"
+    volumes:
+        - kanchi_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8765/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      default:
+
+
+volumes:
+  kanchi_data:
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/backend_worker/redis_data
+      o: bind
+  db-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./backend/library_api/data
+      o: bind
+  recommender-db-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ./backend/recommender_api/data
+      o: bind
+  music-share:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: //SRV_NAS/music
+      o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8,dir_mode=0755,file_mode=0644
+  celery-beat-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/backend_worker/celery_beat_data
+      o: bind
+  logs:
+    driver: local
+
+networks:
+  default:
+    name: soniquebay-network

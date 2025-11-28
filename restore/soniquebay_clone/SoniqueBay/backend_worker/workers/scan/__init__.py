@@ -1,0 +1,1 @@
+"""Workers de scan et découverte de fichiers musicaux."""

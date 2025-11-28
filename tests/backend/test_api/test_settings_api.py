@@ -79,8 +79,8 @@ def test_create_setting_encrypted(client, encrypted_setting_data):
     """Test de création d'un paramètre crypté."""
     from unittest.mock import patch
 
-    with patch('backend.library_api.services.settings_service.encrypt_value', return_value="mocked_encrypted_value"), \
-         patch('backend.library_api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
+    with patch('backend.api.services.settings_service.encrypt_value', return_value="mocked_encrypted_value"), \
+         patch('backend.api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
         response = client.post("/api/settings/", json=encrypted_setting_data)
 
     assert response.status_code == 200
@@ -232,14 +232,14 @@ def test_create_setting_duplicate_key(client, sample_setting_data):
 def test_encryption_decryption_workflow(client, encrypted_setting_data, encryption_key):
     """Test du workflow complet de cryptage/décryptage."""
     from unittest.mock import patch
-    from backend.library_api.utils.crypto import encrypt_value
+    from backend.api.utils.crypto import encrypt_value
 
     # Utiliser une vraie valeur cryptée pour le test
     real_encrypted_value = encrypt_value(encrypted_setting_data["value"])
 
     # Créer un paramètre crypté avec mock complet
-    with patch('backend.library_api.services.settings_service.encrypt_value', return_value=real_encrypted_value), \
-         patch('backend.library_api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
+    with patch('backend.api.services.settings_service.encrypt_value', return_value=real_encrypted_value), \
+         patch('backend.api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
         response = client.post("/api/settings/", json=encrypted_setting_data)
 
     assert response.status_code == 200
@@ -249,7 +249,7 @@ def test_encryption_decryption_workflow(client, encrypted_setting_data, encrypti
     assert data["is_encrypted"] == encrypted_setting_data["is_encrypted"]
 
     # Récupérer le paramètre avec mock pour éviter les erreurs de décryptage
-    with patch('backend.library_api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
+    with patch('backend.api.services.settings_service.decrypt_value', return_value=encrypted_setting_data["value"]):
         response = client.get(f"/api/settings/{encrypted_setting_data['key']}")
     assert response.status_code == 200
     data = response.json()

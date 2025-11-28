@@ -59,7 +59,7 @@ async def test_vectorization_workflow(client, db_session, mocker):
         vector_data=[0.1, 0.2, 0.3, 0.4, 0.5] * 76
     )
 
-    mocker.patch('backend.recommender_api.services.track_vector_service.TrackVectorService', return_value=mock_service)
+    mocker.patch('backend.api.services.track_vector_service.TrackVectorService', return_value=mock_service)
 
     track_id = 1
 

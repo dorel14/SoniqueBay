@@ -14,15 +14,15 @@ from unittest.mock import AsyncMock, MagicMock
 # Ajout des imports pour les nouvelles fixtures
 import httpx
 
-import backend.library_api.utils.search
-from backend.library_api.utils.database import Base, get_db, get_session
-from backend.library_api.api_app import create_api
-from backend.library_api.api.models.artists_model import Artist
-from backend.library_api.api.models.albums_model import Album
-from backend.library_api.api.models.tracks_model import Track
-from backend.library_api.api.models.genres_model import Genre
-from backend.library_api.api.models.covers_model import Cover
-from backend.library_api.api.models.tags_model import GenreTag, MoodTag
+import backend.api.utils.search
+from backend.api.utils.database import Base, get_db, get_session
+from backend.api.api_app import create_api
+from backend.api.models.artists_model import Artist
+from backend.api.models.albums_model import Album
+from backend.api.models.tracks_model import Track
+from backend.api.models.genres_model import Genre
+from backend.api.models.covers_model import Cover
+from backend.api.models.tags_model import GenreTag, MoodTag
 
 # Configuration pytest pour les tests asynchrones
 pytest_plugins = ("pytest_asyncio",)
@@ -53,7 +53,7 @@ def test_db_engine():
     with open(test_marker_file, 'w') as f:
         f.write('1')
 
-    backend.library_api.utils.search.BASE_SEARCH_DIR = Path(tempfile.mkdtemp())
+    backend.api.utils.search.BASE_SEARCH_DIR = Path(tempfile.mkdtemp())
 
     # Créer un fichier temporaire pour la base de données
     temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
@@ -403,7 +403,7 @@ def client(db_session):
 @pytest.fixture
 def recommender_client(db_session):
     """Client de test FastAPI pour recommender_api avec une base de données de test."""
-    from backend.recommender_api.api_app import create_api as create_recommender_api
+    from backend.api.api_app import create_api as create_recommender_api
     app = create_recommender_api()
 
     # Override de la dépendance get_db pour utiliser notre session de test

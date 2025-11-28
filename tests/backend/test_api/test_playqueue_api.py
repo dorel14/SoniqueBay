@@ -3,25 +3,25 @@
 
 import pytest
 from datetime import datetime
-from backend.library_api.api.schemas.playqueue_schema import PlayQueue, QueueTrack
+from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack
 
 
 @pytest.fixture
 def mock_db(mocker):
     """Fixture pour mocker la base de données TinyDB."""
     mock_db_instance = mocker.Mock()
-    mocker.patch('backend.library_api.utils.tinydb_handler.TinyDBHandler.get_db', return_value=mock_db_instance)
+    mocker.patch('backend.api.utils.tinydb_handler.TinyDBHandler.get_db', return_value=mock_db_instance)
     return mock_db_instance
 
 @pytest.fixture
 def mock_playqueue_service(mocker):
     """Fixture pour mocker le PlayQueueService."""
     # Mock the static methods directly
-    mock_get_queue = mocker.patch('backend.library_api.services.playqueue_service.PlayQueueService.get_queue')
-    mock_add_track = mocker.patch('backend.library_api.services.playqueue_service.PlayQueueService.add_track')
-    mock_remove_track = mocker.patch('backend.library_api.services.playqueue_service.PlayQueueService.remove_track')
-    mock_move_track = mocker.patch('backend.library_api.services.playqueue_service.PlayQueueService.move_track')
-    mock_clear_queue = mocker.patch('backend.library_api.services.playqueue_service.PlayQueueService.clear_queue')
+    mock_get_queue = mocker.patch('backend.api.services.playqueue_service.PlayQueueService.get_queue')
+    mock_add_track = mocker.patch('backend.api.services.playqueue_service.PlayQueueService.add_track')
+    mock_remove_track = mocker.patch('backend.api.services.playqueue_service.PlayQueueService.remove_track')
+    mock_move_track = mocker.patch('backend.api.services.playqueue_service.PlayQueueService.move_track')
+    mock_clear_queue = mocker.patch('backend.api.services.playqueue_service.PlayQueueService.clear_queue')
 
     # Return a mock object with the mocked methods
     mock_service = mocker.Mock()

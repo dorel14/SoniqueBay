@@ -2,10 +2,10 @@
 # Tests pour les endpoints de l'API Analysis
 
 from unittest.mock import patch, MagicMock
-from backend.library_api.api.models.tracks_model import Track
+from backend.api.models.tracks_model import Track
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
 def test_get_pending_analysis_empty(mock_get_db, client, db_session):
     """Test de récupération des pistes en attente d'analyse."""
     # Mock TinyDB pour retourner une DB vide
@@ -27,7 +27,7 @@ def test_get_pending_analysis_empty(mock_get_db, client, db_session):
             assert isinstance(item["missing_features"], list)
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
 def test_get_pending_analysis_with_data(mock_get_db, client, db_session, create_test_track):
     """Test de récupération de pistes en attente d'analyse avec données."""
     # Créer une piste de test
@@ -55,9 +55,9 @@ def test_get_pending_analysis_with_data(mock_get_db, client, db_session, create_
     assert data[0]["missing_features"] == ["bpm", "key"]
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
-@patch('backend.library_api.services.analysis_service.AnalysisService')
-@patch('backend.library_api.services.analysis_service.celery')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.AnalysisService')
+@patch('backend.api.services.analysis_service.celery')
 def test_process_pending_analysis_no_pending(mock_celery, mock_service, mock_get_db, client, db_session):
     """Test de traitement d'analyses en attente quand aucune piste n'est en attente."""
     # Mock TinyDB pour DB vide
@@ -78,9 +78,9 @@ def test_process_pending_analysis_no_pending(mock_celery, mock_service, mock_get
     assert data["tasks"] == []
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
-@patch('backend.library_api.services.analysis_service.AnalysisService')
-@patch('backend.library_api.services.analysis_service.celery')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.AnalysisService')
+@patch('backend.api.services.analysis_service.celery')
 def test_process_pending_analysis_with_pending(mock_celery, mock_service, mock_get_db, client, db_session, create_test_track):
     """Test de traitement d'analyses en attente avec des pistes."""
     # Créer une piste de test
@@ -117,9 +117,9 @@ def test_process_pending_analysis_with_pending(mock_celery, mock_service, mock_g
     assert data["tasks"][0]["task_id"] == "test-task-id"
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
-@patch('backend.library_api.services.analysis_service.AnalysisService')
-@patch('backend.library_api.services.analysis_service.celery')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.AnalysisService')
+@patch('backend.api.services.analysis_service.celery')
 def test_process_analysis_results_no_results(mock_celery, mock_service, mock_get_db, client, db_session):
     """Test de récupération de résultats d'analyse quand aucune tâche n'est terminée."""
     # Mock TinyDB pour aucune tâche
@@ -141,9 +141,9 @@ def test_process_analysis_results_no_results(mock_celery, mock_service, mock_get
     assert data["message"] == "Aucune piste mise à jour"
 
 
-@patch('backend.library_api.services.analysis_service.TinyDBHandler.get_db')
-@patch('backend.library_api.services.analysis_service.AnalysisService')
-@patch('backend.library_api.services.analysis_service.celery')
+@patch('backend.api.services.analysis_service.TinyDBHandler.get_db')
+@patch('backend.api.services.analysis_service.AnalysisService')
+@patch('backend.api.services.analysis_service.celery')
 def test_process_analysis_results_with_results(mock_celery, mock_service, mock_get_db, client, db_session, create_test_track):
     """Test de récupération de résultats d'analyse avec des tâches terminées."""
     # Créer une piste de test
