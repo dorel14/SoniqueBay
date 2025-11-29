@@ -5,12 +5,13 @@ RUN python -c "from _version_ import __version__; print(__version__)" > /version
 
 # Stage 1: Builder
 FROM python:3.11-slim-bullseye AS builder
-
+# Copier la version extraite
+COPY --from=version_extractor /version.txt /version.txt
 ARG BUILD_DATE
 # Labels standards OCI
 LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
       org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="$(cat /version.txt)" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.authors="SoniqueBay Team" \
       org.opencontainers.image.vendor="SoniqueBay" \
@@ -26,6 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt/builder \
     build-essential \
     rustc \
     cargo \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Installation de uv via le script officiel (plus rapide que pip install uv)
@@ -48,7 +50,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
 
 # Stage 2: Runner
 
-FROM soniquebay/base:optim AS runner
+FROM python:3.11-slim-bullseye AS runner
 
 # Copier la version extraite
 COPY --from=version_extractor /version.txt /version.txt
@@ -62,9 +64,12 @@ ARG TZ=UTC
 ARG ENV_TZ
 ENV TZ=${ENV_TZ:-${TZ}}
 
-# Créer les répertoires de données et logs avec permissions correctes
-USER root
-RUN mkdir -p /logs /app/frontend/data /app/data && \
+# Ajouter le répertoire parent au PYTHONPATH pour les imports absolus
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Créer l'utilisateur soniquebay et les répertoires de données et logs avec permissions correctes
+RUN groupadd -r soniquebay && useradd -r -g soniquebay soniquebay && \
+    mkdir -p /logs /app/frontend/data /app/data && \
     chown -R soniquebay:soniquebay /logs /app/frontend/data /app/data
 
 # Copier l'entrypoint qui appliquera chown sur les volumes montés au démarrage

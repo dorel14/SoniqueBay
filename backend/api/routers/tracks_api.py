@@ -75,26 +75,17 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
     try:
         result = service.create_or_update_tracks_batch(tracks_data)
 
-        # Publier les événements via Redis pour déclencher la vectorisation
-        # Note: La communication se fait maintenant via Redis PubSub au lieu d'appels HTTP directs
-        # pour respecter la séparation des conteneurs
+        # Déclencher directement les tâches Celery de vectorisation
+        # Simplification : appel direct au lieu de passer par Redis PubSub
         try:
-            import asyncio
-            import redis.asyncio as redis
+            from backend.api.utils.celery_app import celery
 
-            async def publish_vectorization_events():
+            def trigger_vectorization_tasks():
+                """Déclencher les tâches de vectorisation pour chaque track."""
                 try:
-                    # Connexion Redis pour publier les événements
-                    redis_client = redis.Redis(
-                        host='redis',
-                        port=6379,
-                        db=0,
-                        decode_responses=True
-                    )
-
                     for track in result:
-                        # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
-                        event_data = {
+                        # Préparer les métadonnées pour la vectorisation
+                        metadata = {
                             "track_id": str(track.id),
                             "title": track.title,
                             "genre": track.genre or "",
@@ -119,22 +110,26 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
                             "mood_tags": getattr(track, 'mood_tags', []) or []
                         }
 
-                        await redis_client.publish("tracks.to_vectorize", json.dumps({
-                            "type": "track_created",
-                            "timestamp": asyncio.get_event_loop().time(),
-                            **event_data
-                        }))
+                        # Déclencher la tâche Celery directement
+                        celery.send_task(
+                            'calculate_vector',
+                            args=[track.id, metadata],
+                            queue='vectorization',
+                            priority=5
+                        )
 
-                    await redis_client.close()
+                        logger.info(f"Tâche vectorisation déclenchée pour track {track.id}")
 
                 except Exception as e:
-                    logger.warning(f"Erreur publication événements vectorisation batch: {e}")
+                    logger.warning(f"Erreur déclenchement tâches vectorisation batch: {e}")
 
-            # Lancer la publication de manière asynchrone (non-bloquante)
-            asyncio.create_task(publish_vectorization_events())
+            # Lancer les tâches de manière asynchrone (non-bloquante)
+            import threading
+            thread = threading.Thread(target=trigger_vectorization_tasks, daemon=True)
+            thread.start()
 
         except Exception as e:
-            logger.warning(f"Erreur initialisation publication vectorisation batch: {e}")
+            logger.warning(f"Erreur initialisation vectorisation batch: {e}")
             # Ne pas échouer la création de tracks pour autant
 
         return [Track.model_validate(t) for t in result]
@@ -158,20 +153,16 @@ async def create_track(track: TrackCreate, request: Request = None, db: SQLAlche
     try:
         created = service.create_track(track)
 
-        # Publier l'événement via Redis pour déclencher la vectorisation
+        # Déclencher directement la tâche Celery de vectorisation
+        # Simplification : appel direct au lieu de passer par Redis PubSub
         try:
-            async def publish_vectorization_event():
-                try:
-                    # Connexion Redis pour publier l'événement
-                    redis_client = redis.Redis(
-                        host='redis',
-                        port=6379,
-                        db=0,
-                        decode_responses=True
-                    )
+            from backend.api.utils.celery_app import celery
 
-                    # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
-                    event_data = {
+            def trigger_vectorization_task():
+                """Déclencher la tâche de vectorisation pour la track créée."""
+                try:
+                    # Préparer les métadonnées pour la vectorisation
+                    metadata = {
                         "track_id": str(created.id),
                         "title": created.title,
                         "genre": created.genre or "",
@@ -196,22 +187,26 @@ async def create_track(track: TrackCreate, request: Request = None, db: SQLAlche
                         "mood_tags": getattr(created, 'mood_tags', []) or []
                     }
 
-                    await redis_client.publish("tracks.to_vectorize", json.dumps({
-                        "type": "track_created",
-                        "timestamp": asyncio.get_event_loop().time(),
-                        **event_data
-                    }))
+                    # Déclencher la tâche Celery directement
+                    celery.send_task(
+                        'calculate_vector',
+                        args=[created.id, metadata],
+                        queue='vectorization',
+                        priority=5
+                    )
 
-                    await redis_client.close()
+                    logger.info(f"Tâche vectorisation déclenchée pour track {created.id}")
 
                 except Exception as e:
-                    logger.warning(f"Erreur publication événement vectorisation: {e}")
+                    logger.warning(f"Erreur déclenchement tâche vectorisation: {e}")
 
-            # Lancer la publication de manière asynchrone (non-bloquante)
-            asyncio.create_task(publish_vectorization_event())
+            # Lancer la tâche de manière asynchrone (non-bloquante)
+            import threading
+            thread = threading.Thread(target=trigger_vectorization_task, daemon=True)
+            thread.start()
 
         except Exception as e:
-            logger.warning(f"Erreur initialisation publication vectorisation: {e}")
+            logger.warning(f"Erreur initialisation vectorisation: {e}")
             # Ne pas échouer la création de track pour autant
 
         return Track.model_validate(created)
@@ -400,24 +395,20 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
 
-        # Publier l'événement via Redis pour déclencher la vectorisation si des métadonnées importantes ont changé
+        # Déclencher directement la tâche Celery de vectorisation si des métadonnées importantes ont changé
+        # Simplification : appel direct au lieu de passer par Redis PubSub
         try:
             # Vérifier si des champs impactant la vectorisation ont été modifiés
             important_fields = ['title', 'artist_id', 'album_id', 'genre', 'year', 'duration', 'bitrate', 'bpm', 'key', 'scale']
             if any(getattr(track, field, None) is not None for field in important_fields):
 
-                async def publish_vectorization_event():
-                    try:
-                        # Connexion Redis pour publier l'événement
-                        redis_client = redis.Redis(
-                            host='redis',
-                            port=6379,
-                            db=0,
-                            decode_responses=True
-                        )
+                from backend.api.utils.celery_app import celery
 
-                        # Préparer les métadonnées pour la vectorisation (champs directs uniquement)
-                        event_data = {
+                def trigger_vectorization_task():
+                    """Déclencher la tâche de vectorisation pour la track mise à jour."""
+                    try:
+                        # Préparer les métadonnées pour la vectorisation
+                        metadata = {
                             "track_id": str(updated_track.id),
                             "title": updated_track.title,
                             "genre": updated_track.genre or "",
@@ -442,22 +433,26 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
                             "mood_tags": getattr(updated_track, 'mood_tags', []) or []
                         }
 
-                        await redis_client.publish("tracks.to_vectorize", json.dumps({
-                            "type": "track_updated",
-                            "timestamp": asyncio.get_event_loop().time(),
-                            **event_data
-                        }))
+                        # Déclencher la tâche Celery directement
+                        celery.send_task(
+                            'calculate_vector',
+                            args=[updated_track.id, metadata],
+                            queue='vectorization',
+                            priority=5
+                        )
 
-                        await redis_client.close()
+                        logger.info(f"Tâche vectorisation déclenchée pour track mise à jour {updated_track.id}")
 
                     except Exception as e:
-                        logger.warning(f"Erreur publication événement vectorisation update: {e}")
+                        logger.warning(f"Erreur déclenchement tâche vectorisation update: {e}")
 
-                # Lancer la publication de manière asynchrone (non-bloquante)
-                asyncio.create_task(publish_vectorization_event())
+                # Lancer la tâche de manière asynchrone (non-bloquante)
+                import threading
+                thread = threading.Thread(target=trigger_vectorization_task, daemon=True)
+                thread.start()
 
         except Exception as e:
-            logger.warning(f"Erreur initialisation publication vectorisation update: {e}")
+            logger.warning(f"Erreur initialisation vectorisation update: {e}")
             # Ne pas échouer la mise à jour de track pour autant
 
         # Conversion et retour

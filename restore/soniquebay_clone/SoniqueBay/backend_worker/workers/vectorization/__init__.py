@@ -1,1 +1,0 @@
-"""Workers de vectorisation et IA."""

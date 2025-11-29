@@ -1,1 +1,0 @@
-"""Dossier de compatibilité pour les tâches legacy."""

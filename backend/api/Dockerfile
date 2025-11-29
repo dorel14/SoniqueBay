@@ -36,6 +36,10 @@ COPY scripts/ ./scripts/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 
+# Copie du script de healthcheck
+COPY scripts/healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
+
 # Création des répertoires nécessaires
 RUN mkdir -p /app/backend/api/data /app/logs
 

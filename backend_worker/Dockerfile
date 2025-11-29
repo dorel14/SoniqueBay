@@ -9,7 +9,7 @@ ARG BUILD_DATE
 
 LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
       org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="$(cat /version.txt)" \
       org.opencontainers.image.created="${BUILD_DATE}" \
       org.opencontainers.image.authors="SoniqueBay Team" \
       org.opencontainers.image.vendor="SoniqueBay" \
@@ -43,8 +43,8 @@ COPY --link ./backend_worker/requirements.txt /backend_worker/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     /root/.local/bin/uv pip install --target /install_worker --no-cache-dir -r /backend_worker/requirements.txt || true
 
-# Runner stage: réutiliser l'image de base optimisée et copier uniquement les artefacts runtime
-FROM soniquebay/base:optim AS runner
+# Runner stage: utiliser une image Python standard optimisée pour production
+FROM python:3.11-slim-bullseye AS runner
 
 # Copier la version extraite
 COPY --from=version_extractor /version.txt /version.txt
@@ -55,14 +55,14 @@ ARG ENV_LOCALE_LANGUAGE
 ENV LOCALE_LANGUAGE=${ENV_LOCALE_LANGUAGE:-${LOCALE_LANGUAGE}} \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
-    PATH="/usr/local/bin:$PATH"
+    PATH="/usr/local/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH"
 
 ARG TZ=UTC
 ARG ENV_TZ
 ENV TZ=${ENV_TZ:-${TZ}}
 
 # Installer runtime tools nécessaires (no -dev)
-USER root
 RUN --mount=type=cache,target=/var/cache/apt/runner \
     apt-get update && apt-get install -y --no-install-recommends \
     nfs-common \
@@ -75,6 +75,8 @@ RUN --mount=type=cache,target=/var/cache/apt/runner \
     update-locale LANG=${LANG} && \
     rm -rf /var/lib/apt/lists/* && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
+    # Créer l'utilisateur soniquebay
+    groupadd -r soniquebay && useradd -r -g soniquebay soniquebay && \
     # Créer les répertoires de données et logs avec permissions correctes
     mkdir -p /data /logs /app/backend_worker/logs /app/backend_worker/data && \
     chown -R soniquebay:soniquebay /data /logs /app/backend_worker/logs /app/backend_worker/data

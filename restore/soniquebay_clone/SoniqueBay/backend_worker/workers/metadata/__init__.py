@@ -1,1 +1,0 @@
-"""Workers d'enrichissement et métadonnées."""

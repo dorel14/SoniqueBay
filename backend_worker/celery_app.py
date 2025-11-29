@@ -260,74 +260,25 @@ task_routes = {
     'check_model_health': {'queue': 'vectorization_monitoring'},
 }
 
-# === CONFIGURATION PAR QUEUE ===
-PREFETCH_MULTIPLIERS = {
-    # Tâches haute priorité (scan)
-    'scan': 1,         # ✅ CRITIQUE: 1 seul - évite surcharge mémoire I/O
-
-    # Tâches CPU intensives
-    'extract': 1,      # ✅ CRITIQUE: 1 seul - évite surcharge CPU
-    'vectorization': 1,  # ✅ CRITIQUE: 1 seul - éviter surcharge CPU
-
-    # Tâches I/O et mémoire
-    'batch': 1,        # ✅ CRITIQUE: 1 seul - Memory bound critique
-    'insert': 1,       # ✅ CRITIQUE: 1 seul - évite surcharge DB
-
-    # Tâches deferred (legacy + enrichissement)
-    'deferred': 1,     # ✅ CRITIQUE: 1 seul (legacy + enrichissement)
-
-    # Tâches léger monitoring
-    'vectorization_monitoring': 1,  # ✅ OPTIMISÉ: 1 (monitoring léger)
-}
-
-CONCURRENCY_SETTINGS = {
-    # Tâches haute priorité (scan)
-    'scan': 1,         # ✅ CRITIQUE: 1 worker max - priorité absolue
-
-    # Tâches CPU intensives
-    'extract': 1,      # ✅ CRITIQUE: 1 worker max (CPU bound)
-    'vectorization': 1,  # ✅ CRITIQUE: 1 worker max (évite OOM RPi4)
-
-    # Tâches I/O et mémoire
-    'batch': 1,        # ✅ CRITIQUE: 1 worker max (Memory bound)
-    'insert': 1,       # ✅ CRITIQUE: 1 worker max (DB connection limit)
-
-    # Tâches deferred
-    'deferred': 1,     # ✅ CRITIQUE: 1 worker max (legacy + enrichissement)
-
-    # Tâches monitoring léger
-    'vectorization_monitoring': 1,  # ✅ OPTIMISÉ: 1 worker max (léger)
-
-    # Tâches de maintenance
-    'maintenance': 1,  # ✅ OPTIMISÉ: 1 worker max (tâches légères)
-}
+# === CONFIGURATION AUTOSCALE ===
+# Avec autoscale, les workers s'adaptent automatiquement selon la charge
+# Les configurations spécifiques par queue sont supprimées car l'autoscale gère la distribution
 
 @worker_init.connect
 def configure_worker(sender=None, **kwargs):
-    """Configure le worker au démarrage."""
+    """Configure le worker unifié avec autoscale au démarrage."""
     worker_name = sender.hostname
     app = sender.app
 
     # Diagnostic Redis au démarrage
-    logger.info(f"[WORKER INIT] Démarrage du worker {worker_name}")
+    logger.info(f"[WORKER INIT] Démarrage du worker unifié {worker_name} avec autoscale")
     redis_ok = diagnostic_redis()
     if not redis_ok:
         logger.error(f"[WORKER INIT] Problème de connexion Redis détecté pour {worker_name}")
 
-    # Configuration par queue
-    queue_for_worker = None
-    for queue_name in PREFETCH_MULTIPLIERS:
-        if queue_name in worker_name:
-            queue_for_worker = queue_name
-            break
-
-    if queue_for_worker:
-        app.conf.worker_prefetch_multiplier = PREFETCH_MULTIPLIERS[queue_for_worker]
-        app.conf.worker_concurrency = CONCURRENCY_SETTINGS[queue_for_worker]
-
-        logger.info(f"[WORKER] {worker_name} → Queue={queue_for_worker} | "
-                   f"Prefetch={PREFETCH_MULTIPLIERS[queue_for_worker]} | "
-                   f"Concurrency={CONCURRENCY_SETTINGS[queue_for_worker]}")
+    # Avec autoscale, la configuration est automatique
+    # Le worker gère toutes les queues selon la charge
+    logger.info(f"[WORKER] {worker_name} configuré avec autoscale (max=4, min=1) - gère toutes les queues")
 
 
 @task_prerun.connect
