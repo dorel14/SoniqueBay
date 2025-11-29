@@ -1,1 +1,0 @@
-"""Workers de covers et images."""
