@@ -137,6 +137,7 @@ services:
       - WAIT_HOST_CONNECT_TIMEOUT=30
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
       - HEALTHCHECK_PORT=8001
       - PLATFORM=${PLATFORM:-windows}
       - MUSIC_PATH=/music
@@ -231,7 +232,7 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - API_URL=http://library:8001
+      - API_URL=http://api:8001
       - MUSIC_PATH=/music
       - PLATFORM=docker
       - NAS_USER=${NAS_USER:-""}

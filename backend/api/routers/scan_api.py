@@ -9,13 +9,15 @@ from backend.api.services.scan_service import ScanService
 from backend.api.schemas.scan_schema import ScanRequest
 
 
-router = APIRouter(prefix="/api", tags=["scan"])
+router = APIRouter(tags=["scan"])
 
 
 
 @router.post("/scan", status_code=status.HTTP_201_CREATED)
 async def launch_scan(request: Optional[ScanRequest] = Body(None), db: SQLAlchemySession = Depends(get_db)):
     """Lance un scan de la bibliothèque musicale."""
+    from backend.api.utils.logging import logger
+    logger.info("Endpoint /scan appelé avec request: %s", request)
     try:
         directory = request.directory if request and request.directory else None
         cleanup_deleted = request.cleanup_deleted if request else False

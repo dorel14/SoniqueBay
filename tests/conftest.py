@@ -251,15 +251,6 @@ def mock_worker_services():
     return services
 
 
-@pytest.fixture
-def mock_tinydb():
-    """Mock TinyDB pour les tests."""
-    db_mock = MagicMock()
-    db_mock.all.return_value = []
-    db_mock.insert.return_value = {"doc_id": 1}
-    db_mock.remove.return_value = True
-    db_mock.update.return_value = True
-    return db_mock
 
 
 # ===== CONFIGURATION CLIENT API POUR TESTS BACKEND =====

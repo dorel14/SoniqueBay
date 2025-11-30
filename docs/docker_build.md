@@ -15,6 +15,7 @@ docker buildx build --progress=plain -f backend/recommender_api/Dockerfile -t so
 ```
 
 Tips:
+
 - Use `--load` to load the built image into the local Docker engine when using buildx.
 - Use cache-from/cache-to with a registry to speed up CI builds.
 - Ensure `.dockerignore` excludes large folders (data, logs, .venv, node_modules) to reduce build context.
@@ -26,6 +27,7 @@ docker buildx build --progress=plain --cache-from=type=local,src=/tmp/.buildcach
 ```
 
 Healthcheck and smoke tests:
+
 - After building, run a container and run `python3 -c "import fastapi, uvicorn"` or the healthcheck script to ensure dependencies are present.
 
 If you want, I can run these builds for the remaining Dockerfiles now and report the times and sizes.

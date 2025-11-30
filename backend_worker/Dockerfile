@@ -4,7 +4,7 @@ COPY _version_.py /_version_.py
 RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
 
 # Builder stage: installer les outils natifs (Rust/Cargo) et construire les dépendances spécifiques au worker
-FROM python:3.11-slim-bullseye AS builder
+FROM python:3.11-slim AS builder
 ARG BUILD_DATE
 
 LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
     /root/.local/bin/uv pip install --target /install_worker --no-cache-dir -r /backend_worker/requirements.txt || true
 
 # Runner stage: utiliser une image Python standard optimisée pour production
-FROM python:3.11-slim-bullseye AS runner
+FROM python:3.11-slim AS runner
 
 # Copier la version extraite
 COPY --from=version_extractor /version.txt /version.txt

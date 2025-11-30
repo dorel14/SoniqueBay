@@ -4,7 +4,7 @@ COPY _version_.py /_version_.py
 RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
 
 # Stage 1: Builder
-FROM python:3.11-slim-bullseye AS builder
+FROM python:3.11-slim AS builder
 # Copier la version extraite
 COPY --from=version_extractor /version.txt /version.txt
 ARG BUILD_DATE
@@ -50,7 +50,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
 
 # Stage 2: Runner
 
-FROM python:3.11-slim-bullseye AS runner
+FROM python:3.11-slim AS runner
 
 # Copier la version extraite
 COPY --from=version_extractor /version.txt /version.txt
