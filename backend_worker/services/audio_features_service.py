@@ -4,12 +4,7 @@ import httpx
 import os
 import numpy as np
 from backend_worker.services.key_service import key_to_camelot
-from tinydb import TinyDB
-import pathlib
 import asyncio
-FAILED_UPDATES_DB_PATH = os.getenv("FAILED_UPDATES_DB_PATH", "./backend_worker/data/failed_updates.json")
-pathlib.Path(os.path.dirname(FAILED_UPDATES_DB_PATH)).mkdir(parents=True, exist_ok=True)
-failed_updates_db = TinyDB(FAILED_UPDATES_DB_PATH)
 
 
 async def analyze_audio_with_librosa(track_id: int, file_path: str) -> dict:
@@ -131,14 +126,8 @@ async def _update_track_features_async(track_id: int, features: dict):
             logger.info(f"Track {track_id} mise à jour avec succès")
 
     except Exception as e:
-        logger.error("Erreur lors de la mise à jour de la track")
-        # Stocker pour retry ultérieur
-        failed_updates_db.insert({
-            "track_id": track_id,
-            "features": features,
-            "error": str(e),
-            "timestamp": str(asyncio.get_event_loop().time())
-        })
+        logger.error(f"Erreur lors de la mise à jour de la track {track_id}: {str(e)}")
+        # Note: Retry logic removed as Celery handles task retries
 
 
 async def analyze_audio_batch(track_data_list: list) -> dict:
@@ -346,18 +335,4 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
         logger.debug(f"extract_audio_features returns: {type(features)}")
         return features
 
-async def retry_failed_updates():
-    """Tente de rejouer les mises à jour échouées stockées localement."""
-    API_URL = os.getenv("API_URL", "http://localhost:8000")
-    for doc in failed_updates_db.all():
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.post(f"{API_URL}/api/tracks/update_features", json={
-                    "track_id": doc["track_id"],
-                    "features": doc["features"]
-                }, timeout=10)
-                response.raise_for_status()
-                logger.info(f"Retry réussi pour track {doc['track_id']}")
-                failed_updates_db.remove(doc_ids=[doc["doc_id"]])
-        except Exception as e:
-            logger.error(f"Retry échoué pour track {doc['track_id']}: {str(e)}")
+# Note: retry_failed_updates function removed as Celery handles task retries

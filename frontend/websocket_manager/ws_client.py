@@ -5,8 +5,8 @@ import json
 import socket
 from frontend.utils.logging import logger
 
-wsurl = os.getenv('WS_URL', 'ws://library:8001/api/ws')
-sseurl = os.getenv('SSE_URL', 'http://library:8001/api/events')
+wsurl = os.getenv('WS_URL', 'ws://api:8001/api/ws')
+sseurl = os.getenv('SSE_URL', 'http://api:8001/api/events')
 handlers = []
 
 # Logs de diagnostic pour le debugging
@@ -25,6 +25,27 @@ sse_handlers = []
 def register_sse_handler(handler):
     logger.info(f"Enregistrement du handler {handler.__name__} pour les SSE")
     sse_handlers.append(handler)
+
+def register_system_progress_handler():
+    """Enregistre un handler pour les messages système de progression."""
+    def system_progress_handler(data):
+        try:
+            if data.get("type") == "system_progress":
+                message = data.get("message", "")
+                if message:
+                    # Récupérer l'instance ChatUI depuis le stockage
+                    from nicegui import app
+                    chat_ui = app.storage.client.get('chat_ui')
+                    if chat_ui:
+                        chat_ui.add_system_message(message)
+                        logger.debug(f"Message système affiché dans le chat: {message}")
+                    else:
+                        logger.warning("ChatUI non trouvé dans le stockage client")
+        except Exception as e:
+            logger.error(f"Erreur dans le handler de progression système: {e}")
+
+    register_sse_handler(system_progress_handler)
+    logger.info("Handler de progression système enregistré")
 
 
 

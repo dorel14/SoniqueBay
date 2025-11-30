@@ -6,12 +6,6 @@ from datetime import datetime
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack
 
 
-@pytest.fixture
-def mock_db(mocker):
-    """Fixture pour mocker la base de données TinyDB."""
-    mock_db_instance = mocker.Mock()
-    mocker.patch('backend.api.utils.tinydb_handler.TinyDBHandler.get_db', return_value=mock_db_instance)
-    return mock_db_instance
 
 @pytest.fixture
 def mock_playqueue_service(mocker):
@@ -70,7 +64,7 @@ def test_get_queue_with_data(client, mock_playqueue_service):
     assert data["tracks"][1]["title"] == "Track 2"
 
 
-def test_add_track(client, mock_playqueue_service, mock_db):
+def test_add_track(client, mock_playqueue_service):
     """Test d'ajout d'une piste à la file d'attente."""
     track_data = QueueTrack(
         id=1, title="New Track", artist="New Artist", album="New Album",

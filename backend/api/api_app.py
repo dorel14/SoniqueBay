@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass
-from fastapi import FastAPI, WebSocket, status, Request, Response, Depends
+from fastapi import FastAPI, status, Request, Response, Depends
 from fastapi.routing import APIRoute
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
@@ -25,9 +25,9 @@ from fastapi_cache.backends.redis import RedisBackend
 from fastapi_cache.decorator import cache
 
 # Importer les routes avant toute autre initialisation
-from backend.api.api import api_router  # noqa: E402
+from backend.api import api_router  # noqa: E402
 from backend.api.graphql.queries.schema import schema # noqa: E402
-from backend.api.routers.artist_embeddings_api import router as artist_embeddings_router  # noqa: E402
+
 
 @dataclass
 class AppContext(BaseContext):
@@ -90,9 +90,9 @@ async def lifespan(app: FastAPI):
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):
-            logger.info(f"Route enregistrée: {route.path} [{route.methods}]")
+            logger.info(f"Route enregistrée: {route.path} [{route.methods}] - Handler: {route.endpoint}")
         else:
-            logger.info(f"WebSocket route enregistrée: {route.path}")
+            logger.info(f"WebSocket route enregistrée: {route.path} - Handler: {route.endpoint}")
     yield
     # Code de nettoyage (shutdown) si nécessaire
     pass
@@ -104,31 +104,11 @@ app = FastAPI(title="SoniqueBay API Unifiée",
             openapi_url="/api/openapi.json",
             lifespan=lifespan)
 
-# Configuration CORS avec origins explicites (incluant Docker)
-origins = [
-    "http://localhost:8080",  # Frontend NiceGUI
-    "http://127.0.0.1:8080",
-    "ws://localhost:8080",
-    "ws://127.0.0.1:8080",
-    # Origins Docker pour les workers
-    "http://api:8001",
-    "http://library:8001",
-    "http://backend:8001",
-    "http://scan-worker-1:8001",
-    "http://scan-worker-2:8001",
-    "http://insert-worker-1:8001",
-    "http://insert-worker-2:8001",
-    "http://batch-worker:8001",
-    "http://extract-worker-1:8001",
-    "http://extract-worker-2:8001",
-    "http://vector-worker:8001",
-    "http://deferred-worker:8001"
-]
-
+# Configuration CORS avec allow_all_origins pour permettre les connexions WebSocket sans Origin
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Désactivé car allow_origins=["*"] ne permet pas credentials
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -153,7 +133,6 @@ async def log_requests(request: Request, call_next):
 # Inclure le router AVANT de créer le service
 app.include_router(api_router)
 app.include_router(graphql_app, prefix="/api/graphql", tags=["GraphQL"])
-app.include_router(artist_embeddings_router, prefix="/api/recommendations", tags=["Recommendations"])
 
 @app.get('/api/healthcheck', status_code=status.HTTP_200_OK, tags=["health"])
 def perform_healthcheck():
@@ -173,35 +152,6 @@ def perform_healthcheck():
     '''
     return {"status": "healthy"}
 
-@app.websocket("/api/ws")
-async def global_ws(websocket: WebSocket):
-    await websocket.accept()
-    redis_client = None  # Initialize redis_client outside the try block
-    pubsub = None
-    try:
-        redis_client = await redis.from_url("redis://redis:6379")
-        pubsub = redis_client.pubsub()
-        await pubsub.subscribe("notifications", "progress")
-        async for message in pubsub.listen():
-            if message['type'] == 'message':
-                data = message['data']
-                if isinstance(data, bytes):
-                    try:
-                        await websocket.send_text(data.decode('utf-8'))
-                    except Exception as e:
-                        logger.error(f"WebSocket send error: {e}")
-                        break  # Exit the loop if WebSocket send fails
-    except Exception as e:
-        logger.error(f"Redis or WebSocket error: {e}")
-    finally:
-        if pubsub:
-            try:
-                await pubsub.unsubscribe("notifications", "progress")
-            except Exception as e:
-                logger.error(f"Error unsubscribing: {e}")
-        if redis_client:
-            await redis_client.close()
-        logger.info("WebSocket disconnected.")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

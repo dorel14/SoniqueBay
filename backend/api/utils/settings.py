@@ -38,7 +38,16 @@ def get_database_url():
                 f"{os.getenv('DB_NAME', 'musicdb')}")
     raise ValueError(f"Base de données non supportée: {db_type}")
 
+def get_strawchemy_config():
+    db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+    if db_type == 'sqlite':
+        return "sqlite"
+    elif db_type in ['postgres', 'mariadb']:
+        return db_type
+    else:
+        raise ValueError(f"Configuration de Strawchemy non supportée pour: {db_type}")
 
 class Settings:
     def __init__(self):
         self.dburl = get_database_url()
+

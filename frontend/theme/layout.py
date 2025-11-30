@@ -5,7 +5,7 @@ from frontend.config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
 from frontend.utils.logging import logger
-from frontend.websocket_manager.ws_client import register_sse_handler
+from frontend.websocket_manager.ws_client import register_sse_handler, register_system_progress_handler
 import asyncio
 import httpx
 
@@ -34,7 +34,7 @@ COMMON_EXPANSION_HEADER_CLASSES = 'left text-grey-3' # Pour le texte de l'en-tê
 EXCLUDED_FILES = ["library","artist_details"]
 
 
-API_URL = os.getenv('API_URL', 'http://library:8001')
+API_URL = os.getenv('API_URL', 'http://api:8001')
 
 running_query = None
 search_field = None
@@ -62,50 +62,49 @@ async def search(e: events.ValueChangeEventArguments) -> None:
 
 def make_progress_handler(task_id):
     def handler(data):
-        # Récupération des éléments de la barre de progression depuis le stockage du client
-        progress_row = app.storage.client.get('progress_row')
-        progress_label = app.storage.client.get('progress_label')
-        progress_bar = app.storage.client.get('progress_bar')
-
-        if not all([progress_row, progress_label, progress_bar]):
-            logger.warning("Éléments de la barre de progression non trouvés dans le stockage de l'application.")
-            return
-
         # On ne traite que les messages de type "progress" et pour le bon task_id
         logger.debug(f"Message reçu du WS : {data}")
         if data.get('type') != 'progress':
             return
         if data.get('task_id') != task_id:
             return
-        if data.get("step"):
-            progress_label.text = data['step']
 
-        percent = None
-        if "percent" in data:
-            percent = data["percent"] / 100
-        elif "current" in data:
-            percent = data["current"] / 100
-        elif "current" in data and "total" in data and data["total"]:
-            percent = data["current"] / data["total"]
+        # Utiliser le service de messages de progression
+        from frontend.services.progress_message_service import progress_service
 
-        if percent is not None:
-            logger.debug(f"Progression: {percent*100:.2f}%")
-            progress_row.visible = True
-            progress_bar.value = percent
-            progress_bar.update()
-            progress_row.update()
-            if percent >= 1.0:
-                # On cache la barre après un court délai
-                asyncio.create_task(hide_progress())
+        # Extraire les informations de progression
+        step = data.get("step", "")
+        current = data.get("current")
+        total = data.get("total")
+        percent = data.get("percent")
+
+        # Déterminer le type de tâche basé sur le step
+        task_type = "scan"  # Par défaut
+        if "metadata" in step.lower() or "extraction" in step.lower():
+            task_type = "metadata"
+        elif "vector" in step.lower() or "embedding" in step.lower():
+            task_type = "vectorization"
+        elif "enrich" in step.lower() or "last.fm" in step.lower():
+            task_type = "enrichment"
+        elif "audio" in step.lower() or "bpm" in step.lower():
+            task_type = "audio_analysis"
+
+        # Envoyer le message de progression
+        progress_service.send_progress_message(
+            task_type=task_type,
+            message=step,
+            current=current,
+            total=total,
+            task_id=task_id
+        )
+
+        # Si c'est terminé, envoyer un message de fin
+        if percent == 100 or (current is not None and total is not None and current >= total):
+            progress_service.send_completion_message(task_type, success=True, task_id=task_id)
+
     return handler
 
-async def hide_progress():
-    progress_row = app.storage.client.get('progress_row')
-    if progress_row:
-        logger.debug("Cachant la barre de progression.")
-        await asyncio.sleep(1)
-        progress_row.visible = False
-        progress_row.update()
+# Fonction hide_progress supprimée - plus nécessaire avec les messages de chat
 
 async def delete_scan_session(session_id: str, dialog) -> None:
     """Supprime une session de scan par son ID."""
@@ -122,20 +121,11 @@ async def delete_scan_session(session_id: str, dialog) -> None:
 
 async def refresh_library():
     """Actualise la bibliothèque musicale."""
-    # Récupération des éléments de la barre de progression depuis le stockage du client
-    progress_row = app.storage.client.get('progress_row')
-    progress_bar = app.storage.client.get('progress_bar')
-    progress_label = app.storage.client.get('progress_label')
-    app.storage.client.get('left_drawer')
-
-    if not all([progress_row, progress_label, progress_bar]):
-        logger.warning("Éléments de la barre de progression non trouvés dans le stockage du client.")
-        return
 
     async with httpx.AsyncClient() as http_client: # Renommé pour éviter la confusion avec le paramètre client
         try:
             logger.info("Recherche d'une actualisation de bibliothèque en cours...")
-            response = await http_client.get(f"{API_URL}/api/scanscan-sessions")
+            response = await http_client.get(f"{API_URL}/api/scan-sessions")
             if response.status_code == 200:
                 sessions = response.json()
                 for session in sessions:
@@ -154,12 +144,6 @@ async def refresh_library():
             if response.status_code in (200, 201):
                 logger.info("Lancement de l'actualisation de la bibliothèque...")
                 task_id = response.json().get('task_id')
-                progress_row.visible = True
-                progress_bar.value = 0.0
-                progress_row.update()
-                progress_bar.update()
-                #if left_drawer:
-                    #left_drawer.toggle()
                 # Enregistre le handler pour ce task_id
                 handler = make_progress_handler(task_id)
                 register_sse_handler(handler)
@@ -288,7 +272,7 @@ def wrap_with_layout(render_page):
             with ui.row().classes('items-center gap-2'):
                 search_field = ui.input(placeholder='Rechercher...', on_change=search)\
                     .props('dense rounded outlined clearable')\
-                    .classes('bg-white/10 text-white placeholder-white flex-1')\
+                    .classes('bg-fill-white text-white placeholder-white flex-1')\
                     .on('keydown.enter', lambda: perform_full_search(search_field.value))
                 search_button = ui.button(icon='search', on_click=lambda: perform_full_search(search_field.value))\
                     .props('flat dense color=white')
@@ -321,18 +305,16 @@ def wrap_with_layout(render_page):
             with ui.row().classes('items-center q-my-sm object-bottom'):
                 ui.button(text='Actualiser la bibliothèque',on_click=refresh_library,
                         icon='refresh').props('flat color=white dense').classes('text-xs')
-            # --- Progress bar en bas ---
-                # Utilisation de ui.context.storage.app pour rendre la barre de progression persistante
-                # Initialisation des éléments de la barre de progression
-                progress_row = ui.row().classes('items-center q-my-sm').style('min-width: 200px')
-                progress_row.visible = False
-                progress_label = ui.label('Chargement...').classes('text-white text-xs')
-                progress_bar = ui.linear_progress(value=0.0).classes('w-full')
+            # --- Progress bar supprimée - remplacée par messages de chat ---
+            # La progression est maintenant affichée dans le chat via des messages système
+    with ui.right_drawer().classes('h-full') as right_drawer:
+        from .chat_ui import ChatUI
+        chat_ui = ChatUI()
+        app.storage.client['chat_ui'] = chat_ui
 
-                # Stockage des éléments dans app.storage.client
-                app.storage.client['progress_row'] = progress_row
-                app.storage.client['progress_label'] = progress_label
-                app.storage.client['progress_bar'] = progress_bar
+        # Enregistrer le handler pour les messages système de progression
+        register_system_progress_handler()
+        
 
     def toggle_drawer():
         """Gestion du toggle avec changement d'icône."""
