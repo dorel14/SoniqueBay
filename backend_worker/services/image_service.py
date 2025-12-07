@@ -257,16 +257,33 @@ async def convert_to_base64(image_bytes: bytes, mime_type: str) -> Tuple[str, st
     try:
         if not image_bytes:
             return None, None
-        
+
         # Déterminer le type MIME si non fourni
         if not mime_type:
             mime_type = 'image/jpeg'
-        
+
         # Conversion en base64
         image_data = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
         return image_data, mime_type
     except Exception as e:
         logger.error(f"Erreur conversion image en base64: {str(e)}")
+        return None, None
+
+def convert_to_base64_sync(image_bytes: bytes, mime_type: str) -> Tuple[str, str]:
+    """Version synchrone de convert_to_base64 pour les contextes non-async."""
+    try:
+        if not image_bytes:
+            return None, None
+
+        # Déterminer le type MIME si non fourni
+        if not mime_type:
+            mime_type = 'image/jpeg'
+
+        # Conversion en base64
+        image_data = f"data:{mime_type};base64,{base64.b64encode(image_bytes).decode('utf-8')}"
+        return image_data, mime_type
+    except Exception as e:
+        logger.error(f"Erreur conversion image en base64 (synchrone): {str(e)}")
         return None, None
 
 async def get_artist_images(artist_path: str) -> List[Tuple[str, str]]:

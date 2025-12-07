@@ -132,7 +132,7 @@ async def connect_sse():
                                     logger.error(f"Erreur handler SSE: {e}")
 
                     except Exception as e:
-                        logger.error(f"Erreur lecture flux SSE: {e}")
+                        logger.error(f"Erreur lecture flux SSE: type={type(e).__name__}, message={str(e)}, repr={repr(e)}")
                         await asyncio.sleep(5)
                         continue
 

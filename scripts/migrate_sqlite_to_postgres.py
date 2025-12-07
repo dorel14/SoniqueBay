@@ -12,17 +12,14 @@ import sys
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List
 from dotenv import load_dotenv
 
 # Ajouter le répertoire backend au path
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 
-from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String, Float, DateTime, ForeignKey, Boolean
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from sqlalchemy.dialects.postgresql import TSVECTOR
-from pgvector.sqlalchemy import Vector
-import numpy as np
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import DeclarativeBase
 
 # Configuration du logging
 logging.basicConfig(
@@ -94,8 +91,7 @@ def migrate_table(source_engine, dest_engine, table_name: str, batch_size: int =
     with source_engine.connect() as source_conn:
         with dest_engine.connect() as dest_conn:
             # Récupérer le schéma de la table source
-            metadata = MetaData()
-            source_table = Table(table_name, metadata, autoload_with=source_conn)
+            # metadata = MetaData()
 
             # Compter les enregistrements
             count_result = source_conn.execute(text(f"SELECT COUNT(*) FROM {table_name}"))

@@ -10,7 +10,6 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-from pgvector.sqlalchemy import Vector
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_pgvector_cols'
@@ -147,8 +146,7 @@ def upgrade() -> None:
     RETURNS TRIGGER AS $$
     BEGIN
         NEW.search := to_tsvector('english',
-            coalesce(NEW.name, '') || ' ' ||
-            coalesce(NEW.sort_name, '')
+            coalesce(NEW.name, '')
         );
         RETURN NEW;
     END;

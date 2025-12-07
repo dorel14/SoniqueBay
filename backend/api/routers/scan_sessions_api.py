@@ -4,7 +4,7 @@ from backend.api.utils.database import get_db
 from backend.api.models.scan_sessions_model import ScanSession
 from typing import List
 
-router = APIRouter(prefix="/api/scan-sessions", tags=["scan-sessions"])
+router = APIRouter(prefix="/scan-sessions", tags=["scan-sessions"])
 
 @router.get("/", response_model=List[dict])
 def list_scan_sessions(db: Session = Depends(get_db)):

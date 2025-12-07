@@ -7,7 +7,7 @@ Utilise Redis pour mettre en cache les résultats de recherche fréquents.
 import json
 import hashlib
 import os
-from typing import Any, Optional, Dict, List
+from typing import Any, Optional, Dict
 from backend.api.utils.logging import logger
 import redis
 

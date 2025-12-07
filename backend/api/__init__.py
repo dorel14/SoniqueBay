@@ -43,28 +43,9 @@ ROUTERS = [
     realtime_router,
 ]
 
-
-# Inclure tous les routers avec leurs préfixes appropriés
-api_router.include_router(albums_router, prefix="/albums", tags=["albums"])
-api_router.include_router(artist_embeddings_router, prefix="/api/recommendations", tags=["recommendations"])
-api_router.include_router(artists_router, prefix="/artists", tags=["artists"])
-api_router.include_router(covers_router, prefix="/covers", tags=["covers"])
-api_router.include_router(tracks_router, prefix="/tracks", tags=["tracks"])
-api_router.include_router(genres_router, prefix="/genres", tags=["genres"])
-api_router.include_router(scan_router, prefix="/api/scan", tags=["scan"])
-api_router.include_router(scan_sessions_router, prefix="/scan-sessions", tags=["scan-sessions"])
-api_router.include_router(settings_router, prefix="/settings", tags=["settings"])
-api_router.include_router(tags_router, prefix="/tags", tags=["tags"])
-api_router.include_router(playqueue_router, prefix="/playqueue", tags=["playqueue"])
-api_router.include_router(search_router, prefix="/search", tags=["search"])
-api_router.include_router(library_router, prefix="/library", tags=["library"])
-api_router.include_router(celery_tasks_router, prefix="/celery-tasks", tags=["celery-tasks"])
-api_router.include_router(sse_router, prefix="", tags=["sse"])
-api_router.include_router(realtime_router, prefix="", tags=["realtime"])
-
-
-
-
+# Inclure tous les routers
+for router in ROUTERS:
+    api_router.include_router(router)
 
 # Export uniquement du router principal
 __all__ = ['api_router']

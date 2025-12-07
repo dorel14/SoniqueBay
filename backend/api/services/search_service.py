@@ -5,7 +5,7 @@ Auteur : Kilo Code
 Dépendances : backend.api.schemas.search_schema
 """
 from typing import List, Dict, Any, Optional
-from sqlalchemy import text, func, desc, or_, and_
+from sqlalchemy import text, func
 from sqlalchemy.orm import Session
 from backend.api.schemas.search_schema import SearchQuery, SearchResult
 from backend.api.services.redis_cache_service import redis_cache_service
@@ -177,9 +177,6 @@ class SearchService:
         try:
             # Pour la recherche vectorielle, on utilise un embedding moyen des termes
             # En production, utiliser un modèle d'embedding réel
-            from backend.api.services.vector_search_service import VectorSearchService
-            vector_service = VectorSearchService(db)
-
             # Recherche de tracks similaires (placeholder - besoin d'embedding de la requête)
             # Pour l'instant, retourner vide si pas d'embedding disponible
             return []

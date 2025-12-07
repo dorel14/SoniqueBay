@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from backend_worker.utils.logging import logger
 from backend_worker.services.redis_cache import image_cache_service  # ✅ CORRIGÉ: Import du cache unifié
 from backend_worker.services.image_processing_service import image_processing_service
-from backend_worker.services.image_priority_service import ImagePriorityService, ProcessingContext
+from backend_worker.services.image_priority_service import ImagePriorityService, ProcessingContext, ImageSource
 from backend_worker.services.cover_types import CoverProcessingContext, ImageType, TaskType
 
 
@@ -350,7 +350,7 @@ class CoverOrchestratorService:
             image_type=cover_context.image_type.value,
             entity_id=cover_context.entity_id,
             entity_path=cover_context.entity_path,
-            source="local",  # Source par défaut, pourrait être extraite du contexte
+            source=ImageSource.LOCAL,  # Correction: utiliser l'enum au lieu de la chaîne
             is_new=True,  # Par défaut, à adapter selon les besoins
             access_count=0,
             metadata=cover_context.metadata

@@ -23,7 +23,9 @@ search_indexes/
 search_index/
 redis_data/
 celery_beat_data/
+flower_data/
 pg_db/
+_old/
 
 # Database files
 *.db
