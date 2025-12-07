@@ -274,9 +274,6 @@ def wrap_with_layout(render_page):
                     .props('dense rounded outlined clearable')\
                     .classes('bg-fill-white text-white placeholder-white flex-1')\
                     .on('keydown.enter', lambda: perform_full_search(search_field.value))
-                search_button = ui.button(icon='search', on_click=lambda: perform_full_search(search_field.value))\
-                    .props('flat dense color=white')
-            results = ui.column()
 
             def perform_full_search(query: str):
                 """Effectue une recherche complète et navigue vers la page de résultats."""
@@ -307,7 +304,7 @@ def wrap_with_layout(render_page):
                         icon='refresh').props('flat color=white dense').classes('text-xs')
             # --- Progress bar supprimée - remplacée par messages de chat ---
             # La progression est maintenant affichée dans le chat via des messages système
-    with ui.right_drawer().classes('h-full') as right_drawer:
+    with ui.right_drawer().classes('h-full'):
         from .chat_ui import ChatUI
         chat_ui = ChatUI()
         app.storage.client['chat_ui'] = chat_ui

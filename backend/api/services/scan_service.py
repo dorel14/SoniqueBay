@@ -167,15 +167,32 @@ class ScanService:
         # Envoyer la nouvelle tâche scan.discovery
         try:
             logger.info("[SCAN] Envoi de la tâche scan.discovery vers Celery")
+            logger.info("[SCAN] Queue cible: scan")
+            logger.info(f"[SCAN] Répertoire: {resolved_docker_directory}")
+
             result = celery.send_task(
                 "scan.discovery",  # Utilise la nouvelle tâche
                 args=[resolved_docker_directory],  # Plus de cleanup_deleted
                 queue="scan"
             )
-            
+
             logger.info(f"[SCAN] Tâche envoyée - ID: {result.id}")
             logger.info(f"[SCAN] Tâche envoyée - Status: {result.status}")
             logger.info("[SCAN] Tâche envoyée vers queue: scan")
+
+            # Vérification supplémentaire: inspecter les workers actifs
+            try:
+                inspect = celery.control.inspect()
+                active_queues = inspect.active_queues()
+                logger.info(f"[SCAN] Queues actives sur les workers: {active_queues}")
+
+                if active_queues:
+                    has_scan_queue = any('scan' in str(queues) for queues in active_queues.values())
+                    logger.info(f"[SCAN] Queue 'scan' disponible: {has_scan_queue}")
+                    if not has_scan_queue:
+                        logger.warning("[SCAN] ATTENTION: Aucun worker n'écoute la queue 'scan'!")
+            except Exception as inspect_error:
+                logger.warning(f"[SCAN] Impossible d'inspecter les queues: {inspect_error}")
 
             # Créer session de scan
             if db:

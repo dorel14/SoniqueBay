@@ -19,7 +19,6 @@ Tests effectués :
 import asyncio
 import time
 import os
-from typing import Dict, Any, List
 import httpx
 
 # Imports SoniqueBay
@@ -258,9 +257,9 @@ async def main():
         logger.info(f"🔍 Test: {test_name}")
         try:
             if asyncio.iscoroutinefunction(test_func):
-                result = await test_func()
+                await test_func()
             else:
-                result = await asyncio.get_event_loop().run_in_executor(None, test_func)
+                await asyncio.get_event_loop().run_in_executor(None, test_func)
         except Exception as e:
             logger.error(f"Erreur test {test_name}: {str(e)}")
             tester.log_test_result(test_name, False, f"Exception: {str(e)}")

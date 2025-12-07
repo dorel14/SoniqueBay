@@ -4,7 +4,7 @@ from backend.api.utils.database import get_db
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
 
-router = APIRouter(prefix="/api/library", tags=["library"])
+router = APIRouter(prefix="/library", tags=["library"])
 
 @router.get("/tree")
 async def get_library_tree(db: SQLAlchemySession = Depends(get_db)):

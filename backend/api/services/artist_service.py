@@ -53,7 +53,7 @@ class ArtistService:
                     new_artists_to_create.append(artist_data)
         if new_artists_to_create:
             new_db_artists = [
-                ArtistModel(**artist.model_dump(), date_added=func.now(), date_modified=func.now())
+                ArtistModel(**artist.model_dump())
                 for artist in new_artists_to_create
             ]
             self.db.add_all(new_db_artists)
@@ -77,9 +77,7 @@ class ArtistService:
             if existing_artist:
                 return existing_artist
             db_artist = ArtistModel(
-                **artist.model_dump(),
-                date_added=func.now(),
-                date_modified=func.now()
+                **artist.model_dump()
             )
             self.db.add(db_artist)
             self.db.commit()
@@ -161,9 +159,7 @@ class ArtistService:
             else:
                 # Create new artist
                 db_artist = ArtistModel(
-                    **artist_data.model_dump(),
-                    date_added=func.now(),
-                    date_modified=func.now()
+                    **artist_data.model_dump()
                 )
                 self.db.add(db_artist)
                 self.db.commit()

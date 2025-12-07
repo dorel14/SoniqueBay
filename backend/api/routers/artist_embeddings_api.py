@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from backend.api.utils.database import get_session
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.utils.logging import logger
-from typing import List, Optional
 
 router = APIRouter()
 

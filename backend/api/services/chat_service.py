@@ -5,10 +5,9 @@ Auteur : Kilo Code
 """
 import uuid
 import asyncio
-from typing import Dict, List, Optional, Any
-from datetime import datetime
+from typing import List, Optional
 from sqlalchemy.orm import Session
-from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory, ChatSession
+from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory
 from backend.api.utils.logging import logger
 
 
@@ -105,7 +104,7 @@ class ChatService:
                 for row in results:
                     recommendations.append(f"• {row.title} - {row.artist}")
 
-                return f"Voici quelques suggestions de votre bibliothèque :\n" + "\n".join(recommendations)
+                return "Voici quelques suggestions de votre bibliothèque :\n" + "\n".join(recommendations)
             else:
                 return "Votre bibliothèque semble vide. Essayez de scanner vos fichiers audio d'abord."
 
@@ -134,7 +133,7 @@ class ChatService:
                 for row in results:
                     artists.append(f"• {row.name} ({row.track_count} titres)")
 
-                return f"Vos artistes principaux :\n" + "\n".join(artists)
+                return "Vos artistes principaux :\n" + "\n".join(artists)
             else:
                 return "Aucun artiste trouvé dans votre bibliothèque."
 

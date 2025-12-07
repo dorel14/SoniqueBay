@@ -1,41 +1,53 @@
 import httpx
 import os
 from backend_worker.utils.logging import logger
-from backend_worker.services.lastfm_service import get_lastfm_artist_image
+from backend_worker.services.lastfm_service import lastfm_service
 from backend_worker.services.coverart_service import get_coverart_image
+from backend_worker.workers.lastfm.lastfm_worker import fetch_artist_lastfm_info
 from backend_worker.services.entity_manager import create_or_update_cover
+from backend_worker.workers.lastfm.lastfm_worker import fetch_similar_artists
 
 api_url = os.getenv("API_URL", "http://api:8001")
 
 async def enrich_artist(artist_id: int):
     """
-    Tente d'enrichir un artiste avec une image de Last.fm si aucune n'existe.
+    Tente d'enrichir un artiste avec des données complètes de Last.fm.
     """
     async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            # 1. Vérifier si une cover existe déjà
-            response = await client.get(f"{api_url}/api/covers/artist/{artist_id}")
-            if response.status_code == 200 and response.json():
-                logger.info(f"L'artiste {artist_id} a déjà une cover. Enrichissement annulé.")
-                return
-
-            # 2. Récupérer les informations de l'artiste
+            # 1. Récupérer les informations de l'artiste
             response = await client.get(f"{api_url}/api/artists/{artist_id}")
             if response.status_code != 200:
                 logger.error(f"Impossible de récupérer l'artiste {artist_id} pour l'enrichissement.")
                 return
-            
+
             artist_data = response.json()
             artist_name = artist_data.get("name")
+            mb_artist_id = artist_data.get("musicbrainz_artistid")
 
             if not artist_name:
                 logger.error(f"Nom d'artiste manquant pour l'ID {artist_id}.")
                 return
 
-            # 3. Tenter de récupérer l'image sur Last.fm
-            logger.info(f"Recherche d'une image Last.fm pour l'artiste '{artist_name}' (ID: {artist_id})")
-            lastfm_cover = await get_lastfm_artist_image(client, artist_name)
+            # 2. Récupérer les informations complètes depuis Last.fm
+            logger.info(f"Recherche d'informations Last.fm pour l'artiste '{artist_name}' (ID: {artist_id})")
 
+            # Récupérer les infos de base avec MBID si disponible
+            artist_info = await lastfm_service.get_artist_info(artist_name, mb_artist_id)
+            if not artist_info:
+                logger.warning(f"Aucune information Last.fm trouvée pour l'artiste {artist_name} (MBID: {mb_artist_id or 'N/A'})")
+                return
+
+            # 3. Mettre à jour les informations Last.fm dans la base de données
+            await fetch_artist_lastfm_info(artist_id)
+
+            # 4. Récupérer et stocker les artistes similaires
+            similar_artists = await lastfm_service.get_similar_artists(artist_name)
+            if similar_artists:
+                await fetch_similar_artists(artist_id)
+
+            # 5. Récupérer l'image de l'artiste
+            lastfm_cover = await lastfm_service.get_artist_image(artist_name)
             if lastfm_cover:
                 cover_data, mime_type = lastfm_cover
                 await create_or_update_cover(
@@ -44,7 +56,8 @@ async def enrich_artist(artist_id: int):
                     mime_type=mime_type,
                     url=f"lastfm://{artist_name}"
                 )
-                logger.info(f"Image Last.fm ajoutée avec succès pour l'artiste {artist_id}.")
+
+            logger.info(f"Enrichissement Last.fm complet pour l'artiste {artist_id}.")
 
         except Exception as e:
             logger.error(f"Erreur lors de l'enrichissement de l'artiste {artist_id}: {e}", exc_info=True)

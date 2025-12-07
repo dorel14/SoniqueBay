@@ -13,7 +13,7 @@ from typing import Dict, List, Any, Optional
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
 from backend_worker.utils.pubsub import publish_event
-from backend.api.utils.search import get_or_create_index, add_to_index, delete_index
+from backend.api.utils.search import get_or_create_index, add_to_index
 import os
 from pathlib import Path
 
@@ -264,7 +264,6 @@ async def _get_total_tracks_count_async() -> int:
 
 def _get_total_tracks_count() -> int:
     """Wrapper synchrone pour _get_total_tracks_count_async."""
-    import asyncio
     return asyncio.run(_get_total_tracks_count_async())
 
 
@@ -345,7 +344,6 @@ async def _get_tracks_batch_async(offset: int, limit: int) -> List[Dict[str, Any
 
 def _get_tracks_batch(offset: int, limit: int) -> List[Dict[str, Any]]:
     """Wrapper synchrone pour _get_tracks_batch_async."""
-    import asyncio
     return asyncio.run(_get_tracks_batch_async(offset, limit))
 
 
@@ -423,7 +421,6 @@ async def _get_track_data_async(track_id: int) -> Optional[Dict[str, Any]]:
 
 def _get_track_data(track_id: int) -> Optional[Dict[str, Any]]:
     """Wrapper synchrone pour _get_track_data_async."""
-    import asyncio
     return asyncio.run(_get_track_data_async(track_id))
 
 
