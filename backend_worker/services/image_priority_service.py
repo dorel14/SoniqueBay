@@ -169,6 +169,7 @@ class ImagePriorityService:
             
         except Exception as e:
             logger.error(f"[PRIORITY_SERVICE] Erreur évaluation priorité: {str(e)}")
+            logger.error(f"[PRIORITY_SERVICE] Type de context.source: {type(context.source)}, Valeur: {context.source}")
             return PriorityLevel.NORMAL, 5.0  # Valeur par défaut
     
     async def prioritize_batch(self, image_batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

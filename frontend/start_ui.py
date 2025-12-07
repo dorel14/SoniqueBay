@@ -10,6 +10,7 @@ import asyncio
 from main import register_dynamic_routes
 sys.path.append(str(Path(__file__).parent.parent))
 from _version_ import __version__ as version
+from frontend.utils.logging import logger
 from websocket_manager.ws_client import connect_websocket, connect_sse
 
 app.add_middleware(
@@ -32,28 +33,29 @@ async def startup():
             async with httpx.AsyncClient() as client:
                 response = await client.get(backend_url + "/api/healthcheck", timeout=5)  # Assuming /health endpoint
             if response.status_code == 200:
-                print("Backend is up and running!")
+                logger.info("Backend is up and running!")
                 break
             else:
-                print(f"Backend check failed (attempt {attempt + 1}/{max_retries}), status code: {response.status_code}")
+                logger.warning(f"Backend check failed (attempt {attempt + 1}/{max_retries}), status code: {response.status_code}")
         except httpx.NetworkError as e:
-            print(f"Backend check failed (attempt {attempt + 1}/{max_retries}), network error: {e}")
+            logger.warning(f"Backend check failed (attempt {attempt + 1}/{max_retries}), network error: {e}")
 
         await asyncio.sleep(retry_delay)
     else:
-        print("Backend is not reachable after multiple retries. Application may not function correctly.")
+        logger.error("Backend is not reachable after multiple retries. Application may not function correctly.")
 
     try:
         await connect_websocket()
-        print("WebSocket connecté avec succès")
+        logger.info("WebSocket connecté avec succès")
     except Exception as e:
-        print(f"Erreur de connexion WebSocket (l'application continuera sans WebSocket): {str(e)}")
+        logger.error(f"Erreur de connexion WebSocket (l'application continuera sans WebSocket): {str(e)}")
 
     try:
+        logger.info("Tentative de connexion SSE...")
         await connect_sse()
-        print("SSE connecté avec succès")
+        logger.info("SSE connecté avec succès")
     except Exception as e:
-        print(f"Erreur de connexion SSE (l'application continuera sans SSE): {str(e)}")
+        logger.error(f"Erreur de connexion SSE (l'application continuera sans SSE): {str(e)}")
 
 
 

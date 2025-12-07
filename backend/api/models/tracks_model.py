@@ -1,7 +1,6 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, ForeignKey, func, Float, Index
+from sqlalchemy import String, Integer, ForeignKey, Float, Index
 from sqlalchemy.dialects import postgresql
-from datetime import datetime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
@@ -83,7 +82,7 @@ class Track(Base, TimestampMixin):
         # Index pour les recherches par genre
         Index('idx_tracks_genre', 'genre'),
         # Index composite pour les dates (optimisation scan)
-        Index('idx_tracks_dates', 'created_at', 'updated_at'),
+        Index('idx_tracks_dates', 'date_added', 'date_modified'),
         # Index HNSW pour recherche vectorielle
         Index('idx_tracks_vector', 'vector', postgresql_using='hnsw', postgresql_with={'m': 16, 'ef_construction': 64}),
         # Index GIN pour recherche textuelle

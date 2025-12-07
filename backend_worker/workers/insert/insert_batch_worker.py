@@ -269,10 +269,8 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
     try:
         missing_entities = []
 
-        # Désactiver temporairement la vérification pour éviter les faux positifs
-        # TODO: Réactiver une fois les problèmes de timing résolus
-        logger.info("[VERIFY] Vérification des entités désactivée temporairement pour éviter les faux positifs de timing")
-        return
+        # Réactiver la vérification avec gestion améliorée des erreurs
+        logger.info("[VERIFY] Vérification des entités réactivée avec gestion améliorée des erreurs")
 
         # Vérifier les artistes avec requête ciblée
         if inserted_counts['artists'] > 0:
@@ -287,17 +285,24 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                             artists(where: {name: {equals: $name}}) {
                                 id
                                 name
+                                musicbrainz_artistid
                             }
                         }
                         """
                         result = await execute_graphql_query(client, query, {"name": artist_name})
                         artists_found = result.get("artists", [])
+
                         if not artists_found:
                             missing_entities.append(f"Artiste: {artist_name}")
+                            logger.error(f"[VERIFY] ❌ Artiste '{artist_name}' INTROUVABLE en base après insertion")
                         else:
-                            logger.debug(f"[VERIFY] Artiste '{artist_name}' trouvé avec ID {artists_found[0]['id']}")
+                            artist_found = artists_found[0]
+                            logger.info(f"[VERIFY] ✅ Artiste '{artist_name}' trouvé avec ID {artist_found['id']}, MBID: {artist_found.get('musicbrainz_artistid', 'N/A')}")
+                            logger.debug(f"[VERIFY] Détails artiste: {artist_found}")
+
                     except Exception as e:
-                        logger.warning(f"[VERIFY] Erreur vérification artiste '{artist_name}': {str(e)}")
+                        logger.error(f"[VERIFY] ❌ Erreur vérification artiste '{artist_name}': {str(e)}")
+                        logger.error(f"[VERIFY] Détails de l'erreur: {type(e).__name__}: {str(e)}")
                         missing_entities.append(f"Artiste: {artist_name} (erreur vérification)")
 
         # Vérifier les albums avec requête ciblée
@@ -333,10 +338,10 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 track_path = track_data.get('path')
                 if track_path:
                     try:
-                        # Requête spécifique pour cette track
+                        # Requête spécifique pour cette track - utiliser le champ correct
                         query = """
                         query GetTrackByPath($path: String!) {
-                            tracks(where: {path: {equals: $path}}) {
+                            tracks(where: {file_path: {equals: $path}}) {
                                 id
                                 path
                             }

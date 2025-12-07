@@ -4,12 +4,11 @@ Router pour les endpoints temps réel (SSE et WebSocket)
 Gère les connexions SSE et WebSocket pour les événements temps réel.
 """
 
-from fastapi import APIRouter, WebSocket, Request
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, WebSocket
 from backend.api.services.realtime_service import realtime_service
 from backend.api.utils.logging import logger
 
-router = APIRouter(prefix="/api", tags=["realtime"])
+router = APIRouter(prefix="", tags=["realtime"])
 
 
 @router.websocket("/ws")

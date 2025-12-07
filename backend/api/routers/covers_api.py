@@ -7,7 +7,7 @@ from backend.api.services.covers_service import CoverService
 from backend.api.models.covers_model import EntityCoverType
 from backend.api.utils.logging import logger
 
-router = APIRouter(prefix="/api/covers", tags=["covers"])
+router = APIRouter(prefix="/covers", tags=["covers"])
 
 @router.post("/", response_model=CoverSchema)
 async def create_cover(cover: CoverCreate, db: SQLAlchemySession = Depends(get_db)):

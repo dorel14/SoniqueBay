@@ -179,13 +179,28 @@ class TagChangeDetector:
             
             if has_changes:
                 message = f"Changements détectés: {len(changes)} types de modifications"
+
+                # Debug: Log des types et valeurs avant utilisation
+                logger.debug(f"[DEBUG] changes dict: {changes}")
                 if 'new_tracks' in changes:
+                    logger.debug(f"[DEBUG] new_tracks type: {type(changes['new_tracks'])}, value: {changes['new_tracks']}")
+                    # new_tracks est un entier, pas une liste - ne pas utiliser len()
                     message += f", {changes['new_tracks']} nouvelles tracks"
                 if 'new_genres' in changes:
-                    message += f", {len(changes['new_genres'])} nouveaux genres"
+                    logger.debug(f"[DEBUG] new_genres type: {type(changes['new_genres'])}, value: {changes['new_genres']}")
+                    # new_genres est une liste - utiliser len() est correct
+                    if isinstance(changes['new_genres'], (list, set)):
+                        message += f", {len(changes['new_genres'])} nouveaux genres"
+                    else:
+                        message += f", {changes['new_genres']} nouveaux genres"
                 if 'new_moods' in changes:
-                    message += f", {len(changes['new_moods'])} nouveaux moods"
-                
+                    logger.debug(f"[DEBUG] new_moods type: {type(changes['new_moods'])}, value: {changes['new_moods']}")
+                    # new_moods est une liste - utiliser len() est correct
+                    if isinstance(changes['new_moods'], (list, set)):
+                        message += f", {len(changes['new_moods'])} nouveaux moods"
+                    else:
+                        message += f", {changes['new_moods']} nouveaux moods"
+
                 logger.info(f"[TAG_MONITOR] {message}")
                 
                 return {
@@ -254,10 +269,31 @@ class TagChangeDetector:
         
         # Priorité basse : nouveaux mood_tags
         if 'new_moods' in details or 'new_genre_tags' in details:
-            mood_count = len(details.get('new_moods', []))
-            genre_tag_count = len(details.get('new_genre_tags', []))
+            # Vérification de type et conversion sécurisée
+            new_moods = details.get('new_moods', [])
+            new_genre_tags = details.get('new_genre_tags', [])
+
+            # Gestion sécurisée des types - conversion en liste si nécessaire
+            if isinstance(new_moods, int):
+                mood_count = new_moods
+                logger.warning(f"[TYPE_SAFETY] new_moods est un int: {new_moods}, conversion en count")
+            elif isinstance(new_moods, (list, set)):
+                mood_count = len(new_moods)
+            else:
+                mood_count = 0
+                logger.warning(f"[TYPE_SAFETY] new_moods type inattendu: {type(new_moods)}")
+
+            if isinstance(new_genre_tags, int):
+                genre_tag_count = new_genre_tags
+                logger.warning(f"[TYPE_SAFETY] new_genre_tags est un int: {new_genre_tags}, conversion en count")
+            elif isinstance(new_genre_tags, (list, set)):
+                genre_tag_count = len(new_genre_tags)
+            else:
+                genre_tag_count = 0
+                logger.warning(f"[TYPE_SAFETY] new_genre_tags type inattendu: {type(new_genre_tags)}")
+
             total_new = mood_count + genre_tag_count
-            
+
             if total_new > 5:  # Seuil pour éviter retrain pour quelques tags
                 return {
                     'should_retrain': True,

@@ -9,7 +9,7 @@ from backend.api.services.genres_service import GenreService
  
  
 
-router = APIRouter(prefix="/api/genres", tags=["genres"])
+router = APIRouter(prefix="/genres", tags=["genres"])
 
 @router.get("/search", response_model=List[Genre])
 @cache(expire=300)  # Cache for 5 minutes

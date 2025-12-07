@@ -5,8 +5,6 @@ from fastapi_cache import FastAPICache
 
 from typing import List, Optional
 import json
-import asyncio
-import redis.asyncio as redis
 from backend.api.utils.database import get_db
 from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.api.models.tracks_model import Track as TrackModel
@@ -14,7 +12,7 @@ from backend.api.utils.logging import logger
 from backend.api.utils.validation_logger import log_validation_error
 from backend.api.services.track_service import TrackService
 
-router = APIRouter(prefix="/api/tracks", tags=["tracks"])
+router = APIRouter(prefix="/tracks", tags=["tracks"])
 
 @router.get("/search", response_model=List[Track])
 async def search_tracks(

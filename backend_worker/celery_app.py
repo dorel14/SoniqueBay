@@ -1,13 +1,13 @@
 
-from celery import Celery  # noqa: E402
-from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdown # noqa: E402
+from celery import Celery
+from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdown
 
-from backend_worker.utils.logging import logger # noqa: E402
-from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits # noqa: E402
-import os # noqa: E402
-import redis # noqa: E402
-import socket # noqa: E402
-
+from backend_worker.utils.logging import logger
+from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
+import os
+import redis
+import socket
+from kombu import Queue
 
 # === DIAGNOSTIC REDIS ===
 def diagnostic_redis():
@@ -74,6 +74,9 @@ celery = Celery(
 
         # Vectorization workers
         'backend_worker.workers.vectorization.track_vectorization_worker',
+
+        # Tâches de covers (NOUVEAU - requis pour process_artist_images et process_album_covers)
+        'backend_worker.covers_tasks',
 
         # Legacy pour compatibilité (à supprimer progressivement)
         'backend_worker.tasks.main_tasks',
@@ -142,7 +145,11 @@ celery.conf.update(
         'socket_read_size': 32768,         # ✅ CORRIGÉ: Taille réduite pour RPi4
         'socket_write_size': 32768,        # ✅ CORRIGÉ: Taille réduite pour RPi4
     },
-
+    broker_transport_options = {
+        'priority_steps': list(range(10)),
+        'sep': ':',
+        'queue_order_strategy': 'priority',
+    },
     # === COMPRESSION POUR GROS MESSAGES ===
     task_compression='gzip',               # Compression automatique
     result_compression='gzip',
@@ -150,93 +157,139 @@ celery.conf.update(
     # === ZONE TEMPORELLE ===
     timezone=os.getenv('TZ', default='UTC'),
     enable_utc=True,
-    
-    
+
+    # === FORCER LE WORKER À ÉCOUTER TOUTES LES QUEUES ===
+    # Définir explicitement les queues que le worker doit consommer
+    worker_queues=[
+        'scan', 'extract', 'batch', 'insert', 'covers',
+        'deferred_vectors', 'deferred_covers', 'deferred_enrichment',
+        'vectorization_monitoring', 'deferred', 'celery', 'maintenance'
+    ],
+
+    # === PRIORITÉS DES QUEUES (NOUVELLE CONFIGURATION) ===
+    # Activation du support des priorités dans Celery
+    task_queue_priority_enabled=True,
+    task_queue_priority={
+        'scan': 9,          # Priorité maximale - scans complets
+        'extract': 8,       # Priorité élevée
+        'batch': 8,         # Priorité élevée
+        'insert': 7,        # Priorité élevée
+        'covers': 5,         # Priorité normale
+        'maintenance': 5,    # Priorité normale
+        'vectorization_monitoring': 5,  # Priorité normale
+        'celery': 5,         # Priorité normale
+        'deferred_vectors': 4,      # Priorité basse - tâches différées
+        'deferred_covers': 3,       # Priorité basse
+        'deferred_enrichment': 2,   # Priorité basse
+        'deferred': 1,       # Priorité la plus basse
+    },
+
+    # === CONFIGURATION SPÉCIFIQUE POUR LES PRIORITÉS ===
+    # Configurer les workers pour respecter les priorités des queues
+    worker_concurrency=2,           # Limité pour Raspberry Pi
+    task_queue_priority_strategy='priority',  # Stratégie de priorité explicite
+    task_queue_max_priority=10,      # Priorité maximale
+    task_queue_default_priority=5,   # Priorité par défaut
+
+    # === VALIDATION DES CONFIGURATIONS DE QUEUES ===
+    # Ajouter une validation pour s'assurer que toutes les queues ont une configuration cohérente
+
 )
 
 # Validation des timeouts
 logger.info(f"[Celery Config] Timeouts configurés - task_time_limit: {celery.conf.task_time_limit}, task_soft_time_limit: {celery.conf.task_soft_time_limit}")
 
-# === DÉFINITION DES QUEUES SPÉCIALISÉES ===
+# === DÉFINITION DES QUEUES SPÉCIALISÉES AVEC PRIORITÉS ===
 task_queues = {
-    # Queue DISCOVERY (I/O intensive)
+    # Queue DISCOVERY (I/O intensive) - PRIORITÉ MAXIMALE (0)
     'scan': {
         'exchange': 'scan',
         'routing_key': 'scan',
         'delivery_mode': 2,  # Persistant
+        'priority': 0,  # Priorité la plus élevée
     },
 
-    # Queue EXTRACTION (CPU intensive)
+    # Queue EXTRACTION (CPU intensive) - PRIORITÉ ÉLEVÉE (1)
     'extract': {
         'exchange': 'extract',
         'routing_key': 'extract',
         'delivery_mode': 1,  # Non-persistant
+        'priority': 1,
     },
 
-    # Queue BATCHING (Memory intensive)
+    # Queue BATCHING (Memory intensive) - PRIORITÉ ÉLEVÉE (2)
     'batch': {
         'exchange': 'batch',
         'routing_key': 'batch',
         'delivery_mode': 1,
+        'priority': 2,
     },
 
-    # Queue INSERTION (DB intensive)
+    # Queue INSERTION (DB intensive) - PRIORITÉ ÉLEVÉE (3)
     'insert': {
         'exchange': 'insert',
         'routing_key': 'insert',
         'delivery_mode': 2,  # Persistant pour fiabilité
+        'priority': 3,
     },
 
-    # Queue COVERS (API/Réseau intensif - NOUVELLE!)
+    # Queue COVERS (API/Réseau intensif) - PRIORITÉ NORMALE (4)
     'covers': {
         'exchange': 'covers',
         'routing_key': 'covers',
         'delivery_mode': 1,  # Non-persistant pour performance
+        'priority': 4,
     },
 
-    # ✅ Queue VECTORS DIFFÉRÉS (CPU intensif - limitées pour éviter OOM)
+    # ✅ Queue VECTORS DIFFÉRÉS (CPU intensif) - PRIORITÉ BASSE (6)
     'deferred_vectors': {
         'exchange': 'deferred_vectors',
         'routing_key': 'deferred_vectors',
         'delivery_mode': 1,  # Non-persistant (calculs CPU)
+        'priority': 6,
     },
 
-    # ✅ Queue COVERS DIFFÉRÉS (Réseau/API intensif - avec délais)
+    # ✅ Queue COVERS DIFFÉRÉS (Réseau/API intensif) - PRIORITÉ BASSE (7)
     'deferred_covers': {
         'exchange': 'deferred_covers',
         'routing_key': 'deferred_covers',
         'delivery_mode': 1,  # Non-persistant (APIs externes)
+        'priority': 7,
     },
 
-    # ✅ Queue ENRICHMENT DIFFÉRÉS (I/O intensif)
+    # ✅ Queue ENRICHMENT DIFFÉRÉS (I/O intensif) - PRIORITÉ BASSE (8)
     'deferred_enrichment': {
         'exchange': 'deferred_enrichment',
         'routing_key': 'deferred_enrichment',
         'delivery_mode': 1,  # Non-persistant (données temporaires)
+        'priority': 8,
     },
 
-    # Queue MONITORING VECTORISATION (NOUVELLE!)
+    # Queue MONITORING VECTORISATION - PRIORITÉ NORMALE (5)
     'vectorization_monitoring': {
         'exchange': 'vectorization_monitoring',
         'routing_key': 'vectorization_monitoring',
         'delivery_mode': 1,  # Non-persistant pour monitoring léger
+        'priority': 5,
     },
 
-    # Queue LEGACY pour compatibilité
+    # Queue LEGACY pour compatibilité - PRIORITÉ BASSE (9)
     'deferred': {
         'exchange': 'deferred',
         'routing_key': 'deferred',
         'delivery_mode': 1,
+        'priority': 9,
     },
 
-    # Queue par défaut (compatibilité)
-    'celery': {'exchange': 'celery', 'routing_key': 'celery'},
+    # Queue par défaut (compatibilité) - PRIORITÉ NORMALE (5)
+    'celery': {'exchange': 'celery', 'routing_key': 'celery', 'priority': 5},
 
-    # Queue MAINTENANCE (tâches de nettoyage et monitoring)
+    # Queue MAINTENANCE (tâches de nettoyage et monitoring) - PRIORITÉ NORMALE (4)
     'maintenance': {
         'exchange': 'maintenance',
         'routing_key': 'maintenance',
         'delivery_mode': 1,  # Non-persistant (tâches légères)
+        'priority': 4,
     },
 }
 
@@ -250,25 +303,38 @@ task_routes = {
     'vectorization.calculate': {'queue': 'vectorization'},
     'covers.extract_embedded': {'queue': 'deferred'},
     'metadata.enrich_batch': {'queue': 'deferred'},
-    
+
     # === WORKERS DEFERRED (TÂCHES RÉELLEMENT DÉFINIES) ===
     'worker_deferred_enrichment.*': {'queue': 'deferred'},
-    
+
     # === MONITORING VECTORISATION ===
     'monitor_tag_changes': {'queue': 'vectorization_monitoring'},
     'trigger_vectorizer_retrain': {'queue': 'vectorization_monitoring'},
     'check_model_health': {'queue': 'vectorization_monitoring'},
 }
 
-# === CONFIGURATION AUTOSCALE ===
-# Avec autoscale, les workers s'adaptent automatiquement selon la charge
-# Les configurations spécifiques par queue sont supprimées car l'autoscale gère la distribution
+# === DÉCLARATION EXPLICITE DES QUEUES AVEC PRIORITÉS ===
+# Déclarer toutes les queues pour s'assurer qu'elles existent dans Redis
+
+celery.conf.task_queues = [
+    Queue('scan', routing_key='scan', queue_arguments={'x-priority': 0}),
+    Queue('extract', routing_key='extract', queue_arguments={'x-priority': 1}),
+    Queue('batch', routing_key='batch', queue_arguments={'x-priority': 2}),
+    Queue('insert', routing_key='insert', queue_arguments={'x-priority': 3}),
+    Queue('covers', routing_key='covers', queue_arguments={'x-priority': 4}),
+    Queue('deferred_vectors', routing_key='deferred_vectors', queue_arguments={'x-priority': 6}),
+    Queue('deferred_covers', routing_key='deferred_covers', queue_arguments={'x-priority': 7}),
+    Queue('deferred_enrichment', routing_key='deferred_enrichment', queue_arguments={'x-priority': 8}),
+    Queue('vectorization_monitoring', routing_key='vectorization_monitoring', queue_arguments={'x-priority': 5}),
+    Queue('deferred', routing_key='deferred', queue_arguments={'x-priority': 9}),
+    Queue('celery', routing_key='celery', queue_arguments={'x-priority': 5}),
+    Queue('maintenance', routing_key='maintenance', queue_arguments={'x-priority': 4}),
+]
 
 @worker_init.connect
 def configure_worker(sender=None, **kwargs):
     """Configure le worker unifié avec autoscale au démarrage."""
     worker_name = sender.hostname
-    app = sender.app
 
     # Diagnostic Redis au démarrage
     logger.info(f"[WORKER INIT] Démarrage du worker unifié {worker_name} avec autoscale")
@@ -276,9 +342,41 @@ def configure_worker(sender=None, **kwargs):
     if not redis_ok:
         logger.error(f"[WORKER INIT] Problème de connexion Redis détecté pour {worker_name}")
 
-    # Avec autoscale, la configuration est automatique
-    # Le worker gère toutes les queues selon la charge
-    logger.info(f"[WORKER] {worker_name} configuré avec autoscale (max=4, min=1) - gère toutes les queues")
+    # Forcer le worker à écouter TOUTES les queues définies avec priorités
+    # Au lieu de laisser autoscale décider automatiquement
+    all_queues = list(task_queues.keys())
+    logger.info(f"[WORKER] {worker_name} configuré pour écouter les queues: {all_queues}")
+
+    # Appliquer la configuration des queues avec priorités
+    sender.app.control.add_consumer(
+        queue=all_queues,
+        destination=[worker_name]
+    )
+
+    # Configurer les workers pour consommer les queues par priorité
+    # Les queues avec priorité plus basse (chiffre plus élevé) seront traitées après
+    sender.app.conf.worker_prefetch_multiplier = 1
+    sender.app.conf.worker_concurrency = 2  # Limité pour Raspberry Pi
+    sender.app.conf.task_acks_late = True
+
+    # Configuration spécifique pour le respect des priorités
+    sender.app.conf.task_queue_priority = {
+        'scan': 0,          # Priorité maximale
+        'extract': 1,       # Priorité élevée
+        'batch': 2,         # Priorité élevée
+        'insert': 3,        # Priorité élevée
+        'covers': 4,         # Priorité normale
+        'maintenance': 4,    # Priorité normale
+        'vectorization_monitoring': 5,  # Priorité normale
+        'celery': 5,         # Priorité normale
+        'deferred_vectors': 6,      # Priorité basse
+        'deferred_covers': 7,       # Priorité basse
+        'deferred_enrichment': 8,   # Priorité basse
+        'deferred': 9,       # Priorité la plus basse
+    }
+
+    logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec priorités configurées")
+    logger.info(f"[WORKER] Priorités des queues: {sender.app.conf.task_queue_priority}")
 
 
 @task_prerun.connect
@@ -288,15 +386,15 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
         worker_name = getattr(sender, 'hostname', 'unknown')
         task_name = getattr(task, 'name', 'unknown')
         task_queue = getattr(task, 'queue', 'unknown')
-        
+
         # === MONITORING TAILLE DES ARGUMENTS ===
         size_metrics = measure_celery_task_size(task, task_id)
         update_size_metrics(size_metrics)
-        
+
         # Affichage du rapport de taille seulement si supérieur à 1KB pour éviter le spam
         if size_metrics['args_size'] > 1024 or size_metrics['kwargs_size'] > 1024:
             log_task_size_report(size_metrics)
-        
+
         # Accès sécurisé à task.args avec fallback
         args_count = 0
         if hasattr(task, 'args') and task.args is not None:
@@ -304,14 +402,44 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
                 args_count = len(task.args)
             except (TypeError, AttributeError):
                 args_count = 0
-        
+
         # Accès sécurisé à task.request.args si args n'est pas disponible
         if args_count == 0 and hasattr(task, 'request') and hasattr(task.request, 'args'):
             try:
                 args_count = len(task.request.args)
             except (TypeError, AttributeError):
                 pass
-        
+
+        # === DIAGNOSTIC SPÉCIFIQUE POUR monitor_tag_changes ===
+        if task_name == 'monitor_tag_changes':
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Tâche démarrée avec queue: {task_queue}")
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Worker: {worker_name}")
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Args count: {args_count}")
+
+            # Log des arguments détaillés pour le diagnostic
+            if hasattr(task, 'args') and task.args:
+                logger.info(f"[MONITOR_TAG_CHANGES DIAG] Args: {task.args}")
+            if hasattr(task, 'kwargs') and task.kwargs:
+                logger.info(f"[MONITOR_TAG_CHANGES DIAG] Kwargs: {task.kwargs}")
+
+            # Vérification de la configuration de routage
+            from backend_worker.celery_app import task_routes
+            expected_queue = task_routes.get('monitor_tag_changes', {}).get('queue', 'non-configurée')
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue attendue: {expected_queue}")
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue actuelle: {task_queue}")
+            logger.info(f"[MONITOR_TAG_CHANGES DIAG] Correspondance: {'OK' if task_queue == expected_queue else 'ERREUR'}")
+
+        # === DIAGNOSTIC PIDBOX ET KOMBU ===
+        # Log des informations de routage et de configuration des queues
+        if hasattr(task, 'request') and hasattr(task.request, 'routing_key'):
+            logger.info(f"[PIDBOX DIAG] Routing key: {task.request.routing_key}")
+        if hasattr(task, 'request') and hasattr(task.request, 'exchange'):
+            logger.info(f"[PIDBOX DIAG] Exchange: {task.request.exchange}")
+
+        # Log de la configuration des queues Celery
+        logger.info(f"[PIDBOX DIAG] Worker queues: {getattr(sender, 'queues', 'non-disponible')}")
+        logger.info(f"[PIDBOX DIAG] Task queues config: {getattr(task, 'queues', 'non-disponible')}")
+
         logger.info(f"[TASK PRERUN] Task {task_name} (ID: {task_id}) démarrage sur worker {worker_name}")
         logger.info(f"[TASK PRERUN] Queue: {task_queue} | Args: {args_count} éléments")
     except Exception as e:

@@ -2,8 +2,7 @@
 from __future__ import annotations
 import os
 from dataclasses import dataclass
-from fastapi import FastAPI, status, Request, Response, Depends
-from fastapi.routing import APIRoute
+from fastapi import FastAPI, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -22,7 +21,6 @@ from alembic.config import Config
 from alembic import command
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
-from fastapi_cache.decorator import cache
 
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
@@ -131,7 +129,7 @@ async def log_requests(request: Request, call_next):
     return response
 
 # Inclure le router AVANT de créer le service
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api")
 app.include_router(graphql_app, prefix="/api/graphql", tags=["GraphQL"])
 
 @app.get('/api/healthcheck', status_code=status.HTTP_200_OK, tags=["health"])

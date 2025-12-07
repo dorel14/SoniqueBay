@@ -5,7 +5,7 @@ Gère le remplissage automatique des colonnes TSVECTOR pour tracks et artists.
 """
 
 from typing import List, Dict, Any, Optional
-from sqlalchemy import text, func
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from backend.api.utils.logging import logger
 from backend.api.utils.database import get_db

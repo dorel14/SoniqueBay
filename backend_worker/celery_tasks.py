@@ -194,6 +194,8 @@ def extract_metadata_batch(self, file_paths: list[str], batch_id: str = None):
 
     except Exception as e:
         logger.error(f"[METADATA] Erreur batch: {str(e)}")
+        import traceback
+        logger.error(f"[METADATA] Traceback complet: {traceback.format_exc()}")
         raise
 
 

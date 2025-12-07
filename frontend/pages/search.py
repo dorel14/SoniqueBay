@@ -47,8 +47,6 @@ def render_search_results(results_data):
 
     total = results_data.get('total', 0)
     items = results_data.get('items', [])
-    page = results_data.get('page', 1)
-    total_pages = results_data.get('total_pages', 1)
 
     ui.label(f"Résultats ({total})").classes('text-lg font-bold mb-4')
 

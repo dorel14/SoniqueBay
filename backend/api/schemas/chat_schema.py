@@ -23,13 +23,13 @@ class ChatHistory(BaseModel):
     """Historique d'une conversation."""
     session_id: str
     messages: list[dict] = Field(default_factory=list, description="Liste des messages (user/bot)")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    date_added: datetime = Field(default_factory=datetime.utcnow)
+    date_modified: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ChatSession(BaseModel):
     """Session de chat."""
     id: str
     title: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    date_added: datetime = Field(default_factory=datetime.utcnow)
     last_activity: datetime = Field(default_factory=datetime.utcnow)

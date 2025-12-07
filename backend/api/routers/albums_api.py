@@ -11,7 +11,7 @@ from backend.api.utils.logging import logger
 from backend.api.utils.validation_logger import log_validation_error
 from backend.api.services.album_service import AlbumService
 
-router = APIRouter(prefix="/api/albums", tags=["albums"])
+router = APIRouter(prefix="/albums", tags=["albums"])
 
 @router.get("/search", response_model=List[Album])
 @cache(expire=300)  # Cache for 5 minutes

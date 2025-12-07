@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
 # TrackVectorVirtual removed - using PostgreSQL instead
 from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
-from backend.api.utils.logging import logger
 
 
 class TrackVectorService:

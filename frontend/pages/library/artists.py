@@ -5,7 +5,7 @@ import os
 from urllib.parse import urlparse, parse_qs
 from frontend.utils.logging import logger
 from frontend.config import sonique_bay_logo
-API_URL = os.getenv('API_URL', 'http://localhost:8000')
+API_URL = os.getenv('API_URL', 'http://api:8001')
 
 current_page = 1
 total_pages = 1

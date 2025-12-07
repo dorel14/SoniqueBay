@@ -8,10 +8,17 @@ services:
     image: ubuntu:22.04
     container_name: soniquebay-timesync
     restart: unless-stopped
+    environment:
+      - TZ=${TZ}
     command: >
       sh -c "
         echo 'Time sync service started'
         echo 'Raspberry Pi uses NTP via systemd-timesyncd'
+        echo 'Configuring timezone from TZ environment variable...'
+        echo 'Using TZ environment variable for timezone configuration'
+        export TZ=$TZ
+        echo 'Timezone set to '$TZ
+        echo 'Local time: '$(date)
         echo 'UTC time: '$(date -u)
         sleep infinity
       "
@@ -82,6 +89,8 @@ services:
     image: mher/flower:latest
     container_name: soniquebay-flower
     restart: unless-stopped
+    volumes:
+      - flower-data:/data
     command:
       - celery
       - --broker=redis://redis:6379/0
@@ -96,11 +105,14 @@ services:
       - --retry-delay=10
       - --retry-max=5
       - --persistent=True
+      - --db=/data/flower.db
       - --enable_events=True
     depends_on:
         redis:
             condition: service_healthy
         timesync:
+            condition: service_started
+        celery-worker:
             condition: service_started
     
     ports:
@@ -221,7 +233,8 @@ services:
     restart: unless-stopped
     command: >
       celery -A backend_worker.celery_app worker
-      --autoscale=4,1
+      -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance
+      --concurrency=1
       --loglevel=INFO
       --hostname=celery-worker@%h
     volumes:
@@ -340,6 +353,12 @@ volumes:
     driver_opts:
       type: none
       device: ${PWD}/backend_worker/celery_beat_data
+      o: bind
+  flower-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${PWD}/backend_worker/flower_data
       o: bind
   logs:
     driver: local

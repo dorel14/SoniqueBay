@@ -28,6 +28,7 @@ import json
 import aiofiles
 import asyncio
 from backend_worker.services.audio_features_service import extract_audio_features
+import psutil
 
 
 
@@ -52,8 +53,9 @@ def sanitize_path(input_path: str) -> str:
     if not input_path:
         raise ValueError("Chemin vide fourni")
 
-    # Limiter la longueur totale du chemin
-    max_path_length = 260
+    # Limiter la longueur totale du chemin (dépendant de la plateforme)
+    import platform
+    max_path_length = 260 if platform.system() == 'Windows' else 4096
     if len(input_path) > max_path_length:
         logger.warning(f"Chemin trop long: {len(input_path)} caractères (max: {max_path_length})")
         raise ValueError(f"Le chemin dépasse la longueur maximale autorisée ({max_path_length} caractères)")
@@ -800,6 +802,11 @@ async def process_file(file_path_bytes, scan_config: dict):
     Traite un fichier musical à partir de son chemin en bytes.
     Retourne un dictionnaire de métadonnées ou None si erreur.
     """
+    # LOG MÉMOIRE: Début du traitement
+    process = psutil.Process(os.getpid())
+    mem_start = process.memory_info().rss / 1024 / 1024  # MB
+    logger.info(f"[MEMORY MONITOR] Début process_file - RAM utilisée: {mem_start:.1f} MB")
+
     file_path_str = file_path_bytes.decode('utf-8', 'surrogateescape')
     # Corriger les apostrophes mal encodées dans les noms de fichiers
     path_obj = Path(file_path_str)
@@ -893,6 +900,10 @@ async def process_file(file_path_bytes, scan_config: dict):
             logger.warning(f"Impossible de lire les données audio du fichier: {file_path_str}")
             return None
 
+        # LOG MÉMOIRE: Après chargement audio
+        mem_after_audio = process.memory_info().rss / 1024 / 1024  # MB
+        logger.info(f"[MEMORY MONITOR] Après chargement audio {file_path_str} - RAM utilisée: {mem_after_audio:.1f} MB (delta: {mem_after_audio - mem_start:.1f} MB)")
+
         parts = file_path.parts
         artist_depth = scan_config["artist_depth"]
         artist_path = Path(*parts[:artist_depth]) if artist_depth > 0 and len(parts) > artist_depth else file_path.parent
@@ -901,7 +912,12 @@ async def process_file(file_path_bytes, scan_config: dict):
         metadata = await extract_metadata(audio, file_path_str, allowed_base_paths=allowed_base_paths)
         metadata["artist_path"] = artist_path_str
 
-        logger.debug(f"Métadonnées extraites pour {file_path_str}")
+        logger.debug(f"Métadonnées extraites pour {file_path_str} : {metadata.keys()}")
+
+        # LOG MÉMOIRE: Fin du traitement
+        mem_end = process.memory_info().rss / 1024 / 1024  # MB
+        logger.info(f"[MEMORY MONITOR] Fin process_file {file_path_str} - RAM utilisée: {mem_end:.1f} MB (delta total: {mem_end - mem_start:.1f} MB)")
+
         return metadata
 
     except Exception as e:
@@ -947,8 +963,8 @@ async def scan_music_files(directory: str, scan_config: dict):
     """Générateur asynchrone ultra-optimisé qui scanne les fichiers musicaux."""
     path = Path(directory)
 
-    # Augmenter la parallélisation pour l'extraction de base
-    semaphore = asyncio.Semaphore(100)  # Augmenté de 20 à 100
+    # Réduire la parallélisation pour éviter surcharge mémoire RPi4
+    semaphore = asyncio.Semaphore(20)  # Réduit de 100 à 20 pour RPi4
 
     async def process_and_yield(file_path_bytes):
         async with semaphore:
@@ -958,7 +974,7 @@ async def scan_music_files(directory: str, scan_config: dict):
 
     # Optimiser le batching pour réduire la surcharge asyncio
     tasks = []
-    batch_size = 200  # Augmenté pour moins de yields
+    batch_size = 50  # Réduit de 200 à 50 pour RPi4
 
     async for file_path_bytes in async_walk(path):
         file_suffix = Path(file_path_bytes.decode('utf-8', 'surrogateescape')).suffix.lower().encode('utf-8')

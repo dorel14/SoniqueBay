@@ -3,7 +3,7 @@ from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOpe
 from backend.api.services.playqueue_service import PlayQueueService
  
 
-router = APIRouter(prefix="/api/playqueue", tags=["playqueue"])
+router = APIRouter(prefix="/playqueue", tags=["playqueue"])
  
 
 @router.get("/", response_model=PlayQueue)

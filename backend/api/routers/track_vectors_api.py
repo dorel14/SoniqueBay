@@ -4,7 +4,7 @@ from backend.api.utils.database import get_db
 from backend.api.services.track_vector_service import TrackVectorService
 from typing import List
 
-router = APIRouter(prefix="/api/track-vectors", tags=["track-vectors"])
+router = APIRouter(prefix="/track-vectors", tags=["track-vectors"])
 
 @router.get("/{track_id}")
 async def get_vector(track_id: int, db: SQLAlchemySession = Depends(get_db)):

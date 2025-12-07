@@ -21,11 +21,11 @@ class Base(DeclarativeBase):
 
 class TimestampMixin:
     """Mixin pour ajouter automatiquement les champs created_at et updated_at."""
-    created_at: Mapped[datetime.datetime] = mapped_column(
+    date_added: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP")
     )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
+    date_modified: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
         onupdate=datetime.datetime.utcnow,

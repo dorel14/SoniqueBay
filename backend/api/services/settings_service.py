@@ -86,12 +86,32 @@ class SettingsService:
 		return db_setting
 
 	def read_settings(self, db) -> list[SettingModel]:
-		"""Retourne tous les paramètres, déchiffre les valeurs si besoin."""
-		settings = db.query(SettingModel).all()
-		for setting in settings:
-			if setting.is_encrypted and setting.value:
-				setting.value = decrypt_value(setting.value)
-		return settings
+	    """Retourne tous les paramètres, déchiffre les valeurs si besoin."""
+	    import logging
+	    logger = logging.getLogger(__name__)
+	
+	    settings = db.query(SettingModel).all()
+	    logger.info(f"Nombre de paramètres trouvés: {len(settings)}")
+	
+	    for setting in settings:
+	        logger.info(f"Traitement du paramètre: {setting.key}, is_encrypted={setting.is_encrypted}, has_value={bool(setting.value)}")
+	        if setting.is_encrypted and setting.value:
+	            try:
+	                logger.info(f"Valeur chiffrée avant déchiffrement: {setting.value[:50]}...")
+	                decrypted_value = decrypt_value(setting.value)
+	                if decrypted_value:  # Vérifier si le déchiffrement a réussi
+	                    setting.value = decrypted_value
+	                    logger.info(f"Déchiffrement réussi pour {setting.key}")
+	                else:
+	                    logger.warning(f"Déchiffrement a retourné une valeur vide pour {setting.key}, conservation de la valeur chiffrée")
+	                    # Ne pas écraser avec une valeur vide, garder la valeur chiffrée pour éviter la perte de données
+	            except Exception as e:
+	                logger.error(f"Échec du déchiffrement pour {setting.key}: {str(e)}")
+	                logger.error(f"Valeur chiffrée problématique: {setting.value[:100]}...")
+	                # En cas d'échec, désactiver le chiffrement pour ce paramètre et garder la valeur chiffrée
+	                setting.is_encrypted = False
+	                logger.warning(f"Désactivation du chiffrement pour {setting.key} en raison de l'échec du déchiffrement")
+	    return settings
 
 	def read_setting(self, key: str, db) -> Optional[SettingModel]:
 		"""Retourne un paramètre par clé, crée la valeur par défaut si besoin."""

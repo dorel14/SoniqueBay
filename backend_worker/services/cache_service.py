@@ -207,6 +207,11 @@ class CacheService:
         if circuit_breaker:
             try:
                 logger.debug(f"Appel API avec circuit breaker pour {cache_name}:{key}")
+                logger.debug(f"Type de func: {type(func)}, func: {func}")
+                if not callable(func):
+                    logger.error(f"Fonction non callable passée à call_with_cache_and_circuit_breaker: {func}")
+                    raise TypeError(f"L'objet passé n'est pas callable: {type(func)}")
+
                 result = await circuit_breaker.call(func, *args, **kwargs)
 
                 # Mettre en cache le résultat

@@ -10,7 +10,6 @@ from backend.api.models.tracks_model import Track
 from backend.api.utils.database import get_session
 from sqlalchemy.orm import Session
 from datetime import datetime
-from typing import List
 
 class PlayQueueService:
     @staticmethod

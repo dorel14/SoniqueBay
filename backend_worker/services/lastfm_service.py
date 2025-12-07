@@ -1,76 +1,459 @@
-import httpx
-import base64
-from typing import Optional, Tuple
+# -*- coding: UTF-8 -*-
+"""
+Last.fm Service Refactorisé
+
+Service pour récupérer les informations Last.fm en utilisant la bibliothèque pylast.
+Ce service remplace l'ancienne implémentation basée sur des appels HTTP directs.
+"""
+
+import pylast
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Tuple
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService
 from backend_worker.services.cache_service import cache_service
 
 settings_service = SettingsService()
-# Le cache est maintenant géré par CacheService
 
-async def _fetch_lastfm_image(client: httpx.AsyncClient, artist_name: str) -> Optional[Tuple[str, str]]:
-    """Fonction interne pour récupérer l'image Last.fm (utilisée par le cache)."""
-    api_key = await settings_service.get_setting("lastfm_api_key")
-    if not api_key:
-        logger.warning("Clé API Last.fm non configurée")
-        return None
+class LastFMService:
+    """Service pour l'intégration avec l'API Last.fm utilisant pylast."""
 
-    url = "http://ws.audioscrobbler.com/2.0/"
-    params = {
-        'method': 'artist.getinfo',
-        'artist': artist_name,
-        'api_key': api_key,
-        'format': 'json',
-    }
+    def __init__(self):
+        self._network = None
+        self._cache_service = cache_service
 
-    response = await client.get(url, params=params, timeout=10)
-    if response.status_code == 200:
-        data = response.json()
-        images = data.get('artist', {}).get('image', [])
+    @property
+    def network(self) -> pylast.LastFMNetwork:
+        """Initialisation paresseuse de la connexion réseau Last.fm avec approche synchrone."""
+        if self._network is None:
+            logger.info("[LASTFM] Initializing network via lazy loading with synchronous approach...")
+            try:
+                # Récupérer les credentials de manière synchrone depuis l'API
+                import httpx
+                import os
 
-        # Chercher une image de taille intermédiaire d'abord
-        preferred_sizes = ["extralarge", "large", "mega", "medium", "small"]
-        for size in preferred_sizes:
-            for img in images:
-                if img.get("size") == size and img.get("#text"):
-                    image_url = img.get("#text")
-                    logger.info(f"Image Last.fm trouvée pour {artist_name} (taille {size})")
+                # Méthode synchrone pour obtenir les settings depuis l'API
+                def get_setting_sync(key: str) -> str:
+                    """Obtient un setting de manière synchrone depuis l'API."""
                     try:
-                        img_response = await client.get(image_url, timeout=10)
-                    except httpx.RequestError as e:
-                        logger.error(f"Timeout image Last.fm: {e}")
-                        continue
-                    if img_response.status_code == 200:
-                        image_data = base64.b64encode(img_response.content).decode('utf-8')
-                        mime_type = img_response.headers.get('content-type', 'image/jpeg')
-                        result = (f"data:{mime_type};base64,{image_data}", mime_type)
-                        return result
+                        # Utiliser httpx de manière synchrone pour éviter les conflits de boucle d'événements
+                        api_url = os.getenv('API_URL', 'http://api:8001')
+                        with httpx.Client(timeout=15.0) as client:
+                            response = client.get(f"{api_url}/api/settings/{key}")
+                            if response.status_code == 200:
+                                data = response.json()
+                                return data.get('value', '')
+                            else:
+                                logger.warning(f"[LASTFM] Could not get setting {key} from API: {response.status_code}")
+                                return ""
 
-    logger.warning(f"Aucune image Last.fm trouvée pour {artist_name}")
-    return None
+                    except Exception as e:
+                        logger.warning(f"[LASTFM] Could not get setting {key} synchronously: {e}")
+                        return ""
 
+                api_key = get_setting_sync("lastfm_api_key")
+                api_secret = get_setting_sync("lastfm_api_secret")
+                username = get_setting_sync("lastfm_api_user")
+                password = get_setting_sync("lastfm_api_password")
 
-async def get_lastfm_artist_image(client: httpx.AsyncClient, artist_name: str) -> Optional[Tuple[str, str]]:
-    """
-    Récupère l'image d'artiste depuis Last.fm avec cache et circuit breaker.
+                if not api_key or not api_secret:
+                    raise ValueError("Last.fm credentials not configured in settings")
 
-    Args:
-        client: Client HTTP asynchrone
-        artist_name: Nom de l'artiste
+                logger.info("[LASTFM] Initializing Last.fm network with pylast (synchronous)")
 
-    Returns:
-        Tuple (données_base64, type_mime) ou None
-    """
-    try:
-        # Utiliser le CacheService avec circuit breaker
-        return await cache_service.call_with_cache_and_circuit_breaker(
+                # Créer une session anonyme de manière synchrone
+                self._network = pylast.LastFMNetwork(
+                    api_key=api_key,
+                    api_secret=api_secret,
+                    username=username,
+                    password_hash=pylast.md5(password) if password else None
+                )
+
+                logger.info("[LASTFM] Last.fm network initialized with pylast")
+                logger.info(f"[LASTFM] Network object type: {type(self._network)}")
+
+                # Vérifier si l'objet réseau est une coroutine
+                import inspect
+                if inspect.iscoroutine(self._network):
+                    logger.error("[LASTFM] CRITICAL: Last.fm network is a coroutine, not initialized!")
+                    raise RuntimeError("Last.fm network initialization returned a coroutine")
+
+            except Exception as e:
+                logger.error(f"[LASTFM] Failed to initialize Last.fm network: {e}")
+                import traceback
+                logger.error(f"[LASTFM] Full traceback: {traceback.format_exc()}")
+                raise
+
+        return self._network
+
+    async def _initialize_network(self):
+        """Initialise le réseau pylast avec gestion des erreurs."""
+        try:
+            # Récupérer les credentials depuis le service de settings
+            api_key = await settings_service.get_setting("lastfm_api_key")
+            api_secret = await settings_service.get_setting("lastfm_api_secret")
+
+            if not api_key or not api_secret:
+                raise ValueError("Last.fm credentials not configured in settings")
+
+            logger.info("[LASTFM] Initializing Last.fm network with pylast")
+
+            # Créer une session anonyme (pas besoin de compte utilisateur)
+            username = await settings_service.get_setting("lastfm_api_user")
+            password = await settings_service.get_setting("lastfm_api_password")
+
+            self._network = pylast.LastFMNetwork(
+                api_key=api_key,
+                api_secret=api_secret,
+                username=username,
+                password_hash=pylast.md5(password)  # Session anonyme
+            )
+
+            logger.info("[LASTFM] Last.fm network initialized with pylast")
+            logger.info(f"[LASTFM] Network object type: {type(self._network)}")
+
+            # Vérifier si l'objet réseau est une coroutine
+            import inspect
+            if inspect.iscoroutine(self._network):
+                logger.error("[LASTFM] CRITICAL: Last.fm network is a coroutine, not initialized!")
+                raise RuntimeError("Last.fm network initialization returned a coroutine")
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to initialize Last.fm network: {e}")
+            import traceback
+            logger.error(f"[LASTFM] Full traceback: {traceback.format_exc()}")
+            raise
+
+    # ======================
+    # Fonctions principales par entité
+    # ======================
+
+    async def get_artist_info(self, artist_name: str, mb_artist_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Récupère les informations complètes d'un artiste depuis Last.fm.
+
+        Args:
+            artist_name: Nom de l'artiste à rechercher
+            mb_artist_id: MusicBrainz Artist ID pour une correspondance précise (optionnel)
+
+        Returns:
+            Dictionnaire contenant les informations de l'artiste ou None en cas d'erreur
+        """
+        cache_key = f"lastfm:artist:{artist_name.lower()}:{mb_artist_id or 'nom'}"
+        return await self._cache_service.call_with_cache_and_circuit_breaker(
             "lastfm",
-            artist_name.lower(),
-            _fetch_lastfm_image,
-            client,
+            cache_key,
+            self._fetch_artist_info,
+            artist_name, mb_artist_id
+        )
+
+    async def _fetch_artist_info(self, artist_name: str, mb_artist_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Fonction interne pour récupérer les infos artistes depuis pylast."""
+        try:
+            # Rechercher l'artiste sur Last.fm en utilisant MBID si disponible
+            if mb_artist_id:
+                logger.debug(f"[LASTFM] Utilisation de MBID {mb_artist_id} pour l'artiste {artist_name}")
+                logger.debug(f"[LASTFM] Network type before get_artist_by_mbid: {type(self.network)}")
+                logger.debug(f"[LASTFM] Network object: {self.network}")
+
+                # Vérifier si la méthode est une coroutine
+                import inspect
+                if hasattr(self.network, 'get_artist_by_mbid'):
+                    method = getattr(self.network, 'get_artist_by_mbid')
+                    logger.debug(f"[LASTFM] get_artist_by_mbid method type: {type(method)}")
+                    logger.debug(f"[LASTFM] get_artist_by_mbid is coroutine: {inspect.iscoroutinefunction(method)}")
+
+                lastfm_artist = self.network.get_artist_by_mbid(mb_artist_id)
+                logger.debug(f"[LASTFM] Artist object type: {type(lastfm_artist)}")
+                logger.debug(f"[LASTFM] Artist object: {lastfm_artist}")
+            else:
+                logger.debug(f"[LASTFM] Recherche par nom pour l'artiste {artist_name}")
+                lastfm_artist = self.network.get_artist(artist_name)
+
+            # Extraire les informations de base
+            artist_info = {
+                "url": str(lastfm_artist.get_url()),
+                "listeners": int(lastfm_artist.get_listener_count()),
+                "playcount": int(lastfm_artist.get_playcount()),
+                "tags": self._extract_tags(lastfm_artist),
+                "bio": self._get_artist_bio(lastfm_artist),
+                "images": self._get_artist_images(lastfm_artist),
+                "fetched_at": datetime.utcnow().isoformat(),
+                "musicbrainz_id": str(mb_artist_id or lastfm_artist.get_mbid())  # Conserver le MBID utilisé
+            }
+
+            logger.info(f"[LASTFM] Successfully fetched info for artist: {artist_name} (MBID: {mb_artist_id or 'N/A'})")
+            return artist_info
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to fetch artist info for {artist_name} (MBID: {mb_artist_id or 'N/A'}): {e}")
+            return None
+
+    async def get_similar_artists(self, artist_name: str, limit: int = 5) -> Optional[List[Dict[str, Any]]]:
+        """
+        Récupère les artistes similaires depuis Last.fm.
+
+        Args:
+            artist_name: Nom de l'artiste
+            limit: Nombre maximum d'artistes similaires à retourner
+
+        Returns:
+            Liste d'artistes similaires ou None en cas d'erreur
+        """
+        cache_key = f"lastfm:similar:{artist_name.lower()}:{limit}"
+        return await self._cache_service.call_with_cache_and_circuit_breaker(
+            "lastfm",
+            cache_key,
+            self._fetch_similar_artists,
+            artist_name, limit
+        )
+
+    async def _fetch_similar_artists(self, artist_name: str, limit: int) -> Optional[List[Dict[str, Any]]]:
+        """Fonction interne pour récupérer les artistes similaires."""
+        try:
+            lastfm_artist = self.network.get_artist(artist_name)
+            similar_artists = lastfm_artist.get_similar(limit=limit)
+
+            result = []
+            for similar in similar_artists:
+                similar_name = similar.item.get_name()
+                result.append({
+                    "name": similar_name,
+                    "url": similar.item.get_url(),
+                    "weight": float(similar.weight),
+                    "match": similar.item.get_match() if hasattr(similar, 'match') else None
+                })
+
+            logger.info(f"[LASTFM] Successfully fetched {len(result)} similar artists for: {artist_name}")
+            return result
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to fetch similar artists for {artist_name}: {e}")
+            return None
+
+    async def get_album_info(self, artist_name: str, album_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Récupère les informations d'un album depuis Last.fm.
+
+        Args:
+            artist_name: Nom de l'artiste
+            album_name: Nom de l'album
+
+        Returns:
+            Dictionnaire contenant les informations de l'album ou None en cas d'erreur
+        """
+        cache_key = f"lastfm:album:{artist_name.lower()}:{album_name.lower()}"
+        return await self._cache_service.call_with_cache_and_circuit_breaker(
+            "lastfm",
+            cache_key,
+            self._fetch_album_info,
+            artist_name, album_name
+        )
+
+    async def _fetch_album_info(self, artist_name: str, album_name: str) -> Optional[Dict[str, Any]]:
+        """Fonction interne pour récupérer les infos album."""
+        try:
+            lastfm_artist = self.network.get_artist(artist_name)
+            lastfm_album = lastfm_artist.get_album(album_name)
+
+            album_info = {
+                "title": lastfm_album.get_title(),
+                "artist": lastfm_album.get_artist().get_name(),
+                "url": lastfm_album.get_url(),
+                "listeners": lastfm_album.get_listener_count(),
+                "playcount": lastfm_album.get_playcount(),
+                "tracks": self._get_album_tracks(lastfm_album),
+                "tags": self._extract_tags(lastfm_album),
+                "images": self._get_album_images(lastfm_album),
+                "release_date": lastfm_album.get_release_date(),
+                "fetched_at": datetime.utcnow().isoformat()
+            }
+
+            logger.info(f"[LASTFM] Successfully fetched info for album: {album_name} by {artist_name}")
+            return album_info
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to fetch album info for {album_name} by {artist_name}: {e}")
+            return None
+
+    async def get_track_info(self, artist_name: str, track_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Récupère les informations d'une piste depuis Last.fm.
+
+        Args:
+            artist_name: Nom de l'artiste
+            track_name: Nom de la piste
+
+        Returns:
+            Dictionnaire contenant les informations de la piste ou None en cas d'erreur
+        """
+        cache_key = f"lastfm:track:{artist_name.lower()}:{track_name.lower()}"
+        return await self._cache_service.call_with_cache_and_circuit_breaker(
+            "lastfm",
+            cache_key,
+            self._fetch_track_info,
+            artist_name, track_name
+        )
+
+    async def _fetch_track_info(self, artist_name: str, track_name: str) -> Optional[Dict[str, Any]]:
+        """Fonction interne pour récupérer les infos piste."""
+        try:
+            lastfm_artist = self.network.get_artist(artist_name)
+            lastfm_track = lastfm_artist.get_track(track_name)
+
+            track_info = {
+                "title": lastfm_track.get_title(),
+                "artist": lastfm_track.get_artist().get_name(),
+                "url": lastfm_track.get_url(),
+                "listeners": lastfm_track.get_listener_count(),
+                "playcount": lastfm_track.get_playcount(),
+                "duration": lastfm_track.get_duration(),
+                "tags": self._extract_tags(lastfm_track),
+                "images": self._get_track_images(lastfm_track),
+                "fetched_at": datetime.utcnow().isoformat()
+            }
+
+            logger.info(f"[LASTFM] Successfully fetched info for track: {track_name} by {artist_name}")
+            return track_info
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to fetch track info for {track_name} by {artist_name}: {e}")
+            return None
+
+    async def get_artist_image(self, artist_name: str) -> Optional[Tuple[str, str]]:
+        """
+        Récupère l'image d'un artiste depuis Last.fm (remplace l'ancienne fonction).
+
+        Args:
+            artist_name: Nom de l'artiste
+
+        Returns:
+            Tuple (données_base64, type_mime) ou None en cas d'erreur
+        """
+        cache_key = f"lastfm:artist_image:{artist_name.lower()}"
+        return await self._cache_service.call_with_cache_and_circuit_breaker(
+            "lastfm",
+            cache_key,
+            self._fetch_artist_image,
             artist_name
         )
 
-    except Exception as e:
-        logger.error(f"Erreur récupération image Last.fm pour {artist_name}: {str(e)}")
-        return None
+    async def _fetch_artist_image(self, artist_name: str) -> Optional[Tuple[str, str]]:
+        """Fonction interne pour récupérer l'image de l'artiste."""
+        try:
+            lastfm_artist = self.network.get_artist(artist_name)
+            images = lastfm_artist.get_images()
+
+            # Chercher une image de taille intermédiaire d'abord
+            preferred_sizes = ["extralarge", "large", "mega", "medium", "small"]
+            for size in preferred_sizes:
+                for img in images:
+                    if img.get("size") == size and img.get("#text"):
+                        image_url = img.get("#text")
+                        logger.info(f"[LASTFM] Found {size} image for artist: {artist_name}")
+
+                        # Télécharger et convertir l'image en base64
+                        import httpx
+                        import base64
+                        async with httpx.AsyncClient(timeout=10) as client:
+                            img_response = await client.get(image_url, timeout=10)
+                            if img_response.status_code == 200:
+                                image_data = base64.b64encode(img_response.content).decode('utf-8')
+                                mime_type = img_response.headers.get('content-type', 'image/jpeg')
+                                return (f"data:{mime_type};base64,{image_data}", mime_type)
+
+            logger.warning(f"[LASTFM] No suitable image found for artist: {artist_name}")
+            return None
+
+        except Exception as e:
+            logger.error(f"[LASTFM] Failed to fetch artist image for {artist_name}: {e}")
+            return None
+
+    # ======================
+    # Fonctions utilitaires
+    # ======================
+
+    def _extract_tags(self, lastfm_entity) -> List[str]:
+        """Extrait les tags d'une entité Last.fm."""
+        try:
+            tags = lastfm_entity.get_top_tags(limit=10)
+            return [tag.item.get_name() for tag in tags if hasattr(tag, 'item')]
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to extract tags: {e}")
+            return []
+
+    def _get_artist_bio(self, artist: pylast.Artist) -> Optional[str]:
+        """Récupère la biographie d'un artiste."""
+        try:
+            bio = artist.get_bio_content()
+            return bio if bio else None
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to get artist bio: {e}")
+            return None
+
+    def _get_artist_images(self, artist: pylast.Artist) -> List[Dict[str, Any]]:
+        """Récupère les images d'un artiste."""
+        try:
+            images = artist.get_images()
+            return [{
+                "size": img.get("size"),
+                "url": img.get("#text")
+            } for img in images if img.get("size") and img.get("#text")]
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to get artist images: {e}")
+            return []
+
+    def _get_album_tracks(self, album: pylast.Album) -> List[Dict[str, Any]]:
+        """Récupère les pistes d'un album."""
+        try:
+            tracks = album.get_tracks()
+            return [{
+                "title": track.get_title(),
+                "duration": track.get_duration(),
+                "url": track.get_url()
+            } for track in tracks]
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to get album tracks: {e}")
+            return []
+
+    def _get_album_images(self, album: pylast.Album) -> List[Dict[str, Any]]:
+        """Récupère les images d'un album."""
+        try:
+            images = album.get_images()
+            return [{
+                "size": img.get("size"),
+                "url": img.get("#text")
+            } for img in images if img.get("size") and img.get("#text")]
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to get album images: {e}")
+            return []
+
+    def _get_track_images(self, track: pylast.Track) -> List[Dict[str, Any]]:
+        """Récupère les images d'une piste."""
+        try:
+            images = track.get_images()
+            return [{
+                "size": img.get("size"),
+                "url": img.get("#text")
+            } for img in images if img.get("size") and img.get("#text")]
+        except Exception as e:
+            logger.warning(f"[LASTFM] Failed to get track images: {e}")
+            return []
+
+# Instance globale du service
+lastfm_service = LastFMService()
+
+# Fonction autonome pour compatibilité avec les imports existants
+async def get_lastfm_artist_image(client, artist_name: str) -> Optional[Tuple[str, str]]:
+    """
+    Fonction autonome pour récupérer l'image d'un artiste depuis Last.fm.
+    Utilise l'instance globale du service LastFMService.
+
+    Args:
+        client: Client HTTP asynchrone (httpx.AsyncClient)
+        artist_name: Nom de l'artiste
+
+    Returns:
+        Tuple (données_base64, type_mime) ou None en cas d'erreur
+    """
+    return await lastfm_service.get_artist_image(artist_name)

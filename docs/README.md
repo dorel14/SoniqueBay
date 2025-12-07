@@ -59,6 +59,8 @@ Documentation spécifique aux workers et au traitement asynchrone.
 - [`SSE_PROGRESSION.md`](workers/SSE_PROGRESSION.md) - Implémentation Server-Sent Events
 - [`worker_cover_improvements_plan.md`](workers/worker_cover_improvements_plan.md) - Plan d'amélioration du traitement des covers
 - [`feature.md`](workers/feature.md) - Documentation de fonctionnalités spécifiques
+- [`backend_worker_fix_plan.md`](workers/backend_worker_fix_plan.md) - Plan de correction des problèmes de traitement des tracks (Décembre 2025)
+- [`backend_worker_implementation_summary.md`](workers/backend_worker_implementation_summary.md) - Résumé de l'implémentation des corrections (Décembre 2025)
 
 ## Utilisation Rapide
 

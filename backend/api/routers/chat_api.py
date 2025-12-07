@@ -9,7 +9,7 @@ from backend.api.services.chat_service import ChatService
 from backend.api.utils.database import get_db
 from backend.api.utils.logging import logger
 
-router = APIRouter(prefix="/api/chat", tags=["chat"])
+router = APIRouter(prefix="/chat", tags=["chat"])
 
 
 @router.post("/", response_model=ChatResponse)
@@ -74,5 +74,5 @@ async def chat_websocket(websocket: WebSocket, db: Session = Depends(get_db)):
     finally:
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass

@@ -7,7 +7,7 @@ from backend.api.utils.database import get_db
 from backend.api.utils.logging import logger
 
 
-router = APIRouter(prefix="/api/search", tags=["search"])
+router = APIRouter(prefix="/search", tags=["search"])
 
 @router.get("/typeahead")
 async def typeahead_search(

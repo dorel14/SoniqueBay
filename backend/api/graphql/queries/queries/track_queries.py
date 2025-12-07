@@ -3,6 +3,7 @@ import strawberry
 from typing import Optional
 from backend.api.graphql.types.tracks_type import TrackType
 from backend.api.graphql.types.covers_type import CoverType
+from backend.api.graphql.types.track_filter_type import TrackFilterInput
 from backend.api.services.track_service import TrackService
 
 
@@ -49,10 +50,34 @@ class TrackQueries:
         return None
 
     @strawberry.field
-    def tracks(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[TrackType]:
+    def tracks(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100, where: Optional[TrackFilterInput] = None) -> list[TrackType]:
         db = info.context.session
         service = TrackService(db)
-        tracks = service.read_tracks(skip, limit)
+
+        # Apply filtering if where clause is provided
+        if where:
+            # Convert where dict to filter criteria for the service
+            filter_criteria = {}
+            if where.artist_id:
+                filter_criteria['track_artist_id'] = where.artist_id
+            if where.album_id:
+                filter_criteria['album_id'] = where.album_id
+            if where.genre:
+                filter_criteria['genre'] = where.genre
+            if where.year:
+                filter_criteria['year'] = where.year
+
+            tracks = service.search_tracks(
+                artist=filter_criteria.get('track_artist_id'),
+                album=None,
+                genre=filter_criteria.get('genre'),
+                year=filter_criteria.get('year'),
+                skip=skip,
+                limit=limit
+            )
+        else:
+            tracks = service.read_tracks(skip, limit)
+
         result = []
         for t in tracks:
             track_data = t.__dict__

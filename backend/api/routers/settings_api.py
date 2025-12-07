@@ -5,7 +5,7 @@ from typing import List
 from backend.api.utils.database import get_db
 from backend.api.schemas.settings_schema import SettingCreate, Setting
 
-router = APIRouter(prefix="/api/settings", tags=["settings"])
+router = APIRouter(prefix="/settings", tags=["settings"])
 
 # Routes spécifiques en premier
 @router.get("/path-variables", description="Récupère les variables disponibles pour les chemins")

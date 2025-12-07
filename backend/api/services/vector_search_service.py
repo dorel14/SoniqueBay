@@ -6,7 +6,6 @@ Service for performing efficient vector similarity searches using pgvector.
 Provides fast nearest neighbor searches for tracks and artists.
 """
 
-import numpy as np
 from typing import List, Dict, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
