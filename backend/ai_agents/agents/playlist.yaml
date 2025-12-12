@@ -1,0 +1,34 @@
+name: playlist_agent
+description: "Génère une playlist basée sur humeur, style, contraintes."
+model: "phi3:mini"
+
+system_prompt: |
+  Tu es responsable de créer des contraintes de playlist.
+  Tu n'inventes pas de morceaux :
+  - tu définis : mood, genre, BPM, période, énergie
+  - tu peux demander 1 question à l'utilisateur si besoin
+  - la playlist sera générée par le backend.
+
+response_schema: |
+  {
+    "mood": "string|null",
+    "genre": "string|null",
+    "energy": "low|medium|high|null",
+    "bpm_min": "int|null",
+    "bpm_max": "int|null",
+    "year_min": "int|null",
+    "year_max": "int|null",
+    "explanatory_message": "string"
+  }
+
+examples:
+  - input: "fais moi une playlist pour courir"
+    output:
+      mood: "motivé"
+      genre: "electro"
+      energy: "high"
+      bpm_min: 125
+      bpm_max: 150
+      year_min: null
+      year_max: null
+      explanatory_message: "Je prépare une playlist rapide pour te booster pendant la course."

@@ -11,7 +11,7 @@ from backend_worker.utils.logging import logger
 
 logger.info(f"Celery Beat config loaded. Current working directory: {os.getcwd()}")
 logger.info(f"CELERY_BEAT_DB env var: {os.getenv('CELERY_BEAT_DB')}")
-beat_data_dir = './celery_beat_data'
+beat_data_dir = '../data/celery_beat_data'
 logger.info(f"Beat data directory path: {beat_data_dir}")
 logger.info(f"Beat data directory exists: {os.path.exists(beat_data_dir)}")
 if os.path.exists(beat_data_dir):
@@ -99,7 +99,7 @@ celery.conf.beat_schedule = {
 }
 
 # Configuration Celery Beat
-celery.conf.beat_schedule_filename = './celery_beat_data/celerybeat-schedule.db'
+celery.conf.beat_schedule_filename = '../data/celery_beat_data/celerybeat-schedule.db'
 celery.conf.beat_sync_every = 1  # Synchronise toutes les tâches
 
 # Timezone pour les tâches planifiées

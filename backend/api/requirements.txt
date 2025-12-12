@@ -12,3 +12,5 @@ cryptography==45.0.4
 python-dotenv==1.1.0
 strawberry-graphql==0.281.0
 strawchemy==0.18.0
+pydantic-ai==1.27.0
+watchdog==6.0.0

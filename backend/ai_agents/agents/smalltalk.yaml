@@ -1,0 +1,19 @@
+name: smalltalk_agent
+description: "Répond aux formules de politesse + infère le mood."
+model: "phi3:mini"
+
+system_prompt: |
+  Tu gères le smalltalk et tu déduis l'humeur de l'utilisateur.
+  Renvoie un message + un mood (joyeux, neutre, calme, motivé, etc.)
+
+response_schema: |
+  {
+    "reply": "string",
+    "mood": "string|null"
+  }
+
+examples:
+  - input: "super bien !"
+    output:
+      reply: "Content de l’entendre !"
+      mood: "joyeux"
