@@ -114,7 +114,6 @@ services:
             condition: service_started
         celery-worker:
             condition: service_started
-    
     ports:
       - "5555:5555"
     environment:
@@ -133,7 +132,7 @@ services:
     command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
     volumes:
       - ./backend:/app/backend
-      - db-data:/app/backend/api/data
+      - db-data:/app/backend/@data/api_data
       - music-share:/music:ro
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
@@ -150,6 +149,7 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_URL=http://ollama:11434
       - HEALTHCHECK_PORT=8001
       - PLATFORM=${PLATFORM:-windows}
       - MUSIC_PATH=/music
@@ -256,7 +256,7 @@ services:
       timesync:
         condition: service_started
       api_service:
-        condition: service_healthy
+        condition: service_started
     networks:
       default:
         aliases:
@@ -280,10 +280,10 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - CELERY_BEAT_DB=/app/backend_worker/celery_beat_data/celerybeat-schedule.db
+      - CELERY_BEAT_DB=/app/backend_worker/@data/celery_beat_data/celerybeat-schedule.db
     volumes:
       - .:/app
-      - celery-beat-data:/app/backend_worker/celery_beat_data
+      - celery-beat-data:/app/backend_worker/@data/celery_beat_data
       - ./logs:/app/logs
     command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
     networks:
@@ -326,6 +326,19 @@ services:
         condition: service_healthy
     networks:
       default:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    volumes:
+      - ./ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    entrypoint: >
+      sh -c "ollama serve &
+             sleep 4 &&
+             ollama pull microsoft/phi3-mini-4k-instruct-gguf:Q4_K_M &&
+             wait"
 
 
 volumes:
@@ -334,13 +347,13 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ${PWD}/backend_worker/redis_data
+      device: ${PWD}/data/redis_data
       o: bind
   db-data:
     driver: local
     driver_opts:
       type: none
-      device: ./backend/api/data
+      device: ./data/api_data
       o: bind
   music-share:
     driver: local
@@ -352,13 +365,13 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: ${PWD}/backend_worker/celery_beat_data
+      device: ${PWD}/data/celery_beat_data
       o: bind
   flower-data:
     driver: local
     driver_opts:
       type: none
-      device: ${PWD}/backend_worker/flower_data
+      device: ${PWD}/data/flower_data
       o: bind
   logs:
     driver: local

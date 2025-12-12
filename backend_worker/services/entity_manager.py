@@ -871,7 +871,7 @@ async def on_tracks_inserted_callback(track_data_list: List[Dict]) -> None:
     """
     Hook callback appelé après l'insertion de tracks.
     Extrait et traite les images embedded et déclenche le traitement des covers.
-    
+
     Args:
         track_data_list: Liste des données de tracks avec métadonnées d'images
     """
@@ -879,44 +879,63 @@ async def on_tracks_inserted_callback(track_data_list: List[Dict]) -> None:
         if not track_data_list:
             logger.debug("Aucune track à traiter pour les images")
             return
-            
+
         logger.info(f"[CALLBACK] Traitement images pour {len(track_data_list)} tracks")
-        
-        # Séparer les covers d'albums et images d'artistes
-        album_covers = []
-        artist_images = []
-        
+
+        # Utiliser les services existants pour traiter les covers intégrées
+        # Le traitement des covers est déjà géré dans extract_single_file_metadata
+        # qui est appelé pendant le processus d'extraction des métadonnées
+
+        # Pour les covers d'albums et images d'artistes, utiliser les services existants
         for track_data in track_data_list:
-            # Extraire les covers d'albums embedded
-            if track_data.get("cover_data"):
-                album_covers.append({
-                    "album_id": track_data.get("album_id"),
-                    "cover_data": track_data["cover_data"],
-                    "mime_type": track_data.get("cover_mime_type"),
-                    "path": track_data.get("path")
-                })
-            
-            # Extraire les images d'artistes embedded
-            if track_data.get("artist_images"):
-                artist_images.append({
-                    "artist_id": track_data.get("track_artist_id"),
-                    "images": track_data["artist_images"],
-                    "path": track_data.get("artist_path")
-                })
-        
-        # Déclencher le traitement des covers d'albums si nécessaire
-        if album_covers:
-            logger.info(f"[CALLBACK] Déclenchement traitement {len(album_covers)} covers albums depuis tracks")
-            from backend_worker.covers_tasks import process_track_covers_batch
-            task_result = process_track_covers_batch.delay(album_covers)
-            logger.info(f"[CALLBACK] Tâche covers albums depuis tracks déclenchée: {task_result.id}")
-        
-        # Déclencher le traitement des images d'artistes si nécessaire
-        if artist_images:
-            logger.info(f"[CALLBACK] Déclenchement traitement {len(artist_images)} images artistes depuis tracks")
-            from backend_worker.covers_tasks import process_artist_images_batch
-            task_result = process_artist_images_batch.delay(artist_images)
-            logger.info(f"[CALLBACK] Tâche images artistes depuis tracks déclenchée: {task_result.id}")
-            
+            try:
+                # Traiter les covers d'albums si présentes
+                if track_data.get("cover_data") and track_data.get("album_id"):
+                    album_id = track_data["album_id"]
+                    cover_data = track_data["cover_data"]
+                    mime_type = track_data.get("cover_mime_type", "image/jpeg")
+
+                    logger.info(f"[CALLBACK] Traitement cover intégrée pour album {album_id}")
+
+                    # Utiliser le service existant pour créer/mettre à jour la cover
+                    await create_or_update_cover(
+                        client=None,  # Sera créé dans la fonction
+                        entity_type="album",
+                        entity_id=album_id,
+                        cover_data=cover_data,
+                        mime_type=mime_type,
+                        url=f"embedded://{track_data.get('path', 'unknown')}"
+                    )
+
+                # Traiter les images d'artistes en utilisant les services existants
+                if track_data.get("artist_path") and track_data.get("track_artist_id"):
+                    artist_id = track_data["track_artist_id"]
+                    artist_path = track_data["artist_path"]
+
+                    logger.info(f"[CALLBACK] Recherche images pour artiste {artist_id} dans {artist_path}")
+
+                    # Utiliser la fonction existante get_artist_images pour trouver les images locales
+                    from backend_worker.services.image_service import get_artist_images
+                    artist_images = await get_artist_images(artist_path)
+
+                    if artist_images:
+                        logger.info(f"[CALLBACK] Trouvé {len(artist_images)} images locales pour artiste {artist_id}")
+
+                        for image_data, image_mime_type in artist_images:
+                            await create_or_update_cover(
+                                client=None,
+                                entity_type="artist",
+                                entity_id=artist_id,
+                                cover_data=image_data,
+                                mime_type=image_mime_type,
+                                url=f"local://{artist_path}"
+                            )
+                    else:
+                        logger.info(f"[CALLBACK] Aucune image locale trouvée pour artiste {artist_id}")
+
+            except Exception as e:
+                logger.error(f"[CALLBACK] Erreur traitement images pour track {track_data.get('id', 'unknown')}: {str(e)}")
+                continue
+
     except Exception as e:
         logger.error(f"[CALLBACK] Erreur lors du traitement des images depuis tracks: {str(e)}")

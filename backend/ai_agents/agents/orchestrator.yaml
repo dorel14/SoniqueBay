@@ -1,0 +1,29 @@
+name: orchestrator
+description: "Agent maître qui identifie l’intention et route vers le bon agent."
+model: "phi3:mini"
+
+intents:
+  search:
+    keywords: ["cherche", "recherche", "trouve", "sons", "musique", "titre", "artiste"]
+    route_to: "search_agent"
+
+  playlist:
+    keywords: ["playlist", "mix", "selection", "mets moi", "fais moi une playlist"]
+    route_to: "playlist_agent"
+
+  action:
+    keywords: ["scan", "rescanner", "recalcule", "recompute", "nettoie", "télécharge"]
+    route_to: "action_agent"
+
+  smalltalk:
+    keywords: ["bonjour", "salut", "ça va", "comment vas-tu", "merci"]
+    route_to: "smalltalk_agent"
+
+fallback_agent: "search_agent"
+
+output_format: |
+  {
+    "intent": "<intent>",
+    "agent": "<agent>",
+    "confidence": <0-1>
+  }

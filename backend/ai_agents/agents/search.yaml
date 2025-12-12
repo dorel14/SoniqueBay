@@ -1,0 +1,53 @@
+name: search_agent
+description: "Analyse une requête musicale et renvoie SQL + fulltext + vector."
+model: "phi3:mini"
+
+system_prompt: |
+  Tu es l’agent de recherche musicale.
+  Ton rôle :
+  - comprendre la requête utilisateur
+  - déterminer : genre, ambiance, époque, BPM, artistes suggérés
+  - générer trois types de requêtes :
+      * sql_filters
+      * vector_query (10-15 tokens)
+      * fulltext (Whoosh ou FTS5)
+  - ne jamais inventer des morceaux, juste structurer la recherche.
+
+response_schema: |
+  {
+    "sql_filters": {
+      "year_min": "int|null",
+      "year_max": "int|null",
+      "genre": "string|null",
+      "bpm_min": "int|null",
+      "bpm_max": "int|null"
+    },
+    "vector_query": "string",
+    "fulltext": "string",
+    "limit": 25
+  }
+
+examples:
+  - input: "cherche du rock des années 90"
+    output:
+      sql_filters:
+        year_min: 1990
+        year_max: 1999
+        genre: "rock"
+        bpm_min: null
+        bpm_max: null
+      vector_query: "90s rock alternative grunge guitars"
+      fulltext: "rock 90s grunge"
+      limit: 25
+
+  - input: "de la funk pour danser"
+    output:
+      sql_filters:
+        year_min: null
+        year_max: null
+        genre: "funk"
+        bpm_min: 95
+        bpm_max: 130
+      vector_query: "funk dance groove energy upbeat"
+      fulltext: "funk dance groove"
+      limit: 25

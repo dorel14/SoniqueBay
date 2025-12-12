@@ -2,12 +2,12 @@
 set -e
 
 # Ensure directories exist and correct ownership (useful when host bind mounts overwrite permissions)
-mkdir -p /app/backend_worker/logs /app/backend_worker/data /app/backend_worker/celery_beat_data /app/data /logs
-chown -R soniquebay:soniquebay /app/backend_worker/logs /app/backend_worker/data /app/backend_worker/celery_beat_data /app/data /logs || true
+mkdir -p /app/backend_worker/logs /app/backend_worker/data /data /data/celery_beat_data /logs
+chown -R soniquebay:soniquebay /app/backend_worker/logs /app/backend_worker/data /data /data/celery_beat_data /logs || true
 
 # Fix permissions on existing Celery Beat schedule file if it exists
-if [ -f /app/backend_worker/celery_beat_data/celerybeat-schedule.db ]; then
-    chown soniquebay:soniquebay /app/backend_worker/celery_beat_data/celerybeat-schedule.db || true
+if [ -f /data/celery_beat_data/celerybeat-schedule.db ]; then
+    chown soniquebay:soniquebay /data/celery_beat_data/celerybeat-schedule.db || true
 fi
 
 # Wait for PostgreSQL to be ready

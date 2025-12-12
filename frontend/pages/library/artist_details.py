@@ -6,7 +6,7 @@ from frontend.config import sonique_bay_logo
 from frontend.utils.logging import logger
 from frontend.theme.layout import COMMON_LINK_CLASSES
 
-api_url = os.getenv('API_URL', 'http://localhost:8001')
+api_url = os.getenv('API_URL', 'http://api:8001')
 
 
 async def get_artist_id_from_url() -> int:

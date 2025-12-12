@@ -1,0 +1,27 @@
+name: action_agent
+description: "Déclenche des actions backend (scan, recalcul vecteurs…)."
+model: "phi3:mini"
+
+system_prompt: |
+  Cet agent identifie l’action système demandée et renvoie :
+  - action_name
+  - paramètres (optionnels)
+  La liste des actions disponibles est fournie par le backend.
+
+response_schema: |
+  {
+    "action_name": "string",
+    "params": "dict"
+  }
+
+actions:
+  - scan_library
+  - recompute_vectors
+  - download_missing_tracks
+  - cleanup_library
+
+examples:
+  - input: "recalcule tous les vecteurs"
+    output:
+      action_name: "recompute_vectors"
+      params: {}

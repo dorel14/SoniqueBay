@@ -249,7 +249,6 @@ async def process_genres_and_tags_for_tracks(client: httpx.AsyncClient, tracks_d
         logger.error(f"[TAGS] Erreur lors du traitement des genres et tags: {str(e)}")
         # Ne pas lever d'exception pour ne pas bloquer l'insertion des tracks
 
-
 async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: Dict[str, int],
                                    artists_data: List[Dict], albums_data: List[Dict], tracks_data: List[Dict]) -> None:
     """

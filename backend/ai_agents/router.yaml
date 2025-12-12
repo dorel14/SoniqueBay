@@ -1,0 +1,43 @@
+# router.yaml
+version: "1.0"
+
+router:
+  description: "Routeur principal entre les agents SoniqueBay selon la requête utilisateur"
+
+  entrypoint: router_agent
+
+  agents:
+    - name: ingest_agent
+      path: agents/ingest.yaml
+    - name: vectorizer_agent
+      path: agents/vectorizer.yaml
+    - name: search_agent
+      path: agents/search.yaml
+    - name: playlist_agent
+      path: agents/playlist.yaml
+    - name: metadata_agent
+      path: agents/metadata.yaml
+    - name: orchestrator
+      path: orchestrator.yaml
+
+  routing_rules:
+    - match: "scan|import|bibliothèque|répertoire"
+      send_to: ingest_agent
+
+    - match: "vector|embedding|vecteur|tags_custom"
+      send_to: vectorizer_agent
+
+    - match: "recherche|search|find|query"
+      send_to: search_agent
+
+    - match: "playlist|queue|m3u|generated"
+      send_to: playlist_agent
+
+    - match: "metadata|tags|info|analyse"
+      send_to: metadata_agent
+
+    - match: "orchestrate|workflow|pipeline"
+      send_to: orchestrator
+
+  fallback:
+    send_to: orchestrator

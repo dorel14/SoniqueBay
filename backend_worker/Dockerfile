@@ -78,7 +78,7 @@ RUN --mount=type=cache,target=/var/cache/apt/runner \
     # Créer l'utilisateur soniquebay
     groupadd -r soniquebay && useradd -r -g soniquebay soniquebay && \
     # Créer les répertoires de données et logs avec permissions correctes
-    mkdir -p /data /logs /app/backend_worker/logs /app/backend_worker/data && \
+    mkdir -p /data /logs /app/backend_worker/logs /app/backend_worker/data /data/celery_beat_data && \
     chown -R soniquebay:soniquebay /data /logs /app/backend_worker/logs /app/backend_worker/data
 
 # Copier l'entrypoint qui appliquera chown sur les volumes montés au démarrage
