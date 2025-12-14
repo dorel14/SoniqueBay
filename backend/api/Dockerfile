@@ -25,6 +25,7 @@ WORKDIR /app
 
 # Copie et installation des dépendances
 COPY requirements.txt .
+
 RUN uv pip install --system -r requirements.txt
 
 # Vérification et installation forcée d'uvicorn si nécessaire

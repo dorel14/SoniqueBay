@@ -102,8 +102,26 @@ class DeferredQueueService:
             if not tasks:
                 return None
 
+            # Debug: Vérifie le format des données Redis
+            logger.debug(f"[DEFERRED_QUEUE] Tasks raw data: {tasks}")
+            logger.debug(f"[DEFERRED_QUEUE] Task[0] type: {type(tasks[0])}, content: {tasks[0]}")
+
+            # Vérification de sécurité avant dépaquetage
+            if not isinstance(tasks[0], (list, tuple)) or len(tasks[0]) != 2:
+                logger.error(f"[DEFERRED_QUEUE] Format inattendu pour task[0]: {tasks[0]}")
+                return None
+
             task_json, score = tasks[0]
-            task = json.loads(task_json)
+            logger.debug(f"[DEFERRED_QUEUE] Dépaquetage réussi: task_json length={len(task_json)}, score={score}")
+
+            try:
+                task = json.loads(task_json)
+                logger.debug(f"[DEFERRED_QUEUE] Tâche désérialisée: {task.get('id', 'ID inconnu')}")
+            except json.JSONDecodeError as e:
+                logger.error(f"[DEFERRED_QUEUE] Erreur JSON decode pour task {task_json[:100]}...: {str(e)}")
+                # Nettoie la tâche corrompue
+                self.redis.zrem(queue_key, task_json)
+                return None
 
             # Vérifie si c'est le moment de traiter
             if task["process_at"] > time.time():

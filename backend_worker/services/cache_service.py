@@ -125,6 +125,10 @@ class CacheService:
         # Cache pour les analyses audio
         self.caches["audio_analysis"] = TTLCache(maxsize=2000, ttl=604800)  # 1 semaine
 
+        # Cache pour les appels API de recherche d'artistes (pour éviter les appels répétés)
+        self.caches["artist_search"] = TTLCache(maxsize=1000, ttl=3600)  # 1h
+        self.circuit_breakers["artist_search"] = CircuitBreaker(failure_threshold=5, recovery_timeout=60)
+
         logger.info("CacheService initialisé avec caches TTL")
 
     def get(self, cache_name: str, key: str) -> Optional[Any]:

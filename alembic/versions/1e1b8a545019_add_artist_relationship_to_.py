@@ -192,8 +192,8 @@ def downgrade() -> None:
                nullable=True,
                existing_server_default=sa.text('CURRENT_TIMESTAMP'))
         batch_op.alter_column('entity_type',
-               existing_type=sa.Enum('TRACK', 'ALBUM', 'ARTIST', name='entitycovertype'),
-               type_=postgresql.ENUM('TRACK', 'ALBUM', 'ARTIST', name='entitycovertype'),
+               existing_type=sa.Enum('TRACK', 'ALBUM', 'ARTIST', name='covertype'),
+               type_=postgresql.ENUM('TRACK', 'ALBUM', 'ARTIST', name='covertype'),
                existing_nullable=False)
 
     with op.batch_alter_table('artists', schema=None) as batch_op:

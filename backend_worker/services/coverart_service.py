@@ -8,20 +8,49 @@ async def get_coverart_image(client: httpx.AsyncClient, mb_release_id: str) -> O
     """Récupère l'image de cover depuis Cover Art Archive."""
     try:
         if not mb_release_id:
+            logger.warning(f"[COVERART] MBID vide fourni")
             return None
 
         url = f"https://coverartarchive.org/release/{mb_release_id}/front"
-        response = await client.get(url, timeout=10)
+        logger.info(f"[COVERART] Requête vers {url}")
 
-        if response.status_code == 200:
-            image_data = response.content
-            mime_type = response.headers.get('content-type', 'image/jpeg')
-            logger.info(f"Cover trouvée sur Cover Art Archive pour {mb_release_id}")
+        # Suivre manuellement les redirections si nécessaire
+        max_redirects = 5
+        current_url = url
 
-            # Convertir en base64
-            image_data = f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
-            return image_data, mime_type
+        for _ in range(max_redirects):
+            response = await client.get(current_url, timeout=10, follow_redirects=False)
+            logger.info(f"[COVERART] Réponse: status={response.status_code}, url={current_url}")
 
+            if response.status_code in (301, 302, 307, 308):
+                # Redirection
+                location = response.headers.get('location')
+                logger.info(f"[COVERART] Headers de redirection: {dict(response.headers)}")
+                if location:
+                    if location.startswith('http'):
+                        current_url = location
+                    else:
+                        # URL relative
+                        from urllib.parse import urljoin
+                        current_url = urljoin(current_url, location)
+                    logger.info(f"[COVERART] Redirection vers {current_url}")
+                    continue
+                else:
+                    logger.warning(f"[COVERART] Redirection sans location header")
+                    return None
+            elif response.status_code == 200:
+                image_data = response.content
+                mime_type = response.headers.get('content-type', 'image/jpeg')
+                logger.info(f"Cover trouvée sur Cover Art Archive pour {mb_release_id} (taille: {len(image_data)} bytes)")
+
+                # Convertir en base64
+                image_data = f"data:{mime_type};base64,{base64.b64encode(image_data).decode('utf-8')}"
+                return image_data, mime_type
+            else:
+                logger.warning(f"[COVERART] Cover non trouvée pour {mb_release_id}: status {response.status_code}")
+                return None
+
+        logger.warning(f"[COVERART] Trop de redirections pour {mb_release_id}")
         return None
 
     except Exception as e:

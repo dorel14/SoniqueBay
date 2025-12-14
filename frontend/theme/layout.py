@@ -19,6 +19,7 @@ CUSTOM_LABELS = {
     'downloads': '⬇️ Téléchargements',
     'settings': '⚙️ Paramètres',
     'api_docs': '📚 Documentation API',
+    'agents_editor': '🤖 Editeur d\'Agents'
 }
 
 
@@ -122,35 +123,89 @@ async def delete_scan_session(session_id: str, dialog) -> None:
 async def refresh_library():
     """Actualise la bibliothèque musicale."""
 
-    async with httpx.AsyncClient() as http_client: # Renommé pour éviter la confusion avec le paramètre client
+    async with httpx.AsyncClient() as http_client:
         try:
-            logger.info("Recherche d'une actualisation de bibliothèque en cours...")
-            response = await http_client.get(f"{API_URL}/api/scan-sessions")
+            logger.info(f"Recherche d'une actualisation de bibliothèque en cours... URL: {API_URL}/api/scan-sessions/")
+            response = await http_client.get(f"{API_URL}/api/scan-sessions/")
+            logger.info(f"Réponse reçue avec status code: {response.status_code}")
+
             if response.status_code == 200:
                 sessions = response.json()
+                logger.info(f"Sessions de scan trouvées: {len(sessions)}")
+
+                # Définir la fonction start_new_scan au niveau supérieur pour qu'elle soit accessible partout
+                async def start_new_scan():
+                    """Lance un nouveau scan"""
+                    async with httpx.AsyncClient() as client:
+                        try:
+                            response = await client.post(f"{API_URL}/api/scan")
+                            if response.status_code in (200, 201):
+                                logger.info("Lancement de l'actualisation de la bibliothèque...")
+                                task_id = response.json().get('task_id')
+                                # Enregistre le handler pour ce task_id
+                                handler = make_progress_handler(task_id)
+                                register_sse_handler(handler)
+                            else:
+                                logger.error(f"Erreur lors de l'actualisation de la bibliothèque: {response.status_code}")
+                        except httpx.RequestError as e:
+                            logger.error(f"Erreur de requête HTTP: {e}")
+
+                # Vérifier si une session est déjà en cours
+                active_session = None
                 for session in sessions:
                     if session['status'] in ('running', 'pending'):
-                        logger.info("Une actualisation de bibliothèque est déjà en cours.")
-                        with ui.dialog() as dialog:
+                        active_session = session
+                        break
+
+                if active_session:
+                    logger.info(f"Une actualisation de bibliothèque est déjà en cours avec status: {active_session['status']}")
+                    logger.info(f"Session ID: {active_session.get('id')}")
+
+                    session_id = active_session.get('id')
+
+                    # Créer une fonction pour gérer le flux après la décision de l'utilisateur
+                    async def handle_user_decision(should_cancel: bool):
+                        if should_cancel:
+                            # Annuler la session existante
+                            async with httpx.AsyncClient() as client:
+                                try:
+                                    delete_response = await client.delete(f"{API_URL}/api/scan-sessions/{session_id}")
+                                    if delete_response.status_code == 200:
+                                        logger.info(f"Session de scan {session_id} supprimée avec succès.")
+                                        # Continuer avec le nouveau scan
+                                        await start_new_scan()
+                                        dialog.close()
+                                    else:
+                                        logger.error(f"Erreur lors de la suppression de la session de scan {session_id}: {delete_response.status_code}")
+                                except httpx.RequestError as e:
+                                    logger.error(f"Erreur de requête HTTP lors de la suppression de la session de scan {session_id}: {e}")
+                        else:
+                            # Ne pas annuler, donc ne pas lancer de nouveau scan
+                            logger.info("L'utilisateur a choisi de ne pas annuler la session en cours")
+                            dialog.close()
+
+                    # Créer la boîte de dialogue
+                    with ui.dialog() as dialog:
+                        with ui.card():
                             ui.label("Une actualisation de la bibliothèque est déjà en cours, voulez-vous l'annuler ?")
-                            ui.button('OK', on_click=delete_scan_session(session.get('id'), dialog)).props('flat color=primary')
+
+                            with ui.row():
+                                ui.button('Oui', on_click=lambda: asyncio.create_task(handle_user_decision(True))).props('flat color=primary')
+                                ui.button('Non', on_click=lambda: asyncio.create_task(handle_user_decision(False))).props('flat color=primary')
+
+                    dialog.open()
+                    logger.info("Boîte de dialogue ouverte, en attente de la décision de l'utilisateur")
+
+                else:
+                    # Aucune session active, lancer directement le scan
+                    await start_new_scan()
+
             else:
-                logger.info(f"Erreur lors de la vérification des sessions de scan: {response.status_code}")
+                logger.error(f"Erreur lors de la vérification des sessions de scan: {response.status_code}")
+                logger.error(f"Contenu de la réponse: {response.text}")
+
         except httpx.RequestError as e:
-            logger.info(f"Erreur de requête HTTP lors de la vérification des sessions de scan: {e}")
-            return
-        try:
-            response = await http_client.post(f"{API_URL}/api/scan")
-            if response.status_code in (200, 201):
-                logger.info("Lancement de l'actualisation de la bibliothèque...")
-                task_id = response.json().get('task_id')
-                # Enregistre le handler pour ce task_id
-                handler = make_progress_handler(task_id)
-                register_sse_handler(handler)
-            else:
-                logger.info(f"Erreur lors de l'actualisation de la bibliothèque: {response.status_code}")
-        except httpx.RequestError as e:
-            logger.info(f"Erreur de requête HTTP: {e}")
+            logger.error(f"Erreur de requête HTTP lors de la vérification des sessions de scan: {e}")
 
 
 def left_menu() -> None:

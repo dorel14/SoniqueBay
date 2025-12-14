@@ -3,9 +3,10 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session, Mapped, mapped_column
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import MetaData, DateTime
 import datetime
-
+from urllib.parse import quote_plus
 load_dotenv()
 
 # Créer Base avant toute autre opération
@@ -31,16 +32,46 @@ class TimestampMixin:
         onupdate=datetime.datetime.utcnow,
     )
 
+
+
+
 def get_database_url():
-    return (f"postgresql://{os.getenv('POSTGRES_USER', 'postgres')}:"
-            f"{os.getenv('POSTGRES_PASSWORD', '')}@"
-            f"{os.getenv('POSTGRES_HOST', 'db')}:"
-            f"{os.getenv('POSTGRES_PORT', '5432')}/"
-            f"{os.getenv('POSTGRES_DB', 'musicdb')}")
+    """Retourne l'URL de base de données avec credentials encodés pour utilisation avec SQLAlchemy."""
+    user = quote_plus(os.getenv('POSTGRES_USER', 'postgres'))
+    password = quote_plus(os.getenv('POSTGRES_PASSWORD', ''))
+    host = os.getenv('POSTGRES_HOST', 'db')
+    port = os.getenv('POSTGRES_PORT', '5432')
+    db = os.getenv('POSTGRES_DB', 'musicdb')
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
+def get_database_url_raw():
+    """Retourne l'URL de base de données SANS encodage des credentials pour utilisation directe avec le dialecte."""
+    user = os.getenv('POSTGRES_USER', 'postgres')
+    password = os.getenv('POSTGRES_PASSWORD', '')
+    host = os.getenv('POSTGRES_HOST', 'db')
+    port = os.getenv('POSTGRES_PORT', '5432')
+    db = os.getenv('POSTGRES_DB', 'musicdb')
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
+def get_async_database_url():
+    """Retourne l'URL de base de données async avec credentials encodés."""
+    user = quote_plus(os.getenv('POSTGRES_USER', 'postgres'))
+    password = quote_plus(os.getenv('POSTGRES_PASSWORD', ''))
+    host = os.getenv('POSTGRES_HOST', 'db')
+    port = os.getenv('POSTGRES_PORT', '5432')
+    db = os.getenv('POSTGRES_DB', 'musicdb')
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+
+
 
 # Créer l'engine après la définition de l'URL
 engine = create_engine(get_database_url())
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+asyncEngine = create_async_engine(get_async_database_url(), future=True, echo=False)
+AsyncSessionLocal = sessionmaker(asyncEngine, class_=AsyncSession, expire_on_commit=False)
+
 
 def get_db():
     db = SessionLocal()
@@ -53,5 +84,9 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+def get_async_session():
+    with AsyncSessionLocal() as session:
+        yield session
+
 # Exporter les éléments nécessaires
-__all__ = ['Base', 'TimestampMixin', 'SessionLocal', 'get_db', 'engine']
+__all__ = ['Base', 'TimestampMixin', 'SessionLocal', 'AsyncSessionLocal','get_db', 'engine','asyncEngine','get_session','get_async_session', 'get_database_url_raw']

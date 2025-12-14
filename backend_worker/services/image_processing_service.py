@@ -357,31 +357,32 @@ class ImageProcessingService:
             return image
     
     async def _image_to_base64(self, image: Image.Image, target_size: str, quality: Optional[int] = None) -> Tuple[str, str]:
-        """Convertit une image PIL en base64."""
+        """Convertit une image PIL en base64 avec format complet."""
         try:
             output_buffer = io.BytesIO()
-            
+
             # Détermination du format et de la qualité
             image_format = self.preferred_format
             save_quality = quality or self.quality_settings.get(target_size, 85)
-            
+
             save_kwargs = {
                 "format": image_format,
                 "optimize": True
             }
-            
+
             if image_format == "JPEG":
                 save_kwargs["quality"] = save_quality
                 save_kwargs["progressive"] = True
-            
+
             image.save(output_buffer, **save_kwargs)
-            
-            # Conversion en base64
+
+            # Conversion en base64 avec format complet
             image_data = base64.b64encode(output_buffer.getvalue()).decode('utf-8')
             mime_type = f"image/{image_format.lower()}"
-            
+
+            # Retourner toujours le format complet data:image/...;base64,...
             return f"data:{mime_type};base64,{image_data}", mime_type
-            
+
         except Exception as e:
             logger.error(f"[IMAGE_PROCESSING] Erreur conversion base64: {e}")
             return None, None

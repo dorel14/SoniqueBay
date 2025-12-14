@@ -16,6 +16,7 @@ spinner = None
 
 async def get_page_from_url() -> int:
     url = await ui.run_javascript('window.location.href', timeout=5.0)
+    logger.info(f"URL from JavaScript: {url}")
     query = parse_qs(urlparse(url).query)
     logger.info(f"Query parameters from URL: {query}")
     return int(query.get("page", [1])[0])
@@ -81,8 +82,32 @@ async def artist_view(page: int):
             ).on('click', lambda e, a=artist['id']: on_artist_click(a)):
 
                     cover_data = artist.get('covers')
+                    logger.info(f"Données de cover pour l'artiste {artist['id']}: {cover_data}")
                     if cover_data and len(cover_data) > 0:
-                        ui.image(cover_data[0].get('cover_data', '')).classes('aspect-[4/3] w-full object-cover')
+                        cover_value = cover_data[0].get('cover_data', '')
+                        mime_type = cover_data[0].get('mime_type', 'image/png')  # Récupérer le type MIME, par défaut image/png
+                        logger.info(f"Valeur de cover_data: {cover_value[:100]}...")  # Log des 100 premiers caractères
+                        logger.info(f"Type de cover_data: {type(cover_value)}")
+                        logger.info(f"Longueur de cover_data: {len(cover_value) if cover_value else 0}")
+                        logger.info(f"Type MIME: {mime_type}")
+                
+                        if cover_value:
+                            # Vérifier si c'est une URL base64 valide
+                            if cover_value.startswith('data:image/'):
+                                ui.image(cover_value).classes('aspect-[4/3] w-full object-cover')
+                            else:
+                                # Les données semblent être des données base64 brutes, les formater correctement
+                                try:
+                                    # Construire l'URL base64 complète
+                                    base64_data = f"data:{mime_type};base64,{cover_value}"
+                                    logger.info(f"Conversion réussie en base64 pour l'artiste {artist['id']}")
+                                    ui.image(base64_data).classes('aspect-[4/3] w-full object-cover')
+                                except Exception as e:
+                                    logger.error(f"Erreur lors de la conversion base64 pour l'artiste {artist['id']}: {e}")
+                                    ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
+                        else:
+                            logger.warning(f"cover_data est vide pour l'artiste {artist['id']}")
+                            ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
                     else:
                         logger.warning(f"Aucun cover trouvé pour l'artiste {artist['id']}, utilisation du logo par défaut.")
                         ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')

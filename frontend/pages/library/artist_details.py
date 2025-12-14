@@ -85,12 +85,21 @@ async def artist_container(artist_id: int):
                 with ui.card().classes('w-48 h-48'):
                     try:
                         if artist_data and artist_data['covers']:
-                            cover_data = artist_data['covers'][0]['cover_data']
+                            cover_value = artist_data['covers'][0]['cover_data']
+                            mime_type = artist_data['covers'][0].get('mime_type', 'image/png')
+
+                            # Vérifier si c'est une URL base64 valide
+                            if cover_value and not cover_value.startswith('data:image/'):
+                                # Les données semblent être des données base64 brutes, les formater correctement
+                                cover_data = f"data:{mime_type};base64,{cover_value}"
+                                logger.info(f"Conversion base64 réussie pour l'artiste {artist_id}")
+                            else:
+                                cover_data = cover_value
                         else:
                             logger.warning(f"Aucun cover trouvé pour l'artiste {artist_id}, utilisation du logo par défaut.")
                             cover_data = sonique_bay_logo
-                    except (IndexError, KeyError, TypeError):
-                        logger.warning(f"Erreur lors de l'extraction du cover pour l'artiste {artist_id}, utilisation du logo par défaut.")
+                    except (IndexError, KeyError, TypeError) as e:
+                        logger.warning(f"Erreur lors de l'extraction du cover pour l'artiste {artist_id}: {e}, utilisation du logo par défaut.")
                         cover_data = sonique_bay_logo
                     ui.image(cover_data).classes('w-full h-full object-cover')
                 # Zone infos artiste
@@ -113,7 +122,16 @@ async def artist_container(artist_id: int):
                             # Check if album is a dictionary before calling get()
                             if isinstance(album, dict):
                                 if album.get('covers') and isinstance(album.get('covers'), list) and len(album.get('covers')) > 0:
-                                    cover_data = album['covers'][0].get('cover_data', sonique_bay_logo)
+                                    cover_value = album['covers'][0].get('cover_data', '')
+                                    mime_type = album['covers'][0].get('mime_type', 'image/png')
+
+                                    # Vérifier si c'est une URL base64 valide
+                                    if cover_value and not cover_value.startswith('data:image/'):
+                                        # Les données semblent être des données base64 brutes, les formater correctement
+                                        cover_data = f"data:{mime_type};base64,{cover_value}"
+                                        logger.info(f"Conversion base64 réussie pour l'album {album.get('title', 'inconnu')}")
+                                    else:
+                                        cover_data = cover_value
                                 else:
                                     logger.warning(f"Aucun cover trouvé pour l'album {album.get('title', 'inconnu')}, utilisation du logo par défaut.")
                                     cover_data = sonique_bay_logo

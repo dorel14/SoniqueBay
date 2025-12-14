@@ -26,6 +26,10 @@ celery_beat_data/
 flower_data/
 pg_db/
 _old/
+./ollama/*id_ed25519
+ollama/*.pub*
+ollama/models/
+.continue/
 
 # Database files
 *.db

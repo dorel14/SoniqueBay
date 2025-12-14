@@ -52,9 +52,9 @@ class LastFMService:
                         return ""
 
                 api_key = get_setting_sync("lastfm_api_key")
-                api_secret = get_setting_sync("lastfm_api_secret")
-                username = get_setting_sync("lastfm_api_user")
-                password = get_setting_sync("lastfm_api_password")
+                api_secret = get_setting_sync("lastfm_shared_secret")
+                username = get_setting_sync("lastfm_user")
+                password = get_setting_sync("lastfm_password")
 
                 if not api_key or not api_secret:
                     raise ValueError("Last.fm credentials not configured in settings")
@@ -91,7 +91,7 @@ class LastFMService:
         try:
             # Récupérer les credentials depuis le service de settings
             api_key = await settings_service.get_setting("lastfm_api_key")
-            api_secret = await settings_service.get_setting("lastfm_api_secret")
+            api_secret = await settings_service.get_setting("lastfm_shared_secret")
 
             if not api_key or not api_secret:
                 raise ValueError("Last.fm credentials not configured in settings")
@@ -99,8 +99,8 @@ class LastFMService:
             logger.info("[LASTFM] Initializing Last.fm network with pylast")
 
             # Créer une session anonyme (pas besoin de compte utilisateur)
-            username = await settings_service.get_setting("lastfm_api_user")
-            password = await settings_service.get_setting("lastfm_api_password")
+            username = await settings_service.get_setting("lastfm_user")
+            password = await settings_service.get_setting("lastfm_password")
 
             self._network = pylast.LastFMNetwork(
                 api_key=api_key,
@@ -342,14 +342,13 @@ class LastFMService:
         """Fonction interne pour récupérer l'image de l'artiste."""
         try:
             lastfm_artist = self.network.get_artist(artist_name)
-            images = lastfm_artist.get_images()
 
             # Chercher une image de taille intermédiaire d'abord
             preferred_sizes = ["extralarge", "large", "mega", "medium", "small"]
             for size in preferred_sizes:
-                for img in images:
-                    if img.get("size") == size and img.get("#text"):
-                        image_url = img.get("#text")
+                try:
+                    image_url = lastfm_artist.get_image(size)
+                    if image_url:
                         logger.info(f"[LASTFM] Found {size} image for artist: {artist_name}")
 
                         # Télécharger et convertir l'image en base64
@@ -361,6 +360,8 @@ class LastFMService:
                                 image_data = base64.b64encode(img_response.content).decode('utf-8')
                                 mime_type = img_response.headers.get('content-type', 'image/jpeg')
                                 return (f"data:{mime_type};base64,{image_data}", mime_type)
+                except:
+                    continue
 
             logger.warning(f"[LASTFM] No suitable image found for artist: {artist_name}")
             return None
@@ -394,11 +395,20 @@ class LastFMService:
     def _get_artist_images(self, artist: pylast.Artist) -> List[Dict[str, Any]]:
         """Récupère les images d'un artiste."""
         try:
-            images = artist.get_images()
-            return [{
-                "size": img.get("size"),
-                "url": img.get("#text")
-            } for img in images if img.get("size") and img.get("#text")]
+            # pylast.Artist may not have get_images(), try get_image() for different sizes
+            images = []
+            sizes = ["small", "medium", "large", "extralarge", "mega"]
+            for size in sizes:
+                try:
+                    image_url = artist.get_image(size)
+                    if image_url:
+                        images.append({
+                            "size": size,
+                            "url": image_url
+                        })
+                except:
+                    continue
+            return images
         except Exception as e:
             logger.warning(f"[LASTFM] Failed to get artist images: {e}")
             return []

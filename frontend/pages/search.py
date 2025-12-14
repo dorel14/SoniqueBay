@@ -3,7 +3,14 @@ import httpx
 import os
 from frontend.utils.logging import logger
 
-API_URL = os.getenv('API_URL', 'http://library:8001')
+# Ajout de logs pour diagnostiquer le problème d'URL
+logger.info(f"API_URL environment variable: {os.getenv('API_URL')}")
+API_URL = os.getenv('API_URL', 'http://api:8001')
+logger.info(f"Final API_URL used: {API_URL}")
+
+# Vérification si l'URL semble problématique
+if 'library' in API_URL and 'localhost' not in API_URL:
+    logger.warning(f"Potential URL issue detected: {API_URL} - This might cause frontend to use incorrect endpoint")
 
 async def perform_search(query: str, page: int = 1, page_size: int = 20):
     """Effectue une recherche complète avec facettes."""

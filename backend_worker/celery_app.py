@@ -305,7 +305,7 @@ task_routes = {
     'metadata.enrich_batch': {'queue': 'deferred'},
 
     # === WORKERS DEFERRED (TÂCHES RÉELLEMENT DÉFINIES) ===
-    'worker_deferred_enrichment.*': {'queue': 'deferred'},
+    'worker_deferred_enrichment.*': {'queue': 'deferred_enrichment'},
 
     # === MONITORING VECTORISATION ===
     'monitor_tag_changes': {'queue': 'vectorization_monitoring'},
@@ -348,10 +348,16 @@ def configure_worker(sender=None, **kwargs):
     logger.info(f"[WORKER] {worker_name} configuré pour écouter les queues: {all_queues}")
 
     # Appliquer la configuration des queues avec priorités
-    sender.app.control.add_consumer(
-        queue=all_queues,
-        destination=[worker_name]
-    )
+    # Corriger l'appel add_consumer - il faut ajouter chaque queue individuellement
+    for queue_name in all_queues:
+        try:
+            sender.app.control.add_consumer(
+                queue=queue_name,
+                destination=[worker_name]
+            )
+            logger.info(f"[WORKER] Consommateur ajouté pour queue: {queue_name}")
+        except Exception as e:
+            logger.error(f"[WORKER] Échec ajout consommateur pour queue {queue_name}: {str(e)}")
 
     # Configurer les workers pour consommer les queues par priorité
     # Les queues avec priorité plus basse (chiffre plus élevé) seront traitées après
@@ -429,16 +435,26 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue actuelle: {task_queue}")
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Correspondance: {'OK' if task_queue == expected_queue else 'ERREUR'}")
 
-        # === DIAGNOSTIC PIDBOX ET KOMBU ===
-        # Log des informations de routage et de configuration des queues
-        if hasattr(task, 'request') and hasattr(task.request, 'routing_key'):
-            logger.info(f"[PIDBOX DIAG] Routing key: {task.request.routing_key}")
-        if hasattr(task, 'request') and hasattr(task.request, 'exchange'):
-            logger.info(f"[PIDBOX DIAG] Exchange: {task.request.exchange}")
+        # === DIAGNOSTIC PIDBOX ET KOMBU (VERSION OPTIMISÉE) ===
+        # Log des informations de routage disponibles uniquement si elles existent
+        if hasattr(task, 'request'):
+            if hasattr(task.request, 'routing_key'):
+                logger.info(f"[PIDBOX DIAG] Routing key: {task.request.routing_key}")
+            if hasattr(task.request, 'exchange'):
+                logger.info(f"[PIDBOX DIAG] Exchange: {task.request.exchange}")
 
-        # Log de la configuration des queues Celery
-        logger.info(f"[PIDBOX DIAG] Worker queues: {getattr(sender, 'queues', 'non-disponible')}")
-        logger.info(f"[PIDBOX DIAG] Task queues config: {getattr(task, 'queues', 'non-disponible')}")
+        # Log des informations de base fiables (sans messages "non-disponible")
+        logger.info(f"[PIDBOX DIAG] Task name: {task_name}")
+        logger.info(f"[PIDBOX DIAG] Task ID: {task_id}")
+        logger.info(f"[PIDBOX DIAG] Task queue: {task_queue}")
+
+        # Informations système fiables (remplace les messages "unknown worker")
+        import os
+        import socket
+        current_hostname = socket.gethostname()
+        logger.info(f"[PIDBOX DIAG] System hostname: {current_hostname}")
+        logger.info(f"[PIDBOX DIAG] Environment: {os.getenv('ENVIRONMENT', 'development')}")
+        logger.info(f"[PIDBOX DIAG] Worker process: {os.getpid()}")
 
         logger.info(f"[TASK PRERUN] Task {task_name} (ID: {task_id}) démarrage sur worker {worker_name}")
         logger.info(f"[TASK PRERUN] Queue: {task_queue} | Args: {args_count} éléments")

@@ -12,7 +12,7 @@ from backend_worker.services.audio_features_service import analyze_audio_with_li
 from backend_worker.services.deferred_queue_service import deferred_queue_service
 
 
-@celery.task(name="worker_deferred_enrichment.process_enrichment_batch", queue="worker_deferred_enrichment")
+@celery.task(name="worker_deferred_enrichment.process_enrichment_batch", queue="deferred_enrichment")
 def process_enrichment_batch_task(batch_size: int = 10) -> Dict[str, Any]:
     """
     Traite un lot de tâches d'enrichissement en attente.
@@ -24,7 +24,42 @@ def process_enrichment_batch_task(batch_size: int = 10) -> Dict[str, Any]:
         Résultats du traitement par lot
     """
     try:
+        # Logs de base pour le suivi
         logger.info(f"[WORKER_DEFERRED_ENRICHMENT] Démarrage traitement batch de {batch_size} tâches")
+
+        # Logs de diagnostic simplifiés et sécurisés
+        try:
+            from celery import current_app
+
+            # Initialisation des variables avec des valeurs par défaut
+            task_name = "inconnu"
+            configured_queue = "inconnu"
+            route_for_task = "inconnu"
+            queue_exists = False
+
+            try:
+                task_name = process_enrichment_batch_task.name
+                configured_queue = process_enrichment_batch_task.queue
+            except Exception:
+                pass
+
+            # Diagnostic minimal et sécurisé
+            try:
+                task_routes = getattr(current_app.conf, 'task_routes', {})
+                if task_routes:
+                    route_for_task = task_routes.get(task_name, {}).get('queue', 'non-configurée')
+
+                declared_queues = [q.name for q in getattr(current_app.conf, 'task_queues', [])]
+                queue_exists = configured_queue in declared_queues
+
+                # Logs seulement si tout est disponible
+                logger.info(f"[WORKER_DEFERRED_ENRICHMENT] Configuration: décorateur={configured_queue}, route={route_for_task}, queue_existe={queue_exists}")
+
+            except Exception as diag_error:
+                logger.debug(f"[WORKER_DEFERRED_ENRICHMENT] Diagnostic détaillé non disponible: {str(diag_error)}")
+
+        except Exception as setup_error:
+            logger.debug(f"[WORKER_DEFERRED_ENRICHMENT] Diagnostic initial non disponible: {str(setup_error)}")
 
         processed = 0
         successful = 0

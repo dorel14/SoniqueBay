@@ -4,11 +4,14 @@ from backend.api.utils.database import get_db
 from backend.api.models.scan_sessions_model import ScanSession
 from typing import List
 
-router = APIRouter(prefix="/scan-sessions", tags=["scan-sessions"])
+router = APIRouter(prefix="/scan-sessions", tags=["scan-sessions"], redirect_slashes=False)
 
 @router.get("/", response_model=List[dict])
 def list_scan_sessions(db: Session = Depends(get_db)):
+    from backend.api.utils.logging import logger
+    logger.info("Endpoint /scan-sessions/ appelé - Liste des sessions de scan")
     sessions = db.query(ScanSession).order_by(ScanSession.started_at.desc()).all()
+    logger.info(f"Nombre de sessions trouvées: {len(sessions)}")
     return [
         {
             "id": s.id,

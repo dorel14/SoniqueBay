@@ -8,7 +8,7 @@ from backend.api.utils.logging import logger
 import os
 from pathlib import Path
 
-BASE_SEARCH_DIR = Path("./data/search_indexes")
+BASE_SEARCH_DIR = Path("/app/data/search_indexes")
 
 
 def validate_index_directory(index_dir: str) -> str:

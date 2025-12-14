@@ -132,7 +132,7 @@ services:
     command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
     volumes:
       - ./backend:/app/backend
-      - db-data:/app/backend/@data/api_data
+      - db-data:/app/backend/data/api_data
       - music-share:/music:ro
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
@@ -149,7 +149,8 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
-      - OLLAMA_URL=http://ollama:11434
+      - AGENT_MODEL=phi3:3.8b-mini-4k-instruct-q4_K_M
+      - OLLAMA_BASE_URL=http://ollama:11434
       - HEALTHCHECK_PORT=8001
       - PLATFORM=${PLATFORM:-windows}
       - MUSIC_PATH=/music
@@ -280,10 +281,10 @@ services:
     environment:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - CELERY_BEAT_DB=/app/backend_worker/@data/celery_beat_data/celerybeat-schedule.db
+      - CELERY_BEAT_DB=/app/backend_worker/data/celery_beat_data/celerybeat-schedule.db
     volumes:
       - .:/app
-      - celery-beat-data:/app/backend_worker/@data/celery_beat_data
+      - celery-beat-data:/app/backend_worker/data/celery_beat_data
       - ./logs:/app/logs
     command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
     networks:
@@ -330,15 +331,15 @@ services:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
+    pull_policy: always
+    tty: true
     volumes:
       - ./ollama:/root/.ollama
+      - ./ollama/entrypoint.sh:/entrypoint.sh
     ports:
       - "11434:11434"
-    entrypoint: >
-      sh -c "ollama serve &
-             sleep 4 &&
-             ollama pull microsoft/phi3-mini-4k-instruct-gguf:Q4_K_M &&
-             wait"
+    entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
+
 
 
 volumes:
