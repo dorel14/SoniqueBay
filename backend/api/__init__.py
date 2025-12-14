@@ -17,6 +17,8 @@ from .routers.celery_tasks_api import router as celery_tasks_router
 from .routers.sse_api import router as sse_router
 from backend.api.routers.artist_embeddings_api import router as artist_embeddings_router  # noqa: E402
 from backend.api.routers.realtime_router import router as realtime_router  # noqa: E402
+from backend.api.routers.ws_ai import router as ws_ai_router  # noqa: E402
+from backend.api.routers.agents_api import router as agents_router  # noqa: E402
 
 
 
@@ -41,6 +43,8 @@ ROUTERS = [
     celery_tasks_router,
     sse_router,
     realtime_router,
+    ws_ai_router,
+    agents_router,
 ]
 
 # Inclure tous les routers

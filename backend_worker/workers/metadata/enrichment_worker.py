@@ -124,17 +124,42 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                 try:
                     import httpx
                     import os
+                    import asyncio
 
                     # Configuration de l'URL de l'API
                     library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
 
-                    # Appel API pour rechercher l'artiste de manière synchrone
-                    def check_artist_in_api():
-                        with httpx.Client(timeout=30.0) as client:
-                            response = client.get(f"{library_api_url}/api/artists/search?name={cleaned}")
-                            return response
+                    # Utilisation du service de cache pour éviter les appels API répétés
+                    from backend_worker.services.cache_service import cache_service
 
-                    result = check_artist_in_api()
+                    async def check_artist_in_api_cached():
+                        # Générer une clé de cache unique
+                        cache_key = f"artist_search:{cleaned.lower()}"
+
+                        # Fonction pour appeler l'API
+                        async def call_artist_api():
+                            async with httpx.AsyncClient(timeout=30.0) as client:
+                                response = await client.get(f"{library_api_url}/api/artists/search?name={cleaned}")
+                                return response
+
+                        # Appel avec cache et circuit breaker
+                        result = await cache_service.call_with_cache_and_circuit_breaker(
+                            cache_name="artist_search",
+                            key=cache_key,
+                            func=call_artist_api
+                        )
+
+                        return result
+
+                    # Exécuter la fonction asynchrone de manière synchrone
+                    try:
+                        # Créer un nouvel événement loop pour éviter les conflits
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        result = loop.run_until_complete(check_artist_in_api_cached())
+                    except Exception as e:
+                        logger.error(f"Erreur lors de l'exécution asynchrone: {str(e)}")
+                        result = None
 
                     if result and hasattr(result, 'status_code') and result.status_code == 200:
                         artists_data = result.json()
@@ -156,30 +181,30 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                         logger.warning(f"Genre invalide détecté (nom d'artiste): '{single_genre}' dans {file_path}")
                         return None
 
-                # Pour les autres cas, logger un avertissement et retourner None
-                logger.warning(f"Genre suspect détecté: '{single_genre}' dans {file_path}")
+                    # Pour les autres cas, logger un avertissement et retourner None
+                    logger.warning(f"Genre suspect détecté: '{single_genre}' dans {file_path}")
 
-                # Sauvegarder le genre suspect dans un fichier pour analyse
-                try:
-                    import os
-                    from pathlib import Path
+                    # Sauvegarder le genre suspect dans un fichier pour analyse
+                    try:
+                        import os
+                        from pathlib import Path
 
-                    # Utiliser le répertoire de travail actuel pour éviter les problèmes de permissions
-                    
-                    suspect_dir = Path("/tmp/suspect_genres")
-                    suspect_dir.mkdir(parents=True, exist_ok=True)
+                        # Utiliser le répertoire de travail actuel pour éviter les problèmes de permissions
 
-                    # Chemin du fichier de log des genres suspects
-                    suspect_log_file = suspect_dir / "suspect_genres.log"
+                        suspect_dir = Path("/tmp/suspect_genres")
+                        suspect_dir.mkdir(parents=True, exist_ok=True)
 
-                    # Écrire le genre suspect dans le fichier
-                    with open(suspect_log_file, 'a', encoding='utf-8') as f:
-                        f.write(f"[{datetime.datetime.now().isoformat()}] Genre suspect: '{single_genre}' dans {file_path}\n")
+                        # Chemin du fichier de log des genres suspects
+                        suspect_log_file = suspect_dir / "suspect_genres.log"
 
-                except Exception as e:
-                    logger.error(f"Erreur lors de l'écriture du log des genres suspects: {str(e)}")
+                        # Écrire le genre suspect dans le fichier
+                        with open(suspect_log_file, 'a', encoding='utf-8') as f:
+                            f.write(f"[{datetime.datetime.now().isoformat()}] Genre suspect: '{single_genre}' dans {file_path}\n")
 
-                return None
+                    except Exception as e:
+                        logger.error(f"Erreur lors de l'écriture du log des genres suspects: {str(e)}")
+
+                    return None
 
             except Exception as e:
                 logger.error(f"Erreur lors du chargement de la bibliothèque de genres: {str(e)}")

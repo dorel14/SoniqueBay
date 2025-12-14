@@ -63,9 +63,15 @@ class ImageCacheService:
                 "low_priority": 86400 * 1,    # 1 jour
             },
             "fanart": {
-                "default": 86400 * 1,   # 1 jour
+                "default": 864000 * 1,   # 1 jour
                 "high_priority": 86400 * 7,   # 7 jours
                 "low_priority": 3600 * 6,     # 6 heures
+            },
+            # Ajout des types pour les appels API
+            "api_call": {
+                "default": 3600 * 24,  # 1 jour
+                "high_priority": 86400 * 7,  # 7 jours
+                "low_priority": 3600 * 1,    # 1 heure
             },
         }
         

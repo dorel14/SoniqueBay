@@ -472,7 +472,7 @@ def _cleanup_existing_index(index_dir: str) -> None:
         from backend.api.utils.search import validate_index_directory
         safe_index_dir = validate_index_directory(index_dir)
 
-        index_path = Path("./data/search_indexes") / safe_index_dir
+        index_path = Path("/app/data/search_indexes") / safe_index_dir
 
         if index_path.exists():
             import shutil

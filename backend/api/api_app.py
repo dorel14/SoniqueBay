@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
+from importlib import reload
 import os
 from dataclasses import dataclass
 from fastapi import FastAPI, status, Request, Depends
@@ -97,10 +98,12 @@ async def lifespan(app: FastAPI):
 
 # Créer l'application FastAPI
 app = FastAPI(title="SoniqueBay API Unifiée",
+            redirect_slashes=False,
             version="1.0.0",
             docs_url="/api/docs",
             openapi_url="/api/openapi.json",
-            lifespan=lifespan)
+            lifespan=lifespan,
+            reload=True)
 
 # Configuration CORS avec allow_all_origins pour permettre les connexions WebSocket sans Origin
 app.add_middleware(
@@ -127,6 +130,30 @@ async def log_requests(request: Request, call_next):
         logger.error(f"❌ ERROR {response.status_code}: {request.url}")
 
     return response
+
+@app.middleware("http")
+async def handle_trailing_slashes(request: Request, call_next):
+    """
+    Middleware pour gérer les slashes finaux de manière uniforme.
+    Redirige les URLs sans slash final vers celles avec slash final pour les endpoints API.
+    """
+    # Vérifier si l'URL commence par /api et ne se termine pas par un slash
+    if (request.url.path.startswith("/api/") and
+        not request.url.path.endswith("/") and
+        not request.url.path.endswith("/api")):
+
+        # Construire l'URL avec slash final
+        new_url = f"{request.url.path}/"
+
+        # Vérifier si la route existe avec slash final
+        from backend.api import api_router
+        for route in api_router.routes:
+            if hasattr(route, 'path') and route.path == new_url:
+                logger.info(f"Redirection de {request.url.path} vers {new_url}")
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=new_url, status_code=307)
+
+    return await call_next(request)
 
 # Inclure le router AVANT de créer le service
 app.include_router(api_router, prefix="/api")

@@ -11,10 +11,10 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from backend.api.utils.logging import logger
 
-from backend.ai_agents.router import IntentRouter
-from backend.ai_agents.loader import ConfigLoader
-from backend.ai_agents.context_manager import ConversationContext
-from backend.ai_agents.agents import (
+from backend.ai.router import IntentRouter
+from backend.ai.loader import ConfigLoader
+from backend.ai.__old.context_manager import ConversationContext
+from backend.ai.agents import (
     orchestrator_agent,
     search_agent,
     playlist_agent,

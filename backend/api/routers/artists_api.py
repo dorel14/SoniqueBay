@@ -267,6 +267,164 @@ def get_all_similar_relationships(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/{artist_id}/lastfm-info")
+def fetch_artist_lastfm_info(
+    artist_id: int,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Trigger Last.fm information fetch for an artist via worker.
+
+    Args:
+        artist_id: ID of the artist
+
+    Returns:
+        Task ID
+    """
+    from backend.api.utils.celery_app import celery_app
+    try:
+        # Trigger the worker task
+        task = celery_app.send_task(
+            'lastfm.fetch_artist_info',
+            args=[artist_id],
+            queue='deferred'
+        )
+        return {"task_id": task.id, "message": "Last.fm info fetch triggered"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/{artist_id}/lastfm-info")
+def update_artist_lastfm_info(
+    artist_id: int,
+    info: dict,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Update artist with Last.fm information.
+
+    Args:
+        artist_id: ID of the artist
+        info: Last.fm info dict
+
+    Returns:
+        Success message
+    """
+    from backend.api.models.artists_model import Artist
+    import json
+    from datetime import datetime
+
+    try:
+        artist = db.query(Artist).filter(Artist.id == artist_id).first()
+        if not artist:
+            raise HTTPException(status_code=404, detail="Artist not found")
+
+        # Update artist with Last.fm info
+        artist.lastfm_url = info.get("url")
+        artist.lastfm_listeners = info.get("listeners")
+        artist.lastfm_playcount = info.get("playcount")
+        artist.lastfm_tags = json.dumps(info.get("tags", [])) if info.get("tags") else None
+        artist.lastfm_info_fetched_at = datetime.utcnow()
+
+        db.commit()
+        return {"success": True, "message": f"Last.fm info updated for {artist.name}"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{artist_id}/fetch-similar")
+def fetch_similar_artists(
+    artist_id: int,
+    limit: int = 10,
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Trigger similar artists fetch from Last.fm for an artist via worker.
+
+    Args:
+        artist_id: ID of the artist
+        limit: Maximum number of similar artists to fetch
+
+    Returns:
+        Task ID
+    """
+    from backend.api.utils.celery_app import celery_app
+    try:
+        # Trigger the worker task
+        task = celery_app.send_task(
+            'lastfm.fetch_similar_artists',
+            args=[artist_id, limit],
+            queue='deferred'
+        )
+        return {"task_id": task.id, "message": "Similar artists fetch triggered"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{artist_id}/similar")
+def update_artist_similar(
+    artist_id: int,
+    similar_data: List[dict],
+    db: SQLAlchemySession = Depends(get_db)
+):
+    """
+    Update artist with similar artists data.
+
+    Args:
+        artist_id: ID of the artist
+        similar_data: List of similar artists data
+
+    Returns:
+        Success message
+    """
+    from backend.api.models.artist_similar_model import ArtistSimilar
+    from backend.api.models.artists_model import Artist
+    from datetime import datetime
+
+    try:
+        # Mark that similar artists have been fetched
+        artist = db.query(Artist).filter(Artist.id == artist_id).first()
+        if not artist:
+            raise HTTPException(status_code=404, detail="Artist not found")
+
+        stored_count = 0
+        for similar in similar_data:
+            similar_name = similar.get("name")
+            weight = similar.get("weight")
+
+            # Find or create similar artist
+            similar_artist = db.query(Artist).filter(Artist.name.ilike(similar_name)).first()
+            if not similar_artist:
+                similar_artist = Artist(
+                    name=similar_name,
+                    date_added=datetime.utcnow()
+                )
+                db.add(similar_artist)
+                db.flush()
+
+            # Check if relationship exists
+            existing = db.query(ArtistSimilar).filter(
+                ArtistSimilar.artist_id == artist_id,
+                ArtistSimilar.similar_artist_id == similar_artist.id
+            ).first()
+
+            if existing:
+                existing.weight = weight
+            else:
+                relation = ArtistSimilar(
+                    artist_id=artist_id,
+                    similar_artist_id=similar_artist.id,
+                    weight=weight
+                )
+                db.add(relation)
+
+            stored_count += 1
+
+        artist.lastfm_similar_artists_fetched = True
+        db.commit()
+        return {"success": True, "message": f"Stored {stored_count} similar artists"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.get("/similar/search", response_model=List[ArtistSimilarWithDetails])
 def search_similar_artists_by_name(
     artist_name: str = Query(..., min_length=1),

@@ -10,7 +10,6 @@ import os
 import time
 from pathlib import Path
 
-from backend.api.utils.celery_app import celery
 from backend.api.utils.logging import logger
 from backend.api.models.scan_sessions_model import ScanSession
 from sqlalchemy.orm import Session
@@ -148,14 +147,14 @@ class ScanService:
                 logger.warning(f"[SCAN] Scan déjà actif pour {resolved_docker_directory}")
                 return {"task_id": existing_scan.task_id, "status": "Scan déjà en cours", "resume": True}
 
-        # Configuration Celery
-        logger.info(f"[SCAN] Configuration Celery - Broker: {celery.conf.broker_url}")
-        backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
-        logger.info(f"[SCAN] Backend: {backend_url}")
 
         # Test connectivité Redis
         try:
-            from backend.api.utils.celery_app import celery as celery_app
+            from backend.api.utils.celery_app import celery_app
+            # Configuration Celery
+            logger.info(f"[SCAN] Configuration Celery - Broker: {celery_app.conf.broker_url}")
+            backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
+            logger.info(f"[SCAN] Backend: {backend_url}")
             celery_app.broker_connection().ensure_connection(max_retries=1)
             inspect = celery_app.control.inspect()
             active_workers = inspect.ping()
@@ -170,7 +169,7 @@ class ScanService:
             logger.info("[SCAN] Queue cible: scan")
             logger.info(f"[SCAN] Répertoire: {resolved_docker_directory}")
 
-            result = celery.send_task(
+            result = celery_app.send_task(
                 "scan.discovery",  # Utilise la nouvelle tâche
                 args=[resolved_docker_directory],  # Plus de cleanup_deleted
                 queue="scan"
@@ -182,7 +181,7 @@ class ScanService:
 
             # Vérification supplémentaire: inspecter les workers actifs
             try:
-                inspect = celery.control.inspect()
+                inspect = celery_app.control.inspect()
                 active_queues = inspect.active_queues()
                 logger.info(f"[SCAN] Queues actives sur les workers: {active_queues}")
 

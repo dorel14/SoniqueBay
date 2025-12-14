@@ -15,7 +15,7 @@ import httpx
 @celery.task(name="lastfm.fetch_artist_info", queue="deferred", bind=True)
 def fetch_artist_lastfm_info(self, artist_id: int) -> Dict[str, Any]:
     """
-    Fetch artist information from Last.fm API via library API call.
+    Fetch artist information from Last.fm API and update DB.
 
     Args:
         artist_id: ID of the artist to fetch info for
@@ -27,28 +27,55 @@ def fetch_artist_lastfm_info(self, artist_id: int) -> Dict[str, Any]:
         task_id = self.request.id
         logger.info(f"[LASTFM] Starting artist info fetch: artist_id={artist_id}, task_id={task_id}")
 
-        # Make API call to library service
-        library_url = "http://library:8001"  # Docker service name
+        # Fetch from Last.fm using the service
+        from backend_worker.services.lastfm_service import lastfm_service
+        import asyncio
 
-        async def make_api_call():
-            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout
-                response = await client.post(
-                    f"{library_url}/api/artists/{artist_id}/lastfm-info"
+        # Get artist name from DB first
+        from backend.api.models.artists_model import Artist
+        from backend.api.utils.database import SessionLocal
+        db = SessionLocal()
+        try:
+            artist = db.query(Artist).filter(Artist.id == artist_id).first()
+            if not artist:
+                raise ValueError(f"Artist {artist_id} not found")
+            artist_name = artist.name
+        finally:
+            db.close()
+
+        # Fetch info using async service
+        info = asyncio.run(lastfm_service.get_artist_info(artist_name))
+        if not info:
+            raise ValueError(f"Failed to fetch info for {artist_name}")
+
+        # Update DB via API
+        library_url = "http://api:8001"
+        async def update_api():
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.put(
+                    f"{library_url}/api/artists/{artist_id}/lastfm-info",
+                    json=info
                 )
                 return response
 
-        # Run async call in sync context
-        response = asyncio.run(make_api_call())
+        try:
+            loop = asyncio.get_running_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                response = executor.submit(asyncio.run, update_api()).result()
+        except RuntimeError:
+            response = asyncio.run(update_api())
 
         if response.status_code == 200:
             result = response.json()
-            logger.info(f"[LASTFM] Artist info fetch completed: {result.get('message', 'Success')}")
+            logger.info(f"[LASTFM] Artist info fetch and update completed: {result.get('message', 'Success')}")
             return {
                 "task_id": task_id,
-                **result
+                "success": True,
+                "message": f"Last.fm info fetched and stored for artist {artist_name}"
             }
         else:
-            error_msg = f"API call failed with status {response.status_code}: {response.text}"
+            error_msg = f"API update failed with status {response.status_code}: {response.text}"
             logger.error(f"[LASTFM] {error_msg}")
             return {
                 "task_id": task_id,
@@ -82,18 +109,28 @@ def fetch_similar_artists(self, artist_id: int, limit: int = 10) -> Dict[str, An
         logger.info(f"[LASTFM] Starting similar artists fetch: artist_id={artist_id}, limit={limit}, task_id={task_id}")
 
         # Make API call to library service
-        library_url = "http://library:8001"  # Docker service name
+        library_url = "http://api:8001"  # Docker service name - corrected to match logs
 
         async def make_api_call():
+            logger.info(f"[LASTFM] Making API call to {library_url}/api/artists/{artist_id}/similar with body: {{'limit': {limit}}}")
             async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout
                 response = await client.post(
-                    f"{library_url}/api/artists/{artist_id}/similar",
-                    json={"limit": limit}
+                    f"{library_url}/api/artists/{artist_id}/fetch-similar?limit={limit}"
                 )
+                logger.info(f"[LASTFM] API response status: {response.status_code}, body: {response.text[:500]}")
                 return response
 
         # Run async call in sync context
-        response = asyncio.run(make_api_call())
+        try:
+            # Check if there's already an event loop
+            loop = asyncio.get_running_loop()
+            # If we're in an async context, we need to handle this differently
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                response = executor.submit(asyncio.run, make_api_call()).result()
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run
+            response = asyncio.run(make_api_call())
 
         if response.status_code == 200:
             result = response.json()

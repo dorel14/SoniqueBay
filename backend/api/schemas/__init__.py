@@ -12,6 +12,14 @@ from .tracks_schema import TrackBase, TrackCreate, Track, TrackWithRelations
 from .settings_schema import SettingBase, SettingCreate, Setting
 from .search_schema import SearchResult, SearchQuery
 from .scan_schema import ScanRequest
+from .agent_score_schema import (
+    AgentScoreBase,
+    AgentScoreCreate,
+    AgentScoreUpdate,
+    AgentScore,
+    AgentScoreWithMetrics,
+    AgentScoreListResponse
+)
 from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
 from backend.api.schemas.artist_embeddings_schema import (
     ArtistEmbeddingCreate,
@@ -37,6 +45,7 @@ __all__ = [
     'SearchResult', 'SearchQuery',
     'SettingBase', 'SettingCreate', 'Setting',
     'ScanRequest',
+    'AgentScoreBase', 'AgentScoreCreate', 'AgentScoreUpdate', 'AgentScore', 'AgentScoreWithMetrics', 'AgentScoreListResponse',
     'TrackVectorCreate', 'TrackVectorResponse',
     'ArtistEmbeddingCreate', 'ArtistEmbeddingUpdate', 'GMMTrainingRequest', 'GMMTrainingResponse', 'ArtistSimilarityRecommendation'
 ]
