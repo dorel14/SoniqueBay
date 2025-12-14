@@ -76,7 +76,7 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
         # Déclencher directement les tâches Celery de vectorisation
         # Simplification : appel direct au lieu de passer par Redis PubSub
         try:
-            from backend.api.utils.celery_app import celery
+            from backend.api.utils.celery_app import celery_app
 
             def trigger_vectorization_tasks():
                 """Déclencher les tâches de vectorisation pour chaque track."""
@@ -109,7 +109,7 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
                         }
 
                         # Déclencher la tâche Celery directement
-                        celery.send_task(
+                        celery_app.send_task(
                             'calculate_vector',
                             args=[track.id, metadata],
                             queue='vectorization',
@@ -154,7 +154,7 @@ async def create_track(track: TrackCreate, request: Request = None, db: SQLAlche
         # Déclencher directement la tâche Celery de vectorisation
         # Simplification : appel direct au lieu de passer par Redis PubSub
         try:
-            from backend.api.utils.celery_app import celery
+            from backend.api.utils.celery_app import celery_app
 
             def trigger_vectorization_task():
                 """Déclencher la tâche de vectorisation pour la track créée."""
@@ -186,7 +186,7 @@ async def create_track(track: TrackCreate, request: Request = None, db: SQLAlche
                     }
 
                     # Déclencher la tâche Celery directement
-                    celery.send_task(
+                    celery_app.send_task(
                         'calculate_vector',
                         args=[created.id, metadata],
                         queue='vectorization',
@@ -400,7 +400,7 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
             important_fields = ['title', 'artist_id', 'album_id', 'genre', 'year', 'duration', 'bitrate', 'bpm', 'key', 'scale']
             if any(getattr(track, field, None) is not None for field in important_fields):
 
-                from backend.api.utils.celery_app import celery
+                from backend.api.utils.celery_app import celery_app
 
                 def trigger_vectorization_task():
                     """Déclencher la tâche de vectorisation pour la track mise à jour."""
@@ -432,7 +432,7 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
                         }
 
                         # Déclencher la tâche Celery directement
-                        celery.send_task(
+                        celery_app.send_task(
                             'calculate_vector',
                             args=[updated_track.id, metadata],
                             queue='vectorization',
@@ -505,7 +505,7 @@ async def analyze_audio_tracks(
         Informations sur la tâche lancée
     """
     try:
-        from backend.api.utils.celery_app import celery
+        from backend.api.utils.celery_app import celery_app
 
         if track_ids:
             # Analyser les tracks spécifiques
@@ -525,7 +525,7 @@ async def analyze_audio_tracks(
             return {"message": "Aucune track à analyser", "count": 0}
 
         # Lancer la tâche Celery
-        result = celery.send_task("analyze_audio_batch_task", args=[track_data_list])
+        result = celery_app.send_task("analyze_audio_batch_task", args=[track_data_list])
 
         logger.info(f"Tâche d'analyse audio lancée: {result.id} pour {len(track_data_list)} tracks")
 

@@ -7,6 +7,7 @@ from backend.api.models.settings_model import Setting as Setting
 from backend.api.models.scan_sessions_model import ScanSession as ScanSession
 from backend.api.models.artist_embeddings_model import ArtistEmbedding as ArtistEmbedding, GMMModel as GMMModel
 from backend.api.models.artist_similar_model import ArtistSimilar as ArtistSimilar
+from backend.api.models.agent_model import AgentModel as AgentModel
 
 # Import all models to resolve circular dependencies
 from backend.api.models import *  # noqa: F403

@@ -26,7 +26,7 @@ async def remote_add_to_index(index_dir: str, index_name: str, whoosh_data: dict
         return response.json()
 
 class MusicIndexer:
-    def __init__(self, index_dir="./backend/data/whoosh_index"):
+    def __init__(self, index_dir="/app/data/whoosh_index"):
         self.index_dir = index_dir
         self.index_dir_actual = None
         self.index_name = None

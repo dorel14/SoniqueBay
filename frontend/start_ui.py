@@ -24,7 +24,7 @@ app.add_static_files('/static', './static')
 
 
 async def startup():
-    backend_url = os.getenv('API_URL', 'http://localhost:8001')  # Replace with your backend URL
+    backend_url = os.getenv('API_URL', 'http://api:8001')  # Replace with your backend URL
     max_retries = 5
     retry_delay = 3  # seconds
 
