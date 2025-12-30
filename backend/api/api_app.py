@@ -137,10 +137,14 @@ async def handle_trailing_slashes(request: Request, call_next):
     Middleware pour gérer les slashes finaux de manière uniforme.
     Redirige les URLs sans slash final vers celles avec slash final pour les endpoints API.
     """
+    logger.debug(f"[MIDDLEWARE] Requête entrante: {request.method} {request.url.path}")
+
     # Vérifier si l'URL commence par /api et ne se termine pas par un slash
     if (request.url.path.startswith("/api/") and
         not request.url.path.endswith("/") and
         not request.url.path.endswith("/api")):
+
+        logger.debug(f"[MIDDLEWARE] URL sans slash détectée: {request.url.path}")
 
         # Construire l'URL avec slash final
         new_url = f"{request.url.path}/"
@@ -152,17 +156,30 @@ async def handle_trailing_slashes(request: Request, call_next):
                 # Comparer les chemins en tenant compte du préfixe /api
                 # route.path est relatif (ex: /artists/), request.url.path est absolu (ex: /api/artists)
                 # On doit comparer route.path (sans slash final) avec request.url.path sans le préfixe /api
-                if route.path.rstrip('/') == request.url.path.replace("/api", ""):
+                route_path_no_slash = route.path.rstrip('/')
+                request_path_no_api = request.url.path.replace("/api", "")
+                logger.debug(f"[MIDDLEWARE] Comparaison: route.path='{route.path}' -> '{route_path_no_slash}', request='{request_path_no_api}'")
+
+                if route_path_no_slash == request_path_no_api:
+                    logger.debug(f"[MIDDLEWARE] Route trouvée: {route.path}")
+                    
                     # Vérifier si la route accepte les paramètres de requête
                     # Si la route a des paramètres, ne pas rediriger
                     if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
                         # Route avec dépendances (a des paramètres)
                         # Ne pas rediriger pour éviter de perdre les paramètres
+                        logger.debug(f"[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
                         pass
                     else:
-                        logger.info(f"Redirection de {request.url.path} vers {new_url}")
-                        from fastapi.responses import RedirectResponse
-                        return RedirectResponse(url=new_url, status_code=307)
+                        # CORRECTION : Ne rediriger que si la route définie a un slash final
+                        if route.path.endswith('/'):
+                            logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
+                            from fastapi.responses import RedirectResponse
+                            return RedirectResponse(url=new_url, status_code=307)
+                        else:
+                            # La route existe sans slash, et on est sans slash. Pas de redirection.
+                            logger.debug(f"[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                            pass
 
     return await call_next(request)
 

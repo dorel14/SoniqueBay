@@ -84,29 +84,31 @@ services:
       timesync:
         condition: service_started
 
-  # === FLOWER (monitoring) ===
+  # === FLOWER (monitoring) avec récupération automatique de base de données ===
   flower:
     image: mher/flower:latest
     container_name: soniquebay-flower
     restart: unless-stopped
+    entrypoint: ["/bin/sh", "/scripts/flower_entrypoint_fixed.sh"]
+    command:
+      - "celery"
+      - "--broker=redis://redis:6379/0"
+      - "--result-backend=redis://redis:6379/0"
+      - "flower"
+      - "--url_prefix=flower"
+      - "--auto_refresh=True"
+      - "--inspect_timeout=60000"
+      - "--max_tasks=1000"
+      - "--loglevel=INFO"
+      - "--retry"
+      - "--retry-delay=10"
+      - "--retry-max=5"
+      - "--persistent=True"
+      - "--db=/data/flower.db"
+      - "--enable_events=True"
     volumes:
       - flower-data:/data
-    command:
-      - celery
-      - --broker=redis://redis:6379/0
-      - --result-backend=redis://redis:6379/0
-      - flower
-      - --url_prefix=flower
-      - --auto_refresh=True
-      - --inspect_timeout=60000
-      - --max_tasks=1000
-      - --loglevel=INFO
-      - --retry
-      - --retry-delay=10
-      - --retry-max=5
-      - --persistent=True
-      - --db=/data/flower.db
-      - --enable_events=True
+      - ./scripts:/scripts:ro
     depends_on:
         redis:
             condition: service_healthy

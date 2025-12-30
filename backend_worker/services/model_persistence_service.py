@@ -24,6 +24,7 @@ import os
 from backend_worker.services.vectorization_service import (
     OptimizedVectorizationService
 )
+from backend_worker.services.data_directory_initializer import data_directory_initializer, initialize_data_directories
 from backend_worker.utils.logging import logger
 
 
@@ -56,12 +57,33 @@ class ModelPersistenceService:
     def __init__(self):
         """Initialise le service de persistance."""
         self.models_dir = Path("/app/data/models")
-        self.models_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialiser les répertoires de données avant utilisation
+        logger.info("[MODEL_PERSISTENCE] Initialisation des répertoires de données...")
+        if not initialize_data_directories():
+            logger.error("[MODEL_PERSISTENCE] Échec de l'initialisation des répertoires")
+            # Tentative de création directe du répertoire models
+            try:
+                self.models_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"[MODEL_PERSISTENCE] Répertoire {self.models_dir} créé directement")
+            except Exception as e:
+                logger.error(f"[MODEL_PERSISTENCE] Impossible de créer {self.models_dir}: {e}")
+                raise PermissionError(f"Impossible d'initialiser le répertoire des modèles: {e}")
+        
+        # Vérifier l'accès en écriture
+        try:
+            test_file = self.models_dir / ".write_test"
+            test_file.write_text("test")
+            test_file.unlink()
+            logger.info(f"[MODEL_PERSISTENCE] Accès en écriture vérifié: {self.models_dir}")
+        except Exception as e:
+            logger.error(f"[MODEL_PERSISTENCE] Pas d'accès en écriture à {self.models_dir}: {e}")
+            raise PermissionError(f"Pas d'accès en écriture au répertoire des modèles: {e}")
         
         self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library-api:8001")
         self.current_version = None
         
-        logger.info(f"ModelPersistenceService initialisé: {self.models_dir}")
+        logger.info(f"ModelPersistenceService initialisé avec succès: {self.models_dir}")
     
     async def save_model_version(self, service: OptimizedVectorizationService, 
                                 version_name: str = None) -> ModelVersion:
