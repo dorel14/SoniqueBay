@@ -123,6 +123,7 @@ async def connect_sse():
                                 data_str = line[6:]  # Remove 'data: ' prefix
                                 try:
                                     data = json.loads(data_str)
+                                    logger.info(f"DEBUG: Message SSE reçu: {data}, timestamp={__import__('time').time()}")
                                     for handler in sse_handlers:
                                         logger.debug(f"Appel du handler SSE {handler.__name__} avec les données: {data}")
                                         handler(data)
