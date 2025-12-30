@@ -11,39 +11,60 @@ from kombu import Queue
 
 # === DIAGNOSTIC REDIS ===
 def diagnostic_redis():
-    """Diagnostique les problèmes de connexion Redis"""
+    """Diagnostique les problèmes de connexion Redis avec validation complète de l'URL"""
     logger.info("[REDIS DIAGNOSTIC] Démarrage du diagnostic de connexion Redis...")
 
     try:
-        # Test de résolution DNS
-        redis_host = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0').replace('redis://', '').split(':')[0]
-        logger.info(f"[REDIS DIAGNOSTIC] Hôte Redis: {redis_host}")
+        # Obtenir et normaliser l'URL Redis
+        redis_url = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+        logger.info(f"[REDIS DIAGNOSTIC] URL Redis brute: {redis_url}")
 
+        # Corriger les URL malformées
+        if not redis_url.startswith('redis://'):
+            redis_url = 'redis://' + redis_url
+            logger.warning(f"[REDIS DIAGNOSTIC] URL Redis corrigée: {redis_url}")
+        
+        # Vérifier et corriger les doubles "redis://"
+        if 'redis://redis://' in redis_url:
+            redis_url = redis_url.replace('redis://redis://', 'redis://', 1)
+            logger.warning(f"[REDIS DIAGNOSTIC] Double \"redis://\" corrigée: {redis_url}")
+
+        # Extraire l'hôte pour test DNS
         try:
-            ip_address = socket.gethostbyname(redis_host)
-            logger.info(f"[REDIS DIAGNOSTIC] Résolution DNS réussie: {redis_host} -> {ip_address}")
-        except socket.gaierror as e:
-            logger.error(f"[REDIS DIAGNOSTIC] Échec résolution DNS: {e}")
+            # Utiliser urllib.parse pour un parsing plus robuste
+            from urllib.parse import urlparse
+            parsed = urlparse(redis_url)
+            redis_host = parsed.hostname
+            redis_port = parsed.port or 6379
+            logger.info(f"[REDIS DIAGNOSTIC] Hôte Redis: {redis_host}:{redis_port}")
+
+            # Test de résolution DNS avec timeout
+            try:
+                ip_address = socket.gethostbyname(redis_host)
+                logger.info(f"[REDIS DIAGNOSTIC] Résolution DNS réussie: {redis_host} -> {ip_address}")
+            except socket.gaierror as e:
+                logger.error(f"[REDIS DIAGNOSTIC] Échec résolution DNS pour {redis_host}: {e}")
+                return False
+
+            # Test de connexion Redis avec timeout
+            try:
+                client = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    socket_timeout=5,
+                    socket_connect_timeout=5
+                )
+                client.ping()
+                logger.info("[REDIS DIAGNOSTIC] Connexion Redis réussie!")
+                return True
+            except redis.ConnectionError as e:
+                logger.error(f"[REDIS DIAGNOSTIC] Erreur de connexion Redis: {e}")
+                return False
+
+        except Exception as url_parse_error:
+            logger.error(f"[REDIS DIAGNOSTIC] Erreur de parsing URL Redis: {url_parse_error}")
             return False
 
-        # Test de connexion Redis
-        redis_url = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
-        logger.info(f"[REDIS DIAGNOSTIC] Test de connexion à: {redis_url}")
-
-        # Vérifier si l'URL a une double "redis://"
-        if redis_url.startswith('redis://redis://'):
-            logger.error(f"[REDIS DIAGNOSTIC] URL Redis malformée détectée: {redis_url}. Correction en cours.")
-            redis_url = redis_url.replace('redis://redis://', 'redis://', 1)
-            logger.info(f"[REDIS DIAGNOSTIC] URL corrigée: {redis_url}")
-
-        client = redis.from_url(redis_url)
-        client.ping()
-        logger.info("[REDIS DIAGNOSTIC] Connexion Redis réussie!")
-        return True
-
-    except redis.ConnectionError as e:
-        logger.error(f"[REDIS DIAGNOSTIC] Erreur de connexion Redis: {e}")
-        return False
     except Exception as e:
         logger.error(f"[REDIS DIAGNOSTIC] Erreur inattendue: {e}")
         return False
@@ -495,4 +516,5 @@ def worker_shutdown_handler(sender=None, **kwargs):
         logger.info(f"[WORKER SHUTDOWN] celery.amqp.kwargsrepr_maxsize = {recommended_limit}")
     
     logger.warning(f"[WORKER SHUTDOWN] Worker {worker_name} s'arrête - Vérifier si c'est normal ou crash")
+
 

@@ -116,9 +116,9 @@ def batch_entities(self, metadata_list: List[Dict[str, Any]], batch_id: str = No
                     album_key = (mb_album_id, mb_artist_id)
                     logger.debug(f"[BATCH] Album '{album_name}' grouped by MB IDs: album={mb_album_id}, artist={mb_artist_id} (albumartistid prioritized)")
                 else:
-                    # Fallback sur titre + artiste (garder la casse originale)
-                    album_key = (album_name.strip(), artist_name)
-                    logger.debug(f"[BATCH] Album '{album_name}' grouped by name: title='{album_name}', artist='{artist_name}' (no MB IDs)")
+                    # Fallback sur titre + artiste (normalisation en minuscule pour cohérence)
+                    album_key = (album_name.strip().lower(), artist_name.strip().lower())
+                    logger.debug(f"[BATCH] Album '{album_name}' grouped by name: title='{album_name}' -> '{album_name.strip().lower()}', artist='{artist_name}' -> '{artist_name.strip().lower()}' (no MB IDs)")
 
                 if album_key not in albums_by_key:
                     albums_by_key[album_key] = {

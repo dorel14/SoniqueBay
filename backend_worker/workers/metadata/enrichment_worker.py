@@ -138,7 +138,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
 
                         # Fonction pour appeler l'API
                         async def call_artist_api():
-                            async with httpx.AsyncClient(timeout=30.0) as client:
+                            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                                 response = await client.get(f"{library_api_url}/api/artists/search?name={cleaned}")
                                 return response
 
@@ -254,8 +254,18 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                 "musicbrainz_albumartistid": mb_data.get("musicbrainz_albumartistid"),
                 "musicbrainz_albumid": mb_data.get("musicbrainz_albumid"),
                 "musicbrainz_id": mb_data.get("musicbrainz_id"),
+                "musicbrainz_genre": mb_data.get("musicbrainz_genre"),  # Ajouté ce champ manquant
                 "acoustid_fingerprint": mb_data.get("acoustid_fingerprint")
             })
+            
+            # DIAGNOSTIC: Vérification des champs MusicBrainz extraits
+            mb_fields = ["musicbrainz_artistid", "musicbrainz_albumartistid", "musicbrainz_albumid", "musicbrainz_id", "musicbrainz_genre", "acoustid_fingerprint"]
+            found_mb_fields = [field for field in mb_fields if metadata.get(field)]
+            missing_mb_fields = [field for field in mb_fields if not metadata.get(field)]
+            
+            logger.info(f"[DIAGNOSTIC MB] Champs MusicBrainz trouvés pour {file_path}: {found_mb_fields}")
+            if missing_mb_fields:
+                logger.debug(f"[DIAGNOSTIC MB] Champs MusicBrainz manquants: {missing_mb_fields}")
 
             # Nettoyer les valeurs None
             metadata = {k: v for k, v in metadata.items() if v is not None}
@@ -317,12 +327,17 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
             # Étape 2: Vérifier l'analyse audio (déjà partiellement présente via extract_audio_features)
             # L'analyse audio est déjà intégrée via extract_audio_features dans extract_metadata
             # Mais nous pouvons ajouter des logs pour vérifier que les champs sont présents
-            audio_fields = ["bpm", "key", "scale"]
+            audio_fields = ["bpm", "key", "scale", "danceability", "mood_happy", "mood_aggressive", "mood_party", "mood_relaxed", "instrumental", "acoustic", "tonal", "camelot_key", "musicbrainz_genre"]
             found_audio_fields = [field for field in audio_fields if metadata.get(field)]
+            missing_audio_fields = [field for field in audio_fields if not metadata.get(field)]
+            
             if found_audio_fields:
-                logger.info(f"[METADATA] Champs audio trouvés pour {file_path}: {found_audio_fields}")
+                logger.info(f"[DIAGNOSTIC AUDIO] Champs audio trouvés pour {file_path}: {found_audio_fields}")
             else:
-                logger.debug(f"[METADATA] Aucun champ audio trouvé pour {file_path}")
+                logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN champ audio trouvé pour {file_path}")
+                logger.warning(f"[DIAGNOSTIC AUDIO] Champs manquants: {missing_audio_fields}")
+                logger.warning(f"[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa n'est PAS effectuée pendant l'extraction initiale")
+                logger.warning(f"[DIAGNOSTIC AUDIO] Les champs audio seront traités plus tard dans l'enrichissement différé")
 
             logger.debug(f"[METADATA] Métadonnées extraites: {file_path}")
             return metadata

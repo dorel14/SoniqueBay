@@ -279,7 +279,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 if artist_name:
                     try:
                         # Utiliser l'endpoint REST /artists pour vérifier (GraphQL ne supporte pas where)
-                        response = await client.get(f"/api/artists", params={"skip": 0, "limit": 1000})
+                        response = await client.get(f"/api/artists/", params={"skip": 0, "limit": 1000}, follow_redirects=True)
                         if response.status_code == 200:
                             all_artists = response.json().get('results', [])
                             # Chercher l'artiste par nom
@@ -329,6 +329,16 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
         # Vérifier les tracks avec requête ciblée
         if inserted_counts['tracks'] > 0:
             logger.info(f"[VERIFY] Vérification ciblée de {len(tracks_data)} tracks")
+            
+            # DIAGNOSTIC: Statistiques des métadonnées manquantes
+            metadata_missing_stats = {
+                'bpm': 0, 'key': 0, 'scale': 0, 'danceability': 0,
+                'mood_happy': 0, 'mood_aggressive': 0, 'mood_party': 0, 'mood_relaxed': 0,
+                'instrumental': 0, 'acoustic': 0, 'tonal': 0, 'genre_main': 0,
+                'camelot_key': 0, 'musicbrainz_albumid': 0, 'musicbrainz_artistid': 0,
+                'musicbrainz_albumartistid': 0, 'musicbrainz_genre': 0, 'acoustid_fingerprint': 0
+            }
+            
             for track_data in tracks_data:
                 track_path = track_data.get('path')
                 if track_path:
@@ -343,6 +353,24 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                             tracks(where: {path: {equals: $path}}) {
                                 id
                                 path
+                                bpm
+                                key
+                                scale
+                                danceability
+                                mood_happy
+                                mood_aggressive
+                                mood_party
+                                mood_relaxed
+                                instrumental
+                                acoustic
+                                tonal
+                                genre_main
+                                camelot_key
+                                musicbrainz_albumid
+                                musicbrainz_artistid
+                                musicbrainz_albumartistid
+                                musicbrainz_genre
+                                acoustid_fingerprint
                             }
                         }
                         """
@@ -352,11 +380,64 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                             missing_entities.append(f"Track: {track_path}")
                             logger.error(f"[VERIFY] ❌ Track '{track_path}' INTROUVABLE en base après insertion")
                         else:
-                            logger.info(f"[VERIFY] ✅ Track '{track_path}' trouvée avec ID {tracks_found[0]['id']}")
+                            track_in_db = tracks_found[0]
+                            logger.info(f"[VERIFY] ✅ Track '{track_path}' trouvée avec ID {track_in_db['id']}")
+                            
+                            # DIAGNOSTIC: Vérifier les champs de métadonnées manquants
+                            logger.info(f"[DIAGNOSTIC META] Track ID {track_in_db['id']} - Métadonnées manquantes:")
+                            
+                            # Vérifier chaque champ de métadonnées
+                            metadata_fields = {
+                                'bpm': track_in_db.get('bpm'),
+                                'key': track_in_db.get('key'),
+                                'scale': track_in_db.get('scale'),
+                                'danceability': track_in_db.get('danceability'),
+                                'mood_happy': track_in_db.get('mood_happy'),
+                                'mood_aggressive': track_in_db.get('mood_aggressive'),
+                                'mood_party': track_in_db.get('mood_party'),
+                                'mood_relaxed': track_in_db.get('mood_relaxed'),
+                                'instrumental': track_in_db.get('instrumental'),
+                                'acoustic': track_in_db.get('acoustic'),
+                                'tonal': track_in_db.get('tonal'),
+                                'genre_main': track_in_db.get('genre_main'),
+                                'camelot_key': track_in_db.get('camelot_key'),
+                                'musicbrainz_albumid': track_in_db.get('musicbrainz_albumid'),
+                                'musicbrainz_artistid': track_in_db.get('musicbrainz_artistid'),
+                                'musicbrainz_albumartistid': track_in_db.get('musicbrainz_albumartistid'),
+                                'musicbrainz_genre': track_in_db.get('musicbrainz_genre'),
+                                'acoustid_fingerprint': track_in_db.get('acoustid_fingerprint')
+                            }
+                            
+                            # Compter les champs manquants
+                            for field, value in metadata_fields.items():
+                                if value is None or value == '':
+                                    metadata_missing_stats[field] += 1
+                                    logger.warning(f"[DIAGNOSTIC META]   - {field}: MANQUANT (None/Empty)")
+                                else:
+                                    logger.info(f"[DIAGNOSTIC META]   - {field}: OK ({value})")
+                            
+                            # Vérifier album_id spécifiquement
+                            album_id = track_in_db.get('album_id')
+                            if album_id is None:
+                                logger.error(f"[DIAGNOSTIC ALBUM] ❌ Track '{track_path}' SANS album_id")
+                            else:
+                                logger.info(f"[DIAGNOSTIC ALBUM] ✅ Track '{track_path}' avec album_id: {album_id}")
                     except Exception as e:
                         logger.warning(f"[VERIFY] Erreur vérification track '{track_path}': {str(e)}")
                         logger.error(f"[VERIFY] Détails de l'erreur: {type(e).__name__}: {str(e)}")
                         missing_entities.append(f"Track: {track_path} (erreur vérification)")
+            
+            # Rapport final des métadonnées manquantes
+            logger.info("[DIAGNOSTIC META] RAPPORT FINAL - Métadonnées manquantes:")
+            total_tracks = len(tracks_data)
+            for field, count in metadata_missing_stats.items():
+                percentage = (count / total_tracks * 100) if total_tracks > 0 else 0
+                logger.info(f"[DIAGNOSTIC META]   - {field}: {count}/{total_tracks} tracks ({percentage:.1f}%)")
+            
+            # Rapport spécial pour album_id (calcul séparé)
+            album_id_missing = sum(1 for track_data in tracks_data if not track_data.get('album_id'))
+            album_id_percentage = (album_id_missing / total_tracks * 100) if total_tracks > 0 else 0
+            logger.info(f"[DIAGNOSTIC ALBUM] RAPPORT FINAL - Tracks sans album_id: {album_id_missing}/{total_tracks} ({album_id_percentage:.1f}%)")
 
         # Si des entités sont manquantes, lever une exception pour déclencher un retry
         if missing_entities:
@@ -415,6 +496,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
         async with httpx.AsyncClient(
             base_url=library_api_url,
             timeout=httpx.Timeout(120.0),  # 2 minutes timeout
+            follow_redirects=True,  # Suivre les redirections (nécessaire pour les 307)
             limits=httpx.Limits(
                 max_keepalive_connections=10,
                 max_connections=20,
@@ -552,16 +634,40 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                             mb_album_id = track.get('musicbrainz_albumid')
                             mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
 
-                            if mb_album_id and mb_artist_id:
-                                album_key = (mb_album_id, mb_artist_id)
+                            if mb_album_id:
+                                # Clé basée sur MusicBrainz ID (string) comme dans create_or_get_albums_batch
+                                album_key = mb_album_id
                             else:
-                                album_key = (album_title, artist_name)
+                                # Clé basée sur titre + ID artiste (tuple) comme dans create_or_get_albums_batch
+                                normalized_album_title = album_title.strip().lower()
+                                # On utilise l'ID de l'artiste résolu précédemment
+                                track_artist_id = resolved_track.get('track_artist_id')
+                                if track_artist_id:
+                                    album_key = (normalized_album_title, track_artist_id)
+                                else:
+                                    # Fallback si pas d'ID artiste (ne devrait pas arriver si résolu)
+                                    normalized_artist_name = artist_name.strip().lower()
+                                    album_key = (normalized_album_title, normalized_artist_name)
+
+                            # DIAGNOSTIC AMÉLIORÉ: Log détaillé de la résolution d'album
+                            logger.info(f"[DIAGNOSTIC ALBUM] Track '{track.get('title', 'unknown')}' - Album original: '{album_title}', Artiste original: '{artist_name}'")
+                            logger.info(f"[DIAGNOSTIC ALBUM] MusicBrainz IDs disponibles: mb_album_id={mb_album_id}, mb_artist_id={mb_artist_id}")
+                            logger.info(f"[DIAGNOSTIC ALBUM] Clé normalisée utilisée: {album_key}")
+                            logger.info(f"[DIAGNOSTIC ALBUM] Album_map disponible: {list(album_map.keys())}")
+                            
+                            # Log des clés d'album pour debugging
+                            for i, key in enumerate(album_map.keys()):
+                                if i < 5:  # Log seulement les 5 premières clés pour éviter le spam
+                                    logger.debug(f"[DIAGNOSTIC ALBUM] Clé album {i}: {key}")
+                                elif i == 5:
+                                    logger.debug(f"[DIAGNOSTIC ALBUM] ... et {len(album_map) - 5} autres clés")
 
                             if album_key in album_map:
                                 resolved_track['album_id'] = album_map[album_key]['id']
-                                logger.debug(f"[INSERT] Album '{album_title}' résolu avec clé {album_key}, ID: {album_map[album_key]['id']}")
+                                logger.info(f"[DIAGNOSTIC ALBUM] ✅ Album '{album_title}' résolu avec clé {album_key}, ID: {album_map[album_key]['id']}")
                             else:
-                                logger.warning(f"Album '{album_title}' pour artiste '{artist_name}' non trouvé dans le map (clé: {album_key})")
+                                logger.error(f"[DIAGNOSTIC ALBUM] ❌ Album '{album_title}' pour artiste '{artist_name}' NON TROUVÉ dans le map (clé normalisée: {album_key})")
+                                logger.error(f"[DIAGNOSTIC ALBUM] Track sera insérée avec album_id=None")
                                 # L'album_id peut être optionnel selon le schéma GraphQL
 
                         resolved_tracks_data.append(resolved_track)
@@ -572,13 +678,87 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
 
                     processed_tracks = await create_or_update_tracks_batch(client, resolved_tracks_data)
                     inserted_counts['tracks'] = len(processed_tracks)
-                    logger.info(f"[INSERT] Tracks traités: {len(processed_tracks)}")
+                    
+                    # DIAGNOSTIC: Statistiques des album_id
+                    album_id_stats = {'with_album_id': 0, 'without_album_id': 0}
+                    for track in processed_tracks:
+                        if track.get('album_id'):
+                            album_id_stats['with_album_id'] += 1
+                        else:
+                            album_id_stats['without_album_id'] += 1
+                    
+                    logger.info(f"[DIAGNOSTIC ALBUM] Statistiques après insertion:")
+                    logger.info(f"[DIAGNOSTIC ALBUM] - Tracks avec album_id: {album_id_stats['with_album_id']}")
+                    logger.info(f"[DIAGNOSTIC ALBUM] - Tracks sans album_id: {album_id_stats['without_album_id']}")
+                    logger.info(f"[DIAGNOSTIC ALBUM] Tracks traités: {len(processed_tracks)}")
 
                     # Déclencher callback pour traitement des images depuis tracks
                     if processed_tracks:
                         await on_tracks_inserted_callback(processed_tracks)
 
+                        # ENQUEUE AUDIO ENRICHMENT TASKS POUR LES TRACKS
+                        logger.info(f"[ENRICHMENT] Enqueue tâches d'enrichissement audio pour {len(processed_tracks)} tracks")
+                        if processed_tracks:
+                            # Enqueue chaque track individuellement avec son file_path
+                            enqueued_count = 0
+                            for track in processed_tracks:
+                                track_id = track.get('id')
+                                file_path = track.get('path')  # Le chemin du fichier
+                                if track_id and file_path:
+                                    success = deferred_queue_service.enqueue_task(
+                                        "deferred_enrichment",
+                                        {
+                                            "type": "track_audio",  # Format attendu par le worker
+                                            "id": track_id,
+                                            "file_path": file_path
+                                        },
+                                        priority="low",
+                                        delay_seconds=30 + (enqueued_count % 10) * 5  # Délai progressif pour éviter surcharge
+                                    )
+                                    if success:
+                                        enqueued_count += 1
+                                    else:
+                                        logger.warning(f"[ENRICHMENT] ❌ Échec enqueue audio pour track {track_id}")
+                            logger.info(f"[ENRICHMENT] ✅ {enqueued_count}/{len(processed_tracks)} tâches audio enqueued")
+
                 return inserted_counts
+
+            # === DIAGNOSTIC MÉTADONNÉES MANQUANTES (PRÉ-INSERTION) ===
+            if tracks_data:
+                logger.info("[DIAGNOSTIC PRE-INSERT] Analyse des métadonnées manquantes dans les tracks AVANT insertion")
+                
+                metadata_missing_stats = {
+                    'bpm': 0, 'key': 0, 'scale': 0, 'danceability': 0,
+                    'mood_happy': 0, 'mood_aggressive': 0, 'mood_party': 0, 'mood_relaxed': 0,
+                    'instrumental': 0, 'acoustic': 0, 'tonal': 0, 'genre_main': 0,
+                    'camelot_key': 0, 'musicbrainz_albumid': 0, 'musicbrainz_artistid': 0,
+                    'musicbrainz_albumartistid': 0, 'musicbrainz_genre': 0, 'acoustid_fingerprint': 0
+                }
+                
+                tracks_without_album = 0
+                
+                for track in tracks_data:
+                    # Vérifier chaque champ de métadonnées
+                    for field in metadata_missing_stats.keys():
+                        value = track.get(field)
+                        if value is None or value == '' or (isinstance(value, str) and not value.strip()):
+                            metadata_missing_stats[field] += 1
+                    
+                    # Vérifier album_id (pas dans metadata_missing_stats car spécifique)
+                    if not track.get('album_id'):
+                        tracks_without_album += 1
+                
+                # Rapport détaillé des métadonnées manquantes
+                total_tracks = len(tracks_data)
+                logger.info("[DIAGNOSTIC PRE-INSERT] RAPPORT MÉTADONNÉES MANQUANTES - AVANT INSERTION:")
+                for field, count in metadata_missing_stats.items():
+                    percentage = (count / total_tracks * 100) if total_tracks > 0 else 0
+                    logger.info(f"[DIAGNOSTIC PRE-INSERT]   - {field}: {count}/{total_tracks} tracks ({percentage:.1f}%)")
+                
+                album_percentage = (tracks_without_album / total_tracks * 100) if total_tracks > 0 else 0
+                logger.info(f"[DIAGNOSTIC PRE-INSERT]   - album_id: {tracks_without_album}/{total_tracks} tracks ({album_percentage:.1f}%)")
+                
+                logger.info("[DIAGNOSTIC PRE-INSERT] Fin analyse pré-insertion")
 
             # Exécuter l'insertion asynchrone
             inserted_counts = await run_insertion()
