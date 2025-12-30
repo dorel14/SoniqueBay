@@ -189,29 +189,37 @@ class LastFMService:
             logger.error(f"[LASTFM] Failed to fetch artist info for {artist_name} (MBID: {mb_artist_id or 'N/A'}): {e}")
             return None
 
-    async def get_similar_artists(self, artist_name: str, limit: int = 5) -> Optional[List[Dict[str, Any]]]:
+    async def get_similar_artists(self, artist_name: str, limit: int = 5, mb_artist_id: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
         """
         Récupère les artistes similaires depuis Last.fm.
 
         Args:
             artist_name: Nom de l'artiste
             limit: Nombre maximum d'artistes similaires à retourner
+            mb_artist_id: MusicBrainz Artist ID pour une correspondance précise (optionnel)
 
         Returns:
             Liste d'artistes similaires ou None en cas d'erreur
         """
-        cache_key = f"lastfm:similar:{artist_name.lower()}:{limit}"
+        cache_key = f"lastfm:similar:{artist_name.lower()}:{limit}:{mb_artist_id or 'nom'}"
         return await self._cache_service.call_with_cache_and_circuit_breaker(
             "lastfm",
             cache_key,
             self._fetch_similar_artists,
-            artist_name, limit
+            artist_name, limit, mb_artist_id
         )
 
-    async def _fetch_similar_artists(self, artist_name: str, limit: int) -> Optional[List[Dict[str, Any]]]:
+    async def _fetch_similar_artists(self, artist_name: str, limit: int, mb_artist_id: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
         """Fonction interne pour récupérer les artistes similaires."""
         try:
-            lastfm_artist = self.network.get_artist(artist_name)
+            # Get the artist from Last.fm
+            if mb_artist_id:
+                logger.debug(f"[LASTFM] Utilisation de MBID {mb_artist_id} pour l'artiste {artist_name}")
+                lastfm_artist = self.network.get_artist_by_mbid(mb_artist_id)
+            else:
+                logger.debug(f"[LASTFM] Recherche par nom pour l'artiste {artist_name}")
+                lastfm_artist = self.network.get_artist(artist_name)
+
             similar_artists = lastfm_artist.get_similar(limit=limit)
 
             result = []
@@ -225,11 +233,91 @@ class LastFMService:
                 })
 
             logger.info(f"[LASTFM] Successfully fetched {len(result)} similar artists for: {artist_name}")
+
+            # Store the similar artists in the database
+            await self._store_similar_artists(artist_name, result, mb_artist_id)
+
             return result
 
         except Exception as e:
             logger.error(f"[LASTFM] Failed to fetch similar artists for {artist_name}: {e}")
             return None
+
+    async def _store_similar_artists(self, artist_name: str, similar_artists: List[Dict[str, Any]], mb_artist_id: Optional[str] = None) -> bool:
+        """Store similar artists in the database via API."""
+        import httpx
+        import os
+        
+        try:
+            # Get the API URL
+            api_url = os.getenv('API_URL', 'http://api:8001')
+            
+            # First, get the artist ID from the database using the artist name or mb_artist_id
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Try to find the artist using mb_artist_id first if available
+                artist_id = None
+                if mb_artist_id:
+                    logger.debug(f"[LASTFM] Utilisation de MBID {mb_artist_id} pour trouver l'artiste {artist_name}")
+                    response = await client.get(f"{api_url}/api/artists/search", params={"mbid": mb_artist_id})
+                    if response.status_code == 200:
+                        artists = response.json()
+                        if artists:
+                            artist_id = artists[0]['id']
+                            logger.debug(f"[LASTFM] Found artist by MBID: {artist_id}")
+                    else:
+                        logger.warning(f"[LASTFM] Could not find artist by MBID {mb_artist_id}: {response.status_code}")
+                
+                # If mb_artist_id approach failed or wasn't provided, fall back to name search
+                if not artist_id:
+                    logger.debug(f"[LASTFM] Recherche par nom pour l'artiste {artist_name}")
+                    response = await client.get(f"{api_url}/api/artists/search", params={"name": artist_name})
+                    if response.status_code == 200:
+                        artists = response.json()
+                        if artists:
+                            artist_id = artists[0]['id']
+                            logger.debug(f"[LASTFM] Found artist by name: {artist_id}")
+                        else:
+                            logger.warning(f"[LASTFM] No artist found with name {artist_name}")
+                            return False
+                    else:
+                        logger.warning(f"[LASTFM] Could not find artist {artist_name} in database: {response.status_code}")
+                        return False
+                
+                # Prepare the data for the API call
+                similar_data = []
+                for similar in similar_artists:
+                    # Search for the similar artist in the database
+                    similar_response = await client.get(f"{api_url}/api/artists/search", params={"name": similar['name']})
+                    if similar_response.status_code == 200:
+                        similar_artists_data = similar_response.json()
+                        if similar_artists_data:
+                            # Use the first similar artist found
+                            similar_artist_id = similar_artists_data[0]['id']
+                            similar_data.append({
+                                "similar_artist_id": similar_artist_id,
+                                "weight": similar['weight']
+                            })
+                
+                if not similar_data:
+                    logger.warning(f"[LASTFM] No similar artists found in database for {artist_name}")
+                    return False
+                
+                # Store the similar artists in the database
+                store_response = await client.post(
+                    f"{api_url}/api/artists/{artist_id}/similar",
+                    json=similar_data
+                )
+                
+                if store_response.status_code == 200:
+                    logger.info(f"[LASTFM] Successfully stored {len(similar_data)} similar artists for {artist_name}")
+                    return True
+                else:
+                    logger.warning(f"[LASTFM] Failed to store similar artists: {store_response.status_code} - {store_response.text}")
+                    return False
+                
+        except Exception as e:
+            logger.error(f"[LASTFM] Error storing similar artists for {artist_name}: {e}")
+            return False
 
     async def get_album_info(self, artist_name: str, album_name: str) -> Optional[Dict[str, Any]]:
         """

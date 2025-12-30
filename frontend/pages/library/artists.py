@@ -180,7 +180,5 @@ async def render(container):
         ui.space()
         pagination_section()
 
-        # Lancer la première page au démarrage
-        page = await get_page_from_url() # Get page from URL if available
-        logger.info(f"DEBUG: render - page from URL: {page}")
-        await artist_view(page)
+        # Lancer la première page au démarrage (toujours page 1)
+        await artist_view(1)

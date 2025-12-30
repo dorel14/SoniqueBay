@@ -571,7 +571,7 @@ def _is_test_mode() -> bool:
 async def _filter_tracks_without_vectors_optimized(track_ids: List[int]) -> List[int]:
     """Filtre les tracks qui n'ont pas encore de vecteurs (version optimisée)."""
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             tracks_without_vectors = []
 
             for track_id in track_ids:

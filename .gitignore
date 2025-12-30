@@ -29,7 +29,7 @@ _old/
 ./ollama/*id_ed25519
 ollama/*.pub*
 ollama/models/
-.continue/
+.kilocode/*
 
 # Database files
 *.db
