@@ -8,6 +8,7 @@ from utils.logging import logger
 from config import PAGES_DIR
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Define project root
 
+
 def register_page(path: str, render_function: callable):
     if inspect.iscoroutinefunction(render_function):
         @ui.page(path, response_model=None)

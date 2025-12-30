@@ -1,0 +1,63 @@
+/* === Chat floating reactions (Discord-like) === */
+
+.chat-wrapper {
+    position: relative;
+}
+
+.reaction-float {
+    position: absolute;
+    top: -14px;
+    right: 0;
+    background: var(--q-dark);
+    border-radius: 999px;
+    padding: 4px 8px;
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+    pointer-events: none;
+    transition: all 0.18s ease;
+    box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    z-index: 50;
+}
+
+.chat-wrapper:hover .reaction-float {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+
+.reaction-emoji {
+    font-size: 17px;
+    cursor: pointer;
+    transition: transform .15s ease;
+}
+
+.reaction-emoji:hover {
+    transform: scale(1.4);
+}
+
+/* Réactions affichées sous le message */
+
+.reaction-display {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+
+.reaction-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.08);
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform .1s ease;
+}
+
+.reaction-pill:hover {
+    transform: scale(1.1);
+}

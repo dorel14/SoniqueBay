@@ -303,35 +303,14 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
-
-  celery-monitor:
-    image: getkanchi/kanchi:latest
-    container_name: soniquebay-celery-monitor
-    restart: unless-stopped
-    ports:
-        - "8765:8765"
-        - "3000:3000"
-    environment:
-        - CELERY_BROKER_URL=redis://redis:6379/0
-        - AUTH_ENABLED:"false"
-        - LOG_LEVEL:"DEBUG"
-    volumes:
-        - kanchi_data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8765/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      default:
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
     pull_policy: always
+    environment:
+      - TZ=${TZ}
+      - OLLAMA_KEEP_ALIVE=-1
     tty: true
     volumes:
       - ./ollama:/root/.ollama
