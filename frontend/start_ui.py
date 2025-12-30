@@ -11,7 +11,7 @@ from main import register_dynamic_routes
 sys.path.append(str(Path(__file__).parent.parent))
 from _version_ import __version__ as version
 from frontend.utils.logging import logger
-from websocket_manager.ws_client import connect_websocket, connect_sse
+from frontend.services.communication_service import get_communication_service
 
 app.add_middleware(
         CORSMiddleware,
@@ -45,17 +45,19 @@ async def startup():
         logger.error("Backend is not reachable after multiple retries. Application may not function correctly.")
 
     try:
-        await connect_websocket()
+        comm_service = get_communication_service()
+        await comm_service.connect_websocket()
         logger.info("WebSocket connecté avec succès")
     except Exception as e:
         logger.error(f"Erreur de connexion WebSocket (l'application continuera sans WebSocket): {str(e)}")
 
-    try:
-        logger.info("Tentative de connexion SSE...")
-        await connect_sse()
-        logger.info("SSE connecté avec succès")
-    except Exception as e:
-        logger.error(f"Erreur de connexion SSE (l'application continuera sans SSE): {str(e)}")
+    # try:
+    #     logger.info("Tentative de connexion SSE...")
+    #     await connect_sse()
+    #     logger.info("SSE connecté avec succès")
+    # except Exception as e:
+    #     logger.error(f"Erreur de connexion SSE (l'application continuera sans SSE): {str(e)}")
+    logger.info("SSE désactivé temporairement pour debug")
 
 
 

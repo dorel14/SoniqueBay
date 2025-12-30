@@ -5,10 +5,19 @@ from frontend.config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
 from frontend.utils.logging import logger
-from frontend.websocket_manager.ws_client import register_sse_handler, register_system_progress_handler
+from frontend.services.communication_service import get_communication_service
+from frontend.services.search_service import SearchService
 import asyncio
 import httpx
 
+# --- ÉTAT DE L'APPLICATION (SIMPLIFIÉ) ---
+class AppState:
+    def __init__(self):
+        self.view_mode = 'cards'  # 'cards' ou 'list'
+        self.queue = []
+        self.page_number = 1
+
+state = AppState()
 # Tu peux ici définir des labels personnalisés si tu veux
 CUSTOM_LABELS = {
     'homepage': '🏠 Accueil',
@@ -42,170 +51,9 @@ search_field = None
 results = None
 
 async def search(e: events.ValueChangeEventArguments) -> None:
-    global running_query
-    if running_query and not running_query.done():
-        running_query.cancel()
-    results.clear()
-    if not e.value.strip():
-        return
-    running_query = asyncio.create_task(httpx.AsyncClient().get(f'{API_URL}/api/search/typeahead?q={e.value}'))
-    try:
-        response = await running_query
-        data = response.json()
-        items = data.get('items', [])
-        with results:
-            for item in items[:5]:  # limit to 5 for performance
-                artist = item.get('artist', 'Unknown')
-                title = item.get('title', 'Unknown')
-                ui.label(f"{artist} - {title}").classes('cursor-pointer hover:bg-white/10 p-2 text-white').on_click(lambda item=item: ui.open(f'/library?search={item.get("title", "")}'))
-    except Exception as ex:
-        logger.error(f"Search error: {ex}")
+    """Gestionnaire de recherche utilisant le service SearchService."""
+    await SearchService.search_handler(e, results)
 
-def make_progress_handler(task_id):
-    def handler(data):
-        # On ne traite que les messages de type "progress" et pour le bon task_id
-        logger.debug(f"Message reçu du WS : {data}")
-        if data.get('type') != 'progress':
-            return
-        if data.get('task_id') != task_id:
-            return
-
-        # Utiliser le service de messages de progression
-        from frontend.services.progress_message_service import progress_service
-
-        # Extraire les informations de progression
-        step = data.get("step", "")
-        current = data.get("current")
-        total = data.get("total")
-        percent = data.get("percent")
-
-        # Déterminer le type de tâche basé sur le step
-        task_type = "scan"  # Par défaut
-        if "metadata" in step.lower() or "extraction" in step.lower():
-            task_type = "metadata"
-        elif "vector" in step.lower() or "embedding" in step.lower():
-            task_type = "vectorization"
-        elif "enrich" in step.lower() or "last.fm" in step.lower():
-            task_type = "enrichment"
-        elif "audio" in step.lower() or "bpm" in step.lower():
-            task_type = "audio_analysis"
-
-        # Envoyer le message de progression
-        progress_service.send_progress_message(
-            task_type=task_type,
-            message=step,
-            current=current,
-            total=total,
-            task_id=task_id
-        )
-
-        # Si c'est terminé, envoyer un message de fin
-        if percent == 100 or (current is not None and total is not None and current >= total):
-            progress_service.send_completion_message(task_type, success=True, task_id=task_id)
-
-    return handler
-
-# Fonction hide_progress supprimée - plus nécessaire avec les messages de chat
-
-async def delete_scan_session(session_id: str, dialog) -> None:
-    """Supprime une session de scan par son ID."""
-    async with httpx.AsyncClient() as http_client:
-        try:
-            response = await http_client.delete(f"{API_URL}/api/scan-sessions/{session_id}")
-            if response.status_code == 200:
-                logger.info(f"Session de scan {session_id} supprimée avec succès.")
-                dialog.close()
-            else:
-                logger.info(f"Erreur lors de la suppression de la session de scan {session_id}: {response.status_code}")
-        except httpx.RequestError as e:
-            logger.info(f"Erreur de requête HTTP lors de la suppression de la session de scan {session_id}: {e}")
-
-async def refresh_library():
-    """Actualise la bibliothèque musicale."""
-
-    async with httpx.AsyncClient() as http_client:
-        try:
-            logger.info(f"Recherche d'une actualisation de bibliothèque en cours... URL: {API_URL}/api/scan-sessions/")
-            response = await http_client.get(f"{API_URL}/api/scan-sessions/")
-            logger.info(f"Réponse reçue avec status code: {response.status_code}")
-
-            if response.status_code == 200:
-                sessions = response.json()
-                logger.info(f"Sessions de scan trouvées: {len(sessions)}")
-
-                # Définir la fonction start_new_scan au niveau supérieur pour qu'elle soit accessible partout
-                async def start_new_scan():
-                    """Lance un nouveau scan"""
-                    async with httpx.AsyncClient() as client:
-                        try:
-                            response = await client.post(f"{API_URL}/api/scan")
-                            if response.status_code in (200, 201):
-                                logger.info("Lancement de l'actualisation de la bibliothèque...")
-                                task_id = response.json().get('task_id')
-                                # Enregistre le handler pour ce task_id
-                                handler = make_progress_handler(task_id)
-                                register_sse_handler(handler)
-                            else:
-                                logger.error(f"Erreur lors de l'actualisation de la bibliothèque: {response.status_code}")
-                        except httpx.RequestError as e:
-                            logger.error(f"Erreur de requête HTTP: {e}")
-
-                # Vérifier si une session est déjà en cours
-                active_session = None
-                for session in sessions:
-                    if session['status'] in ('running', 'pending'):
-                        active_session = session
-                        break
-
-                if active_session:
-                    logger.info(f"Une actualisation de bibliothèque est déjà en cours avec status: {active_session['status']}")
-                    logger.info(f"Session ID: {active_session.get('id')}")
-
-                    session_id = active_session.get('id')
-
-                    # Créer une fonction pour gérer le flux après la décision de l'utilisateur
-                    async def handle_user_decision(should_cancel: bool):
-                        if should_cancel:
-                            # Annuler la session existante
-                            async with httpx.AsyncClient() as client:
-                                try:
-                                    delete_response = await client.delete(f"{API_URL}/api/scan-sessions/{session_id}")
-                                    if delete_response.status_code == 200:
-                                        logger.info(f"Session de scan {session_id} supprimée avec succès.")
-                                        # Continuer avec le nouveau scan
-                                        await start_new_scan()
-                                        dialog.close()
-                                    else:
-                                        logger.error(f"Erreur lors de la suppression de la session de scan {session_id}: {delete_response.status_code}")
-                                except httpx.RequestError as e:
-                                    logger.error(f"Erreur de requête HTTP lors de la suppression de la session de scan {session_id}: {e}")
-                        else:
-                            # Ne pas annuler, donc ne pas lancer de nouveau scan
-                            logger.info("L'utilisateur a choisi de ne pas annuler la session en cours")
-                            dialog.close()
-
-                    # Créer la boîte de dialogue
-                    with ui.dialog() as dialog:
-                        with ui.card():
-                            ui.label("Une actualisation de la bibliothèque est déjà en cours, voulez-vous l'annuler ?")
-
-                            with ui.row():
-                                ui.button('Oui', on_click=lambda: asyncio.create_task(handle_user_decision(True))).props('flat color=primary')
-                                ui.button('Non', on_click=lambda: asyncio.create_task(handle_user_decision(False))).props('flat color=primary')
-
-                    dialog.open()
-                    logger.info("Boîte de dialogue ouverte, en attente de la décision de l'utilisateur")
-
-                else:
-                    # Aucune session active, lancer directement le scan
-                    await start_new_scan()
-
-            else:
-                logger.error(f"Erreur lors de la vérification des sessions de scan: {response.status_code}")
-                logger.error(f"Contenu de la réponse: {response.text}")
-
-        except httpx.RequestError as e:
-            logger.error(f"Erreur de requête HTTP lors de la vérification des sessions de scan: {e}")
 
 
 def left_menu() -> None:
@@ -355,24 +203,33 @@ def wrap_with_layout(render_page):
             ui.space()
             ui.separator()
             with ui.row().classes('items-center q-my-sm object-bottom'):
-                ui.button(text='Actualiser la bibliothèque',on_click=refresh_library,
+                from frontend.services.scan_service import ScanService
+                ui.button(text='Actualiser la bibliothèque',on_click=lambda: asyncio.create_task(ScanService.refresh_library()),
                         icon='refresh').props('flat color=white dense').classes('text-xs')
-            # --- Progress bar supprimée - remplacée par messages de chat ---
-            # La progression est maintenant affichée dans le chat via des messages système
-    with ui.right_drawer().classes('h-full'):
-        from .chat_ui import ChatUI
-        chat_ui = ChatUI()
-        app.storage.client['chat_ui'] = chat_ui
+        # --- Progress bar supprimée - remplacée par messages de chat ---
+        # La progression est maintenant affichée dans le chat via des messages système
+    # with ui.right_drawer().classes('h-full bg-primary'):
+    #     with ui.tabs().classes('w-full') as tabs:
+    #         chat_tab= ui.tab('Chat AI').props('icon=chat-bubble-outline dense color=primary').classes('text-gray-800')
+    #         queue_tab = ui.tab('File Queue').props('icon=queue-music dense color=primary').classes('text-gray-800')
+    #     with ui.tab_panels(tabs, value=chat_tab).classes('w-full h-full'):
+    #         with ui.tab_panel(chat_tab).classes('w-full h-full'):
+    #             from .chat_ui import ChatUI
+    #             chat_ui = ChatUI()
+    #             app.storage.client['chat_ui'] = chat_ui
+    #         with ui.tab_panel(queue_tab).classes('w-full h-full'):
+    #             ui.label('File d\'attente des morceaux à jouer').classes('text-lg font-bold')
+
 
         # Enregistrer le handler pour les messages système de progression
-        register_system_progress_handler()
+        # register_system_progress_handler()
         
 
-    def toggle_drawer():
-        """Gestion du toggle avec changement d'icône."""
-        left_drawer.toggle()
+    # def toggle_drawer():
+    #     """Gestion du toggle avec changement d'icône."""
+    #     left_drawer.toggle()
 
-    toggle_button.on('click', toggle_drawer)
+    # toggle_button.on('click', toggle_drawer)
 
 
 

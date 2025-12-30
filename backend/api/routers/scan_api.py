@@ -9,7 +9,7 @@ from backend.api.services.scan_service import ScanService
 from backend.api.schemas.scan_schema import ScanRequest
 
 
-router = APIRouter(tags=["scan"])
+router = APIRouter(prefix='', tags=["scan"])
 
 
 

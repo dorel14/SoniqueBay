@@ -148,10 +148,21 @@ async def handle_trailing_slashes(request: Request, call_next):
         # Vérifier si la route existe avec slash final
         from backend.api import api_router
         for route in api_router.routes:
-            if hasattr(route, 'path') and route.path == new_url:
-                logger.info(f"Redirection de {request.url.path} vers {new_url}")
-                from fastapi.responses import RedirectResponse
-                return RedirectResponse(url=new_url, status_code=307)
+            if hasattr(route, 'path'):
+                # Comparer les chemins en tenant compte du préfixe /api
+                # route.path est relatif (ex: /artists/), request.url.path est absolu (ex: /api/artists)
+                # On doit comparer route.path (sans slash final) avec request.url.path sans le préfixe /api
+                if route.path.rstrip('/') == request.url.path.replace("/api", ""):
+                    # Vérifier si la route accepte les paramètres de requête
+                    # Si la route a des paramètres, ne pas rediriger
+                    if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
+                        # Route avec dépendances (a des paramètres)
+                        # Ne pas rediriger pour éviter de perdre les paramètres
+                        pass
+                    else:
+                        logger.info(f"Redirection de {request.url.path} vers {new_url}")
+                        from fastapi.responses import RedirectResponse
+                        return RedirectResponse(url=new_url, status_code=307)
 
     return await call_next(request)
 
