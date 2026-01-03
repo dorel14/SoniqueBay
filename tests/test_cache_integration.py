@@ -11,7 +11,6 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend_worker'))
 
 from backend_worker.services.cache_service import cache_service
-from backend_worker.utils.logging import logger
 
 async def test_artist_search_cache():
     """Teste le cache pour les recherches d'artistes."""
@@ -60,7 +59,7 @@ async def test_artist_search_cache():
         print("   - Deuxième appel: Cache utilisé")
         return True
     else:
-        print(f"\n❌ ÉCHEC: Le cache ne fonctionne pas correctement")
+        print("\n❌ ÉCHEC: Le cache ne fonctionne pas correctement")
         print(f"   - Nombre d'appels API: {call_count} (attendu: 1)")
         return False
 

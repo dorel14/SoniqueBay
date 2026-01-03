@@ -59,7 +59,7 @@ def fetch_artist_lastfm_info(self, artist_id: int) -> Dict[str, Any]:
                 return response
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 response = executor.submit(asyncio.run, update_api()).result()
@@ -123,7 +123,7 @@ def fetch_similar_artists(self, artist_id: int, limit: int = 10) -> Dict[str, An
         # Run async call in sync context
         try:
             # Check if there's already an event loop
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # If we're in an async context, we need to handle this differently
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:

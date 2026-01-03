@@ -11,6 +11,7 @@ export TZ=${TZ}
 export LANG=${LOCALE_LANGUAGE}.UTF-8
 export LANGUAGE=${LOCALE_LANGUAGE}.UTF-8
 export LC_ALL=${LOCALE_LANGUAGE}.UTF-8
+createuser --superuser postgres
 
 # Check if a backup exists and restore it
 BACKUP_FILE="/db_folder/backup.sql"
@@ -44,6 +45,7 @@ if [ "$CREATE_NEW_DB" = true ]; then
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" template1 <<EOSQL
         SELECT 'CREATE DATABASE ${POSTGRES_DB}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${POSTGRES_DB}')\gexec
         GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_DB} TO ${POSTGRES_USER};
+
 EOSQL
 
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname ${POSTGRES_DB} <<EOSQL

@@ -104,3 +104,34 @@ def configure_worker_logging():
     logger.addHandler(handler)
     logger.setLevel(getattr(logging, log_level))
     return logger
+
+# Fonction pour nettoyer les ressources de logging à la fin du programme
+def cleanup_logging():
+    """
+    Clean up logging resources properly.
+    This should be called at application shutdown.
+    """
+    global listener
+    try:
+        if hasattr(listener, 'stop'):
+            listener.stop()
+    except OSError:
+        pass  # Ignore errors if the listener is already stopped
+    
+    try:
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+    except OSError:
+        pass  # Ignore errors if handlers are already removed
+    
+    try:
+        if hasattr(log_queue, 'close'):
+            log_queue.close()
+    except OSError:
+        pass  # Ignore errors if the queue is already closed
+    
+    try:
+        if hasattr(log_queue, 'join_thread'):
+            log_queue.join_thread()
+    except OSError:
+        pass  # Ignore errors if the queue thread is already joined

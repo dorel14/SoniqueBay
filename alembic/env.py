@@ -4,7 +4,7 @@ from backend.api.utils.logging import logger
 # Forcer l'encodage UTF-8 pour psycopg2 avant l'import
 os.environ["PGCLIENTENCODING"] = "UTF8"
 
-from sqlalchemy import engine_from_config, create_engine
+from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context

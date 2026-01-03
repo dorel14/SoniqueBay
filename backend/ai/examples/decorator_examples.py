@@ -1,7 +1,7 @@
 """
 Exemples d'utilisation du décorateur @ai_tool optimisé
 """
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.ai.utils.decorators import ai_tool, search_tool, playlist_tool, music_tool
 

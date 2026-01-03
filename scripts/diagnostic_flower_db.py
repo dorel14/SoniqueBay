@@ -5,11 +5,8 @@ Analyse les sources possibles du problème et génère des logs de diagnostic
 """
 
 import os
-import sys
 import shelve
-import stat
 import logging
-from pathlib import Path
 
 # Import conditionnel pour _gdbm (uniquement sur Unix/Linux)
 try:

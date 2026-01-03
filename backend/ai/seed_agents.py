@@ -1,7 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from backend.api.models.agent_model import AgentModel
-from backend.ai.agents.builder import build_agent
 import os
 
 DEFAULT_AGENT_MODEL = os.getenv("AGENT_MODEL", "phi3:mini")

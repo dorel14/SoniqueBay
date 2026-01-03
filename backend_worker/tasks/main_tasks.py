@@ -17,8 +17,9 @@ def scan_music_task_legacy(directory: str, progress_callback=None):
     Cette tâche sera supprimée dans une version future.
     Utilisez 'scan.discovery' à la place.
     """
-    logger.warning("[LEGACY] scan_music_task est dépréciée. Utilisez scan.discovery à la place.")
-    return celery.send_task('scan.discovery', args=[directory, progress_callback])
+    logger.error("[LEGACY] scan_music_task est maintenant supprimée. Utilisez 'scan.discovery' directement.")
+    logger.error("[LEGACY] Exemple: celery.send_task('scan.discovery', args=[directory, progress_callback])")
+    raise NotImplementedError("scan_music_task est supprimée. Utilisez scan.discovery directement.")
 
 
 @celery.task(name="extract_metadata_batch", queue="extract")

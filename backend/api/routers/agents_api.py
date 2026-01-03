@@ -5,7 +5,6 @@ from backend.api.schemas.agent_score_schema import (
     AgentScoreCreate,
     AgentScoreUpdate,
     AgentScore,
-    AgentScoreWithMetrics,
     AgentScoreListResponse,
 )
 from backend.api.services.agent_services import (

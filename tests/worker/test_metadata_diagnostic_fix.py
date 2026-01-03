@@ -3,11 +3,8 @@ Tests pour vérifier que les corrections des métadonnées manquantes fonctionne
 """
 
 import pytest
-import asyncio
-import os
 import sys
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from unittest.mock import patch
 
 # Ajouter le backend_worker au path
 sys.path.append('/app/backend_worker')
