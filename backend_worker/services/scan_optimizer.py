@@ -157,66 +157,49 @@ class ScanOptimizer:
 
     async def analyze_audio_batch(self, track_data_list: List[Dict]) -> List[Dict]:
         """
-        Analyse audio de plusieurs tracks en parallèle avec threading.
+        Lance l'analyse audio de plusieurs tracks via des tâches Celery en arrière-plan.
+
+        Les tâches Celery sont envoyées à la queue 'audio_analysis' et traitées
+        de manière asynchrone. Les résultats sont stockés directement en base de données
+        par les workers Celery.
 
         Args:
-            track_data_list: Liste des données de tracks
+            track_data_list: Liste des données de tracks (doit contenir 'id' et 'path')
 
         Returns:
-            Liste des résultats d'analyse
+            Liste des données de tracks inchangées (l'analyse est asynchrone)
         """
         if not track_data_list:
             return []
 
         start_time = time.time()
+        tasks_sent = 0
 
-        async def analyze_single_track(track_data: Dict) -> Optional[Dict]:
-            async with self.audio_semaphore:
+        # Envoyer les tâches Celery pour l'analyse audio
+        for track_data in track_data_list:
+            track_id = track_data.get('id')
+            file_path = track_data.get('path')
+
+            if track_id and file_path:
                 try:
-                    # Importer ici pour éviter les imports circulaires
-                    from backend_worker.services.audio_features_service import extract_audio_features
-
-                    # Utiliser l'executor pour les analyses CPU intensives
-                    if self.executor:
-                        loop = asyncio.get_running_loop()
-                        result = await loop.run_in_executor(
-                            self.executor,
-                            lambda: asyncio.run(extract_audio_features(
-                                audio=None,  # Pas d'objet audio Mutagen
-                                tags={},     # Tags vides pour l'instant
-                                file_path=track_data.get('path')
-                            ))
-                        )
-                    else:
-                        result = await extract_audio_features(
-                            audio=None,
-                            tags={},
-                            file_path=track_data.get('path')
-                        )
-
-                    return result
+                    # Envoyer la tâche Celery à la queue 'audio_analysis'
+                    celery.send_task(
+                        'backend_worker.tasks.audio_analysis_tasks.analyze_track_audio_features',
+                        args=[track_id, file_path],
+                        queue='audio_analysis'
+                    )
+                    tasks_sent += 1
                 except Exception as e:
-                    logger.error(f"Erreur analyse audio {track_data.get('path')}: {e}")
+                    logger.error(f"Erreur envoi tâche analyse audio pour {file_path}: {e}")
                     self.metrics.errors_count += 1
-                    return {}
-
-        # Traiter en parallèle
-        tasks = [analyze_single_track(track) for track in track_data_list]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        # Combiner les résultats avec les données originales
-        processed_tracks = []
-        for track_data, analysis_result in zip(track_data_list, results):
-            if isinstance(analysis_result, dict) and analysis_result:
-                combined = {**track_data, **analysis_result}
-                processed_tracks.append(combined)
             else:
-                processed_tracks.append(track_data)
+                logger.warning(f"Track sans id ou path: {track_data}")
 
         processing_time = time.time() - start_time
-        logger.info(f"Analyse audio batch: {len(processed_tracks)} tracks en {processing_time:.2f}s")
+        logger.info(f"Analyse audio batch: {tasks_sent}/{len(track_data_list)} tâches Celery envoyées en {processing_time:.2f}s")
 
-        return processed_tracks
+        # Retourner les données inchangées (l'analyse est asynchrone)
+        return track_data_list
 
     async def process_chunk_with_optimization(self,
                                             client,

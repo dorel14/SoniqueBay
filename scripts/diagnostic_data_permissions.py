@@ -13,12 +13,10 @@ Auteur : Kilo Code
 """
 
 import os
-import sys
 import pwd
 import grp
-import stat
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 
 def get_current_user_info() -> Dict[str, Any]:
@@ -267,7 +265,7 @@ def main():
         print("   ✓ Import réussi")
         
         print("   Tentative d'initialisation...")
-        service = ModelPersistenceService()
+        ModelPersistenceService()
         print("   ✓ Initialisation réussie")
         
     except Exception as e:

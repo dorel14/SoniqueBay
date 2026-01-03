@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.models.agent_model import AgentModel
@@ -216,7 +216,7 @@ class AgentLoader:
                 validation_report["warnings"] += len(report["warnings"])
         
         logger.info(
-            f"Validation des agents terminée",
+            "Validation des agents terminée",
             extra={
                 "total": validation_report["total_agents"],
                 "valid": validation_report["valid_agents"],
@@ -250,7 +250,7 @@ class AgentLoader:
             }
             
             logger.info(
-                f"Rechargement des agents terminé avec succès",
+                "Rechargement des agents terminé avec succès",
                 extra={
                     "reloaded_count": reload_report["reloaded_count"],
                     "agent_names": reload_report["agent_names"]
@@ -268,7 +268,7 @@ class AgentLoader:
             }
             
             logger.error(
-                f"Erreur lors du rechargement des agents",
+                "Erreur lors du rechargement des agents",
                 extra={"error": str(e)},
                 exc_info=True
             )

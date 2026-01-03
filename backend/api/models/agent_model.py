@@ -1,4 +1,3 @@
-from unittest.mock import DEFAULT
 from sqlalchemy import Column, Integer, String, Text, JSON, Boolean,Float
 
 from backend.api.utils.database import Base, TimestampMixin

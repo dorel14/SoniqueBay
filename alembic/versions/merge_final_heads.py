@@ -7,7 +7,6 @@ Create Date: 2025-12-27 17:02:00.000000
 """
 from typing import Sequence, Union
 
-from alembic import op
 
 
 # revision identifiers, used by Alembic.

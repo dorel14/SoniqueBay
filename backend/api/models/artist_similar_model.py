@@ -6,7 +6,7 @@ SQLAlchemy model for storing relationships between similar artists from Last.fm.
 """
 
 from __future__ import annotations
-from sqlalchemy import Integer, Float, ForeignKey, UniqueConstraint, Index, String
+from sqlalchemy import Integer, Float, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.api.utils.database import Base, TimestampMixin
 from typing import TYPE_CHECKING

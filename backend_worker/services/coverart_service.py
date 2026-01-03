@@ -8,7 +8,7 @@ async def get_coverart_image(client: httpx.AsyncClient, mb_release_id: str) -> O
     """Récupère l'image de cover depuis Cover Art Archive."""
     try:
         if not mb_release_id:
-            logger.warning(f"[COVERART] MBID vide fourni")
+            logger.warning("[COVERART] MBID vide fourni")
             return None
 
         url = f"https://coverartarchive.org/release/{mb_release_id}/front"
@@ -36,7 +36,7 @@ async def get_coverart_image(client: httpx.AsyncClient, mb_release_id: str) -> O
                     logger.info(f"[COVERART] Redirection vers {current_url}")
                     continue
                 else:
-                    logger.warning(f"[COVERART] Redirection sans location header")
+                    logger.warning("[COVERART] Redirection sans location header")
                     return None
             elif response.status_code == 200:
                 image_data = response.content

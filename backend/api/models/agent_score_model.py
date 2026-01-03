@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, UniqueConstraint
 from backend.api.utils.database import Base
 
 class AgentScore(Base):

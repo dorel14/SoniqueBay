@@ -48,6 +48,7 @@ class RedisManager:
         """
         if self._redis_client is None:
             try:
+                # Configuration Redis robuste pour éviter les erreurs PubSub
                 self._redis_client = redis.Redis(
                     host='redis',
                     port=6379,
@@ -56,24 +57,52 @@ class RedisManager:
                     socket_timeout=5.0,  # Timeout court pour Raspberry Pi
                     socket_connect_timeout=5.0,
                     retry_on_timeout=True,
-                    max_connections=10  # Limité pour Raspberry Pi
+                    max_connections=10,  # Limité pour Raspberry Pi
+                    # Configurations spécifiques pour PubSub
+                    health_check_interval=30,
+                    socket_keepalive=True,
+                    socket_keepalive_options={},
                 )
                 # Test de connexion
                 await self._redis_client.ping()
                 logger.info("[REDIS] Connexion Redis établie")
+                
+                # Configurer la connexion pour PubSub
+                await self._ensure_pubsub_ready()
+                
             except Exception as e:
                 logger.error(f"[REDIS] Erreur connexion Redis: {e}")
                 self._redis_client = None
                 raise
 
         return self._redis_client
+    
+    async def _ensure_pubsub_ready(self):
+        """
+        S'assure que la connexion est prête pour PubSub.
+        Évite l'erreur 'pubsub connection not set'.
+        """
+        try:
+            # Test simple pour vérifier que PubSub fonctionne
+            test_client = self._redis_client
+            pubsub = test_client.pubsub()
+            # Ne pas s'abonner, juste vérifier que l'objet peut être créé
+            await pubsub.get_message(timeout=0.1)
+            await pubsub.close()
+            logger.debug("[REDIS] PubSub prêt")
+        except Exception as e:
+            logger.warning(f"[REDIS] Problème PubSub détecté: {e}")
 
     async def close(self):
-        """Ferme la connexion Redis."""
+        """Ferme la connexion Redis proprement."""
         if self._redis_client:
-            await self._redis_client.close()
-            self._redis_client = None
-            logger.info("[REDIS] Connexion Redis fermée")
+            try:
+                await self._redis_client.close()
+                logger.info("[REDIS] Connexion Redis fermée")
+            except Exception as e:
+                logger.warning(f"[REDIS] Erreur fermeture connexion: {e}")
+            finally:
+                self._redis_client = None
 
 
 # Instance singleton
@@ -112,50 +141,97 @@ async def publish_event(channel: str, event_type: str, payload: Dict[str, Any]) 
 async def listen_events(channel: str, callback: Callable[[Dict[str, Any]], None],
                        event_types: Optional[List[str]] = None) -> None:
     """
-    Écoute les événements Redis de manière asynchrone.
+    Écoute les événements Redis de manière asynchrone avec gestion robuste des erreurs.
 
     Args:
         channel: Canal Redis à écouter
         callback: Fonction appelée pour chaque événement
         event_types: Types d'événements à filtrer (None = tous)
     """
+    pubsub = None
     try:
         client = await redis_manager.get_client()
+        
+        # Créer et configurer le PubSub de manière robuste
         pubsub = client.pubsub()
-        await pubsub.subscribe(channel)
+        
+        # S'abonner au canal avec gestion d'erreur
+        try:
+            await pubsub.subscribe(channel)
+            logger.info(f"[REDIS] Abonnement réussi au canal: {channel}")
+        except Exception as e:
+            logger.error(f"[REDIS] Échec abonnement {channel}: {e}")
+            raise
 
         logger.info(f"[REDIS] Écoute démarrée sur canal: {channel}")
 
+        # Boucle d'écoute avec gestion robuste des erreurs
         try:
-            async for message in pubsub.listen():
-                if message['type'] == 'message':
-                    try:
-                        data = json.loads(message['data'])
+            while True:
+                try:
+                    # Attendre les messages avec timeout pour permettre la reconnexion
+                    message = await pubsub.get_message(timeout=1.0)
+                    
+                    if message is None:
+                        continue
+                        
+                    if message['type'] == 'message':
+                        try:
+                            data = json.loads(message['data'])
 
-                        # Filtrage par type d'événement
-                        if event_types and data.get('type') not in event_types:
-                            continue
+                            # Filtrage par type d'événement
+                            if event_types and data.get('type') not in event_types:
+                                continue
 
-                        # Gestion flexible des callbacks sync/async
-                        import inspect
-                        if inspect.iscoroutinefunction(callback):
-                            await callback(data)
-                        else:
-                            callback(data)
+                            # Gestion flexible des callbacks sync/async
+                            import inspect
+                            if inspect.iscoroutinefunction(callback):
+                                await callback(data)
+                            else:
+                                callback(data)
 
-                    except json.JSONDecodeError as e:
-                        logger.error(f"[REDIS] Erreur décodage JSON: {e}")
-                    except Exception as e:
-                        logger.error(f"[REDIS] Erreur callback: {e}")
+                        except json.JSONDecodeError as e:
+                            logger.error(f"[REDIS] Erreur décodage JSON: {e}")
+                        except Exception as e:
+                            logger.error(f"[REDIS] Erreur callback: {e}")
+                    
+                    elif message['type'] == 'subscribe':
+                        logger.debug(f"[REDIS] Confirmation abonnement: {message}")
+                    
+                    elif message['type'] == 'unsubscribe':
+                        logger.info(f"[REDIS] Désabonnement: {message}")
+                        break
+                        
+                except asyncio.TimeoutError:
+                    # Timeout normal, continuer la boucle
+                    continue
+                except Exception as e:
+                    logger.error(f"[REDIS] Erreur traitement message: {e}")
+                    # Continuer même en cas d'erreur sur un message
+                    continue
 
         except Exception as e:
-            logger.error(f"[REDIS] Erreur écoute {channel}: {e}")
+            logger.error(f"[REDIS] Erreur boucle écoute {channel}: {e}")
+            raise
         finally:
-            await pubsub.unsubscribe(channel)
-            logger.info(f"[REDIS] Écoute arrêtée sur canal: {channel}")
+            # Nettoyage propre du PubSub
+            try:
+                if pubsub:
+                    await pubsub.unsubscribe(channel)
+                    await pubsub.close()
+                logger.info(f"[REDIS] Écoute arrêtée proprement sur canal: {channel}")
+            except Exception as e:
+                logger.warning(f"[REDIS] Erreur nettoyage PubSub: {e}")
 
     except Exception as e:
         logger.error(f"[REDIS] Erreur initialisation écoute {channel}: {e}")
+        # Tentative de nettoyage en cas d'erreur
+        try:
+            if pubsub:
+                await pubsub.close()
+        except Exception:
+            pass
+        raise
 
 
 class VectorizationEventListener:

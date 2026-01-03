@@ -102,7 +102,7 @@ async def diagnostic_missing_metadata_task(self):
         
         # Log du résumé
         summary = final_result["summary"]
-        logger.info(f"[DIAGNOSTIC TASK] === DIAGNOSTIC TERMINÉ ===")
+        logger.info("[DIAGNOSTIC TASK] === DIAGNOSTIC TERMINÉ ===")
         logger.info(f"[DIAGNOSTIC TASK] Tracks analysées: {summary['total_tracks_analyzed']}")
         logger.info(f"[DIAGNOSTIC TASK] Tracks sans album_id: {summary['tracks_without_album_id']}")
         logger.info(f"[DIAGNOSTIC TASK] Métadonnées critiques manquantes: {summary['critical_metadata_missing']}")

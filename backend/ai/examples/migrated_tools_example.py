@@ -3,8 +3,8 @@ Exemple d'outil migré utilisant le nouveau système de décorateurs
 Montre la transformation d'un outil existant vers le système optimisé
 """
 
-from typing import Dict, Any, List, Optional
-from backend.ai.utils.decorators import ai_tool
+from typing import Dict, Any, Optional
+from backend.ai.utils.decorators import ai_tool, validate_tool_config
 from backend.api.utils.logging import logger
 
 
@@ -298,8 +298,6 @@ async def analyze_mood(
 # ============================================================================
 # EXEMPLE 5: Tool validator pour validation de configuration
 # ============================================================================
-
-from backend.ai.utils.decorators import validate_tool_config
 
 # Exemple de validation personnalisée pour les outils critiques
 def validate_search_params(query: str, limit: int) -> bool:
