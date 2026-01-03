@@ -24,7 +24,7 @@ import os
 from backend_worker.services.vectorization_service import (
     OptimizedVectorizationService
 )
-from backend_worker.services.data_directory_initializer import data_directory_initializer, initialize_data_directories
+from backend_worker.services.data_directory_initializer import initialize_data_directories
 from backend_worker.utils.logging import logger
 
 

@@ -1,6 +1,6 @@
 # backend/agent_manager.py
 import json
-from typing import Dict, Any, Optional
+from typing import Dict, Optional
 from backend.api.services.agent_services import get_agent_by_name, list_agents
 from backend.api.models.agent_model import AgentModel
 from backend.ai.models.ollama_stream_model import OllamaStreamModel

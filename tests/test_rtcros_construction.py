@@ -1,6 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from sqlalchemy.ext.asyncio import AsyncSession
+from unittest.mock import Mock, patch
 
 from backend.api.models.agent_model import AgentModel
 from backend.ai.agents.builder import (
@@ -11,7 +10,6 @@ from backend.ai.agents.builder import (
     _build_specialized_prompt,
     _merge_tools
 )
-from backend.ai.utils.registry import ToolRegistry
 
 
 class TestRTCROSPrompt:
@@ -345,7 +343,7 @@ class TestAgentValidation:
                 report = validate_agent_configuration(agent_model)
         
         assert report["agent_name"] == "valid_agent"
-        assert report["is_valid"] == True
+        assert report["is_valid"]
         assert len(report["issues"]) == 0
         assert len(report["warnings"]) == 0
         assert report["details"]["model"] == "phi3:mini"
@@ -364,7 +362,7 @@ class TestAgentValidation:
         report = validate_agent_configuration(agent_model)
         
         assert report["agent_name"] == "invalid_agent"
-        assert report["is_valid"] == False
+        assert not report["is_valid"]
         assert len(report["issues"]) == 2
         assert any("ROLE" in issue for issue in report["issues"])
         assert any("TASK" in issue for issue in report["issues"])
@@ -385,7 +383,7 @@ class TestAgentValidation:
             report = validate_agent_configuration(agent_model)
         
         assert report["agent_name"] == "agent_with_missing_tools"
-        assert report["is_valid"] == True  # Les tools manquants sont des warnings, pas des erreurs
+        assert report["is_valid"]  # Les tools manquants sont des warnings, pas des erreurs
         assert len(report["warnings"]) == 1
         assert "Tools manquants" in report["warnings"][0]
 
@@ -405,7 +403,7 @@ class TestAgentValidation:
             report = validate_agent_configuration(agent_model)
         
         assert report["agent_name"] == "agent_with_model_error"
-        assert report["is_valid"] == False
+        assert not report["is_valid"]
         assert len(report["issues"]) == 1
         assert "Modèle LLM invalide" in report["issues"][0]
 

@@ -1,11 +1,10 @@
 import pytest
-import asyncio
 import time
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
+from unittest.mock import Mock, patch
 from collections import deque
 
 from backend.ai.runtime import AgentRuntime, StreamingBuffer
-from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState, StreamEvent
+from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState
 
 
 class TestStreamingBuffer:
@@ -57,12 +56,12 @@ class TestStreamingBuffer:
         for i in range(3):
             buffer.add_chunk(f"chunk{i}")
         
-        assert buffer.should_flush() == True
+        assert buffer.should_flush()
         
         # Flush et vérification
         buffer.flush()
         assert len(buffer.chunks) == 0
-        assert buffer.should_flush() == False
+        assert not buffer.should_flush()
 
     def test_should_flush_by_time(self):
         """Test du flush basé sur le temps."""
@@ -71,7 +70,7 @@ class TestStreamingBuffer:
         buffer.last_flush = time.time() - 0.1  # Temps écoulé
         
         buffer.add_chunk("test")
-        assert buffer.should_flush() == True
+        assert buffer.should_flush()
 
     def test_flush_content(self):
         """Test du contenu retourné par flush."""
@@ -226,7 +225,7 @@ class TestAgentRuntime:
         assert health["error_count"] == 5
         assert health["consecutive_errors"] == 2
         assert health["buffer_size"] == 1
-        assert health["is_healthy"] == True  # Moins de 3 erreurs consécutives
+        assert health["is_healthy"]  # Moins de 3 erreurs consécutives
         assert len(health["recommendations"]) == 1  # Une recommandation pour le buffer
 
     def test_get_health_recommendations(self):

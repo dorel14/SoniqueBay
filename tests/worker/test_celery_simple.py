@@ -20,14 +20,13 @@ import sys
 import traceback
 from pathlib import Path
 
-# Configuration paths
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-# Imports du backend worker
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
 from backend_worker.utils.redis_utils import vectorization_listener
+
+# Configuration paths
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 
 def test_celery_app_import():
@@ -280,7 +279,7 @@ def main():
             print(f"❌ Erreur critique dans {test_func.__name__}: {str(e)}")
             failed += 1
     
-    print(f"\n📊 === RÉSULTATS FINAUX ===")
+    print("\n📊 === RÉSULTATS FINAUX ===")
     print(f"✅ Tests réussis: {passed}")
     print(f"❌ Tests échoués: {failed}")
     print(f"📈 Taux de réussite: {passed/(passed+failed)*100:.1f}%")

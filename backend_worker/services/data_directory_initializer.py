@@ -10,9 +10,8 @@ Auteur : Kilo Code
 import os
 import pwd
 import grp
-import stat
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 from backend_worker.utils.logging import logger
 
 

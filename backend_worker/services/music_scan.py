@@ -27,7 +27,6 @@ from backend_worker.services.settings_service import SettingsService, ALBUM_COVE
 import json
 import aiofiles
 import asyncio
-from backend_worker.services.audio_features_service import extract_audio_features
 import psutil
 
 
@@ -580,6 +579,9 @@ async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[P
             # Splitter les genres séparés par des virgules ou autres séparateurs
             genres = [g.strip() for g in genre_tag.replace('/', ',').replace(';', ',').split(',') if g.strip()]
 
+        # Sérialiser les tags pour extraction des caractéristiques audio
+        tags_dict = serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {}
+
         metadata = {
             "path": file_path_str,
             "title": get_tag(audio, "title") or Path(file_path_str).stem,
@@ -593,23 +595,66 @@ async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[P
             "duration": int(audio.info.length) if hasattr(audio.info, 'length') else 0,
             "file_type": get_file_type(file_path_str),
             "bitrate": int(audio.info.bitrate / 1000) if hasattr(audio.info, 'bitrate') and audio.info.bitrate else 0,
-            "tags": serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
+            "tags": tags_dict,
         }
 
-        # La logique des tags est maintenant gérée par extract_audio_features
-        results = await extract_audio_features(
-            audio=audio,
-            tags=serialize_tags(audio.tags) if audio and hasattr(audio, "tags") else {},
-            file_path=file_path_str
+        # Extraire les caractéristiques audio depuis les tags AcoustID et standards
+        # Cela évite d'avoir à relancer une analyse Librosa plus tard
+        from backend_worker.services.audio_features_service import (
+            _extract_features_from_acoustid_tags,
+            _extract_features_from_standard_tags,
+            _has_valid_acoustid_tags,
+            _has_valid_audio_tags
         )
-        logger.debug(f"Résultats de l'extraction des caractéristiques audio: {results}")
-        logger.debug(f"extract_audio_features type: {type(results)}")  # Doit être <class 'dict'>
-        metadata.update(results)
 
-        if metadata.get("genre_tags"):
-            logger.info(f"Genre tags trouvés: {metadata['genre_tags']}")
-        if metadata.get("mood_tags"):
-            logger.info(f"Mood tags trouvés: {metadata['mood_tags']}")
+        audio_features = {
+            "bpm": None,
+            "key": None,
+            "scale": None,
+            "danceability": None,
+            "mood_happy": None,
+            "mood_aggressive": None,
+            "mood_party": None,
+            "mood_relaxed": None,
+            "instrumental": None,
+            "acoustic": None,
+            "tonal": None,
+            "genre_tags": [],
+            "mood_tags": []
+        }
+
+        # ÉTAPE 1: Essayer d'extraire depuis les tags AcoustID
+        if tags_dict and _has_valid_acoustid_tags(tags_dict):
+            logger.info(f"Extraction caractéristiques audio depuis tags AcoustID pour {file_path_str}")
+            audio_features = _extract_features_from_acoustid_tags(tags_dict)
+            logger.info(f"Features AcoustID extraites: BPM={audio_features.get('bpm')}, Key={audio_features.get('key')}, Moods={audio_features.get('mood_tags')}, Genres={audio_features.get('genre_tags')}")
+
+        # ÉTAPE 2: Essayer d'extraire depuis les tags standards (si AcoustID incomplet)
+        if tags_dict and _has_valid_audio_tags(tags_dict):
+            logger.info(f"Extraction caractéristiques audio depuis tags standards pour {file_path_str}")
+            standard_features = _extract_features_from_standard_tags(tags_dict)
+            # Fusionner les features (priorité aux valeurs non-None)
+            for key, value in standard_features.items():
+                if audio_features.get(key) is None and value is not None:
+                    audio_features[key] = value
+            logger.info(f"Features standards extraites: BPM={standard_features.get('bpm')}, Key={standard_features.get('key')}")
+
+        # Ajouter les caractéristiques audio aux métadonnées
+        metadata.update({
+            "bpm": audio_features.get("bpm"),
+            "key": audio_features.get("key"),
+            "scale": audio_features.get("scale"),
+            "danceability": audio_features.get("danceability"),
+            "mood_happy": audio_features.get("mood_happy"),
+            "mood_aggressive": audio_features.get("mood_aggressive"),
+            "mood_party": audio_features.get("mood_party"),
+            "mood_relaxed": audio_features.get("mood_relaxed"),
+            "instrumental": audio_features.get("instrumental"),
+            "acoustic": audio_features.get("acoustic"),
+            "tonal": audio_features.get("tonal"),
+            "genre_tags": audio_features.get("genre_tags", []),
+            "mood_tags": audio_features.get("mood_tags", []),
+        })
 
         # Extraire les données MusicBrainz
         mb_data = get_musicbrainz_tags(audio)
@@ -628,10 +673,19 @@ async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[P
         if mb_ids:
             logger.info(f"IDs MusicBrainz trouvés pour {file_path_str}: {mb_ids}")
 
+        # Log des caractéristiques audio extraites
+        audio_features_found = {k: v for k, v in metadata.items() if k in ["bpm", "key", "scale", "danceability", "mood_happy", "mood_aggressive", "mood_party", "mood_relaxed", "instrumental", "acoustic", "tonal"] and v is not None}
+        if audio_features_found:
+            logger.info(f"Caractéristiques audio extraites pour {file_path_str}: {audio_features_found}")
+        if metadata.get("genre_tags"):
+            logger.info(f"Genre tags extraits pour {file_path_str}: {metadata['genre_tags']}")
+        if metadata.get("mood_tags"):
+            logger.info(f"Mood tags extraits pour {file_path_str}: {metadata['mood_tags']}")
+
         # Ne pas filtrer les valeurs numériques à 0 ou booléennes False
         metadata = {k: v for k, v in metadata.items() if v is not None}
 
-        logger.debug(f"Métadonnées complètes pour {file_path_str}")
+        logger.info(f"Métadonnées complètes pour {file_path_str}")
         logger.debug(f"extract_metadata returns: {type(metadata)}")
         return metadata
 
@@ -1025,7 +1079,7 @@ def get_tag_list(audio, tag_name: str) -> list:
 
         result = [v for v in values if v]
         if result:
-            logger.debug(f"Tags {tag_name} trouvés: {result}")
+            logger.info(f"Tags {tag_name} trouvés: {result}")
         return result
 
     except Exception as e:

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Callable, Union, TypeVar, ParamSpec
+from typing import Any, Dict, List, Optional, Callable, TypeVar, ParamSpec
 import functools
 import inspect
 import time

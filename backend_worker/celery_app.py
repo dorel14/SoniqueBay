@@ -7,7 +7,20 @@ from backend_worker.utils.celery_monitor import measure_celery_task_size, update
 import os
 import redis
 import socket
+import signal
 from kombu import Queue
+
+# === SIGNAL HANDLERS ===
+def handle_sigterm(signum, frame):
+    """Handle SIGTERM signal by cleaning up logging resources."""
+    try:
+        from backend_worker.utils.logging import cleanup_logging
+        cleanup_logging()
+    except Exception as e:
+        logger.error(f"Error during logging cleanup on SIGTERM: {e}")
+
+# Register the signal handler for SIGTERM
+signal.signal(signal.SIGTERM, handle_sigterm)
 
 # === DIAGNOSTIC REDIS ===
 def diagnostic_redis():
@@ -99,6 +112,9 @@ celery = Celery(
         # Tâches de covers (NOUVEAU - requis pour process_artist_images et process_album_covers)
         'backend_worker.covers_tasks',
 
+        # Tâches d'analyse audio avec Librosa (NOUVEAU)
+        'backend_worker.tasks.audio_analysis_tasks',
+
         # Legacy pour compatibilité (à supprimer progressivement)
         'backend_worker.tasks.main_tasks',
 
@@ -184,7 +200,8 @@ celery.conf.update(
     worker_queues=[
         'scan', 'extract', 'batch', 'insert', 'covers',
         'deferred_vectors', 'deferred_covers', 'deferred_enrichment',
-        'vectorization_monitoring', 'deferred', 'celery', 'maintenance'
+        'vectorization_monitoring', 'deferred', 'celery', 'maintenance',
+        'audio_analysis'  # NOUVEAU: Analyse audio avec Librosa
     ],
 
     # === PRIORITÉS DES QUEUES (NOUVELLE CONFIGURATION) ===
@@ -199,6 +216,7 @@ celery.conf.update(
         'maintenance': 5,    # Priorité normale
         'vectorization_monitoring': 5,  # Priorité normale
         'celery': 5,         # Priorité normale
+        'audio_analysis': 5, # NOUVEAU: Priorité normale - analyse audio CPU intensive
         'deferred_vectors': 4,      # Priorité basse - tâches différées
         'deferred_covers': 3,       # Priorité basse
         'deferred_enrichment': 2,   # Priorité basse
@@ -220,102 +238,9 @@ celery.conf.update(
 # Validation des timeouts
 logger.info(f"[Celery Config] Timeouts configurés - task_time_limit: {celery.conf.task_time_limit}, task_soft_time_limit: {celery.conf.task_soft_time_limit}")
 
-# === DÉFINITION DES QUEUES SPÉCIALISÉES AVEC PRIORITÉS ===
-task_queues = {
-    # Queue DISCOVERY (I/O intensive) - PRIORITÉ MAXIMALE (0)
-    'scan': {
-        'exchange': 'scan',
-        'routing_key': 'scan',
-        'delivery_mode': 2,  # Persistant
-        'priority': 0,  # Priorité la plus élevée
-    },
-
-    # Queue EXTRACTION (CPU intensive) - PRIORITÉ ÉLEVÉE (1)
-    'extract': {
-        'exchange': 'extract',
-        'routing_key': 'extract',
-        'delivery_mode': 1,  # Non-persistant
-        'priority': 1,
-    },
-
-    # Queue BATCHING (Memory intensive) - PRIORITÉ ÉLEVÉE (2)
-    'batch': {
-        'exchange': 'batch',
-        'routing_key': 'batch',
-        'delivery_mode': 1,
-        'priority': 2,
-    },
-
-    # Queue INSERTION (DB intensive) - PRIORITÉ ÉLEVÉE (3)
-    'insert': {
-        'exchange': 'insert',
-        'routing_key': 'insert',
-        'delivery_mode': 2,  # Persistant pour fiabilité
-        'priority': 3,
-    },
-
-    # Queue COVERS (API/Réseau intensif) - PRIORITÉ NORMALE (4)
-    'covers': {
-        'exchange': 'covers',
-        'routing_key': 'covers',
-        'delivery_mode': 1,  # Non-persistant pour performance
-        'priority': 4,
-    },
-
-    # ✅ Queue VECTORS DIFFÉRÉS (CPU intensif) - PRIORITÉ BASSE (6)
-    'deferred_vectors': {
-        'exchange': 'deferred_vectors',
-        'routing_key': 'deferred_vectors',
-        'delivery_mode': 1,  # Non-persistant (calculs CPU)
-        'priority': 6,
-    },
-
-    # ✅ Queue COVERS DIFFÉRÉS (Réseau/API intensif) - PRIORITÉ BASSE (7)
-    'deferred_covers': {
-        'exchange': 'deferred_covers',
-        'routing_key': 'deferred_covers',
-        'delivery_mode': 1,  # Non-persistant (APIs externes)
-        'priority': 7,
-    },
-
-    # ✅ Queue ENRICHMENT DIFFÉRÉS (I/O intensif) - PRIORITÉ BASSE (8)
-    'deferred_enrichment': {
-        'exchange': 'deferred_enrichment',
-        'routing_key': 'deferred_enrichment',
-        'delivery_mode': 1,  # Non-persistant (données temporaires)
-        'priority': 8,
-    },
-
-    # Queue MONITORING VECTORISATION - PRIORITÉ NORMALE (5)
-    'vectorization_monitoring': {
-        'exchange': 'vectorization_monitoring',
-        'routing_key': 'vectorization_monitoring',
-        'delivery_mode': 1,  # Non-persistant pour monitoring léger
-        'priority': 5,
-    },
-
-    # Queue LEGACY pour compatibilité - PRIORITÉ BASSE (9)
-    'deferred': {
-        'exchange': 'deferred',
-        'routing_key': 'deferred',
-        'delivery_mode': 1,
-        'priority': 9,
-    },
-
-    # Queue par défaut (compatibilité) - PRIORITÉ NORMALE (5)
-    'celery': {'exchange': 'celery', 'routing_key': 'celery', 'priority': 5},
-
-    # Queue MAINTENANCE (tâches de nettoyage et monitoring) - PRIORITÉ NORMALE (4)
-    'maintenance': {
-        'exchange': 'maintenance',
-        'routing_key': 'maintenance',
-        'delivery_mode': 1,  # Non-persistant (tâches légères)
-        'priority': 4,
-    },
-}
-
 # === ROUTAGE OPTIMISÉ - NOUVELLE ARCHITECTURE ===
-task_routes = {
+# Assignation des routes directement à la configuration Celery
+celery.conf.task_routes = {
     # === TÂCHES CELERY_CENTRALES ===
     'scan.discovery': {'queue': 'scan'},
     'metadata.extract_batch': {'queue': 'extract'},
@@ -325,31 +250,42 @@ task_routes = {
     'covers.extract_embedded': {'queue': 'deferred'},
     'metadata.enrich_batch': {'queue': 'deferred'},
 
-    # === WORKERS DEFERRED (TÂCHES RÉELLEMENT DÉFINIES) ===
+    # === WORKERS DEFERRED (TÂCHES RÉELMENT DÉFINIES) ===
     'worker_deferred_enrichment.*': {'queue': 'deferred_enrichment'},
 
     # === MONITORING VECTORISATION ===
     'monitor_tag_changes': {'queue': 'vectorization_monitoring'},
     'trigger_vectorizer_retrain': {'queue': 'vectorization_monitoring'},
     'check_model_health': {'queue': 'vectorization_monitoring'},
+
+    # === ANALYSE AUDIO AVEC LIBROSA (NOUVEAU) ===
+    'audio_analysis.extract_features': {'queue': 'audio_analysis'},
+    'audio_analysis.batch_extract': {'queue': 'audio_analysis'},
 }
 
-# === DÉCLARATION EXPLICITE DES QUEUES AVEC PRIORITÉS ===
-# Déclarer toutes les queues pour s'assurer qu'elles existent dans Redis
+# === CONFIGURATION SIMPLE DES QUEUES (COMPATIBLE API) ===
+# Queues simples sans exchanges complexes pour éviter l'erreur ValueError
+# Configuration identique à celle de l'API
 
 celery.conf.task_queues = [
-    Queue('scan', routing_key='scan', queue_arguments={'x-priority': 0}),
-    Queue('extract', routing_key='extract', queue_arguments={'x-priority': 1}),
-    Queue('batch', routing_key='batch', queue_arguments={'x-priority': 2}),
-    Queue('insert', routing_key='insert', queue_arguments={'x-priority': 3}),
-    Queue('covers', routing_key='covers', queue_arguments={'x-priority': 4}),
-    Queue('deferred_vectors', routing_key='deferred_vectors', queue_arguments={'x-priority': 6}),
-    Queue('deferred_covers', routing_key='deferred_covers', queue_arguments={'x-priority': 7}),
-    Queue('deferred_enrichment', routing_key='deferred_enrichment', queue_arguments={'x-priority': 8}),
-    Queue('vectorization_monitoring', routing_key='vectorization_monitoring', queue_arguments={'x-priority': 5}),
-    Queue('deferred', routing_key='deferred', queue_arguments={'x-priority': 9}),
-    Queue('celery', routing_key='celery', queue_arguments={'x-priority': 5}),
-    Queue('maintenance', routing_key='maintenance', queue_arguments={'x-priority': 4}),
+    # === QUEUES PRIORITAIRES ===
+    Queue('scan'),
+    Queue('extract'), 
+    Queue('batch'),
+    Queue('insert'),
+    
+    # === QUEUES NORMALES ===
+    Queue('covers'),
+    Queue('maintenance'),
+    Queue('vectorization_monitoring'),
+    Queue('celery'),
+    Queue('audio_analysis'),
+    
+    # === QUEUES DIFFÉRÉES (PRIORITÉ BASSE) ===
+    Queue('deferred_vectors'),
+    Queue('deferred_covers'),
+    Queue('deferred_enrichment'),
+    Queue('deferred'),
 ]
 
 @worker_init.connect
@@ -363,43 +299,32 @@ def configure_worker(sender=None, **kwargs):
     if not redis_ok:
         logger.error(f"[WORKER INIT] Problème de connexion Redis détecté pour {worker_name}")
 
-    # Forcer le worker à écouter TOUTES les queues définies avec priorités
-    # Au lieu de laisser autoscale décider automatiquement
-    all_queues = list(task_queues.keys())
+    # Configuration simplifiée des queues (sans priorités complexes)
+    all_queues = ['scan', 'extract', 'batch', 'insert', 'covers', 'deferred_vectors', 
+                  'deferred_covers', 'deferred_enrichment', 'vectorization_monitoring', 
+                  'deferred', 'celery', 'maintenance', 'audio_analysis']
     logger.info(f"[WORKER] {worker_name} configuré pour écouter les queues: {all_queues}")
 
-    # Appliquer la configuration des queues avec priorités
-    # Corriger l'appel add_consumer - il faut ajouter chaque queue individuellement
-    for queue_name in all_queues:
-        try:
-            sender.app.control.add_consumer(
-                queue=queue_name,
-                destination=[worker_name]
-            )
-            logger.info(f"[WORKER] Consommateur ajouté pour queue: {queue_name}")
-        except Exception as e:
-            logger.error(f"[WORKER] Échec ajout consommateur pour queue {queue_name}: {str(e)}")
-
     # Configurer les workers pour consommer les queues par priorité
-    # Les queues avec priorité plus basse (chiffre plus élevé) seront traitées après
     sender.app.conf.worker_prefetch_multiplier = 1
     sender.app.conf.worker_concurrency = 2  # Limité pour Raspberry Pi
     sender.app.conf.task_acks_late = True
 
     # Configuration spécifique pour le respect des priorités
     sender.app.conf.task_queue_priority = {
-        'scan': 0,          # Priorité maximale
-        'extract': 1,       # Priorité élevée
-        'batch': 2,         # Priorité élevée
-        'insert': 3,        # Priorité élevée
-        'covers': 4,         # Priorité normale
-        'maintenance': 4,    # Priorité normale
+        'scan': 9,          # Priorité maximale
+        'extract': 8,       # Priorité élevée
+        'batch': 8,         # Priorité élevée
+        'insert': 7,        # Priorité élevée
+        'covers': 5,         # Priorité normale
+        'maintenance': 5,    # Priorité normale
         'vectorization_monitoring': 5,  # Priorité normale
         'celery': 5,         # Priorité normale
-        'deferred_vectors': 6,      # Priorité basse
-        'deferred_covers': 7,       # Priorité basse
-        'deferred_enrichment': 8,   # Priorité basse
-        'deferred': 9,       # Priorité la plus basse
+        'audio_analysis': 5, # NOUVEAU: Priorité normale
+        'deferred_vectors': 4,      # Priorité basse
+        'deferred_covers': 3,       # Priorité basse
+        'deferred_enrichment': 2,   # Priorité basse
+        'deferred': 1,       # Priorité la plus basse
     }
 
     logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec priorités configurées")
@@ -515,6 +440,12 @@ def worker_shutdown_handler(sender=None, **kwargs):
         logger.info(f"[WORKER SHUTDOWN] celery.amqp.argsrepr_maxsize = {recommended_limit}")
         logger.info(f"[WORKER SHUTDOWN] celery.amqp.kwargsrepr_maxsize = {recommended_limit}")
     
+    # === NETTOYAGE DES RESSOURCES DE LOGGING ===
+    try:
+        from backend_worker.utils.logging import cleanup_logging
+        cleanup_logging()
+        logger.info("[WORKER SHUTDOWN] Ressources de logging nettoyées avec succès")
+    except Exception as e:
+        logger.error(f"[WORKER SHUTDOWN] Erreur lors du nettoyage des ressources de logging: {e}")
+    
     logger.warning(f"[WORKER SHUTDOWN] Worker {worker_name} s'arrête - Vérifier si c'est normal ou crash")
-
-

@@ -234,7 +234,17 @@ class TrackService:
                     file_type=data.file_type,
                     bitrate=data.bitrate,
                     file_mtime=data.file_mtime,
-                    file_size=data.file_size
+                    file_size=data.file_size,
+                    # Caractéristiques audio
+                    danceability=data.danceability,
+                    mood_happy=data.mood_happy,
+                    mood_aggressive=data.mood_aggressive,
+                    mood_party=data.mood_party,
+                    mood_relaxed=data.mood_relaxed,
+                    instrumental=data.instrumental,
+                    acoustic=data.acoustic,
+                    tonal=data.tonal,
+                    camelot_key=data.camelot_key
                 )
                 tracks_to_insert.append(track)
                 
@@ -300,7 +310,31 @@ class TrackService:
             # Refresh pour récupérer les IDs générés
             for track in tracks_to_insert:
                 self.session.refresh(track)
-
+            
+            # Gérer les tags mood et genre pour les tracks créés
+            for i, track in enumerate(tracks_to_insert):
+                data = tracks_data[i]
+                # Gérer les genre tags
+                if hasattr(data, 'genre_tags') and data.genre_tags:
+                    for tag_name in data.genre_tags:
+                        tag = self.session.query(GenreTag).filter_by(name=tag_name).first()
+                        if not tag:
+                            tag = GenreTag(name=tag_name)
+                            self.session.add(tag)
+                        track.genre_tags.append(tag)
+                
+                # Gérer les mood tags
+                if hasattr(data, 'mood_tags') and data.mood_tags:
+                    for tag_name in data.mood_tags:
+                        tag = self.session.query(MoodTag).filter_by(name=tag_name).first()
+                        if not tag:
+                            tag = MoodTag(name=tag_name)
+                            self.session.add(tag)
+                        track.mood_tags.append(tag)
+            
+            # Commit pour les tags
+            self.session.commit()
+            
             logger.info(f"[TRACK_BATCH] {len(tracks_to_insert)} pistes créées en batch")
             return tracks_to_insert
 
@@ -314,24 +348,49 @@ class TrackService:
         """Met à jour plusieurs pistes en une seule transaction."""
         try:
             updated_tracks = []
-
+ 
             for existing, data in tracks_to_update:
                 # Mise à jour des champs
                 update_data = data.model_dump(exclude_unset=True, exclude_none=True)
                 for field, value in update_data.items():
                     if hasattr(existing, field):
                         setattr(existing, field, value)
-
+ 
                 existing.date_modified = func.now()
                 updated_tracks.append(existing)
-
+ 
             # Commit unique pour toutes les mises à jour
             self.session.commit()
-
+ 
+            # Gérer les tags mood et genre pour les tracks mises à jour
+            for existing, data in tracks_to_update:
+                # Gérer les genre tags
+                if hasattr(data, 'genre_tags') and data.genre_tags:
+                    existing.genre_tags = []
+                    for tag_name in data.genre_tags:
+                        tag = self.session.query(GenreTag).filter_by(name=tag_name).first()
+                        if not tag:
+                            tag = GenreTag(name=tag_name)
+                            self.session.add(tag)
+                        existing.genre_tags.append(tag)
+                
+                # Gérer les mood tags
+                if hasattr(data, 'mood_tags') and data.mood_tags:
+                    existing.mood_tags = []
+                    for tag_name in data.mood_tags:
+                        tag = self.session.query(MoodTag).filter_by(name=tag_name).first()
+                        if not tag:
+                            tag = MoodTag(name=tag_name)
+                            self.session.add(tag)
+                        existing.mood_tags.append(tag)
+            
+            # Commit pour les tags
+            self.session.commit()
+ 
             # Refresh pour s'assurer que les données sont à jour
             for track in updated_tracks:
                 self.session.refresh(track)
-
+ 
             logger.info(f"[TRACK_BATCH] {len(updated_tracks)} pistes mises à jour en batch")
             return updated_tracks
 

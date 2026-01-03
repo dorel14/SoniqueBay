@@ -2,11 +2,9 @@
 """Service pour la gestion des WebSockets et SSE."""
 
 from typing import Callable, Dict, Any
-import os
 import json
 import asyncio
 import httpx
-import websockets
 import socket
 from frontend.utils.logging import logger
 
@@ -138,7 +136,7 @@ class WebSocketService:
             if data.get('type') == 'connection_status':
                 status = data.get('status')
                 if status == 'connected':
-                    logger.info(f"WebSocket connecté avec succès via service centralisé")
+                    logger.info("WebSocket connecté avec succès via service centralisé")
                 elif status == 'disconnected':
                     logger.info("WebSocket déconnecté via service centralisé")
         
@@ -189,11 +187,11 @@ class WebSocketService:
                                     except Exception as e:
                                         logger.error(f"Erreur handler SSE: {e}")
 
-                        except httpx.ReadTimeout as e:
+                        except httpx.ReadTimeout:
                             # Gérer spécifiquement les timeouts de lecture
                             logger.warning(
-                                f"Timeout de lecture SSE (attente prolongée sans données). "
-                                f"Reconnexion en cours..."
+                                "Timeout de lecture SSE (attente prolongée sans données). "
+                                "Reconnexion en cours..."
                             )
                             await asyncio.sleep(1)
                             continue

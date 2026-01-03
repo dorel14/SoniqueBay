@@ -114,7 +114,12 @@ async def _update_track_features_async(track_id: int, features: dict):
         track_id: ID de la track
         features: Caractéristiques à mettre à jour
     """
-    API_URL = os.getenv("API_URL", "http://localhost:8000")
+    API_URL = os.getenv("API_URL", "http://api:8001")
+    
+    # === DIAGNOSTIC : APPEL API ===
+    logger.info(f"=== Tentative mise à jour track {track_id} ===")
+    logger.info(f"API URL: {API_URL}")
+    logger.info(f"Features à sauvegarder: {features}")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -122,12 +127,27 @@ async def _update_track_features_async(track_id: int, features: dict):
                 f"{API_URL}/api/tracks/{track_id}/features",
                 json={"features": features}
             )
+            
+            # === DIAGNOSTIC : RÉPONSE API ===
+            logger.info(f"Response status: {response.status_code}")
+            logger.info(f"Response text: {response.text[:200]}...")
+            
             response.raise_for_status()
             logger.info(f"Track {track_id} mise à jour avec succès")
+            
+            return True
 
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Erreur HTTP {e.response.status_code} lors de la mise à jour de la track {track_id}: {e.response.text}")
+        logger.error(f"Endpoint utilisé: {API_URL}/api/tracks/{track_id}/features")
+        return False
+    except httpx.RequestError as e:
+        logger.error(f"Erreur de requête lors de la mise à jour de la track {track_id}: {str(e)}")
+        return False
     except Exception as e:
         logger.error(f"Erreur lors de la mise à jour de la track {track_id}: {str(e)}")
         # Note: Retry logic removed as Celery handles task retries
+        return False
 
 
 async def analyze_audio_batch(track_data_list: list) -> dict:
@@ -217,8 +237,98 @@ async def analyze_audio_batch(track_data_list: list) -> dict:
         "avg_time_per_track": 0.0  # TODO: Calculer le temps moyen
     }
 
-async def extract_audio_features(audio, tags, file_path: str = None, track_id: int = None):
-    """Extrait les caractéristiques audio et les tags AcoustID."""
+def _has_valid_audio_tags(tags: dict) -> bool:
+    """
+    Vérifie si les tags contiennent des données audio valides (AcoustID OU tags standards).
+    
+    Args:
+        tags: Dictionnaire des tags sérialisés
+        
+    Returns:
+        True si des tags audio valides sont présents (AcoustID ou standards)
+    """
+    if not tags or not isinstance(tags, dict):
+        return False
+    
+    logger.info(f"Vérification des tags audio (AcoustID + standards): {list(tags.keys())}")
+    
+    # 1. Vérifier les tags AcoustID (commencent par 'ab:')
+    acoustid_prefixes = ['ab:hi:', 'ab:lo:']
+    for tag_name in tags.keys():
+        if isinstance(tag_name, str):
+            for prefix in acoustid_prefixes:
+                if tag_name.startswith(prefix):
+                    values = tags[tag_name]
+                    if values and (isinstance(values, list) and any(values)):
+                        logger.info(f"Tag AcoustID trouvé: {tag_name} = {values}")
+                        return True
+    
+    # 2. Vérifier les tags audio standards
+    standard_audio_patterns = [
+        'BPM', 'TBPM', 'TEMPO',  # BPM/Rythme
+        'KEY', 'TKEY', 'INITIALKEY',  # Tonalité
+        'MOOD', 'TMOO',  # Mood/Émotion
+        'DANCEABILITY', 'ENERGY',  # Caractéristiques Spotify
+        'ACOUSTICNESS', 'INSTRUMENTALNESS', 'VALENCE'  # Caractéristiques audio
+    ]
+    
+    for tag_name in tags.keys():
+        if isinstance(tag_name, str):
+            tag_name_upper = tag_name.upper()
+            for pattern in standard_audio_patterns:
+                if pattern in tag_name_upper:
+                    values = tags[tag_name]
+                    if values and str(values).strip():
+                        logger.info(f"Tag audio standard trouvé: {tag_name} = {values}")
+                        return True
+    
+    logger.info("Aucun tag audio valide trouvé (ni AcoustID ni standard)")
+    return False
+
+
+def _has_valid_acoustid_tags(tags: dict) -> bool:
+    """
+    Vérifie si les tags contiennent des données AcoustID valides (fonction de compatibilité).
+    
+    Args:
+        tags: Dictionnaire des tags sérialisés
+        
+    Returns:
+        True si des tags AcoustID valides sont présents
+    """
+    if not tags or not isinstance(tags, dict):
+        return False
+    
+    # Vérifier la présence de tags AcoustID (commencent par 'ab:')
+    acoustid_prefixes = ['ab:hi:', 'ab:lo:']
+    for tag_name in tags.keys():
+        if isinstance(tag_name, str):
+            for prefix in acoustid_prefixes:
+                if tag_name.startswith(prefix):
+                    # Vérifier que la valeur n'est pas vide
+                    values = tags[tag_name]
+                    if values and (isinstance(values, list) and any(values)):
+                        return True
+    
+    return False
+
+
+def _extract_features_from_standard_tags(tags: dict) -> dict:
+    """
+    Extrait les caractéristiques audio depuis les tags audio standards.
+    
+    Les tags standards incluent:
+    - BPM, TBPM, TEMPO -> BPM
+    - KEY, TKEY, INITIALKEY -> Tonalité
+    - MOOD, TMOO -> Mood
+    - DANCEABILITY, ENERGY -> Caractéristiques Spotify
+    
+    Args:
+        tags: Dictionnaire des tags sérialisés
+        
+    Returns:
+        Dictionnaire des caractéristiques extraites
+    """
     features = {
         "bpm": None,
         "key": None,
@@ -234,105 +344,436 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
         "genre_tags": [],
         "mood_tags": []
     }
+    
+    if not tags or not isinstance(tags, dict):
+        return features
+    
+    logger.info(f"Extraction des tags standards: {list(tags.keys())[:20]}...")
+    
+    # Mapping des tags standards vers les caractéristiques
+    standard_mappings = {
+        'bpm': ['BPM', 'TBPM', 'TEMPO'],
+        'key': ['KEY', 'TKEY', 'INITIALKEY'],
+        'mood': ['MOOD', 'TMOO'],
+        'danceability': ['DANCEABILITY'],
+        'energy': ['ENERGY'],
+        'acousticness': ['ACOUSTICNESS'],
+        'instrumentalness': ['INSTRUMENTALNESS'],
+        'valence': ['VALENCE']
+    }
+    
+    # Extraire les caractéristiques par catégorie
+    for feature_key, tag_patterns in standard_mappings.items():
+        for tag_name, tag_value in tags.items():
+            if isinstance(tag_name, str):
+                tag_name_upper = tag_name.upper()
+                for pattern in tag_patterns:
+                    if pattern in tag_name_upper:
+                        # Gérer les valeurs qui sont des listes
+                        if isinstance(tag_value, list) and tag_value:
+                            tag_value = tag_value[0]
+                        
+                        if tag_value and str(tag_value).strip():
+                            # Conversion selon le type
+                            if feature_key == 'bpm':
+                                try:
+                                    features[feature_key] = int(float(str(tag_value)))
+                                    logger.info(f"BPM standard trouvé: {tag_name} = {tag_value}")
+                                except (ValueError, TypeError):
+                                    pass
+                            elif feature_key == 'key':
+                                features[feature_key] = str(tag_value).strip()
+                                logger.info(f"Key standard trouvée: {tag_name} = {tag_value}")
+                            elif feature_key in ['danceability', 'energy', 'acousticness', 'instrumentalness', 'valence']:
+                                try:
+                                    # Normaliser les valeurs textuelles
+                                    if isinstance(tag_value, str):
+                                        value_lower = tag_value.lower()
+                                        if value_lower in ['true', 'yes', '1', 'high', 'strong']:
+                                            features[feature_key] = 1.0
+                                        elif value_lower in ['false', 'no', '0', 'low', 'weak']:
+                                            features[feature_key] = 0.0
+                                    else:
+                                        features[feature_key] = float(tag_value)
+                                    logger.info(f"Caractéristique {feature_key} standard trouvée: {tag_name} = {tag_value}")
+                                except (ValueError, TypeError):
+                                    pass
+                            elif feature_key == 'mood':
+                                mood_value = str(tag_value).lower()
+                                features['mood_tags'].append(mood_value)
+                                
+                                # Mapper les moods vers les caractéristiques
+                                mood_mapping = {
+                                    'happy': 'mood_happy',
+                                    'sad': 'mood_relaxed',
+                                    'relaxed': 'mood_relaxed',
+                                    'calm': 'mood_relaxed',
+                                    'aggressive': 'mood_aggressive',
+                                    'energetic': 'mood_party',
+                                    'party': 'mood_party',
+                                    'electronic': 'mood_party',
+                                }
+                                
+                                for mood_key, feature_key_mapped in mood_mapping.items():
+                                    if mood_key in mood_value:
+                                        features[feature_key_mapped] = 1.0
+                                
+                                logger.info(f"Mood standard trouvé: {tag_name} = {tag_value}")
+                        break
+    
+    # Déduire la scale depuis la key si disponible
+    if features['key']:
+        key = features['key']
+        # Déduction basique de la scale (à améliorer)
+        minor_keys = ['Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm']
+        features['scale'] = 'minor' if key in minor_keys else 'major'
+    
+    # Mapper les caractéristiques standard vers les champs SoniqueBay
+    if features.get('acousticness') is not None:
+        features['acoustic'] = features['acousticness']
+    if features.get('instrumentalness') is not None:
+        features['instrumental'] = features['instrumentalness']
+    if features.get('valence') is not None:
+        features['tonal'] = features['valence']
+    
+    logger.info(f"Features standards extraites: {[(k, v) for k, v in features.items() if v is not None and v != []]}")
+    return features
 
-    try:
-        if not tags:
-            return features
 
-        # Mapping des tags AcoustID vers les caractéristiques
-        ab_mapping = {
-            'ab:hi:danceability:danceable': 'danceability',
-            'ab:lo:rhythm:bpm': 'bpm',
-            'ab:lo:tonal:key_key': 'key',
-            'ab:lo:tonal:key_scale': 'scale',
-            'ab:hi:mood_happy:happy': 'mood_happy',
-            'ab:hi:mood_aggressive:aggressive': 'mood_aggressive',
-            'ab:hi:mood_party:party': 'mood_party',
-            'ab:hi:mood_relaxed:relaxed': 'mood_relaxed',
-            'ab:hi:voice_instrumental:instrumental': 'instrumental',
-            'ab:hi:mood_acoustic:acoustic': 'acoustic',
-            'ab:hi:tonal_atonal:tonal': 'tonal'
+def _extract_features_from_acoustid_tags(tags: dict) -> dict:
+    """
+    Extrait les caractéristiques audio depuis les tags AcoustID.
+    
+    Les tags AcoustID sont structurés comme suit:
+    - ab:hi:bpm:120 -> BPM
+    - ab:hi:key:C -> Tonalité
+    - ab:hi:mood:happy -> Mood
+    - ab:hi:danceability:danceable -> Danceabilité
+    - ab:mood -> Liste de moods (ex: ['Not acoustic', 'Aggressive', 'Electronic'])
+    - bpm -> BPM standard
+    
+    Args:
+        tags: Dictionnaire des tags AcoustID
+        
+    Returns:
+        Dictionnaire des caractéristiques extraites (None si non disponible)
+    """
+    features = {
+        "bpm": None,
+        "key": None,
+        "scale": None,
+        "danceability": None,
+        "mood_happy": None,
+        "mood_aggressive": None,
+        "mood_party": None,
+        "mood_relaxed": None,
+        "instrumental": None,
+        "acoustic": None,
+        "tonal": None,
+        "genre_tags": [],
+        "mood_tags": []
+    }
+    
+    if not tags or not isinstance(tags, dict):
+        return features
+    
+    logger.info(f"Extraction des tags AcoustID: {list(tags.keys())[:20]}...")
+    
+    # Mapping des tags AcoustID vers les caractéristiques
+    tag_mapping = {
+        'ab:hi:bpm': 'bpm',
+        'ab:lo:bpm': 'bpm',
+        'ab:lo:rhythm:bpm': 'bpm',  # Tag BPM spécifique AcoustID
+        'ab:hi:key': 'key',
+        'ab:lo:key': 'key',
+        'ab:lo:tonal:key_key': 'key',  # Tag key spécifique AcoustID
+        'ab:lo:tonal:chords_key': 'key',  # Alternative key tag
+        'ab:hi:danceability': 'danceability',
+        'ab:lo:danceability': 'danceability',
+        'ab:hi:acousticness': 'acoustic',
+        'ab:lo:acousticness': 'acoustic',
+        'ab:hi:instrumentalness': 'instrumental',
+        'ab:lo:instrumentalness': 'instrumental',
+        'ab:hi:valence': 'tonal',
+        'ab:lo:valence': 'tonal',
+    }
+    
+    # Extraire les tags de mood depuis ab:mood (liste de moods)
+    if 'ab:mood' in tags:
+        mood_values = tags['ab:mood']
+        if isinstance(mood_values, list):
+            mood_tags = mood_values
+        elif mood_values:
+            mood_tags = [mood_values]
+        else:
+            mood_tags = []
+        
+        logger.info(f"Moods trouvés dans ab:mood: {mood_tags}")
+        
+        # Mapper les mood tags vers les caractéristiques
+        mood_mapping = {
+            'happy': 'mood_happy',
+            'sad': 'mood_relaxed',
+            'relaxed': 'mood_relaxed',
+            'aggressive': 'mood_aggressive',
+            'party': 'mood_party',
+            'energetic': 'mood_party',
+            'calm': 'mood_relaxed',
+            'electronic': 'mood_party',
         }
-
-        # Champs qui sont des chaînes de caractères (pas numériques)
-        string_fields = {'key', 'scale'}
-
-        # Extraction des tags genre/mood
-        genre_tags = set()
-        mood_tags = set()
-
-        # Fonction helper pour splitter et nettoyer les tags
-        def split_and_clean_tags(value_str: str) -> list:
-            """Split les tags sur ; , / et nettoie les valeurs."""
-            if not value_str:
-                return []
-            # Split sur les séparateurs ; , /
-            parts = value_str.replace(';', ',').replace('/', ',').split(',')
-            # Nettoyer et filtrer
-            cleaned = []
-            for part in parts:
-                part = part.strip()
-                if part and not part.isdigit() and not part.startswith('0.'):
-                    cleaned.append(part)
-            return cleaned
-
-        # Parcours de tous les tags
-        for tag_name, values in tags.items():
-            # Caractéristiques audio
-            if tag_name in ab_mapping:
+        
+        for mood in mood_tags:
+            mood_lower = mood.lower() if isinstance(mood, str) else str(mood).lower()
+            # Ignorer les moods négatifs (commencent par "not ")
+            if mood_lower.startswith('not '):
+                continue
+            for mood_key, feature_key in mood_mapping.items():
+                if mood_key in mood_lower:
+                    features[feature_key] = 1.0
+                    logger.info(f"Mood mappé: {mood} -> {feature_key}")
+        
+        features['mood_tags'] = mood_tags
+    
+    # Extraire les tags de mood depuis ab:hi:mood:* (scores)
+    for tag_name, tag_values in tags.items():
+        if isinstance(tag_name, str) and 'ab:hi:mood' in tag_name and tag_name != 'ab:mood':
+            if isinstance(tag_values, list) and tag_values:
+                mood_score = float(tag_values[0])
+                # Extraire le nom du mood depuis le tag
+                mood_name = tag_name.split(':')[-1]
+                logger.info(f"Mood score trouvé: {mood_name} = {mood_score}")
+                
+                # Mapper les moods vers les caractéristiques
+                mood_mapping = {
+                    'happy': 'mood_happy',
+                    'sad': 'mood_relaxed',
+                    'relaxed': 'mood_relaxed',
+                    'aggressive': 'mood_aggressive',
+                    'party': 'mood_party',
+                    'energetic': 'mood_party',
+                    'calm': 'mood_relaxed',
+                }
+                
+                for mood_key, feature_key in mood_mapping.items():
+                    if mood_key in mood_name.lower():
+                        features[feature_key] = mood_score
+                        logger.info(f"Mood score mappé: {mood_name} ({mood_score}) -> {feature_key}")
+    
+    # Extraire les tags de genre depuis ab:hi:genre:* et ab:genre
+    genre_tags = []
+    
+    # Extraire depuis ab:genre (liste de genres)
+    if 'ab:genre' in tags:
+        genre_values = tags['ab:genre']
+        if isinstance(genre_values, list):
+            genre_tags.extend(genre_values)
+        elif genre_values:
+            genre_tags.append(genre_values)
+        logger.info(f"Genres trouvés dans ab:genre: {genre_tags}")
+    
+    # Extraire depuis ab:hi:genre:* (scores)
+    for tag_name, tag_values in tags.items():
+        if isinstance(tag_name, str) and 'ab:hi:genre' in tag_name and tag_name != 'ab:genre':
+            if isinstance(tag_values, list) and tag_values:
+                genre_score = float(tag_values[0])
+                # Extraire le nom du genre depuis le tag
+                genre_name = tag_name.split(':')[-1]
+                logger.info(f"Genre score trouvé: {genre_name} = {genre_score}")
+                genre_tags.append(genre_name)
+    
+    features['genre_tags'] = genre_tags
+    
+    # Extraire les caractéristiques numériques
+    for tag_name, feature_key in tag_mapping.items():
+        if tag_name in tags:
+            value = tags[tag_name]
+            if isinstance(value, list) and value:
+                value = value[0]
+            
+            # Conversion selon le type de caractéristique
+            if feature_key == 'bpm':
                 try:
-                    field = ab_mapping[tag_name]
-                    if field in string_fields:
-                        # Pour les champs string, prendre la valeur directement
-                        features[field] = values[0] if values else None
+                    features[feature_key] = int(float(value))
+                    logger.info(f"BPM extrait: {features[feature_key]}")
+                except (ValueError, TypeError):
+                    pass
+            elif feature_key == 'key':
+                features[feature_key] = str(value) if value else None
+                logger.info(f"Key extraite: {features[feature_key]}")
+            elif feature_key in ['danceability', 'acoustic', 'instrumental', 'tonal']:
+                try:
+                    # Normaliser les valeurs textuelles
+                    if isinstance(value, str):
+                        value_lower = value.lower()
+                        if value_lower in ['true', 'yes', '1', 'danceable', 'acoustic', 'instrumental']:
+                            features[feature_key] = 1.0
+                        elif value_lower in ['false', 'no', '0', 'not danceable', 'not acoustic', 'not instrumental']:
+                            features[feature_key] = 0.0
                     else:
-                        # Pour les champs numériques, convertir en float
-                        value = float(values[0]) if values else None
-                        features[field] = value
-                except (ValueError, IndexError):
-                    continue
+                        features[feature_key] = float(value)
+                    logger.info(f"{feature_key} extrait: {features[feature_key]}")
+                except (ValueError, TypeError):
+                    pass
+    
+    # Déduire la scale depuis la key si disponible
+    if features['key']:
+        key = features['key']
+        # Déduction basique de la scale (à améliorer)
+        minor_keys = ['Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm']
+        features['scale'] = 'minor' if key in minor_keys else 'major'
+    
+    logger.info(f"Features AcoustID extraites: {[(k, v) for k, v in features.items() if v is not None and v != []]}")
+    return features
 
-            # Tags genre et mood (filtrer les valeurs numériques)
-            tag_name_lower = tag_name.lower()
-            if tag_name_lower.startswith('ab:'):
-                for value in (values if isinstance(values, list) else [values]):
-                    # Vérifier si la valeur est valide (pas une exception ou objet invalide)
-                    if not isinstance(value, (str, int, float)):
-                        raise ValueError(f"Valeur invalide dans les tags: {tag_name} = {value}")
-                    value_str = str(value).strip()
-                    # Ne garder que les tags qui ne sont pas des nombres
-                    try:
-                        float(value_str)
-                        continue  # Skip si c'est un nombre
-                    except ValueError:
-                        # Splitter les tags sur les séparateurs
-                        split_tags = split_and_clean_tags(value_str)
-                        for tag in split_tags:
-                            if 'genre' in tag_name_lower:
-                                genre_tags.add(tag)
-                            elif 'mood' in tag_name_lower:
-                                mood_tags.add(tag)
+
+async def extract_audio_features(audio, tags, file_path: str = None, track_id: int = None):
+    """
+    Extrait les caractéristiques audio en fusionnant les tags AcoustID et standards,
+    puis Librosa en fallback.
+    
+    Les tags AcoustID et standards sont fusionnés pour maximiser les données extraites.
+    Les tags standards (bpm, key, etc.) sont prioritaires sur les tags AcoustID
+    car ils sont souvent plus précis.
+    
+    Args:
+        audio: Objet audio (non utilisé, conservé pour compatibilité)
+        tags: Tags sérialisés du fichier audio
+        file_path: Chemin vers le fichier audio (requis pour fallback Librosa)
+        track_id: ID de la track
+        
+    Returns:
+        Dictionnaire des caractéristiques audio extraites
+    """
+    logger.info(f"=== extract_audio_features appelé pour track {track_id} ===")
+    logger.info(f"File path: {file_path}")
+    logger.info(f"Tags disponibles: {bool(tags)}")
+    if tags:
+        logger.info(f"Tags disponibles: {list(tags.keys())}")
+    
+    # Initialiser les features avec des valeurs par défaut
+    features = {
+        "bpm": None,
+        "key": None,
+        "scale": None,
+        "danceability": None,
+        "mood_happy": None,
+        "mood_aggressive": None,
+        "mood_party": None,
+        "mood_relaxed": None,
+        "instrumental": None,
+        "acoustic": None,
+        "tonal": None,
+        "genre_tags": [],
+        "mood_tags": []
+    }
+    
+    # ÉTAPE 1: Extraire depuis les tags AcoustID (genres, moods, etc.)
+    if tags and _has_valid_acoustid_tags(tags):
+        logger.info(f"📋 Extraction depuis les tags AcoustID pour track {track_id}")
+        acoustid_features = _extract_features_from_acoustid_tags(tags)
+        
+        logger.info(f"🔍 DEBUG - Features AcoustID extraites: {acoustid_features}")
+        
+        # Fusionner les features AcoustID (genres et moods sont importants)
+        for key, value in acoustid_features.items():
+            if value is not None and value != []:
+                # Les genres et moods sont fusionnés (concaténation des listes)
+                if key in ['genre_tags', 'mood_tags']:
+                    if isinstance(value, list):
+                        features[key].extend(value)
+                    else:
+                        features[key].append(value)
+                # Les autres features sont prises si non définies
+                elif features.get(key) is None:
+                    features[key] = value
+        
+        logger.info(f"✅ Features AcoustID fusionnées pour track {track_id}")
+    else:
+        logger.info(f"ℹ️  Pas de tags AcoustID valides pour track {track_id}")
+    
+    # ÉTAPE 2: Extraire depuis les tags standards (bpm, key, etc.)
+    # Les tags standards sont PRIORITAIRES sur les tags AcoustID
+    if tags and _has_valid_audio_tags(tags):
+        logger.info(f"🎼 Extraction depuis les tags standards pour track {track_id}")
+        standard_features = _extract_features_from_standard_tags(tags)
+        
+        logger.info(f"🔍 DEBUG - Features standards extraites: {standard_features}")
+        
+        # Fusionner les features standards (priorité sur AcoustID)
+        for key, value in standard_features.items():
+            if value is not None and value != []:
+                # Les genres et moods sont fusionnés (concaténation des listes)
+                if key in ['genre_tags', 'mood_tags']:
+                    if isinstance(value, list):
+                        features[key].extend(value)
+                    else:
+                        features[key].append(value)
+                # Les autres features écrasent les valeurs AcoustID
+                else:
+                    features[key] = value
+        
+        logger.info(f"✅ Features standards fusionnées pour track {track_id}")
+    else:
+        logger.info(f"ℹ️  Pas de tags audio standards valides pour track {track_id}")
+    
+    # Nettoyer les doublons dans les listes
+    features['genre_tags'] = list(set(features['genre_tags'])) if features['genre_tags'] else []
+    features['mood_tags'] = list(set(features['mood_tags'])) if features['mood_tags'] else []
+    
+    # Vérifier si nous avons des données utiles
+    has_useful_data = any([
+        features.get('bpm') is not None,
+        features.get('key') is not None,
+        features.get('danceability') is not None,
+        features.get('acoustic') is not None,
+        features.get('instrumental') is not None,
+        features.get('genre_tags'),
+        features.get('mood_tags'),
+    ])
+    
+    if has_useful_data:
+        logger.info(f"✅ Features extraites pour track {track_id}: BPM={features.get('bpm')}, Key={features.get('key')}")
+        logger.info(f"🎵 Champs audio extraits: {[(k, v) for k, v in features.items() if v is not None and v != []]}")
+        
+        # Mettre à jour la track avec les features extraites
+        if track_id:
+            await _update_track_features_async(track_id, features)
+        
+        return features
+    
+    # ÉTAPE 3: Fallback avec Librosa si les tags ne sont pas disponibles ou incomplets
+    if file_path and track_id:
+        logger.info(f"🎵 Fallback Librosa pour track {track_id}")
+        try:
+            features = await analyze_audio_with_librosa(track_id, file_path)
+            
+            if features:
+                logger.info(f"✅ Features extraites avec Librosa pour track {track_id}: BPM={features.get('bpm')}, Key={features.get('key')}")
+                logger.info(f"🎵 Champs audio extraits: {[(k, v) for k, v in features.items() if v is not None and v != []]}")
+                return features
             else:
-                # Pour les tags non 'ab:', vérifier quand même les valeurs invalides
-                for value in (values if isinstance(values, list) else [values]):
-                    if not isinstance(value, (str, int, float)):
-                        raise ValueError(f"Valeur invalide dans les tags: {tag_name} = {value}")
-
-        # Mise à jour des tags dans les features
-        features['genre_tags'] = list(genre_tags)
-        features['mood_tags'] = list(mood_tags)
-
-        # Log des résultats
-        if genre_tags or mood_tags:
-            logger.debug(f"Tags nettoyés pour {file_path}:")
-            logger.debug(f"- Genres: {features['genre_tags']}")
-            logger.debug(f"- Moods: {features['mood_tags']}")
-
-        return features
-
-    except Exception as e:
-        logger.error(f"Erreur extraction caractéristiques: {str(e)}")
-        logger.debug(f"extract_audio_features returns: {type(features)}")
-        return features
+                logger.warning(f"⚠️  Aucune feature extraite avec Librosa pour track {track_id}")
+        except Exception as e:
+            logger.error(f"❌ Erreur extraction Librosa pour track {track_id}: {str(e)}")
+    else:
+        logger.error(f"❌ Paramètres manquants pour fallback Librosa: file_path={file_path}, track_id={track_id}")
+    
+    # ÉTAPE 4: Retourner des valeurs par défaut si tout échoue
+    logger.warning(f"⚠️  Retour valeurs par défaut pour track {track_id}")
+    return {
+        "bpm": None,
+        "key": None,
+        "scale": None,
+        "danceability": None,
+        "mood_happy": None,
+        "mood_aggressive": None,
+        "mood_party": None,
+        "mood_relaxed": None,
+        "instrumental": None,
+        "acoustic": None,
+        "tonal": None,
+        "genre_tags": [],
+        "mood_tags": []
+    }
 
 # Note: retry_failed_updates function removed as Celery handles task retries

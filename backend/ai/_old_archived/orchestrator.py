@@ -2,12 +2,10 @@
 # Orchestrateur IA pour SoniqueBay – charge les YAML, route les intentions,
 # appelle les sous-agents et gère le hot-reload.
 
-import yaml
 import time
 import threading
 from pathlib import Path
 from typing import Dict, Any
-from pydantic import BaseModel
 from pydantic_ai import Agent
 from backend.api.utils.logging import logger
 

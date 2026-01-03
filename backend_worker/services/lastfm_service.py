@@ -448,7 +448,7 @@ class LastFMService:
                                 image_data = base64.b64encode(img_response.content).decode('utf-8')
                                 mime_type = img_response.headers.get('content-type', 'image/jpeg')
                                 return (f"data:{mime_type};base64,{image_data}", mime_type)
-                except:
+                except Exception:
                     continue
 
             logger.warning(f"[LASTFM] No suitable image found for artist: {artist_name}")
@@ -494,7 +494,7 @@ class LastFMService:
                             "size": size,
                             "url": image_url
                         })
-                except:
+                except Exception:
                     continue
             return images
         except Exception as e:

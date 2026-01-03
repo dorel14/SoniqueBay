@@ -279,7 +279,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 if artist_name:
                     try:
                         # Utiliser l'endpoint REST /artists pour vérifier (GraphQL ne supporte pas where)
-                        response = await client.get(f"/api/artists/", params={"skip": 0, "limit": 1000}, follow_redirects=True)
+                        response = await client.get("/api/artists/", params={"skip": 0, "limit": 1000}, follow_redirects=True)
                         if response.status_code == 200:
                             all_artists = response.json().get('results', [])
                             # Chercher l'artiste par nom
@@ -307,7 +307,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 if album_title:
                     try:
                         # Utiliser l'endpoint REST /albums pour vérifier (GraphQL ne supporte pas where)
-                        response = await client.get(f"/api/albums", params={"skip": 0, "limit": 1000})
+                        response = await client.get("/api/albums", params={"skip": 0, "limit": 1000})
                         if response.status_code == 200:
                             all_albums = response.json().get('results', [])
                             # Chercher l'album par titre
@@ -344,7 +344,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 if track_path:
                     try:
                         # DIAGNOSTIC: Le TrackFilterInput n'a pas de champ 'file_path', utiliser 'path'
-                        logger.warning(f"[VERIFY] ⚠️  DIAGNOSTIC: TrackFilterInput utilise 'path' au lieu de 'file_path'")
+                        logger.warning("[VERIFY] ⚠️  DIAGNOSTIC: TrackFilterInput utilise 'path' au lieu de 'file_path'")
                         logger.warning(f"[VERIFY] ⚠️  Track '{track_path}' - vérification avec champ 'path'")
 
                         # Requête spécifique pour cette track - utiliser le champ correct 'path'
@@ -667,7 +667,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                                 logger.info(f"[DIAGNOSTIC ALBUM] ✅ Album '{album_title}' résolu avec clé {album_key}, ID: {album_map[album_key]['id']}")
                             else:
                                 logger.error(f"[DIAGNOSTIC ALBUM] ❌ Album '{album_title}' pour artiste '{artist_name}' NON TROUVÉ dans le map (clé normalisée: {album_key})")
-                                logger.error(f"[DIAGNOSTIC ALBUM] Track sera insérée avec album_id=None")
+                                logger.error("[DIAGNOSTIC ALBUM] Track sera insérée avec album_id=None")
                                 # L'album_id peut être optionnel selon le schéma GraphQL
 
                         resolved_tracks_data.append(resolved_track)
@@ -687,7 +687,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         else:
                             album_id_stats['without_album_id'] += 1
                     
-                    logger.info(f"[DIAGNOSTIC ALBUM] Statistiques après insertion:")
+                    logger.info("[DIAGNOSTIC ALBUM] Statistiques après insertion:")
                     logger.info(f"[DIAGNOSTIC ALBUM] - Tracks avec album_id: {album_id_stats['with_album_id']}")
                     logger.info(f"[DIAGNOSTIC ALBUM] - Tracks sans album_id: {album_id_stats['without_album_id']}")
                     logger.info(f"[DIAGNOSTIC ALBUM] Tracks traités: {len(processed_tracks)}")

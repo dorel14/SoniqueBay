@@ -59,7 +59,7 @@ class AudioFeatureVectorizer:
         self.camelot_encoder = LabelEncoder()
         self.is_fitted = False
     
-    def extract_audio_features(self, track_data: Dict[str, Any]) -> List[float]:
+    def extract_vectorization_features(self, track_data: Dict[str, Any]) -> List[float]:
         """
         Extrait les features audio d'une track.
         
@@ -125,7 +125,7 @@ class AudioFeatureVectorizer:
         keys, scales, camelots = [], [], []
         
         for track_data in tracks_data:
-            audio_features = self.extract_audio_features(track_data)
+            audio_features = self.extract_vectorization_features(track_data)
             features.append(audio_features[:-3])  # Exclure les clés encodées
             
             # Collecter les clés pour l'encodage
@@ -158,7 +158,7 @@ class AudioFeatureVectorizer:
         if not self.is_fitted:
             raise VectorizationError("AudioVectorizer pas encore entraîné")
         
-        audio_features = self.extract_audio_features(track_data)
+        audio_features = self.extract_vectorization_features(track_data)
         
         # Encodage des clés avec gestion des valeurs inconnues
         key = track_data.get('key', 'C') or 'C'

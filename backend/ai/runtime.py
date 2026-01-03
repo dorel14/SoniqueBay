@@ -1,7 +1,7 @@
 import inspect
 import asyncio
 import time
-from typing import AsyncIterator, Optional, Dict, Any, Union
+from typing import AsyncIterator, Optional, Dict, Any
 from collections import deque
 from dataclasses import dataclass
 

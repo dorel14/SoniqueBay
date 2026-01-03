@@ -150,7 +150,6 @@ async def update_page_size(value: str):
 
 async def artists_page():
     """Page principale affichant la liste des artistes."""
-    from frontend.main import app_state
     await render_artists_view()
 
 async def render_artists_view(page: int = None):

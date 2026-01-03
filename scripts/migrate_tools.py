@@ -7,18 +7,16 @@ Transforme les outils existants vers le nouveau système de décorateurs optimis
 import asyncio
 import json
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
+
+from backend.ai.utils.registry import TOOL_REGISTRY, ToolRegistry
+from backend.api.utils.logging import logger
 
 # Ajouter le path du projet
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-
-from backend.ai.utils.registry import TOOL_REGISTRY, ToolRegistry
-from backend.api.utils.logging import logger
-from backend.ai.utils.decorators import ai_tool, validate_tool_config
 
 
 class ToolMigrationTracker:
@@ -363,7 +361,7 @@ async def main():
         for error in migrator.tracker.status["errors"]:
             print(f"  - {error['tool']}: {error['error']}")
     
-    print(f"\n📁 Templates de migration créés dans: tools/migration/")
+    print("\n📁 Templates de migration créés dans: tools/migration/")
     print(f"📈 Statut détaillé dans: {migrator.tracker.status_file}")
     
     return result

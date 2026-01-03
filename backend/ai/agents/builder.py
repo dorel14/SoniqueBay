@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 from pydantic_ai import Agent
 from backend.ai.ollama import get_ollama_model
 from backend.ai.utils.registry import ToolRegistry
@@ -297,7 +297,7 @@ def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
     try:
         # Test de création du modèle (sans l'instancier complètement)
         from backend.ai.ollama import get_ollama_model
-        test_model = get_ollama_model(
+        get_ollama_model(
             model_name=agent_model.model,
             num_ctx=agent_model.num_ctx,
             temperature=agent_model.temperature,

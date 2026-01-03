@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import Mock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.utils.decorators import ai_tool, _validate_session_parameter, _validate_function_parameters, _track_tool_usage
@@ -27,9 +27,9 @@ class TestAIToolDecorator:
         assert metadata['name'] == "test_tool"
         assert metadata['description'] == "Test tool description"
         assert metadata['category'] == "test"
-        assert metadata['validate_params'] == True
-        assert metadata['track_usage'] == True
-        assert metadata['is_async'] == False
+        assert metadata['validate_params']
+        assert metadata['track_usage']
+        assert not metadata['is_async']
 
     def test_ai_tool_decorator_async(self):
         """Test du décorateur avec fonction async."""
@@ -45,7 +45,7 @@ class TestAIToolDecorator:
         # Vérification des métadonnées
         assert hasattr(async_test_function, '_ai_tool_metadata')
         metadata = async_test_function._ai_tool_metadata
-        assert metadata['is_async'] == True
+        assert metadata['is_async']
 
     def test_ai_tool_decorator_with_session(self):
         """Test du décorateur avec validation de session."""
@@ -59,7 +59,7 @@ class TestAIToolDecorator:
             return "session_result"
         
         metadata = session_function._ai_tool_metadata
-        assert metadata['requires_session'] == True
+        assert metadata['requires_session']
 
     def test_ai_tool_decorator_validation_errors(self):
         """Test des validations du décorateur."""
@@ -250,7 +250,7 @@ class TestValidationHelpers:
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args
             assert "Tool exécuté: test_tool" in call_args[0][0]
-            assert call_args[1]['extra']['success'] == True
+            assert call_args[1]['extra']['success']
             
             # Test échec avec erreur
             _track_tool_usage("test_tool", "test_agent", 0.0, success=False, error="Test error")
@@ -258,7 +258,7 @@ class TestValidationHelpers:
             # Vérification du logging d'erreur
             mock_logger.info.assert_called()
             call_args = mock_logger.info.call_args
-            assert call_args[1]['extra']['success'] == False
+            assert not call_args[1]['extra']['success']
             assert call_args[1]['extra']['error'] == "Test error"
 
 
@@ -297,10 +297,10 @@ class TestRegistryIntegration:
             return "access_result"
         
         # Test accès autorisé
-        assert ToolRegistry.validate_access("access_control_test", "allowed_agent") == True
+        assert ToolRegistry.validate_access("access_control_test", "allowed_agent")
         
         # Test accès refusé
-        assert ToolRegistry.validate_access("access_control_test", "forbidden_agent") == False
+        assert not ToolRegistry.validate_access("access_control_test", "forbidden_agent")
         
         # Test accès libre (pas de restriction)
         @ai_tool(
@@ -310,7 +310,7 @@ class TestRegistryIntegration:
         def free_function():
             return "free_result"
         
-        assert ToolRegistry.validate_access("free_access_test", "any_agent") == True
+        assert ToolRegistry.validate_access("free_access_test", "any_agent")
 
     def test_tool_statistics(self):
         """Test des statistiques de tools."""

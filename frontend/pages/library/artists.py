@@ -6,7 +6,6 @@ from urllib.parse import urlparse, parse_qs
 from frontend.utils.logging import logger
 from frontend.config import sonique_bay_logo
 from frontend.theme.layout import state
-from frontend.services.artist_service import ArtistService
 API_URL = os.getenv('API_URL', 'http://api:8001')
 
 # Utilisation de l'AppState pour gérer la pagination
@@ -113,7 +112,9 @@ async def artist_view(page: int):
                                     ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
                         else:
                             logger.warning(f"cover_data est vide pour l'artiste {artist['id']}")
-                            ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
+                            # Use a placeholder image when cover is not available
+                            placeholder_image = "https://via.placeholder.com/200x300.png?text=No+Cover"
+                            ui.image(placeholder_image).classes('aspect-[4/3] w-full object-cover')
                     else:
                         logger.warning(f"Aucun cover trouvé pour l'artiste {artist['id']}, utilisation du logo par défaut.")
                         ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')

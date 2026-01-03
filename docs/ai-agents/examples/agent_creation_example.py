@@ -5,7 +5,7 @@ Cet exemple montre comment créer un agent spécialisé dans la découverte musi
 en suivant les meilleures pratiques RTCROS et les contraintes RPi4.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from backend.ai.utils.decorators import ai_tool
@@ -13,7 +13,6 @@ from backend.api.models.agent_model import AgentModel
 from backend.api.models.track_model import Track
 from backend.api.models.artist_model import Artist
 from backend.ai.agents.builder import build_agent, validate_agent_configuration
-from backend.ai.loader import AgentLoader
 
 
 # ============================================================================

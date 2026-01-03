@@ -27,7 +27,7 @@ from backend_worker.utils.logging import logger
 from backend_worker.services.audio_features_service import analyze_audio_with_librosa
 from backend_worker.services.enrichment_service import enrich_artist, enrich_album
 
-library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
+library_api_url = os.getenv("API_URL", "http://api:8001")
 
 
 def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
@@ -334,10 +334,25 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
             if found_audio_fields:
                 logger.info(f"[DIAGNOSTIC AUDIO] Champs audio trouvés pour {file_path}: {found_audio_fields}")
             else:
-                logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN champ audio trouvé pour {file_path}")
-                logger.warning(f"[DIAGNOSTIC AUDIO] Champs manquants: {missing_audio_fields}")
-                logger.warning(f"[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa n'est PAS effectuée pendant l'extraction initiale")
-                logger.warning(f"[DIAGNOSTIC AUDIO] Les champs audio seront traités plus tard dans l'enrichissement différé")
+                # Vérifier si des tags audio sont disponibles dans les métadonnées sérialisées
+                serialized_tags = metadata.get('tags', {})
+                if serialized_tags:
+                    from backend_worker.services.audio_features_service import _has_valid_audio_tags
+                    has_audio_tags = _has_valid_audio_tags(serialized_tags)
+                    if has_audio_tags:
+                        logger.info(f"[DIAGNOSTIC AUDIO] ✅ Tags audio standards disponibles dans {file_path}")
+                        logger.info(f"[DIAGNOSTIC AUDIO] Tags disponibles: {list(serialized_tags.keys())}")
+                        logger.info("[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
+                    else:
+                        logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN champ audio trouvé pour {file_path}")
+                        logger.warning(f"[DIAGNOSTIC AUDIO] Champs manquants: {missing_audio_fields}")
+                        logger.warning(f"[DIAGNOSTIC AUDIO] Tags disponibles: {list(serialized_tags.keys())}")
+                        logger.warning("[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa sera effectuée plus tard")
+                else:
+                    logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN champ audio trouvé pour {file_path}")
+                    logger.warning(f"[DIAGNOSTIC AUDIO] Champs manquants: {missing_audio_fields}")
+                    logger.warning("[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa n'est PAS effectuée pendant l'extraction initiale")
+                    logger.warning("[DIAGNOSTIC AUDIO] Les champs audio seront traités plus tard dans l'enrichissement différé")
 
             logger.debug(f"[METADATA] Métadonnées extraites: {file_path}")
             return metadata

@@ -5,10 +5,7 @@ from frontend.config import PAGES_DIR
 from .colors import apply_theme
 from .menu import menu
 from frontend.utils.logging import logger
-from frontend.services.communication_service import get_communication_service
 from frontend.services.search_service import SearchService
-import asyncio
-import httpx
 
 # --- ÉTAT DE L'APPLICATION (SIMPLIFIÉ) ---
 class AppState:
@@ -169,7 +166,7 @@ def wrap_with_layout(render_page):
         ui.button('', icon='close', on_click=about.close).classes('px-3 py-2 text-xs ml-auto ')
 
     with ui.header().classes(replace='row items-center'):
-        toggle_button = ui.button(icon='menu').props('flat color=white')
+        ui.button(icon='menu').props('flat color=white')
         ui.space()
         with ui.column():
             with ui.row().classes('items-center gap-2'):
@@ -204,7 +201,21 @@ def wrap_with_layout(render_page):
             ui.separator()
             with ui.row().classes('items-center q-my-sm object-bottom'):
                 from frontend.services.scan_service import ScanService
-                ui.button(text='Actualiser la bibliothèque',on_click=lambda: asyncio.create_task(ScanService.refresh_library()),
+                
+                async def refresh_library_handler():
+                    """Gestionnaire pour l'actualisation de la bibliothèque avec logs de diagnostic"""
+                    logger.info("=== DIAGNOSTIC ASYNCIO HANDLER ===")
+                    logger.info(f"Type de asyncio: {type(asyncio)}")
+                    logger.info(f"Asyncio disponible: {hasattr(asyncio, 'create_task')}")
+                    logger.info(f"Contexte event loop: {asyncio.get_event_loop().is_running()}")
+                    logger.info("=== FIN DIAGNOSTIC ===")
+                    
+                    try:
+                        await ScanService.refresh_library()
+                    except Exception as e:
+                        logger.error(f"Erreur lors du refresh: {e}")
+                        
+                ui.button(text='Actualiser la bibliothèque',on_click=refresh_library_handler,
                         icon='refresh').props('flat color=white dense').classes('text-xs')
         # --- Progress bar supprimée - remplacée par messages de chat ---
         # La progression est maintenant affichée dans le chat via des messages système

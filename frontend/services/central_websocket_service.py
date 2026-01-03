@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 """Service centralisé pour la gestion des WebSockets avec support de canaux."""
 
-from typing import Callable, Dict, Any, Optional
+from typing import Callable, Dict, Any
 import os
 import json
 import asyncio

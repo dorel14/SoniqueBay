@@ -1,5 +1,5 @@
 # backend/repos/agent_repo.py
-from sqlalchemy import select, update, func
+from sqlalchemy import select, func
 from backend.api.utils.database import AsyncSessionLocal
 from backend.api.models.agent_model import AgentModel
 from backend.api.models.agent_score_model import AgentScore as AgentScoreModel
@@ -7,11 +7,9 @@ from backend.api.schemas.agent_schema import AgentCreate, AgentUpdate
 from backend.api.schemas.agent_score_schema import (
     AgentScoreCreate,
     AgentScoreUpdate,
-    AgentScore,
     AgentScoreWithMetrics,
 )
 from typing import List, Optional
-from datetime import datetime
 
 async def create_agent(data: AgentCreate) -> AgentModel:
     async with AsyncSessionLocal() as session:

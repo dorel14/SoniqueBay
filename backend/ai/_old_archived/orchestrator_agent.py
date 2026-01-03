@@ -1,5 +1,5 @@
 from pydantic_ai import Agent
-from backend.ai.agents.agent_manager import ensure_agent, ensure_all_agents
+from backend.ai.agents.agent_manager import ensure_all_agents
 
 def build_orchestrator_agent(cfg):
     """

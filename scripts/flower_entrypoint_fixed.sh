@@ -9,9 +9,19 @@ DB_PATH="/data/flower.db"
 BACKUP_PATH="/data/flower.db.backup"
 LOG_FILE="/data/flower_recovery.log"
 
-# Fonction de logging
+# Fonction de logging avec gestion robuste des permissions (sans tee)
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    timestamp="[$(date '+%Y-%m-%d %H:%M:%S')]"
+    message="$timestamp $1"
+    
+    # Utiliser uniquement stderr pour éviter les problèmes de permissions
+    # Cela garantit que les logs sont toujours visibles même si /data n'est pas accessible
+    echo "$message" >&2
+    
+    # Essayer en arrière-plan d'écrire dans le fichier (non bloquant)
+    echo "$message" >> "$LOG_FILE" 2>/dev/null &
+    
+    return 0
 }
 
 # Fonction pour tester l'intégrité de la base de données
@@ -145,14 +155,92 @@ except Exception as e:
     fi
 }
 
+# Fonction pour configurer les permissions du répertoire de données
+setup_data_permissions() {
+    data_dir="/data"
+    db_file="/data/flower.db"
+    
+    # Log simple sans tee pour éviter les erreurs
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Configuration des permissions du répertoire $data_dir" >&2
+    
+    # Créer le répertoire s'il n'existe pas
+    if ! mkdir -p "$data_dir" 2>/dev/null; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: Impossible de créer le répertoire $data_dir" >&2
+        return 1
+    fi
+    
+    # Définir les permissions du répertoire
+    chmod 755 "$data_dir" 2>/dev/null || echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: Impossible de modifier les permissions de $data_dir" >&2
+    
+    # Tester l'écriture du fichier de log
+    if echo "[$(date '+%Y-%m-%d %H:%M:%S')] Test de permissions du répertoire de données" > "$LOG_FILE" 2>/dev/null; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Test d'écriture réussi dans $LOG_FILE" >&2
+        LOG_AVAILABLE=1
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: Impossible d'écrire dans $LOG_FILE, utilisation de stdout uniquement" >&2
+        LOG_AVAILABLE=0
+    fi
+    
+    # Tester l'accès à la base de données Flower
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Test d'accès à la base de données Flower..." >&2
+    
+    # Supprimer les anciens fichiers de base s'ils existent avec de mauvaises permissions
+    rm -f "${db_file}" "${db_file}.dir" "${db_file}.pag" "${db_file}.bak" "${db_file}.dat" 2>/dev/null || true
+    
+    # Tester la création d'un fichier de base vide
+    if touch "$db_file" 2>/dev/null; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Création de fichier de base de données réussie" >&2
+        
+        # Tester l'écriture dans la base
+        if echo "test" > "$db_file" 2>/dev/null; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Écriture dans la base de données réussie" >&2
+            rm -f "$db_file"  # Nettoyer le fichier test
+            return 0
+        else
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Impossible d'écrire dans la base de données $db_file" >&2
+            rm -f "$db_file" 2>/dev/null || true
+            return 1
+        fi
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Impossible de créer le fichier de base de données $db_file" >&2
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: Vérifiez les permissions du volume flower-data" >&2
+        return 1
+    fi
+}
+
+# Fonction pour démarrer Flower sans base de données persistante
+start_flower_without_db() {
+    log "WARNING: Démarrage de Flower sans base de données persistante"
+    log "INFO: Les données ne seront pas conservées entre les redémarrages"
+    
+    # Modifier les arguments pour désactiver la persistance
+    new_args="$@"
+    
+    # Remplacer --persistent=True par --persistent=False
+    new_args=$(echo "$new_args" | sed 's/--persistent=True/--persistent=False/g')
+    
+    # Supprimer --db si présent
+    new_args=$(echo "$new_args" | sed 's/--db=[^ ]*//g')
+    
+    log "INFO: Nouveaux arguments Flower: $new_args"
+    
+    # Exécuter Flower avec les nouveaux arguments
+    exec $new_args
+}
+
 # Fonction principale de récupération
 recover_flower_db() {
     db_file="$1"
+    shift # Conserver les autres arguments pour Flower
     
     log "=== DÉBUT DE LA PROCÉDURE DE RÉCUPÉRATION FLOWER AVANCÉE ==="
     
-    # Créer le répertoire de données si nécessaire
-    mkdir -p "$(dirname "$db_file")"
+    # Configurer les permissions du répertoire de données
+    if ! setup_data_permissions; then
+        log "ERROR: Impossible de configurer les permissions, démarrage sans persistance"
+        start_flower_without_db "$@"
+        return 0  # Ne jamais retourner ici
+    fi
     
     # Test d'intégrité initial
     if test_db_integrity "$db_file"; then
@@ -182,45 +270,68 @@ recover_flower_db() {
             return 0
         else
             log "ERROR: Échec de la vérification de structure Flower"
-            return 1
+            log "INFO: Tentative de démarrage sans persistance..."
+            start_flower_without_db "$@"
+            return 0  # Ne jamais retourner ici
         fi
     else
         log "ERROR: Échec de la création de la base de données Flower"
-        return 1
+        log "INFO: Tentative de démarrage sans persistance..."
+        start_flower_without_db "$@"
+        return 0  # Ne jamais retourner ici
     fi
 }
 
 # Attendre que Redis soit disponible
 wait_for_redis() {
-    log "INFO: Attente de la disponibilité de Redis..."
-    timeout=60
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Attente de la disponibilité de Redis..." >&2
+    timeout=120
     counter=0
     
     while [ $counter -lt $timeout ]; do
         if command -v redis-cli >/dev/null 2>&1; then
+            # Test PING Redis
             if redis-cli -h redis -p 6379 ping >/dev/null 2>&1; then
-                log "INFO: Redis est disponible"
-                return 0
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Redis répond au PING" >&2
+                
+                # Attendre que Redis ait fini de charger (INFO command)
+                loading_status=$(redis-cli -h redis -p 6379 info | grep "loading:" | cut -d: -f2 | tr -d '\r')
+                if [ "$loading_status" = "0" ]; then
+                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Redis a fini de charger les données" >&2
+                    return 0
+                else
+                    echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Redis charge encore les données (loading:$loading_status)" >&2
+                fi
             fi
         else
-            log "INFO: redis-cli non disponible, assumption que Redis est prêt"
-            return 0
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: redis-cli non disponible, test avec Python..." >&2
+            # Test avec Python si redis-cli n'est pas disponible
+            if python3 -c "
+import redis
+try:
+    r = redis.Redis(host='redis', port=6379, socket_connect_timeout=5)
+    r.ping()
+    print('Redis OK')
+except Exception as e:
+    print(f'Redis Error: {e}')
+    exit(1)
+" 2>/dev/null | grep -q "Redis OK"; then
+                echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Redis disponible (test Python)" >&2
+                return 0
+            fi
         fi
-        sleep 2
-        counter=$((counter + 2))
-        log "INFO: Attente Redis... ($counter/$timeout secondes)"
+        sleep 3
+        counter=$((counter + 3))
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] INFO: Attente Redis... ($counter/$timeout secondes)" >&2
     done
     
-    log "WARNING: Timeout d'attente de Redis, continuation quand même"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] WARNING: Timeout d'attente de Redis, continuation quand même" >&2
     return 0
 }
 
 # Script principal
 main() {
     log "INFO: Démarrage du script d'entrée Flower (version avancée avec structure)"
-    
-    # Créer le répertoire de logs
-    mkdir -p "$(dirname "$LOG_FILE")" 2>/dev/null || true
     
     # Récupération de la base de données
     if ! recover_flower_db "$DB_PATH"; then

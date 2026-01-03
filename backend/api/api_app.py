@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
-from importlib import reload
 import os
 from dataclasses import dataclass
 from fastapi import FastAPI, status, Request, Depends
@@ -168,7 +167,7 @@ async def handle_trailing_slashes(request: Request, call_next):
                     if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
                         # Route avec dépendances (a des paramètres)
                         # Ne pas rediriger pour éviter de perdre les paramètres
-                        logger.debug(f"[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
+                        logger.debug("[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
                         pass
                     else:
                         # CORRECTION : Ne rediriger que si la route définie a un slash final
@@ -178,7 +177,7 @@ async def handle_trailing_slashes(request: Request, call_next):
                             return RedirectResponse(url=new_url, status_code=307)
                         else:
                             # La route existe sans slash, et on est sans slash. Pas de redirection.
-                            logger.debug(f"[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                            logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
                             pass
 
     return await call_next(request)
