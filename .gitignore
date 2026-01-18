@@ -9,6 +9,7 @@ data/
 .continue/
 .pytest_cache/
 .ruff_cache/
+.nicegui/
 *.ps1
 *.exchange
 *.env

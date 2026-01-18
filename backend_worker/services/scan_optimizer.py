@@ -430,9 +430,15 @@ class ScanOptimizer:
                 album_title = track.get("album_title", "").lower()
                 artist = artist_map.get(artist_name)
 
+                # LOG DIAGNOSTIC: Vérifier si l'artiste est trouvé dans artist_map
+                logger.debug(f"[SCAN_OPTIMIZER] Track: {track.get('title')}, Artist name: {artist_name}, Artist found: {artist is not None}")
+
                 if artist:
                     track_data = dict(track)
                     track_data["track_artist_id"] = artist["id"]
+
+                    # LOG DIAGNOSTIC: track_artist_id assigné
+                    logger.debug(f"[SCAN_OPTIMIZER] track_artist_id assigné: {artist['id']} pour track {track.get('title')}")
 
                     # Résoudre l'album si disponible
                     if album_title:
@@ -446,6 +452,12 @@ class ScanOptimizer:
                     track_data.pop("album_title", None)
 
                     prepared_tracks.append(track_data)
+                else:
+                    # LOG DIAGNOSTIC: Artiste non trouvé dans artist_map
+                    logger.warning(f"[SCAN_OPTIMIZER] Artiste non trouvé dans artist_map pour track {track.get('title')}: {artist_name}")
+                    logger.warning(f"[SCAN_OPTIMIZER] Artistes disponibles dans artist_map: {list(artist_map.keys())}")
+                    # CORRECTION: Ne pas inclure cette track dans prepared_tracks si l'artiste n'est pas trouvé
+                    continue
 
             if prepared_tracks:
                 logger.info(f"Insertion parallélisée de {len(prepared_tracks)} pistes")

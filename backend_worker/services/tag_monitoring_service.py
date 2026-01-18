@@ -5,7 +5,6 @@ Surveille les changements dans genres, mood_tags, genre_tags et déclenche
 des réentraînements si nécessaire.
 
 Architecture optimisée RPi4 :
-- Recommender API : orchestrateur qui publie dans Redis
 - Backend Worker : écoute Redis et exécute tâches de retrain
 - Déclenchement différé pour éviter surcharge CPU
 
@@ -17,9 +16,9 @@ import json
 import hashlib
 from datetime import datetime
 from typing import Dict, Any, Set
-import httpx
 import os
 import redis.asyncio as redis
+import httpx
 
 from backend_worker.utils.logging import logger
 
@@ -29,7 +28,7 @@ class TagChangeDetector:
     
     def __init__(self):
         """Initialise le détecteur."""
-        self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library-api:8001")
+        self.library_api_url = os.getenv("API_URL", "http://api:8001")
         self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
         self.last_check = None
         self.cached_tags = {}
@@ -246,15 +245,28 @@ class TagChangeDetector:
         details = changes.get('details', {})
         
         # Priorité critique : nouveaux genres
-        if 'new_genres' in details and len(details['new_genres']) > 0:
-            return {
-                'should_retrain': True,
-                'priority': 'high',
-                'reason': 'new_genres',
-                'message': f"{len(details['new_genres'])} nouveaux genres détectés",
-                'delay_minutes': 15,  # Délai court pour nouveaux genres
-                'details': details
-            }
+        if 'new_genres' in details:
+            # Handle both list and integer cases
+            if isinstance(details['new_genres'], int):
+                # First check scenario - already a count
+                genre_count = details['new_genres']
+            elif isinstance(details['new_genres'], (list, set)):
+                # Change detection scenario - need to count
+                genre_count = len(details['new_genres'])
+            else:
+                # Unexpected type - log warning and treat as 0
+                logger.warning(f"[TYPE_SAFETY] new_genres type inattendu: {type(details['new_genres'])}")
+                genre_count = 0
+            
+            if genre_count > 0:
+                return {
+                    'should_retrain': True,
+                    'priority': 'high',
+                    'reason': 'new_genres',
+                    'message': f"{genre_count} nouveaux genres détectés",
+                    'delay_minutes': 15,  # Délai court pour nouveaux genres
+                    'details': details
+                }
         
         # Priorité moyenne : nouvelles tracks importantes
         if 'new_tracks' in details and details['new_tracks'] > 100:
@@ -313,27 +325,68 @@ class TagChangeDetector:
         }
 
 
-class RedisPublisher:
-    """Publieur pour déclencher les tâches via Redis."""
+class CeleryTaskPublisher:  # Alias pour compatibilité avec tests
+    """Publieur pour déclencher les tâches Celery de retrain."""
     
     def __init__(self):
-        """Initialise le publieur Redis."""
-        self.redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-        self.recommender_api_url = os.getenv("RECOMMENDER_API_URL", "http://recommender-api:8002")
+        """Initialise le publieur Celery."""
+        from backend_worker.celery_app import celery
+        self.celery = celery
     
-    async def publish_retrain_request(self, trigger_info: Dict[str, Any]) -> bool:
+    async def trigger_retrain_task(self, trigger_info: Dict[str, Any]) -> bool:
         """
-        Publie une demande de retrain via Redis (canaux "notifications" et "progress").
+        Déclenche une tâche Celery de retrain et publie les notifications SSE.
         
         Args:
             trigger_info: Informations sur le déclencheur
             
         Returns:
-            True si publication réussie
+            True si déclenchement réussi
         """
         try:
-            async with redis.from_url(self.redis_url) as redis_client:
-                # Message pour notifications (événements système)
+            # Préparer les arguments pour la tâche Celery
+            task_args = {
+                'trigger_reason': trigger_info['reason'],
+                'priority': trigger_info['priority'],
+                'message': trigger_info['message'],
+                'changes_details': trigger_info['details'],
+                'estimated_delay': trigger_info.get('delay_minutes', 0)
+            }
+            
+            # Déclencher la tâche Celery de retrain
+            task_result = self.celery.send_task(
+                'trigger_vectorizer_retrain',
+                args=[task_args],
+                queue='vectorization_monitoring',
+                priority=self._get_priority_level(trigger_info['priority'])
+            )
+            
+            logger.info(f"[CELERY_TASK] Retrain déclenché: {trigger_info['reason']} (Task ID: {task_result.id})")
+            
+            # Publier les notifications SSE pour l'UI
+            await self._publish_sse_notifications(trigger_info, task_result.id)
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erreur déclenchement retrain: {e}")
+            return False
+    
+    def _get_priority_level(self, priority: str) -> int:
+        """Convertit la priorité en niveau Celery."""
+        priority_map = {
+            'high': 9,
+            'medium': 6, 
+            'low': 3,
+            'none': 1
+        }
+        return priority_map.get(priority, 5)
+    
+    async def _publish_sse_notifications(self, trigger_info: Dict[str, Any], task_id: str):
+        """Publie les notifications SSE pour l'UI."""
+        try:
+            async with redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379")) as redis_client:
+                # Message pour notifications
                 notification_message = {
                     'type': 'vectorization_monitor',
                     'event': 'retrain_requested',
@@ -342,71 +395,36 @@ class RedisPublisher:
                     'priority': trigger_info['priority'],
                     'message': trigger_info['message'],
                     'details': trigger_info['details'],
+                    'task_id': task_id,
                     'worker_info': {
                         'service': 'tag_monitoring_celery',
-                        'version': '1.0',
+                        'version': '2.0',
                         'optimized_for': 'RPi4'
                     }
                 }
                 
-                # Message pour progress (suivi d'avancement)
+                # Message pour progress
                 progress_message = {
                     'type': 'vectorization_progress',
                     'stage': 'monitoring_check',
                     'timestamp': datetime.now().isoformat(),
-                    'status': 'changes_detected',
-                    'message': f"Retrain recommandé: {trigger_info['message']}",
+                    'status': 'retrain_triggered',
+                    'message': f"Retrain déclenché: {trigger_info['message']}",
                     'priority': trigger_info['priority'],
-                    'estimated_delay': trigger_info.get('delay_minutes', 0)
+                    'estimated_delay': trigger_info.get('delay_minutes', 0),
+                    'task_id': task_id
                 }
                 
-                # Publier sur les canaux SSE existants
+                # Publier sur les canaux SSE
                 await redis_client.publish('notifications', json.dumps(notification_message))
                 await redis_client.publish('progress', json.dumps(progress_message))
                 
-                logger.info(f"[SSE_PUBLISH] Retrain demandé: {trigger_info['reason']}")
-                return True
+                logger.info(f"[SSE_PUBLISH] Notifications envoyées pour task {task_id}")
                 
         except Exception as e:
             logger.error(f"Erreur publication SSE: {e}")
-            return False
     
-    async def notify_recommender_api(self, trigger_info: Dict[str, Any]) -> bool:
-        """
-        Notifie l'API recommender du retrain demandé.
-        
-        Args:
-            trigger_info: Informations sur le déclencheur
-            
-        Returns:
-            True si notification réussie
-        """
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                notification = {
-                    'event_type': 'retrain_requested',
-                    'timestamp': datetime.now().isoformat(),
-                    'reason': trigger_info['reason'],
-                    'priority': trigger_info['priority'],
-                    'message': trigger_info['message'],
-                    'estimated_delay': trigger_info['delay_minutes']
-                }
-                
-                response = await client.post(
-                    f"{self.recommender_api_url}/api/vectorization/events",
-                    json=notification
-                )
-                
-                if response.status_code in (200, 201):
-                    logger.info(f"[NOTIFY_RECOMMENDER] Notification envoyée: {trigger_info['reason']}")
-                    return True
-                else:
-                    logger.warning(f"Erreur notification recommender: {response.status_code}")
-                    return False
-                    
-        except Exception as e:
-            logger.error(f"Erreur notification recommender: {e}")
-            return False
+
 
 
 class TagMonitoringService:
@@ -415,7 +433,7 @@ class TagMonitoringService:
     def __init__(self):
         """Initialise le service de monitoring."""
         self.detector = TagChangeDetector()
-        self.publisher = RedisPublisher()
+        self.publisher = CeleryTaskPublisher()
         self.check_interval_minutes = 60  # Vérification toutes les heures
         self.is_running = False
         
@@ -447,19 +465,15 @@ class TagMonitoringService:
             if retrain_decision['should_retrain']:
                 logger.info(f"[TAG_MONITOR] Retrain nécessaire: {retrain_decision['message']}")
                 
-                # Publier via Redis
-                redis_success = await self.publisher.publish_retrain_request(retrain_decision)
-                
-                # Notifier recommender API
-                api_success = await self.publisher.notify_recommender_api(retrain_decision)
+                # Déclencher la tâche Celery de retrain
+                celery_success = await self.publisher.trigger_retrain_task(retrain_decision)
                 
                 return {
                     'status': 'retrain_requested',
                     'message': retrain_decision['message'],
                     'priority': retrain_decision['priority'],
                     'delay_minutes': retrain_decision['delay_minutes'],
-                    'redis_published': redis_success,
-                    'api_notified': api_success,
+                    'celery_triggered': celery_success,
                     'timestamp': datetime.now().isoformat(),
                     'details': retrain_decision['details']
                 }

@@ -102,6 +102,10 @@ class ArtistService:
         artists = query.order_by(ArtistModel.name).offset(skip).limit(limit).all()
         return artists, total_count
 
+    def get_artists_count(self):
+        """Get the total number of artists in the database."""
+        return self.db.query(ArtistModel).count()
+
     def read_artist(self, artist_id):
         artist = self.db.query(ArtistModel).filter(ArtistModel.id == artist_id).first()
         if not artist:

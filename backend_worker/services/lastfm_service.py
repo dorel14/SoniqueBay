@@ -244,7 +244,7 @@ class LastFMService:
             return None
 
     async def _store_similar_artists(self, artist_name: str, similar_artists: List[Dict[str, Any]], mb_artist_id: Optional[str] = None) -> bool:
-        """Store similar artists in the database via API."""
+        """Store similar artists in the database via API with correct format."""
         import httpx
         import os
         
@@ -252,13 +252,12 @@ class LastFMService:
             # Get the API URL
             api_url = os.getenv('API_URL', 'http://api:8001')
             
-            # First, get the artist ID from the database using the artist name or mb_artist_id
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                # Try to find the artist using mb_artist_id first if available
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                # First, get the artist ID from the database using the artist name or mb_artist_id
                 artist_id = None
                 if mb_artist_id:
                     logger.debug(f"[LASTFM] Utilisation de MBID {mb_artist_id} pour trouver l'artiste {artist_name}")
-                    response = await client.get(f"{api_url}/api/artists/search", params={"mbid": mb_artist_id})
+                    response = await client.get(f"{api_url}/api/artists/search", params={"musicbrainz_artistid": mb_artist_id})
                     if response.status_code == 200:
                         artists = response.json()
                         if artists:
@@ -283,40 +282,45 @@ class LastFMService:
                         logger.warning(f"[LASTFM] Could not find artist {artist_name} in database: {response.status_code}")
                         return False
                 
-                # Prepare the data for the API call
+                # Prepare the data in the format expected by the API endpoint
+                # The endpoint expects: [{"name": "Artist Name", "weight": 0.8}]
                 similar_data = []
                 for similar in similar_artists:
-                    # Search for the similar artist in the database
-                    similar_response = await client.get(f"{api_url}/api/artists/search", params={"name": similar['name']})
-                    if similar_response.status_code == 200:
-                        similar_artists_data = similar_response.json()
-                        if similar_artists_data:
-                            # Use the first similar artist found
-                            similar_artist_id = similar_artists_data[0]['id']
-                            similar_data.append({
-                                "similar_artist_id": similar_artist_id,
-                                "weight": similar['weight']
-                            })
+                    similar_name = similar.get('name')
+                    weight = similar.get('weight')
+                    if similar_name and weight is not None:
+                        similar_data.append({
+                            "name": similar_name,
+                            "weight": float(weight)
+                        })
                 
                 if not similar_data:
-                    logger.warning(f"[LASTFM] No similar artists found in database for {artist_name}")
+                    logger.warning(f"[LASTFM] No valid similar artists data to store for {artist_name}")
                     return False
                 
-                # Store the similar artists in the database
+                logger.info(f"[LASTFM] Storing {len(similar_data)} similar artists for {artist_name} (artist_id: {artist_id})")
+                logger.debug(f"[LASTFM] Similar artists data: {similar_data[:3]}...")  # Log first 3 for debugging
+                
+                # Store the similar artists in the database using the correct endpoint
                 store_response = await client.post(
                     f"{api_url}/api/artists/{artist_id}/similar",
                     json=similar_data
                 )
                 
                 if store_response.status_code == 200:
-                    logger.info(f"[LASTFM] Successfully stored {len(similar_data)} similar artists for {artist_name}")
+                    result = store_response.json()
+                    logger.info(f"[LASTFM] Successfully stored similar artists for {artist_name}: {result.get('message', 'Success')}")
                     return True
                 else:
-                    logger.warning(f"[LASTFM] Failed to store similar artists: {store_response.status_code} - {store_response.text}")
+                    logger.error(f"[LASTFM] Failed to store similar artists for {artist_name}: {store_response.status_code} - {store_response.text}")
+                    # Log the request data for debugging
+                    logger.error(f"[LASTFM] Request data that failed: {similar_data}")
                     return False
                 
         except Exception as e:
             logger.error(f"[LASTFM] Error storing similar artists for {artist_name}: {e}")
+            import traceback
+            logger.error(f"[LASTFM] Full traceback: {traceback.format_exc()}")
             return False
 
     async def get_album_info(self, artist_name: str, album_name: str) -> Optional[Dict[str, Any]]:

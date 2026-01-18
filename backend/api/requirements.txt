@@ -15,6 +15,7 @@ python-dotenv==1.1.0
 
 strawchemy==0.18.0
 pydantic-ai==1.27.0
+ollama>=0.6.1
 watchdog==6.0.0
 pylast==6.0.0
 #GRAPHQL

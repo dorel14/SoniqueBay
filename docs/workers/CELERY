@@ -1,0 +1,213 @@
+# Configuration Unifiée Celery - Documentation
+
+## Vue d'ensemble
+
+Cette documentation décrit la nouvelle configuration unifiée Celery qui résout les problèmes de compatibilité entre les applications `backend-api` et `backend-worker` de SoniqueBay.
+
+## Problème résolu
+
+Avant cette refactorisation, deux applications Celery séparées existaient :
+- `backend/api/utils/celery_app.py` : Configuration pour l'API backend
+- `backend_worker/celery_app.py` : Configuration pour le worker
+
+Cette séparation causait des problèmes de compatibilité et des erreurs lors des opérations Celery.
+
+## Solution implémentée
+
+### 1. Configuration unifiée dans `backend_worker`
+
+La configuration Celery unifiée est maintenant centralisée dans `backend_worker/celery_config.py` et importée par les deux applications :
+
+```python
+# Import de la configuration unifiée
+from backend_worker.celery_config import get_celery_config
+
+# Configuration identique pour les deux applications
+celery_app = Celery('soniquebay')
+celery_app.config_from_object(get_celery_config())
+```
+
+### 2. API backend-worker
+
+Un serveur FastAPI a été ajouté dans `backend_worker/api_app.py` avec les routers :
+- `/api/vectorization/*` : Endpoints de vectorisation
+- `/api/celery/*` : Endpoints de configuration Celery
+
+### 3. Docker Compose
+
+Le service `backend-worker` inclut maintenant :
+- Un serveur Celery Worker
+- Un serveur Celery Beat (planificateur)
+- Une API FastAPI avec les nouveaux endpoints
+
+## Fichiers modifiés
+
+### Nouveaux fichiers
+- `backend_worker/celery_config.py` : Configuration unifiée Celery
+- `backend_worker/api/celery_config_router.py` : Router FastAPI pour la config Celery
+- `backend_worker/api/vectorization_router.py` : Router FastAPI pour la vectorisation
+- `backend_worker/api_app.py` : Application FastAPI principale
+- `scripts/validate_celery_unified_config.py` : Script de validation
+
+### Fichiers modifiés
+- `backend/api/utils/celery_app.py` : Utilise la configuration unifiée
+- `backend_worker/celery_app.py` : Utilise la configuration unifiée
+- `backend_worker/celery_tasks.py` : Peut maintenant être importé sans conflit
+
+## Utilisation
+
+### 1. Démarrage avec Docker Compose
+
+```bash
+# Construction et démarrage
+docker-compose build
+docker-compose up -d
+
+# Vérification des logs
+docker-compose logs -f backend-worker
+docker-compose logs -f backend-api
+```
+
+### 2. Validation de la configuration
+
+```bash
+# Exécution du script de validation
+python scripts/validate_celery_unified_config.py
+```
+
+### 3. Tests manuels
+
+```bash
+# Test des nouveaux endpoints
+curl http://localhost:8001/api/vectorization/health
+curl http://localhost:8001/api/celery/health
+
+# Test avec le frontend
+# Interface disponible sur http://localhost:8080
+```
+
+## Nouveaux Endpoints API
+
+### Vectorisation
+- `GET /api/vectorization/health` : État du service de vectorisation
+- `POST /api/vectorization/recommendations` : Génération de recommandations
+- `GET /api/vectorization/artists/similar/{artist_id}` : Artistes similaires
+
+### Configuration Celery
+- `GET /api/celery/health` : État de la configuration Celery
+- `GET /api/celery/queues` : Liste des queues configurées
+- `GET /api/celery/routes` : Routes de tâches configurées
+
+## Architecture
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Frontend      │────│  Backend-API     │────│  Backend-Worker │
+│   (NiceGUI)     │    │  (FastAPI)       │    │  (Worker + API) │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+                                │                        │
+                                ▼                        ▼
+                       ┌──────────────────┐    ┌─────────────────┐
+                       │   PostgreSQL     │    │  Redis (Celery) │
+                       │   (Database)     │    │  (Broker)       │
+                       └──────────────────┘    └─────────────────┘
+```
+
+## Avantages
+
+1. **Configuration centralisée** : Une seule source de vérité pour Celery
+2. **Compatibilité garantie** : Les deux applications utilisent la même config
+3. **API unifiée** : Endpoints de gestion centralisés dans backend-worker
+4. **Maintenance simplifiée** : Un seul endroit pour modifier la configuration
+5. **Monitoring amélioré** : Endpoints de santé et de statut
+
+## Migration
+
+Pour migrer depuis l'ancienne configuration :
+
+1. **Arrêter les services** :
+   ```bash
+   docker-compose down
+   ```
+
+2. **Rebuild** :
+   ```bash
+   docker-compose build
+   ```
+
+3. **Démarrer** :
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Valider** :
+   ```bash
+   python scripts/validate_celery_unified_config.py
+   ```
+
+## Monitoring
+
+### Logs Celery
+```bash
+# Logs du worker
+docker-compose logs -f backend-worker
+
+# Logs spécifiques
+docker-compose exec backend-worker celery -A soniquebay events --loglevel=info
+```
+
+### Monitoring Flower
+```bash
+# Interface Flower (si configurée)
+# http://localhost:5555
+```
+
+### Nouveaux endpoints de santé
+```bash
+# État global
+curl http://localhost:8001/api/celery/health
+
+# État vectorisation
+curl http://localhost:8001/api/vectorization/health
+```
+
+## Dépannage
+
+### Problèmes courants
+
+1. **Erreur "not enough values to unpack"** : Résolue par cette configuration unifiée
+2. **URLs Redis différentes** : Vérifier que `CELERY_BROKER_URL` et `CELERY_RESULT_BACKEND` sont identiques
+3. **Worker ne démarre pas** : Vérifier les logs avec `docker-compose logs backend-worker`
+
+### Commandes de diagnostic
+
+```bash
+# Vérification de la configuration
+python scripts/validate_celery_unified_config.py
+
+# Test de connexion Redis
+docker-compose exec backend-worker redis-cli ping
+
+# Test de la base de données
+docker-compose exec backend-worker python -c "
+from sqlalchemy import create_engine; 
+engine = create_engine('postgresql://user:pass@postgres:5432/db'); 
+engine.connect(); 
+print('DB OK')
+"
+```
+
+## Contribution
+
+Pour modifier la configuration Celery :
+
+1. Modifier `backend_worker/celery_config.py`
+2. Tester avec `scripts/validate_celery_unified_config.py`
+3. Rebuilder et redéployer
+
+## Notes techniques
+
+- La configuration utilise `broker_transport_options` pour la compatibilité Redis
+- Les routes et queues sont définies de manière centralisée
+- L'API backend-worker peut être utilisée pour la gestion et le monitoring
+- La compatibilité avec l'ancienne API backend est maintenue

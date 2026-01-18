@@ -27,23 +27,75 @@ def process_artist_images(artist_ids: List[int], priority: str = "normal"):
     """
     try:
         logger.info(f"[COVERS] Début traitement images artistes: {len(artist_ids)} artistes")
+        logger.info(f"[COVERS] Artist IDs à traiter: {artist_ids}")
+
+        # Récupérer les informations des artistes depuis la base de données via l'API
+        import httpx
+        import os
+        # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
+        api_url = os.getenv("API_URL", "http://localhost:8001")
+        logger.info(f"[COVERS] API URL utilisée: {api_url}")
+        artist_infos = []
+        
+        for artist_id in artist_ids:
+            try:
+                # Récupérer les informations de l'artiste via l'API REST
+                logger.info(f"[COVERS] Récupération infos artiste {artist_id} depuis {api_url}/api/artists/{artist_id}")
+                response = httpx.get(f"{api_url}/api/artists/{artist_id}", timeout=10)
+                logger.info(f"[COVERS] Status code réponse API pour artiste {artist_id}: {response.status_code}")
+                if response.status_code == 200:
+                    artist_data = response.json()
+                    logger.info(f"[COVERS] Données artiste {artist_id} récupérées: {artist_data.get('name')}")
+                    artist_infos.append(artist_data)
+                else:
+                    logger.warning(f"[COVERS] Impossible de récupérer les informations de l'artiste {artist_id} - Status: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"[COVERS] Erreur lors de la récupération des infos de l'artiste {artist_id}: {str(e)}")
+                continue
+
+        logger.info(f"[COVERS] Informations récupérées pour {len(artist_infos)} artistes")
 
         # Création des contextes de traitement
         contexts = []
-        for artist_id in artist_ids:
+        for artist_info in artist_infos:
+            artist_id = artist_info.get("id")
+            artist_name = artist_info.get("name")
+            
+            # Tentative de détermination du chemin de l'artiste (basé sur les tracks)
+            artist_path = None
+            try:
+                # Récupérer les tracks de l'artiste pour déterminer le chemin
+                tracks_response = httpx.get(f"{api_url}/api/artists/{artist_id}/tracks", timeout=10)
+                if tracks_response.status_code == 200:
+                    tracks = tracks_response.json()
+                    if tracks:
+                        from pathlib import Path
+                        track_path = tracks[0].get("path")
+                        if track_path:
+                            track_dir = Path(track_path).parent
+                            # Supposer structure: .../Artiste/Album/Track
+                            artist_path = str(track_dir.parent)
+                            logger.debug(f"[COVERS] Chemin artiste déduit pour {artist_name}: {artist_path}")
+            except Exception as e:
+                logger.debug(f"[COVERS] Impossible de déterminer le chemin de l'artiste {artist_id}: {str(e)}")
+
             context = CoverProcessingContext(
                 image_type=ImageType.ARTIST_IMAGE,
                 entity_id=artist_id,
-                entity_path=None,  # Pas de chemin spécifique pour les artistes
+                entity_path=artist_path,
                 task_type=TaskType.BATCH_PROCESSING,
                 priority=priority,
                 metadata={
                     "source": "batch_processing",
                     "entity_type": "artist",
-                    "batch_size": len(artist_ids)
+                    "batch_size": len(artist_ids),
+                    "artist_name": artist_name,
+                    "musicbrainz_artistid": artist_info.get("musicbrainz_artistid")
                 }
             )
             contexts.append(context)
+
+        logger.info(f"[COVERS] Contextes créés: {len(contexts)}")
 
         # Traitement via l'orchestrateur (utilise tous les services)
         result = asyncio.run(cover_orchestrator_service.process_batch(contexts))
@@ -83,22 +135,69 @@ def process_album_covers(album_ids: List[int], priority: str = "normal"):
     try:
         logger.info(f"[COVERS] Début traitement covers albums: {len(album_ids)} albums")
 
+        # Récupérer les informations des albums depuis la base de données via l'API
+        import httpx
+        import os
+        # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
+        api_url = os.getenv("API_URL", "http://localhost:8001")
+        logger.info(f"[COVERS] API URL utilisée pour albums: {api_url}")
+        album_infos = []
+        
+        for album_id in album_ids:
+            try:
+                # Récupérer les informations de l'album via l'API REST
+                response = httpx.get(f"{api_url}/api/albums/{album_id}", timeout=10)
+                if response.status_code == 200:
+                    album_data = response.json()
+                    album_infos.append(album_data)
+                else:
+                    logger.warning(f"[COVERS] Impossible de récupérer les informations de l'album {album_id}")
+            except Exception as e:
+                logger.warning(f"[COVERS] Erreur lors de la récupération des infos de l'album {album_id}: {str(e)}")
+                continue
+
+        logger.info(f"[COVERS] Informations récupérées pour {len(album_infos)} albums")
+
         # Création des contextes de traitement
         contexts = []
-        for album_id in album_ids:
+        for album_info in album_infos:
+            album_id = album_info.get("id")
+            album_title = album_info.get("title")
+            
+            # Tentative de détermination du chemin de l'album (basé sur les tracks)
+            album_path = None
+            try:
+                # Récupérer les tracks de l'album pour déterminer le chemin
+                tracks_response = httpx.get(f"{api_url}/api/albums/{album_id}/tracks", timeout=10)
+                if tracks_response.status_code == 200:
+                    tracks = tracks_response.json()
+                    if tracks:
+                        from pathlib import Path
+                        track_path = tracks[0].get("path")
+                        if track_path:
+                            album_path = str(Path(track_path).parent)
+                            logger.debug(f"[COVERS] Chemin album déduit pour {album_title}: {album_path}")
+            except Exception as e:
+                logger.debug(f"[COVERS] Impossible de déterminer le chemin de l'album {album_id}: {str(e)}")
+
             context = CoverProcessingContext(
                 image_type=ImageType.ALBUM_COVER,
                 entity_id=album_id,
-                entity_path=None,  # Pas de chemin spécifique pour les albums
+                entity_path=album_path,
                 task_type=TaskType.BATCH_PROCESSING,
                 priority=priority,
                 metadata={
                     "source": "batch_processing",
                     "entity_type": "album",
-                    "batch_size": len(album_ids)
+                    "batch_size": len(album_ids),
+                    "album_title": album_title,
+                    "artist_name": album_info.get("album_artist_name"),
+                    "musicbrainz_albumid": album_info.get("musicbrainz_albumid")
                 }
             )
             contexts.append(context)
+
+        logger.info(f"[COVERS] Contextes créés: {len(contexts)}")
 
         # Traitement via l'orchestrateur complet
         result = asyncio.run(cover_orchestrator_service.process_batch(contexts))

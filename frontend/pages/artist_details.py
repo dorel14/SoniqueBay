@@ -1,32 +1,145 @@
-from nicegui import ui
-from frontend.config import sonique_bay_logo
+from nicegui import ui, PageArguments
+import httpx
+import os
+from urllib.parse import urlparse, parse_qs
+from frontend.utils.config import sonique_bay_logo
 from frontend.utils.logging import logger
-#from frontend.theme.layout import COMMON_LINK_CLASSES
+
 from frontend.services.artist_service import ArtistService
+
+api_url = os.getenv('API_URL', 'http://api:8001')
 
 
 async def get_artist_info(artist_id: int):
-    """Récupère les informations d'un artiste depuis l'API."""
-    return await ArtistService.get_artist(artist_id)
+    """Récupère les informations d'un artiste depuis l'API via GraphQL."""
+    query = '''
+    query GetArtist($artistId: Int!) {
+        artist(id: $artistId) {
+            id
+            name
+            covers {
+                cover_data
+                mime_type
+            }
+            albums {
+                id
+                title
+                release_year
+                covers {
+                    cover_data
+                    mime_type
+                }
+            }
+        }
+    }
+    '''
+    
+    variables = {'artistId': artist_id}
+    
+    try:
+        result = await ArtistService.query_graphql(query, variables)
+        if result and 'artist' in result:
+            return result['artist']
+        logger.error(f"Aucun artiste trouvé avec l'ID {artist_id}")
+        return None
+    except Exception as e:
+        logger.error(f"Erreur GraphQL pour l'artiste {artist_id}: {e}")
+        # Fallback vers REST si GraphQL échoue
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{api_url}/api/artists/{artist_id}")
+            if response.status_code == 200:
+                return response.json()
+            return None
 
 async def get_artist_albums(artist_id: int):
-    """Récupère les albums d'un artiste depuis l'API."""
-    return await ArtistService.get_artist_albums(artist_id)
+    """Récupère les albums d'un artiste depuis l'API via GraphQL."""
+    query = '''
+    query GetArtistAlbums($artistId: Int!) {
+        artist(id: $artistId) {
+            albums {
+                id
+                title
+                release_year
+                covers {
+                    cover_data
+                    mime_type
+                }
+            }
+        }
+    }
+    '''
+    
+    variables = {'artistId': artist_id}
+    
+    try:
+        result = await ArtistService.query_graphql(query, variables)
+        if result and 'artist' in result and result['artist']:
+            return result['artist']['albums']
+        logger.error(f"Aucun album trouvé pour l'artiste {artist_id}")
+        return []
+    except Exception as e:
+        logger.error(f"Erreur GraphQL pour les albums de l'artiste {artist_id}: {e}")
+        # Fallback vers REST si GraphQL échoue
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{api_url}/api/albums/artists/{artist_id}")
+            if response.status_code == 200:
+                return response.json()
+            return []
 
 async def get_artist_tracks(artist_id: int, album_id: int = None):
-    """Récupère les pistes d'un artiste depuis l'API."""
-    return await ArtistService.get_artist_tracks(artist_id, album_id)
-
-
-def artist_details_page(artist_id: str):
-    """Page de détails d'un artiste."""
-    # Convertir artist_id en entier
-    try:
-        artist_id_int = int(artist_id)
-    except (ValueError, TypeError):
-        artist_id_int = 0
+    """Récupère les pistes d'un artiste depuis l'API via GraphQL."""
+    if album_id:
+        query = '''
+        query GetAlbumTracks($artistId: Int!, $albumId: Int!) {
+            artist(id: $artistId) {
+                albums(where: {id: {eq: $albumId}}) {
+                    tracks {
+                        id
+                        title
+                        duration
+                    }
+                }
+            }
+        }
+        '''
+        variables = {'artistId': artist_id, 'albumId': album_id}
+    else:
+        query = '''
+        query GetArtistTracks($artistId: Int!) {
+            artist(id: $artistId) {
+                albums {
+                    tracks {
+                        id
+                        title
+                        duration
+                    }
+                }
+            }
+        }
+        '''
+        variables = {'artistId': artist_id}
     
-    render_artists_details(artist_id_int)
+    try:
+        result = await ArtistService.query_graphql(query, variables)
+        if result and 'artist' in result and result['artist']:
+            if album_id:
+                if result['artist']['albums']:
+                    return result['artist']['albums'][0]['tracks']
+            else:
+                tracks = []
+                for album in result['artist']['albums']:
+                    tracks.extend(album['tracks'])
+                return tracks
+        logger.error(f"Aucune piste trouvée pour l'artiste {artist_id}")
+        return []
+    except Exception as e:
+        logger.error(f"Erreur GraphQL pour les pistes de l'artiste {artist_id}: {e}")
+        # Fallback vers REST si GraphQL échoue
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{api_url}/api/tracks/artists/{artist_id}/albums/{album_id}" if album_id else f"{api_url}/api/tracks/artists/{artist_id}")
+            if response.status_code == 200:
+                return response.json()
+            return []
 @ui.refreshable
 async def artist_tracks_container(artist_id: int, album_id: int = None):
     # Si aucun album sélectionné, ne rien afficher ou afficher toutes les pistes
@@ -130,11 +243,12 @@ async def artist_container(artist_id: int):
                 ui.label("Aucun album trouvé pour cet artiste.").classes("text-red-500")
         ui.separator().classes('my-4')
 
-async def render_artists_details(artist_id: int):
-    """Affiche les détails d'un artiste."""
-    with ui.column().classes('w-full items-center p-4'):
-        ui.link('Retour à la liste des artistes', '/artists')
-        if artist_id and artist_id > 0:
+async def artist_details_page(artist_id: int):
+    with ui.column().classes('w-full p-4'):
+        ui.link('Retour à la liste des artistes',   ('/')).classes('')
+        ui.separator().classes('my-4')
+        logger.info(f"DEBUG: artist_details_page() appelée avec artist_id={artist_id}")
+        if artist_id:
             await artist_container(artist_id)
             with ui.row().classes('w-full justify-between'):
                 await artist_tracks_container(artist_id=artist_id, album_id=None)
