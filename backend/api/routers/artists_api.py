@@ -9,6 +9,7 @@ from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithR
 from backend.api.services.artist_service import ArtistService
 from backend.api.services.artist_similar_service import ArtistSimilarService
 from backend.api.models.artists_model import Artist as ArtistModel
+from backend.api.utils.logging import logger
 
 
 router = APIRouter(prefix="/artists", tags=["artists"])
@@ -51,6 +52,14 @@ async def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = 
     artists = db.query(ArtistModel).order_by('name').offset(skip).limit(limit)
     return paginate_query(artists, skip, limit) """
 
+
+@router.get("/count")
+@cache(expire=300)  # Cache for 5 minutes
+def get_artists_count(db: SQLAlchemySession = Depends(get_db)):
+    """Get the total number of artists in the database."""
+    service = ArtistService(db)
+    count = service.get_artists_count()
+    return {"count": count}
 
 @router.get("/", response_model=PaginatedArtists)
 def read_artists(skip: int = 0, limit: int = 100, db: SQLAlchemySession = Depends(get_db)):
@@ -318,17 +327,29 @@ def update_artist_lastfm_info(
         if not artist:
             raise HTTPException(status_code=404, detail="Artist not found")
 
+        logger.info(f"[API] Updating Last.fm info for artist {artist_id} ({artist.name})")
+        logger.debug(f"[API] Last.fm info data: {info}")
+
         # Update artist with Last.fm info
         artist.lastfm_url = info.get("url")
         artist.lastfm_listeners = info.get("listeners")
         artist.lastfm_playcount = info.get("playcount")
         artist.lastfm_tags = json.dumps(info.get("tags", [])) if info.get("tags") else None
+        artist.lastfm_bio = info.get("bio")
+        artist.lastfm_images = json.dumps(info.get("images", [])) if info.get("images") else None
+        artist.lastfm_musicbrainz_id = info.get("musicbrainz_id")
         artist.lastfm_info_fetched_at = datetime.utcnow()
 
         db.commit()
+        db.refresh(artist)
+        
+        logger.info(f"[API] Successfully updated Last.fm info for {artist.name}")
+        logger.debug(f"[API] Updated fields - URL: {artist.lastfm_url}, Listeners: {artist.lastfm_listeners}, Playcount: {artist.lastfm_playcount}")
+        
         return {"success": True, "message": f"Last.fm info updated for {artist.name}"}
     except Exception as e:
         db.rollback()
+        logger.error(f"[API] Error updating Last.fm info for artist {artist_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{artist_id}/fetch-similar")

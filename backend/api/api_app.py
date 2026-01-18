@@ -15,8 +15,9 @@ from typing import Annotated
 from backend.api.utils.logging import logger
 from backend.api.utils.settings import Settings
 from backend.api.services.settings_service import SettingsService
+from backend.ai.seed_agents import seed_default_agents
 import redis.asyncio as redis
-from backend.api.utils.database import get_session
+from backend.api.utils.database import get_session, get_async_session
 from alembic.config import Config
 from alembic import command
 from fastapi_cache import FastAPICache
@@ -84,6 +85,14 @@ async def lifespan(app: FastAPI):
     except Exception as config_error:
         logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
         raise RuntimeError(f"Échec de la configuration Alembic: {str(config_error)}")
+    # Insérer les agents par défaut dans la BDD
+    try:
+        logger.info("Insertion des agents par défaut dans la BDD...")
+        async with get_async_session() as async_session:
+            await seed_default_agents(async_session)
+        logger.info("Agents par défaut insérés avec succès.")
+    except Exception as e:
+        logger.error(f"Erreur lors de l'insertion des agents par défaut: {str(e)}")
 
     # Log des routes enregistrées
     for route in app.routes:

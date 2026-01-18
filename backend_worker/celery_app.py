@@ -110,7 +110,7 @@ celery = Celery(
         'backend_worker.workers.vectorization.track_vectorization_worker',
 
         # Tâches de covers (NOUVEAU - requis pour process_artist_images et process_album_covers)
-        'backend_worker.covers_tasks',
+        'backend_worker.tasks.covers_tasks',
 
         # Tâches d'analyse audio avec Librosa (NOUVEAU)
         'backend_worker.tasks.audio_analysis_tasks',
@@ -137,35 +137,24 @@ celery.amqp.task_reject_on_worker_lost = True
 
 # Configuration pour les événements Flower/Monitoring
 celery.events.queue_capacity = 10000  # Capacité queue d'événements augmentée
-# === CONFIGURATION OPTIMISÉE HAUTE PERFORMANCE ===
+# === CONFIGURATION UNIFIÉE POUR ÉVITER LES ERREURS KOMBU ===
+# Appliquer la configuration unifiée pour éviter ValueError dans Kombu
+from backend_worker.celery_config_source import get_unified_celery_config
+celery.conf.update(get_unified_celery_config())
+
+# === CONFIGURATION SPÉCIFIQUE AU WORKER (EN PLUS DE LA CONFIGURATION UNIFIÉE) ===
+# Ces paramètres sont spécifiques au worker et ne doivent pas être dans la config unifiée
 celery.conf.update(
-    # === OPTIMISATIONS GÉNÉRALES ===
-    task_acks_late=True,                    # Fiabilité maximale
-    task_reject_on_worker_lost=True,        # Gestion des workers perdus
-    task_ignore_result=False,               # Nécessaire pour monitoring
-
-    # === ÉVÉNEMENTS CELERY (REQUIS POUR FLOWER INSPECTION) ===
-    worker_send_task_events=True,           # Activer envoi événements workers
-    task_send_sent_event=True,              # Activer envoi événements tâches
-    task_track_started=True,                # Tracking des tâches démarrées
-
-    # === SÉRIALISATION OPTIMISÉE ===
-    task_serializer='json',
-    result_serializer='json',
-    accept_content=['json'],
-    result_accept_content=['json'],
-
     # === TIMEOUTS OPTIMISÉS POUR RASPBERRY PI ===
     task_time_limit=7200,  # 2h pour tâches longues (audio processing)
     task_soft_time_limit=6900,  # 1h55 avant interruption
-    worker_heartbeat=300,  # ✅ CRITIQUE: Heartbeat étendu pour RPi4 (5 min au lieu de 60s)
-    worker_clock_sync_interval=300,  # ✅ CRITIQUE: Sync étendu pour éviter timeouts
     task_default_retry_delay=10,  # Démarrage rapide
     task_max_retries=3,  # Plus de tentatives avec backoff exponentiel
 
     # === CONTRÔLE DE FLUX ===
     worker_prefetch_multiplier=1,  # Contrôlé dynamiquement par queue
     worker_disable_rate_limits=False,
+    worker_concurrency=2,           # Limité pour Raspberry Pi
 
     # === CONNEXIONS REDIS OPTIMISÉES ===
     redis_max_connections=50,              # ✅ CORRIGÉ: Réduit pour éviter surcharge
@@ -182,19 +171,11 @@ celery.conf.update(
         'socket_read_size': 32768,         # ✅ CORRIGÉ: Taille réduite pour RPi4
         'socket_write_size': 32768,        # ✅ CORRIGÉ: Taille réduite pour RPi4
     },
-    broker_transport_options = {
-        'priority_steps': list(range(10)),
-        'sep': ':',
-        'queue_order_strategy': 'priority',
-    },
+    
     # === COMPRESSION POUR GROS MESSAGES ===
     task_compression='gzip',               # Compression automatique
     result_compression='gzip',
-
-    # === ZONE TEMPORELLE ===
-    timezone=os.getenv('TZ', default='UTC'),
-    enable_utc=True,
-
+    
     # === FORCER LE WORKER À ÉCOUTER TOUTES LES QUEUES ===
     # Définir explicitement les queues que le worker doit consommer
     worker_queues=[
@@ -203,90 +184,12 @@ celery.conf.update(
         'vectorization_monitoring', 'deferred', 'celery', 'maintenance',
         'audio_analysis'  # NOUVEAU: Analyse audio avec Librosa
     ],
-
-    # === PRIORITÉS DES QUEUES (NOUVELLE CONFIGURATION) ===
-    # Activation du support des priorités dans Celery
-    task_queue_priority_enabled=True,
-    task_queue_priority={
-        'scan': 9,          # Priorité maximale - scans complets
-        'extract': 8,       # Priorité élevée
-        'batch': 8,         # Priorité élevée
-        'insert': 7,        # Priorité élevée
-        'covers': 5,         # Priorité normale
-        'maintenance': 5,    # Priorité normale
-        'vectorization_monitoring': 5,  # Priorité normale
-        'celery': 5,         # Priorité normale
-        'audio_analysis': 5, # NOUVEAU: Priorité normale - analyse audio CPU intensive
-        'deferred_vectors': 4,      # Priorité basse - tâches différées
-        'deferred_covers': 3,       # Priorité basse
-        'deferred_enrichment': 2,   # Priorité basse
-        'deferred': 1,       # Priorité la plus basse
-    },
-
-    # === CONFIGURATION SPÉCIFIQUE POUR LES PRIORITÉS ===
-    # Configurer les workers pour respecter les priorités des queues
-    worker_concurrency=2,           # Limité pour Raspberry Pi
-    task_queue_priority_strategy='priority',  # Stratégie de priorité explicite
-    task_queue_max_priority=10,      # Priorité maximale
-    task_queue_default_priority=5,   # Priorité par défaut
-
-    # === VALIDATION DES CONFIGURATIONS DE QUEUES ===
-    # Ajouter une validation pour s'assurer que toutes les queues ont une configuration cohérente
-
 )
 
 # Validation des timeouts
 logger.info(f"[Celery Config] Timeouts configurés - task_time_limit: {celery.conf.task_time_limit}, task_soft_time_limit: {celery.conf.task_soft_time_limit}")
 
-# === ROUTAGE OPTIMISÉ - NOUVELLE ARCHITECTURE ===
-# Assignation des routes directement à la configuration Celery
-celery.conf.task_routes = {
-    # === TÂCHES CELERY_CENTRALES ===
-    'scan.discovery': {'queue': 'scan'},
-    'metadata.extract_batch': {'queue': 'extract'},
-    'batch.process_entities': {'queue': 'batch'},
-    'insert.direct_batch': {'queue': 'insert'},
-    'vectorization.calculate': {'queue': 'vectorization'},
-    'covers.extract_embedded': {'queue': 'deferred'},
-    'metadata.enrich_batch': {'queue': 'deferred'},
 
-    # === WORKERS DEFERRED (TÂCHES RÉELMENT DÉFINIES) ===
-    'worker_deferred_enrichment.*': {'queue': 'deferred_enrichment'},
-
-    # === MONITORING VECTORISATION ===
-    'monitor_tag_changes': {'queue': 'vectorization_monitoring'},
-    'trigger_vectorizer_retrain': {'queue': 'vectorization_monitoring'},
-    'check_model_health': {'queue': 'vectorization_monitoring'},
-
-    # === ANALYSE AUDIO AVEC LIBROSA (NOUVEAU) ===
-    'audio_analysis.extract_features': {'queue': 'audio_analysis'},
-    'audio_analysis.batch_extract': {'queue': 'audio_analysis'},
-}
-
-# === CONFIGURATION SIMPLE DES QUEUES (COMPATIBLE API) ===
-# Queues simples sans exchanges complexes pour éviter l'erreur ValueError
-# Configuration identique à celle de l'API
-
-celery.conf.task_queues = [
-    # === QUEUES PRIORITAIRES ===
-    Queue('scan'),
-    Queue('extract'), 
-    Queue('batch'),
-    Queue('insert'),
-    
-    # === QUEUES NORMALES ===
-    Queue('covers'),
-    Queue('maintenance'),
-    Queue('vectorization_monitoring'),
-    Queue('celery'),
-    Queue('audio_analysis'),
-    
-    # === QUEUES DIFFÉRÉES (PRIORITÉ BASSE) ===
-    Queue('deferred_vectors'),
-    Queue('deferred_covers'),
-    Queue('deferred_enrichment'),
-    Queue('deferred'),
-]
 
 @worker_init.connect
 def configure_worker(sender=None, **kwargs):
@@ -299,7 +202,17 @@ def configure_worker(sender=None, **kwargs):
     if not redis_ok:
         logger.error(f"[WORKER INIT] Problème de connexion Redis détecté pour {worker_name}")
 
-    # Configuration simplifiée des queues (sans priorités complexes)
+    # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
+    try:
+        from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
+        logger.info(f"[WORKER INIT] Publication de la configuration Celery dans Redis")
+        publish_celery_config_to_redis()
+        logger.info(f"[WORKER INIT] Configuration Celery publiée avec succès")
+    except Exception as e:
+        logger.error(f"[WORKER INIT] Erreur lors de la publication de la configuration: {str(e)}")
+        # Ne pas bloquer le démarrage du worker si la publication échoue
+
+    # Configuration simplifiée des queues (utilisant la config unifiée)
     all_queues = ['scan', 'extract', 'batch', 'insert', 'covers', 'deferred_vectors', 
                   'deferred_covers', 'deferred_enrichment', 'vectorization_monitoring', 
                   'deferred', 'celery', 'maintenance', 'audio_analysis']
@@ -310,25 +223,7 @@ def configure_worker(sender=None, **kwargs):
     sender.app.conf.worker_concurrency = 2  # Limité pour Raspberry Pi
     sender.app.conf.task_acks_late = True
 
-    # Configuration spécifique pour le respect des priorités
-    sender.app.conf.task_queue_priority = {
-        'scan': 9,          # Priorité maximale
-        'extract': 8,       # Priorité élevée
-        'batch': 8,         # Priorité élevée
-        'insert': 7,        # Priorité élevée
-        'covers': 5,         # Priorité normale
-        'maintenance': 5,    # Priorité normale
-        'vectorization_monitoring': 5,  # Priorité normale
-        'celery': 5,         # Priorité normale
-        'audio_analysis': 5, # NOUVEAU: Priorité normale
-        'deferred_vectors': 4,      # Priorité basse
-        'deferred_covers': 3,       # Priorité basse
-        'deferred_enrichment': 2,   # Priorité basse
-        'deferred': 1,       # Priorité la plus basse
-    }
-
-    logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec priorités configurées")
-    logger.info(f"[WORKER] Priorités des queues: {sender.app.conf.task_queue_priority}")
+    logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec configuration unifiée")
 
 
 @task_prerun.connect

@@ -3,360 +3,342 @@
 # Optimisations RPi4 : limites CPU/mémoire, Redis optimisé, pools threads, monitoring Flower
 
 services:
-  # === TIME SYNC SERVICE (OPTIMISÉ) ===
-  timesync:
-    image: ubuntu:22.04
-    container_name: soniquebay-timesync
-    restart: unless-stopped
-    environment:
-      - TZ=${TZ}
-    command: >
-      sh -c "
-        echo 'Time sync service started'
-        echo 'Raspberry Pi uses NTP via systemd-timesyncd'
-        echo 'Configuring timezone from TZ environment variable...'
-        echo 'Using TZ environment variable for timezone configuration'
-        export TZ=$TZ
-        echo 'Timezone set to '$TZ
-        echo 'Local time: '$(date)
-        echo 'UTC time: '$(date -u)
-        sleep infinity
-      "
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - ./logs:/var/log
-    networks:
-      default:
-        aliases:
-          - timesync
-  db:
-    build:
-      context: .
-      dockerfile: db_folder/Dockerfile
-      args:
-        LOCALE_LANGUAGE: ${LOCALE_LANGUAGE}
-    restart: unless-stopped
-    networks:
-      default:
-        aliases:
-          - db
-    container_name: soniquebay-postgres
-    ports:
-      - 5432:5432
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    user: root
-    volumes:
-      - ./db_folder/pg_db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+    # === TIME SYNC SERVICE (OPTIMISÉ) ===
+    timesync:
+        image: ubuntu:22.04
+        container_name: soniquebay-timesync
+        restart: unless-stopped
+        environment:
+            - TZ=${TZ}
+        command: >
+            sh -c "
+                echo 'Time sync service started'
+                echo 'Raspberry Pi uses NTP via systemd-timesyncd'
+                echo 'Configuring timezone from TZ environment variable...'
+                echo 'Using TZ environment variable for timezone configuration'
+                export TZ=$TZ
+                echo 'Timezone set to '$TZ
+                echo 'Local time: '$(date)
+                echo 'UTC time: '$(date -u)
+                sleep infinity
+            "
+        volumes:
+            - /etc/localtime:/etc/localtime:ro
+            - ./logs:/var/log
+        networks:
+            default:
+                aliases:
+                    - timesync
+    db:
+        build:
+            context: .
+            dockerfile: db_folder/Dockerfile
+            args:
+                LOCALE_LANGUAGE: ${LOCALE_LANGUAGE}
+        restart: unless-stopped
+        networks:
+            default:
+                aliases:
+                    - db
+        container_name: soniquebay-postgres
+        ports:
+            - 5432:5432
+        env_file:
+            - .env
+        environment:
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_DB=${POSTGRES_DB}
+        user: root
+        volumes:
+            - ./db_folder/pg_db:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
 
 
-  # === REDIS (broker + backend) ===
-  redis:
-    image: redis:7
-    container_name: soniquebay-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "300", "100", "--tcp-keepalive", "300", "--timeout", "300", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
-    volumes:
-      - redis-data:/data
-      - /etc/localtime:/etc/localtime:ro
-    networks:
-      default:
-        aliases:
-          - redis
-    ports:
-      - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
-    healthcheck:
-      test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 60s
-    depends_on:
-      timesync:
-        condition: service_started
+    # === REDIS (broker + backend) ===
+    redis:
+        image: redis:7
+        container_name: soniquebay-redis
+        restart: unless-stopped
+        command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--save", "300", "100", "--tcp-keepalive", "300", "--timeout", "300", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
+        volumes:
+            - redis-data:/data
+            - /etc/localtime:/etc/localtime:ro
+        networks:
+            default:
+                aliases:
+                    - redis
+        ports:
+            - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
+        healthcheck:
+            test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
+            interval: 5s
+            timeout: 3s
+            retries: 20
+            start_period: 60s
+        depends_on:
+            timesync:
+                condition: service_started
 
-  # === FLOWER (monitoring) avec récupération automatique de base de données ===
-  flower:
-    image: mher/flower:latest
-    container_name: soniquebay-flower
-    restart: unless-stopped
-    entrypoint: ["/bin/sh", "/scripts/flower_entrypoint_fixed.sh"]
-    command:
-      - "celery"
-      - "--broker=redis://redis:6379/0"
-      - "--result-backend=redis://redis:6379/0"
-      - "flower"
-      - "--url_prefix=flower"
-      - "--auto_refresh=True"
-      - "--inspect_timeout=60000"
-      - "--max_tasks=1000"
-      - "--loglevel=INFO"
-      - "--retry"
-      - "--retry-delay=10"
-      - "--retry-max=5"
-      - "--persistent=False"
-      - "--enable_events=True"
-    volumes:
-      - flower-data:/data
-      - ./scripts:/scripts:ro
-    depends_on:
-        redis:
-            condition: service_healthy
-        timesync:
-            condition: service_started
-        celery-worker:
-            condition: service_started
-    ports:
-      - "5555:5555"
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-    networks:
-      default:
-
-  # === API - OPTIMISÉ POUR RASPBERRY PI ===
-  api_service:
-    build:
-      context: .
-      dockerfile: backend/api/Dockerfile
-    container_name: soniquebay-api
-    restart: unless-stopped
-    command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
-    volumes:
-      - ./backend:/app/backend
-      - db-data:/app/backend/data/api_data
-      - music-share:/music:ro
-      - ./logs:/app/logs
-      - /etc/localtime:/etc/localtime:ro
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - WAIT_HOSTS=${POSTGRES_HOST}:${POSTGRES_PORT}
-      - WAIT_TIMEOUT=300
-      - WAIT_SLEEP_INTERVAL=30
-      - WAIT_HOST_CONNECT_TIMEOUT=30
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - REDIS_URL=redis://redis:6379/0
-      - AGENT_MODEL=phi3:3.8b-mini-4k-instruct-q4_K_M
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - HEALTHCHECK_PORT=8001
-      - PLATFORM=${PLATFORM:-windows}
-      - MUSIC_PATH=/music
-      - NAS_USER=${NAS_USER:-""}
-      - NAS_PASS=${NAS_PASS:-""}
-    depends_on:
-      redis:
-        condition: service_healthy
-      timesync:
-        condition: service_started
-      db:
-        condition: service_healthy
-    networks:
-      default:
-        aliases:
-          - api
-          - library
-    ports:
-      - "8001:8001"
-    healthcheck:
-      test: ["CMD-SHELL", "/healthcheck.sh"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'  # Réduit pour Raspberry Pi
-          memory: 768M  # Augmenté pour éviter SIGKILL
-        reservations:
-          cpus: '0.25'
-          memory: 256M
+    # === API - OPTIMISÉ POUR RASPBERRY PI ===
+    api-service:
+        build:
+            context: .
+            dockerfile: backend/api/Dockerfile
+        container_name: soniquebay-api
+        restart: unless-stopped
+        command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
+        volumes:
+            - ./backend:/app/backend
+            - db-data:/app/backend/data/api_data
+            - music-share:/music:ro
+            - ./logs:/app/logs
+            - /etc/localtime:/etc/localtime:ro
+        env_file:
+            - .env
+        environment:
+            - POSTGRES_USER=${POSTGRES_USER}
+            - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            - POSTGRES_DB=${POSTGRES_DB}
+            - WAIT_HOSTS=${POSTGRES_HOST}:${POSTGRES_PORT}
+            - WAIT_TIMEOUT=300
+            - WAIT_SLEEP_INTERVAL=30
+            - WAIT_HOST_CONNECT_TIMEOUT=30
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - REDIS_URL=redis://redis:6379/0
+            - AGENT_MODEL=phi3:3.8b-mini-4k-instruct-q4_K_M
+            - OLLAMA_BASE_URL=http://ollama:11434
+            - HEALTHCHECK_PORT=8001
+            - PLATFORM=${PLATFORM:-windows}
+            - MUSIC_PATH=/music
+            - NAS_USER=${NAS_USER:-""}
+            - NAS_PASS=${NAS_PASS:-""}
+        depends_on:
+            redis:
+                condition: service_healthy
+            timesync:
+                condition: service_started
+            db:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - api
+                    - library
+        ports:
+            - "8001:8001"
+        healthcheck:
+            test: ["CMD-SHELL", "/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.5'  # Réduit pour Raspberry Pi
+                    memory: 768M  # Augmenté pour éviter SIGKILL
+                reservations:
+                    cpus: '0.25'
+                    memory: 256M
 
 
-  # === FRONTEND ===
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: soniquebay-frontend
-    restart: unless-stopped
-    command: ["sh", "-c", "python start_ui.py"]
-    volumes:
-      - ./frontend:/app/frontend
-      - ./logs:/app/logs
-    env_file:
-        - .env
-    environment:
-      - API_URL=http://api:8001
-    depends_on:
-      api_service:
-        condition: service_healthy
-    networks:
-      default:
-        aliases:
-          - frontend
-    ports:
-      - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
+    # === FRONTEND ===
+    frontend:
+        build:
+            context: .
+            dockerfile: frontend/Dockerfile
+        container_name: soniquebay-frontend
+        restart: unless-stopped
+        command: ["sh", "-c", "python start_ui.py"]
+        volumes:
+            - ./frontend:/app/frontend
+            - ./logs:/app/logs
+        env_file:
+            - .env
+        environment:
+            - API_URL=http://api:8001
+            - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+            - TZ=${TZ}
+        depends_on:
+            api-service:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - frontend
+        ports:
+            - "8080:8080"
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:8080"]
+            interval: 15s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'
+                    memory: 512M
+                reservations:
+                    cpus: '0.25'
+                    memory: 128M
 
-  # === CELERY WORKER UNIFIÉ AVEC AUTOSCALE - OPTIMISÉ POUR RASPBERRY PI ===
-  celery-worker:
-    build:
-      context: .
-      dockerfile: backend_worker/Dockerfile
-    container_name: soniquebay-celery-worker
-    restart: unless-stopped
-    command: >
-      celery -A backend_worker.celery_app worker
-      -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance
-      --concurrency=1
-      --loglevel=INFO
-      --hostname=celery-worker@%h
-    volumes:
-      - ./backend_worker:/app/backend_worker
-      - music-share:/music:ro
-      - ./logs:/app/logs
-      - /etc/localtime:/etc/localtime:ro
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - API_URL=http://api:8001
-      - MUSIC_PATH=/music
-      - PLATFORM=docker
-      - NAS_USER=${NAS_USER:-""}
-      - NAS_PASS=${NAS_PASS:-""}
-    depends_on:
-      redis:
-        condition: service_healthy
-      timesync:
-        condition: service_started
-      api_service:
-        condition: service_started
-    networks:
-      default:
-        aliases:
-          - celery-worker
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'  # Augmenté pour autoscale (jusqu'à 4 processus)
-          memory: 2G   # Augmenté pour éviter SIGKILL avec autoscale
-        reservations:
-          cpus: '0.25'
-          memory: 512M
-  celery_beat:
-    build:
-      context: .
-      dockerfile: backend_worker/Dockerfile
-    container_name: soniquebay-celery-beat
-    restart: unless-stopped
-    depends_on:
-      - redis
-    environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - CELERY_BEAT_DB=/app/backend_worker/data/celery_beat_data/celerybeat-schedule.db
-    volumes:
-      - .:/app
-      - celery-beat-data:/app/backend_worker/data/celery_beat_data
-      - ./logs:/app/logs
-    command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
-    networks:
-      default:
-    healthcheck:
-      test: ["CMD", "pgrep", "-f", "celery.*beat"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    restart: unless-stopped
-    pull_policy: always
-    environment:
-      - TZ=${TZ}
-      - OLLAMA_KEEP_ALIVE=-1
-    tty: true
-    volumes:
-      - ./ollama:/root/.ollama
-      - ./ollama/entrypoint.sh:/entrypoint.sh
-    ports:
-      - "11434:11434"
-    entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
+    # === CELERY WORKER UNIFIÉ AVEC AUTOSCALE - OPTIMISÉ POUR RASPBERRY PI ===
+    celery-worker:
+        build:
+            context: .
+            dockerfile: backend_worker/Dockerfile
+        container_name: soniquebay-celery-worker
+        restart: unless-stopped
+        command: >
+            celery -A backend_worker.celery_app worker
+            -E 
+            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance
+            --concurrency=1
+            --loglevel=INFO
+            --hostname=celery-worker@%h
+        volumes:
+            - ./backend_worker:/app/backend_worker
+            - music-share:/music:ro
+            - ./logs:/app/logs
+            - /etc/localtime:/etc/localtime:ro
+        environment:
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - API_URL=http://api:8001
+            - MUSIC_PATH=/music
+            - PLATFORM=docker
+            - NAS_USER=${NAS_USER:-""}
+            - NAS_PASS=${NAS_PASS:-""}
+        depends_on:
+            redis:
+                condition: service_healthy
+            timesync:
+                condition: service_started
+            api-service:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - celery-worker
+        deploy:
+            resources:
+                limits:
+                    cpus: '1.0'  # Augmenté pour autoscale (jusqu'à 4 processus)
+                    memory: 2G   # Augmenté pour éviter SIGKILL avec autoscale
+                reservations:
+                    cpus: '0.25'
+                    memory: 512M
+    celery_beat:
+        build:
+            context: .
+            dockerfile: backend_worker/Dockerfile
+        container_name: soniquebay-celery-beat
+        restart: unless-stopped
+        depends_on:
+            - redis
+        environment:
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - CELERY_BEAT_DB=/app/backend_worker/data/celery_beat_data/celerybeat-schedule.db
+        volumes:
+            - .:/app
+            - celery-beat-data:/app/backend_worker/data/celery_beat_data
+            - ./logs:/app/logs
+        command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
+        networks:
+            default:
+        healthcheck:
+            test: ["CMD", "pgrep", "-f", "celery.*beat"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 256M
+                reservations:
+                    cpus: '0.1'
+                    memory: 128M
+    ollama:
+        image: ollama/ollama:0.14.3-rc1-rocm
+        container_name: ollama
+        restart: unless-stopped
+        pull_policy: always
+        environment:
+            - TZ=${TZ}
+            - OLLAMA_KEEP_ALIVE=-1
+        tty: true
+        volumes:
+            - ./ollama:/root/.ollama
+            - ./ollama/entrypoint.sh:/entrypoint.sh
+        ports:
+            - "11434:11434"
+        entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
+
+    celery-insights:
+        image: ghcr.io/danyi1212/celery-insights:latest
+        container_name: soniquebay-celery-insights
+        env_file:
+            - .env
+        restart: unless-stopped
+        environment:
+            - BROKER_URL=redis://redis:6379/0
+            - RESULT_BACKEND=redis://redis:6379/0
+        ports:
+            - "8555:8555"
+        depends_on:
+            redis:
+                condition: service_healthy
+            celery-worker:
+                condition: service_started
+                
 
 
 
 volumes:
-  kanchi_data:
-  redis-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${PWD}/data/redis_data
-      o: bind
-  db-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/api_data
-      o: bind
-  music-share:
-    driver: local
-    driver_opts:
-      type: cifs
-      device: //SRV_NAS/music
-      o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8,dir_mode=0755,file_mode=0644
-  celery-beat-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${PWD}/data/celery_beat_data
-      o: bind
-  flower-data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ${PWD}/data/flower_data
-      o: bind
-  logs:
-    driver: local
+    kanchi_data:
+    redis-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/redis_data
+            o: bind
+    db-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ./data/api_data
+            o: bind
+    music-share:
+        driver: local
+        driver_opts:
+            type: cifs
+            device: //SRV_NAS/music
+            o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8,dir_mode=0755,file_mode=0644
+    celery-beat-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/celery_beat_data
+            o: bind
+    flower-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/flower_data
+            o: bind
+    logs:
+        driver: local
 
 networks:
-  default:
-    name: soniquebay-network
+    default:
+        name: soniquebay-network

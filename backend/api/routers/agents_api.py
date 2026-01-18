@@ -24,7 +24,7 @@ from backend.api.services.agent_services import (
 from typing import List, Optional
 from backend.ai.utils.registry import ToolRegistry
 
-router = APIRouter(prefix="/api/agents")
+router = APIRouter(prefix="/agents", tags=["agents"])
 
 @router.post("/", response_model=AgentOut)
 async def api_create_agent(payload: AgentCreate):

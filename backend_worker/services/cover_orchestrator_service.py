@@ -4,6 +4,7 @@ Coordonne le traitement des images en utilisant les services spécialisés.
 """
 
 import asyncio
+import httpx
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
 from backend_worker.utils.logging import logger
@@ -11,6 +12,7 @@ from backend_worker.services.redis_cache import image_cache_service  # ✅ CORRI
 from backend_worker.services.image_processing_service import image_processing_service
 from backend_worker.services.image_priority_service import ImagePriorityService, ProcessingContext, ImageSource
 from backend_worker.services.cover_types import CoverProcessingContext, ImageType, TaskType
+from backend_worker.services.entity_manager import create_or_update_cover
 
 
 class CoverOrchestratorService:
@@ -93,8 +95,12 @@ class CoverOrchestratorService:
             # 3. Traitement avec retry
             result = await self._process_with_retry(context)
             
-            # 4. Mise en cache du résultat
+            # 4. Enregistrement dans la base de données si succès
             if result.get("status") == "success":
+                logger.info(f"[COVER_ORCHESTRATOR] Enregistrement de la cover dans la DB pour {context.image_type.value} {context.entity_id}")
+                await self._save_to_database(context, result)
+                
+                # Mise en cache du résultat
                 await self.cache_service.cache_result(
                     context.cache_key, 
                     result["data"]
@@ -400,6 +406,71 @@ class CoverOrchestratorService:
                 
         except Exception as e:
             logger.warning(f"[COVER_ORCHESTRATOR] Erreur mise à jour stats: {e}")
+    
+    async def _save_to_database(self, context: CoverProcessingContext, result: Dict[str, Any]):
+        """
+        Sauvegarde le résultat du traitement dans la base de données.
+        
+        Args:
+            context: Contexte de traitement de l'image
+            result: Résultat du traitement
+        """
+        try:
+            logger.info(f"[COVER_ORCHESTRATOR] Début sauvegarde DB - Context: {context.image_type.value} ID: {context.entity_id}")
+            logger.info(f"[COVER_ORCHESTRATOR] Résultat traitement: {result.get('status')}")
+            
+            if not context.entity_id:
+                logger.warning(f"[COVER_ORCHESTRATOR] Impossible de sauvegarder - pas d'entity_id: {context.cache_key}")
+                return
+                
+            # Convertir le type d'image pour la base de données
+            entity_type = self._convert_image_type_to_entity_type(context.image_type)
+            
+            logger.info(f"[COVER_ORCHESTRATOR] Sauvegarde dans la DB: {entity_type} {context.entity_id}")
+            logger.info(f"[COVER_ORCHESTRATOR] Cover data présent: {result.get('data') is not None}")
+            logger.info(f"[COVER_ORCHESTRATOR] Mime type: {result.get('mime_type')}")
+            
+            # Créer un client HTTP asynchrone
+            import os
+            api_url = os.getenv("API_URL", "http://localhost:8001")
+            logger.info(f"[COVER_ORCHESTRATOR] API URL pour sauvegarde: {api_url}")
+            
+            async with httpx.AsyncClient() as client:
+                await create_or_update_cover(
+                    client=client,
+                    entity_type=entity_type,
+                    entity_id=context.entity_id,
+                    cover_data=result.get("data"),
+                    mime_type=result.get("mime_type"),
+                    url=context.entity_path
+                )
+                
+            logger.info(f"[COVER_ORCHESTRATOR] Sauvegarde DB réussie pour {entity_type} {context.entity_id}")
+                
+        except Exception as e:
+            logger.error(f"[COVER_ORCHESTRATOR] Erreur sauvegarde DB: {str(e)}")
+            import traceback
+            logger.error(f"[COVER_ORCHESTRATOR] Traceback: {traceback.format_exc()}")
+    
+    def _convert_image_type_to_entity_type(self, image_type: ImageType) -> str:
+        """
+        Convertit ImageType en type d'entité pour la base de données.
+        
+        Args:
+            image_type: Type d'image
+            
+        Returns:
+            Type d'entité pour la base de données
+        """
+        type_mapping = {
+            ImageType.ALBUM_COVER: "album",
+            ImageType.ARTIST_IMAGE: "artist",
+            ImageType.TRACK_EMBEDDED: "track",
+            ImageType.LOCAL_COVER: "album",  # Par défaut pour les covers locales
+            ImageType.FANART: "artist"       # Fanart est généralement associé à un artiste
+        }
+        
+        return type_mapping.get(image_type, "album")  # Valeur par défaut
 
 
 # Instance globale du service

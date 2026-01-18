@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend_worker.api.vectorization_router import router as vectorization_router
 
+
 # Créer l'application FastAPI
 app = FastAPI(
     title="SoniqueBay Backend Worker API",

@@ -1,5 +1,6 @@
 import os
 import inspect
+import asyncio
 from nicegui import ui, app, events
 from frontend.config import PAGES_DIR
 from .colors import apply_theme
@@ -203,13 +204,7 @@ def wrap_with_layout(render_page):
                 from frontend.services.scan_service import ScanService
                 
                 async def refresh_library_handler():
-                    """Gestionnaire pour l'actualisation de la bibliothèque avec logs de diagnostic"""
-                    logger.info("=== DIAGNOSTIC ASYNCIO HANDLER ===")
-                    logger.info(f"Type de asyncio: {type(asyncio)}")
-                    logger.info(f"Asyncio disponible: {hasattr(asyncio, 'create_task')}")
-                    logger.info(f"Contexte event loop: {asyncio.get_event_loop().is_running()}")
-                    logger.info("=== FIN DIAGNOSTIC ===")
-                    
+                    """Gestionnaire pour l'actualisation de la bibliothèque."""
                     try:
                         await ScanService.refresh_library()
                     except Exception as e:
@@ -248,7 +243,6 @@ def wrap_with_layout(render_page):
     with ui.row().classes('flex-grow w-full overflow-hidden'):
         with ui.column().classes('flex-grow p-6 overflow-auto') as container:
             if inspect.iscoroutinefunction(render_page):
-                import asyncio
                 asyncio.create_task(render_page(container))  # ✅ safe in event loop
             else:
                 render_page(container)

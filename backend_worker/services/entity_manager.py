@@ -9,7 +9,7 @@ import json
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService
 from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
-# ✅ CORRIGÉ: Imports locaux pour éviter les circularités
+
 
 
 def snake_to_camel(s: str) -> str:
@@ -833,7 +833,7 @@ async def on_artists_inserted_callback(artist_ids: List[int]) -> None:
         logger.info(f"[CALLBACK] Déclenchement traitement images pour {len(artist_ids)} artistes")
         
         # Déclencher la tâche de traitement des images d'artistes
-        from backend_worker.covers_tasks import process_artist_images
+        from backend_worker.tasks.covers_tasks import process_artist_images
         task_result = process_artist_images.delay(artist_ids, priority="normal")
         
         logger.info(f"[CALLBACK] Tâche d'images artistes déclenchée avec ID: {task_result.id}")
@@ -858,7 +858,7 @@ async def on_albums_inserted_callback(album_ids: List[int]) -> None:
         logger.info(f"[CALLBACK] Déclenchement traitement covers pour {len(album_ids)} albums")
         
         # Déclencher la tâche de traitement des covers d'albums
-        from backend_worker.covers_tasks import process_album_covers
+        from backend_worker.tasks.covers_tasks import process_album_covers
         task_result = process_album_covers.delay(album_ids, priority="normal")
         
         logger.info(f"[CALLBACK] Tâche de covers albums déclenchée avec ID: {task_result.id}")

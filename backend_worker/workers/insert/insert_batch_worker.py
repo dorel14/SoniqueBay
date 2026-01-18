@@ -90,6 +90,18 @@ async def enqueue_enrichment_tasks_for_artists(client: httpx.AsyncClient, artist
                     "id": artist_id
                 }
 
+                # DIAGNOSTIC: Logs détaillés pour identifier la cause de l'échec
+                logger.info(f"[ENRICHMENT DIAGNOSTIC] Tentative enqueue artiste {artist_id} avec données: {task_data}")
+                logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis disponible: {deferred_queue_service.redis is not None}")
+                
+                if deferred_queue_service.redis:
+                    try:
+                        # Test de ping Redis
+                        deferred_queue_service.redis.ping()
+                        logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis ping réussi pour artiste {artist_id}")
+                    except Exception as ping_error:
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis ping échoué pour artiste {artist_id}: {ping_error}")
+                
                 success = deferred_queue_service.enqueue_task(
                     "deferred_enrichment",
                     task_data,
@@ -101,7 +113,20 @@ async def enqueue_enrichment_tasks_for_artists(client: httpx.AsyncClient, artist
                     logger.info(f"[ENRICHMENT] ✅ Tâche enrichissement enqueued pour artiste {artist_id}")
                     enqueued_count += 1
                 else:
-                    logger.warning(f"[ENRICHMENT] ❌ Échec enqueue tâche artiste {artist_id}")
+                    # DIAGNOSTIC: Log détaillé de l'échec
+                    logger.error(f"[ENRICHMENT] ❌ Échec enqueue tâche artiste {artist_id}")
+                    logger.error(f"[ENRICHMENT DIAGNOSTIC] Données qui ont échoué: {task_data}")
+                    logger.error(f"[ENRICHMENT DIAGNOSTIC] Taille des données: {len(str(task_data))} caractères")
+                    
+                    # Vérifier l'état de Redis après l'échec
+                    if deferred_queue_service.redis:
+                        try:
+                            info = deferred_queue_service.redis.info()
+                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis info après échec: used_memory={info.get('used_memory', 'N/A')}")
+                        except Exception as info_error:
+                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
+                    else:
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
 
             except Exception as e:
                 logger.error(f"[ENRICHMENT] Erreur vérification artiste {artist_id}: {str(e)}")
@@ -164,6 +189,18 @@ async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_i
                     "mb_release_id": mb_release_id
                 }
 
+                # DIAGNOSTIC: Logs détaillés pour identifier la cause de l'échec
+                logger.info(f"[ENRICHMENT DIAGNOSTIC] Tentative enqueue album {album_id} avec données: {task_data}")
+                logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis disponible: {deferred_queue_service.redis is not None}")
+                
+                if deferred_queue_service.redis:
+                    try:
+                        # Test de ping Redis
+                        deferred_queue_service.redis.ping()
+                        logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis ping réussi pour album {album_id}")
+                    except Exception as ping_error:
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis ping échoué pour album {album_id}: {ping_error}")
+                
                 success = deferred_queue_service.enqueue_task(
                     "deferred_enrichment",
                     task_data,
@@ -175,7 +212,20 @@ async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_i
                     logger.info(f"[ENRICHMENT] ✅ Tâche enrichissement enqueued pour album {album_id}")
                     enqueued_count += 1
                 else:
-                    logger.warning(f"[ENRICHMENT] ❌ Échec enqueue tâche album {album_id}")
+                    # DIAGNOSTIC: Log détaillé de l'échec
+                    logger.error(f"[ENRICHMENT] ❌ Échec enqueue tâche album {album_id}")
+                    logger.error(f"[ENRICHMENT DIAGNOSTIC] Données qui ont échoué: {task_data}")
+                    logger.error(f"[ENRICHMENT DIAGNOSTIC] Taille des données: {len(str(task_data))} caractères")
+                    
+                    # Vérifier l'état de Redis après l'échec
+                    if deferred_queue_service.redis:
+                        try:
+                            info = deferred_queue_service.redis.info()
+                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis info après échec: used_memory={info.get('used_memory', 'N/A')}")
+                        except Exception as info_error:
+                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
+                    else:
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
 
             except Exception as e:
                 logger.error(f"[ENRICHMENT] Erreur vérification album {album_id}: {str(e)}")
@@ -184,6 +234,182 @@ async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_i
 
     except Exception as e:
         logger.error(f"[ENRICHMENT] Erreur générale enqueue albums: {str(e)}")
+
+
+async def verify_musicbrainz_ids_in_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
+    """
+    Vérifie que les IDs MusicBrainz sont bien présents dans les données des tracks avant insertion.
+    """
+    logger.info("[DIAGNOSTIC MBID] Vérification des IDs MusicBrainz dans les tracks avant insertion")
+    for track in tracks_data:
+        mb_ids = {
+            'musicbrainz_id': track.get('musicbrainz_id'),
+            'musicbrainz_albumid': track.get('musicbrainz_albumid'),
+            'musicbrainz_artistid': track.get('musicbrainz_artistid'),
+            'musicbrainz_albumartistid': track.get('musicbrainz_albumartistid')
+        }
+        logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs: {mb_ids}")
+
+
+async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
+    """
+    Vérifie que les IDs MusicBrainz sont bien persistés en base de données.
+    """
+    logger.info("[DIAGNOSTIC MBID] Vérification de la persistance des IDs MusicBrainz en base")
+    for track in tracks_data:
+        track_path = track.get('path')
+        if track_path:
+            query = """
+            query GetTrackMusicBrainzIDs($path: String!) {
+                tracks(where: {path: {equals: $path}}) {
+                    musicbrainzId
+                    musicbrainzAlbumid
+                    musicbrainzArtistid
+                    musicbrainzAlbumartistid
+                }
+            }
+            """
+            result = await execute_graphql_query(client, query, {"path": track_path})
+            tracks_found = result.get("tracks", [])
+            if tracks_found:
+                track_in_db = tracks_found[0]
+                mb_ids_in_db = {
+                    'musicbrainz_id': track_in_db.get('musicbrainzId'),
+                    'musicbrainz_albumid': track_in_db.get('musicbrainzAlbumid'),
+                    'musicbrainz_artistid': track_in_db.get('musicbrainzArtistid'),
+                    'musicbrainz_albumartistid': track_in_db.get('musicbrainzAlbumartistid')
+                }
+                logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs en base: {mb_ids_in_db}")
+            else:
+                logger.error(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' non trouvée en base")
+
+
+async def resolve_album_for_track(track: Dict, artist_map: Dict, album_map: Dict, client: httpx.AsyncClient) -> Dict:
+    """
+    Résout l'album pour une track en utilisant les IDs MusicBrainz ou les informations de l'album.
+    """
+    resolved_track = dict(track)
+    album_title = track.get('album_title') or track.get('album')
+    artist_name = track.get('artist_name') or track.get('artist')
+
+    # Utiliser les IDs MusicBrainz si disponibles
+    mb_album_id = track.get('musicbrainz_albumid')
+    mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
+
+    if mb_album_id:
+        # Clé basée sur MusicBrainz ID
+        album_key = mb_album_id
+        logger.info(f"[DIAGNOSTIC ALBUM] Utilisation de MusicBrainz Album ID pour la résolution: {album_key}")
+    else:
+        # Clé basée sur titre + ID artiste
+        normalized_album_title = album_title.strip().lower() if album_title else None
+        if normalized_album_title and artist_name:
+            # Résoudre l'artiste d'abord
+            if artist_name in artist_map:
+                artist_id = artist_map[artist_name]['id']
+                album_key = (normalized_album_title, artist_id)
+            else:
+                logger.error(f"[DIAGNOSTIC ALBUM] Artiste '{artist_name}' non trouvé pour l'album '{album_title}'")
+                album_key = None
+        else:
+            album_key = None
+
+    if album_key and album_key in album_map:
+        resolved_track['album_id'] = album_map[album_key]['id']
+        logger.info(f"[DIAGNOSTIC ALBUM] Album résolu avec succès pour la track: {album_key} -> ID {album_map[album_key]['id']}")
+    else:
+        logger.error(f"[DIAGNOSTIC ALBUM] Album non résolu pour la track. Clé: {album_key}, Album map keys: {list(album_map.keys())}")
+        resolved_track['album_id'] = None
+
+    return resolved_track
+
+
+async def verify_musicbrainz_ids_in_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
+    """
+    Vérifie que les IDs MusicBrainz sont bien présents dans les données des tracks avant insertion.
+    """
+    logger.info("[DIAGNOSTIC MBID] Vérification des IDs MusicBrainz dans les tracks avant insertion")
+    for track in tracks_data:
+        mb_ids = {
+            'musicbrainz_id': track.get('musicbrainz_id'),
+            'musicbrainz_albumid': track.get('musicbrainz_albumid'),
+            'musicbrainz_artistid': track.get('musicbrainz_artistid'),
+            'musicbrainz_albumartistid': track.get('musicbrainz_albumartistid')
+        }
+        logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs: {mb_ids}")
+
+
+async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
+    """
+    Vérifie que les IDs MusicBrainz sont bien persistés en base de données.
+    """
+    logger.info("[DIAGNOSTIC MBID] Vérification de la persistance des IDs MusicBrainz en base")
+    for track in tracks_data:
+        track_path = track.get('path')
+        if track_path:
+            query = """
+            query GetTrackMusicBrainzIDs($path: String!) {
+                tracks(where: {path: {equals: $path}}) {
+                    musicbrainzId
+                    musicbrainzAlbumid
+                    musicbrainzArtistid
+                    musicbrainzAlbumartistid
+                }
+            }
+            """
+            result = await execute_graphql_query(client, query, {"path": track_path})
+            tracks_found = result.get("tracks", [])
+            if tracks_found:
+                track_in_db = tracks_found[0]
+                mb_ids_in_db = {
+                    'musicbrainz_id': track_in_db.get('musicbrainzId'),
+                    'musicbrainz_albumid': track_in_db.get('musicbrainzAlbumid'),
+                    'musicbrainz_artistid': track_in_db.get('musicbrainzArtistid'),
+                    'musicbrainz_albumartistid': track_in_db.get('musicbrainzAlbumartistid')
+                }
+                logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs en base: {mb_ids_in_db}")
+            else:
+                logger.error(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' non trouvée en base")
+
+
+async def resolve_album_for_track(track: Dict, artist_map: Dict, album_map: Dict, client: httpx.AsyncClient) -> Dict:
+    """
+    Résout l'album pour une track en utilisant les IDs MusicBrainz ou les informations de l'album.
+    """
+    resolved_track = dict(track)
+    album_title = track.get('album_title') or track.get('album')
+    artist_name = track.get('artist_name') or track.get('artist')
+
+    # Utiliser les IDs MusicBrainz si disponibles
+    mb_album_id = track.get('musicbrainz_albumid')
+    mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
+
+    if mb_album_id:
+        # Clé basée sur MusicBrainz ID
+        album_key = mb_album_id
+        logger.info(f"[DIAGNOSTIC ALBUM] Utilisation de MusicBrainz Album ID pour la résolution: {album_key}")
+    else:
+        # Clé basée sur titre + ID artiste
+        normalized_album_title = album_title.strip().lower() if album_title else None
+        if normalized_album_title and artist_name:
+            # Résoudre l'artiste d'abord
+            if artist_name in artist_map:
+                artist_id = artist_map[artist_name]['id']
+                album_key = (normalized_album_title, artist_id)
+            else:
+                logger.error(f"[DIAGNOSTIC ALBUM] Artiste '{artist_name}' non trouvé pour l'album '{album_title}'")
+                album_key = None
+        else:
+            album_key = None
+
+    if album_key and album_key in album_map:
+        resolved_track['album_id'] = album_map[album_key]['id']
+        logger.info(f"[DIAGNOSTIC ALBUM] Album résolu avec succès pour la track: {album_key} -> ID {album_map[album_key]['id']}")
+    else:
+        logger.error(f"[DIAGNOSTIC ALBUM] Album non résolu pour la track. Clé: {album_key}, Album map keys: {list(album_map.keys())}")
+        resolved_track['album_id'] = None
+
+    return resolved_track
 
 
 async def process_genres_and_tags_for_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
@@ -248,6 +474,7 @@ async def process_genres_and_tags_for_tracks(client: httpx.AsyncClient, tracks_d
     except Exception as e:
         logger.error(f"[TAGS] Erreur lors du traitement des genres et tags: {str(e)}")
         # Ne pas lever d'exception pour ne pas bloquer l'insertion des tracks
+
 
 async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: Dict[str, int],
                                    artists_data: List[Dict], albums_data: List[Dict], tracks_data: List[Dict]) -> None:
@@ -329,7 +556,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
         # Vérifier les tracks avec requête ciblée
         if inserted_counts['tracks'] > 0:
             logger.info(f"[VERIFY] Vérification ciblée de {len(tracks_data)} tracks")
-            
+
             # DIAGNOSTIC: Statistiques des métadonnées manquantes
             metadata_missing_stats = {
                 'bpm': 0, 'key': 0, 'scale': 0, 'danceability': 0,
@@ -338,14 +565,14 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                 'camelot_key': 0, 'musicbrainz_albumid': 0, 'musicbrainz_artistid': 0,
                 'musicbrainz_albumartistid': 0, 'musicbrainz_genre': 0, 'acoustid_fingerprint': 0
             }
-            
+
             for track_data in tracks_data:
                 track_path = track_data.get('path')
                 if track_path:
                     try:
-                        # DIAGNOSTIC: Le TrackFilterInput n'a pas de champ 'file_path', utiliser 'path'
-                        logger.warning("[VERIFY] ⚠️  DIAGNOSTIC: TrackFilterInput utilise 'path' au lieu de 'file_path'")
-                        logger.warning(f"[VERIFY] ⚠️  Track '{track_path}' - vérification avec champ 'path'")
+                        # DIAGNOSTIC: Utiliser le bon champ 'path' au lieu de 'filePath'
+                        logger.info("[VERIFY] 🔍 Utilisation du champ 'path' pour la vérification")
+                        logger.info(f"[VERIFY] 🔍 Track '{track_path}' - vérification avec champ 'path'")
 
                         # Requête spécifique pour cette track - utiliser le champ correct 'path'
                         query = """
@@ -357,20 +584,20 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                                 key
                                 scale
                                 danceability
-                                mood_happy
-                                mood_aggressive
-                                mood_party
-                                mood_relaxed
+                                moodHappy
+                                moodAggressive
+                                moodParty
+                                moodRelaxed
                                 instrumental
                                 acoustic
                                 tonal
-                                genre_main
-                                camelot_key
-                                musicbrainz_albumid
-                                musicbrainz_artistid
-                                musicbrainz_albumartistid
-                                musicbrainz_genre
-                                acoustid_fingerprint
+                                genreMain
+                                camelotKey
+                                musicbrainzAlbumid
+                                musicbrainzArtistid
+                                musicbrainzAlbumartistid
+                                musicbrainzId
+                                acoustidFingerprint
                             }
                         }
                         """
@@ -392,20 +619,20 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                                 'key': track_in_db.get('key'),
                                 'scale': track_in_db.get('scale'),
                                 'danceability': track_in_db.get('danceability'),
-                                'mood_happy': track_in_db.get('mood_happy'),
-                                'mood_aggressive': track_in_db.get('mood_aggressive'),
-                                'mood_party': track_in_db.get('mood_party'),
-                                'mood_relaxed': track_in_db.get('mood_relaxed'),
+                                'mood_happy': track_in_db.get('moodHappy'),
+                                'mood_aggressive': track_in_db.get('moodAggressive'),
+                                'mood_party': track_in_db.get('moodParty'),
+                                'mood_relaxed': track_in_db.get('moodRelaxed'),
                                 'instrumental': track_in_db.get('instrumental'),
                                 'acoustic': track_in_db.get('acoustic'),
                                 'tonal': track_in_db.get('tonal'),
-                                'genre_main': track_in_db.get('genre_main'),
-                                'camelot_key': track_in_db.get('camelot_key'),
-                                'musicbrainz_albumid': track_in_db.get('musicbrainz_albumid'),
-                                'musicbrainz_artistid': track_in_db.get('musicbrainz_artistid'),
-                                'musicbrainz_albumartistid': track_in_db.get('musicbrainz_albumartistid'),
-                                'musicbrainz_genre': track_in_db.get('musicbrainz_genre'),
-                                'acoustid_fingerprint': track_in_db.get('acoustid_fingerprint')
+                                'genre_main': track_in_db.get('genreMain'),
+                                'camelot_key': track_in_db.get('camelotKey'),
+                                'musicbrainz_albumid': track_in_db.get('musicbrainzAlbumid'),
+                                'musicbrainz_artistid': track_in_db.get('musicbrainzArtistid'),
+                                'musicbrainz_albumartistid': track_in_db.get('musicbrainzAlbumartistid'),
+                                'musicbrainz_genre': track_in_db.get('musicbrainzId'),
+                                'acoustid_fingerprint': track_in_db.get('acoustidFingerprint')
                             }
                             
                             # Compter les champs manquants
@@ -512,6 +739,9 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     'tracks': 0
                 }
 
+                # Initialiser artist_map même si aucun artiste n'est fourni
+                artist_map = {}
+
                 # Étape 1: Traitement des artistes via entity_manager
                 if artists_data:
                     logger.info(f"[INSERT] Traitement de {len(artists_data)} artistes via entity_manager")
@@ -520,6 +750,17 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     inserted_counts['artists'] = len(artist_map)
                     logger.info(f"[INSERT] Artistes traités: {len(artist_map)}")
                     logger.debug(f"[INSERT] Artist map keys: {list(artist_map.keys())}")
+
+                    # Normaliser les clés du artist_map pour une recherche insensible à la casse
+                    normalized_artist_map = {}
+                    for key, value in artist_map.items():
+                        normalized_key = key.lower() if isinstance(key, str) else key
+                        normalized_artist_map[normalized_key] = value
+                        # Conserver aussi la clé originale pour compatibilité
+                        if isinstance(key, str) and key != normalized_key:
+                            normalized_artist_map[key] = value
+                    artist_map = normalized_artist_map
+                    logger.debug(f"[INSERT] Artist map normalisé: {list(artist_map.keys())}")
 
                     # Déclencher callback pour traitement des images d'artistes
                     if artist_map:
@@ -604,73 +845,11 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     # Résoudre les références artiste/album pour les tracks
                     resolved_tracks_data = []
                     for track in tracks_data:
-                        resolved_track = dict(track)
-
-                        # Résoudre l'artiste
-                        artist_name = track.get('artist_name') or track.get('artist')
-                        logger.debug(f"[INSERT] Résolution artiste pour track '{track.get('title', 'unknown')}': '{artist_name}'")
-
-                        # Essayer d'abord avec la casse originale (plus fiable)
-                        if artist_name and artist_name in artist_map:
-                            resolved_track['track_artist_id'] = artist_map[artist_name]['id']
-                            logger.debug(f"[INSERT] Artiste '{artist_name}' trouvé dans map (casse originale), ID: {artist_map[artist_name]['id']}")
-                        else:
-                            # Normaliser le nom d'artiste pour la recherche dans le map
-                            normalized_artist_name = artist_name.lower() if artist_name else None
-
-                            if normalized_artist_name and normalized_artist_name in artist_map:
-                                resolved_track['track_artist_id'] = artist_map[normalized_artist_name]['id']
-                                logger.debug(f"[INSERT] Artiste '{artist_name}' trouvé dans map (normalisé: '{normalized_artist_name}'), ID: {artist_map[normalized_artist_name]['id']}")
-                            else:
-                                # Si l'artiste n'est pas trouvé dans le map, essayer de le créer
-                                logger.warning(f"Artiste '{artist_name}' (normalisé: '{normalized_artist_name}') non trouvé dans le map (clés disponibles: {list(artist_map.keys())}), tentative de création")
-                                # Pour l'instant, on passe cette track (elle sera traitée plus tard ou ignorée)
-                                continue
-
-                        # Résoudre l'album
-                        album_title = track.get('album_title') or track.get('album')
-                        if album_title and artist_name:
-                            # Utiliser la même logique de clé que dans process_entities_worker
-                            mb_album_id = track.get('musicbrainz_albumid')
-                            mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
-
-                            if mb_album_id:
-                                # Clé basée sur MusicBrainz ID (string) comme dans create_or_get_albums_batch
-                                album_key = mb_album_id
-                            else:
-                                # Clé basée sur titre + ID artiste (tuple) comme dans create_or_get_albums_batch
-                                normalized_album_title = album_title.strip().lower()
-                                # On utilise l'ID de l'artiste résolu précédemment
-                                track_artist_id = resolved_track.get('track_artist_id')
-                                if track_artist_id:
-                                    album_key = (normalized_album_title, track_artist_id)
-                                else:
-                                    # Fallback si pas d'ID artiste (ne devrait pas arriver si résolu)
-                                    normalized_artist_name = artist_name.strip().lower()
-                                    album_key = (normalized_album_title, normalized_artist_name)
-
-                            # DIAGNOSTIC AMÉLIORÉ: Log détaillé de la résolution d'album
-                            logger.info(f"[DIAGNOSTIC ALBUM] Track '{track.get('title', 'unknown')}' - Album original: '{album_title}', Artiste original: '{artist_name}'")
-                            logger.info(f"[DIAGNOSTIC ALBUM] MusicBrainz IDs disponibles: mb_album_id={mb_album_id}, mb_artist_id={mb_artist_id}")
-                            logger.info(f"[DIAGNOSTIC ALBUM] Clé normalisée utilisée: {album_key}")
-                            logger.info(f"[DIAGNOSTIC ALBUM] Album_map disponible: {list(album_map.keys())}")
-                            
-                            # Log des clés d'album pour debugging
-                            for i, key in enumerate(album_map.keys()):
-                                if i < 5:  # Log seulement les 5 premières clés pour éviter le spam
-                                    logger.debug(f"[DIAGNOSTIC ALBUM] Clé album {i}: {key}")
-                                elif i == 5:
-                                    logger.debug(f"[DIAGNOSTIC ALBUM] ... et {len(album_map) - 5} autres clés")
-
-                            if album_key in album_map:
-                                resolved_track['album_id'] = album_map[album_key]['id']
-                                logger.info(f"[DIAGNOSTIC ALBUM] ✅ Album '{album_title}' résolu avec clé {album_key}, ID: {album_map[album_key]['id']}")
-                            else:
-                                logger.error(f"[DIAGNOSTIC ALBUM] ❌ Album '{album_title}' pour artiste '{artist_name}' NON TROUVÉ dans le map (clé normalisée: {album_key})")
-                                logger.error("[DIAGNOSTIC ALBUM] Track sera insérée avec album_id=None")
-                                # L'album_id peut être optionnel selon le schéma GraphQL
-
+                        resolved_track = await resolve_album_for_track(track, artist_map, album_map, client)
                         resolved_tracks_data.append(resolved_track)
+
+                    # Vérifier les IDs MusicBrainz avant l'insertion des tracks
+                    await verify_musicbrainz_ids_in_tracks(client, resolved_tracks_data)
 
                     # Traiter les genres et tags AVANT l'insertion des tracks
                     logger.info("[INSERT] Traitement des genres et tags avant insertion tracks")
@@ -705,20 +884,39 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                                 track_id = track.get('id')
                                 file_path = track.get('path')  # Le chemin du fichier
                                 if track_id and file_path:
+                                    # DIAGNOSTIC: Logs détaillés pour les tracks audio
+                                    task_data = {
+                                        "type": "track_audio",  # Format attendu par le worker
+                                        "id": track_id,
+                                        "file_path": file_path
+                                    }
+                                    
+                                    logger.info(f"[ENRICHMENT DIAGNOSTIC] Tentative enqueue audio track {track_id} avec données: {task_data}")
+                                    logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis disponible: {deferred_queue_service.redis is not None}")
+                                    
                                     success = deferred_queue_service.enqueue_task(
                                         "deferred_enrichment",
-                                        {
-                                            "type": "track_audio",  # Format attendu par le worker
-                                            "id": track_id,
-                                            "file_path": file_path
-                                        },
+                                        task_data,
                                         priority="low",
                                         delay_seconds=30 + (enqueued_count % 10) * 5  # Délai progressif pour éviter surcharge
                                     )
                                     if success:
                                         enqueued_count += 1
                                     else:
-                                        logger.warning(f"[ENRICHMENT] ❌ Échec enqueue audio pour track {track_id}")
+                                        # DIAGNOSTIC: Log détaillé de l'échec pour les tracks
+                                        logger.error(f"[ENRICHMENT] ❌ Échec enqueue audio pour track {track_id}")
+                                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Données audio qui ont échoué: {task_data}")
+                                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Taille des données: {len(str(task_data))} caractères")
+                                        
+                                        # Vérifier l'état de Redis après l'échec
+                                        if deferred_queue_service.redis:
+                                            try:
+                                                info = deferred_queue_service.redis.info()
+                                                logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis info après échec audio: used_memory={info.get('used_memory', 'N/A')}")
+                                            except Exception as info_error:
+                                                logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
+                                        else:
+                                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue audio")
                             logger.info(f"[ENRICHMENT] ✅ {enqueued_count}/{len(processed_tracks)} tâches audio enqueued")
 
                 return inserted_counts
@@ -762,6 +960,9 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
 
             # Exécuter l'insertion asynchrone
             inserted_counts = await run_insertion()
+
+            # Vérification de la persistance des IDs MusicBrainz après insertion
+            await verify_musicbrainz_ids_persistence(client, tracks_data)
 
             # Vérification de la présence des entités en base après insertion
             await verify_entities_presence(client, inserted_counts, artists_data, albums_data, tracks_data)

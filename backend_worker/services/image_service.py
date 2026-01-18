@@ -336,7 +336,7 @@ async def get_artist_images(artist_path: str) -> List[Tuple[str, str]]:
             return []
 
         # Liste des fichiers image possibles
-        image_files = ["artist.jpg", "folder.jpg", "cover.jpg", "fanart.jpg"]
+        image_files = ["artist.jpg", "folder.jpg", "cover.jpg", "fanart.jpg", "artist.png", "folder.png", "cover.png", "fanart.png", "artist.jpeg", "folder.jpeg", "cover.jpeg", "fanart.jpeg"]
         logger.info(f"Recherche des fichiers: {image_files}")
 
         for image_file in image_files:

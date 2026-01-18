@@ -776,6 +776,9 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
         else:
             artist_files = json.loads(artist_files_json)
 
+        # LOG: Afficher la liste des fichiers d'images d'artistes
+        logger.info(f"[DIAGNOSTIC] Liste des fichiers d'images d'artistes: {artist_files}")
+
         # SECURITY: Valider les noms de fichiers d'artiste
         validated_artist_files = []
         for artist_file in artist_files:
@@ -791,9 +794,13 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
 
         if not validated_artist_files:
             logger.warning("Aucun nom de fichier artiste valide trouvé, utilisation d'une liste par défaut")
-            validated_artist_files = ["artist.jpg", "artist.png", "folder.jpg"]
+            validated_artist_files = ["artist.jpg", "artist.png", "folder.jpg", "folder.jpeg"]
 
         artist_files = validated_artist_files
+
+        # LOG: Afficher les fichiers recherchés
+        logger.info(f"[DIAGNOSTIC] Recherche des images d'artistes dans: {artist_path}")
+        logger.info(f"[DIAGNOSTIC] Fichiers recherchés: {artist_files}")
 
         for image_file in artist_files:
             image_path = dir_path / image_file
@@ -818,7 +825,13 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
                 # Vérifier que le fichier image existe et est un fichier régulier
                 if not image_path.exists() or not image_path.is_file():
                     logger.debug(f"Fichier image d'artiste non trouvé ou invalide: {image_path}")
+                    if image_file == "folder.jpg":
+                        logger.info(f"[DIAGNOSTIC] Fichier folder.jpg non trouvé: {image_path}")
                     continue
+
+                # LOG: Afficher les fichiers trouvés dans le dossier
+                if image_file == "folder.jpg":
+                    logger.info(f"[DIAGNOSTIC] Fichier folder.jpg trouvé: {image_path}")
 
             except Exception as e:
                 logger.error(f"Error resolving path for artist image file {image_path}: {e}")
@@ -841,10 +854,21 @@ async def get_artist_images(artist_path: str, allowed_base_paths: list[Path] | N
                         if image_data:
                             artist_images.append((image_data, mime_type))
                             logger.debug(f"Image artiste trouvée: {image_path}")
+                            if image_file == "folder.jpg":
+                                logger.info(f"[DIAGNOSTIC] Image artiste folder.jpg trouvée et ajoutée: {image_path}")
                 except Exception as e:
                     logger.error(f"Erreur lecture image artiste {image_path}: {str(e)}")
+                    if image_file == "folder.jpg":
+                        logger.info(f"[DIAGNOSTIC] Erreur lors de la lecture du fichier folder.jpg: {str(e)}")
+                        logger.info(f"[DIAGNOSTIC] Chemin du fichier folder.jpg: {image_path}")
+                        logger.info(f"[DIAGNOSTIC] Chemin résolu du fichier folder.jpg: {resolved_path}")
+                        logger.info(f"[DIAGNOSTIC] Chemin du dossier artiste: {artist_path}")
+                        logger.info(f"[DIAGNOSTIC] Chemin du dossier artiste résolu: {dir_resolved}")
                     continue
         logger.debug(f"get_artist_images returns: {type(artist_images)}")
+        if not artist_images:
+            logger.info(f"[DIAGNOSTIC] Aucune image d'artiste trouvée dans le dossier: {artist_path}")
+            logger.info(f"[DIAGNOSTIC] Fichiers recherchés: {artist_files}")
         return artist_images
 
     except Exception as e:
@@ -967,6 +991,15 @@ async def process_file(file_path_bytes, scan_config: dict):
         metadata["artist_path"] = artist_path_str
 
         logger.debug(f"Métadonnées extraites pour {file_path_str} : {metadata.keys()}")
+
+        # Extraire les images d'artistes (rétabli pour le scan)
+        logger.info(f"[SCAN] Extraction des images d'artiste pour {file_path_str}")
+        artist_result = await extract_artist_images(file_path_str, allowed_base_paths=allowed_base_paths)
+        if artist_result and "artist_images" in artist_result:
+            metadata["artist_images"] = artist_result["artist_images"]
+            logger.info(f"[SCAN] {len(artist_result['artist_images'])} images d'artiste trouvées pour {file_path_str}")
+        else:
+            logger.debug(f"[SCAN] Aucune image d'artiste trouvée pour {file_path_str}")
 
         # LOG MÉMOIRE: Fin du traitement
         mem_end = process.memory_info().rss / 1024 / 1024  # MB
