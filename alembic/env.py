@@ -65,6 +65,7 @@ def run_migrations_online() -> None:
     # Utiliser les paramètres de connexion séparés pour éviter les problèmes
     # d'encodage avec les caractères spéciaux dans les passwords
     import os
+    from urllib.parse import quote_plus
     
     user = os.getenv('POSTGRES_USER', 'postgres')
     password = os.getenv('POSTGRES_PASSWORD', '')
@@ -72,8 +73,9 @@ def run_migrations_online() -> None:
     port = os.getenv('POSTGRES_PORT', '5432')
     db_name = os.getenv('POSTGRES_DB', 'musicdb')
     
-    # Utiliser une URL non-encodée pour Alembic (moins sûr mais requis sur Windows)
-    db_url = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+    # URL encodage des paramètres sensibles pour éviter les erreurs d'encodage
+    encoded_password = quote_plus(password)
+    db_url = f"postgresql://{user}:{encoded_password}@{host}:{port}/{db_name}"
     
     connect_args = {
         "options": "-c client_encoding=UTF8"

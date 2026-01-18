@@ -21,11 +21,24 @@ class DeferredQueueService:
     def __init__(self, redis_url: str = "redis://redis:6379/0"):
         """Initialise le service avec Redis."""
         try:
+            logger.info(f"[DEFERRED_QUEUE] Tentative de connexion à Redis: {redis_url}")
             self.redis = redis.from_url(redis_url)
             self.redis.ping()  # Test de connexion
-            logger.info("[DEFERRED_QUEUE] Connexion Redis établie")
+            logger.info("[DEFERRED_QUEUE] Connexion Redis établie avec succès")
+            
+            # DIAGNOSTIC: Informations sur Redis
+            try:
+                info = self.redis.info()
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Redis version: {info.get('redis_version', 'N/A')}")
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Used memory: {info.get('used_memory', 'N/A')}")
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Max memory: {info.get('maxmemory', 'N/A')}")
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Connected clients: {info.get('connected_clients', 'N/A')}")
+            except Exception as info_error:
+                logger.warning(f"[DEFERRED_QUEUE] Impossible d'obtenir info Redis: {info_error}")
+                
         except Exception as e:
             logger.error(f"[DEFERRED_QUEUE] Erreur connexion Redis: {str(e)}")
+            logger.error(f"[DEFERRED_QUEUE] URL Redis utilisée: {redis_url}")
             self.redis = None
 
     def enqueue_task(self, queue_name: str, task_data: Dict[str, Any],
@@ -69,14 +82,44 @@ class DeferredQueueService:
             priority_scores = {"high": 0, "normal": 1, "low": 2}
             score = priority_scores.get(priority, 1) * 1000000000 + task["process_at"]
 
+            # DIAGNOSTIC: Log des données avant sérialisation
+            logger.debug(f"[DEFERRED_QUEUE DIAGNOSTIC] Données avant sérialisation: {task}")
+            logger.debug(f"[DEFERRED_QUEUE DIAGNOSTIC] Taille des données JSON: {len(json.dumps(task))} caractères")
+            
             # Ajout dans Redis Sorted Set
             self.redis.zadd(queue_key, {json.dumps(task): score})
 
-            logger.info(f"[DEFERRED_QUEUE] Tâche ajoutée: {queue_name} -> {task['id']}")
+            logger.info(f"[DEFERRED_QUEUE] Tâche ajoutée avec succès: {queue_name} -> {task['id']}")
+            
+            # DIAGNOSTIC: Vérification post-ajout
+            try:
+                queue_size = self.redis.zcard(queue_key)
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Taille de la queue {queue_name} après ajout: {queue_size}")
+                
+                # Vérifier la mémoire utilisée
+                info = self.redis.info()
+                used_memory = info.get('used_memory', 0)
+                logger.info(f"[DEFERRED_QUEUE DIAGNOSTIC] Mémoire Redis utilisée: {used_memory} bytes")
+                
+            except Exception as post_check_error:
+                logger.warning(f"[DEFERRED_QUEUE] Erreur lors du diagnostic post-ajout: {post_check_error}")
+                
             return True
 
         except Exception as e:
+            # DIAGNOSTIC: Log détaillé de l'erreur
             logger.error(f"[DEFERRED_QUEUE] Erreur ajout tâche: {str(e)}")
+            logger.error(f"[DEFERRED_QUEUE DIAGNOSTIC] Type d'erreur: {type(e).__name__}")
+            logger.error(f"[DEFERRED_QUEUE DIAGNOSTIC] Queue: {queue_name}")
+            logger.error(f"[DEFERRED_QUEUE DIAGNOSTIC] Données de la tâche: {task_data}")
+            
+            # Vérifier l'état de Redis lors de l'erreur
+            try:
+                info = self.redis.info()
+                logger.error(f"[DEFERRED_QUEUE DIAGNOSTIC] État Redis lors de l'erreur: used_memory={info.get('used_memory', 'N/A')}")
+            except Exception as info_error:
+                logger.error(f"[DEFERRED_QUEUE DIAGNOSTIC] Impossible d'obtenir info Redis lors de l'erreur: {info_error}")
+                
             return False
 
     def dequeue_task(self, queue_name: str) -> Optional[Dict[str, Any]]:

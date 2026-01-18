@@ -485,7 +485,8 @@ class OptimizedVectorizationService:
     def __init__(self):
         """Initialise le service optimisé."""
         self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library-api:8001")
-        self.recommender_api_url = os.getenv("RECOMMENDER_API_URL", "http://recommender-api:8002")
+        # Note: Le stockage des vecteurs est géré par les tâches Celery
+        # Plus besoin de recommender_api dans l'architecture actuelle
         
         # Vectoriseurs optimisés
         self.text_vectorizer = TextVectorizer(vector_dimension=384)
@@ -655,9 +656,9 @@ class OptimizedVectorizationService:
             # Retourner vecteur nul en cas d'erreur
             return [0.0] * self.vector_dimension
     
-    async def store_vector_to_recommender(self, track_id: int, embedding: List[float]) -> bool:
+    async def store_vector_to_database(self, track_id: int, embedding: List[float]) -> bool:
         """
-        Stocke le vecteur via recommender_api.
+        Stocke le vecteur dans la base de données via API backend.
         
         Args:
             track_id: ID de la track
@@ -681,7 +682,7 @@ class OptimizedVectorizationService:
                 }
                 
                 response = await client.post(
-                    f"{self.recommender_api_url}/api/track-vectors/",
+                    f"{self.library_api_url}/api/track-vectors/",
                     json=vector_data
                 )
                 
@@ -736,7 +737,7 @@ class OptimizedVectorizationService:
                 try:
                     async with httpx.AsyncClient(timeout=60.0) as client:
                         response = await client.post(
-                            f"{self.recommender_api_url}/api/track-vectors/batch",
+                            f"{self.library_api_url}/api/track-vectors/batch",
                             json=vectors_data
                         )
                         
@@ -793,7 +794,7 @@ async def vectorize_single_track_optimized(track_id: int) -> Dict[str, Any]:
         embedding = service.vectorize_single_track(tracks_data[0])
         
         # Stockage
-        success = await service.store_vector_to_recommender(track_id, embedding)
+        success = await service.store_vector_to_database(track_id, embedding)
         
         if success:
             return {

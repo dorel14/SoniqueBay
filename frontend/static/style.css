@@ -1,16 +1,132 @@
 /* --- Police globale --- */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap');
 
-@font-face {
-    font-family: 'Poppins';
-    font-style: normal;
-    font-weight: 400;
-    src: url(https://fonts.gstatic.com/s/poppins/v23/pxiEyp8kv8JHgFVrJJnecmNE.woff2) format('woff2');
-    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Backgrounds */
+  --sb-bg-main: #020617;
+  --sb-bg-secondary: #131c35;
+  --sb-bg-glass: rgba(15, 23, 42, 0.6);
+  --sb-bg-hover: rgba(255,255,255,0.05);
+
+  /* Text */
+  --sb-text-main: #F8FAFC;
+  --sb-text-secondary: #CBD5E1;
+  --sb-text-muted: #64748B;
+
+  /* Borders & effects */
+  --sb-border-glass: rgba(255,255,255,0.08);
+  --sb-neon: 0 0 15px rgba(99,102,241,0.4);
 }
 
-@import "tailwindcss";
-@theme {
-    --font-display: 'Poppins', sans-serif;
-    --font-poppins: Poppins, sans-serif;
+body {
+  font-family: 'Inter', sans-serif;
+  background:
+    radial-gradient(circle at 50% -20%, #1e1b4b 0%, #020617 70%);
+  background-attachment: fixed;
+  color: var(--sb-text-main);
 }
+
+.sb-header {
+  background: rgba(2,6,23,0.75);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--sb-border-glass);
+}
+.sb-header input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+.sb-header input[type="text"] {
+  color: var(--sb-text-main) !important;
+}
+
+.sb-glass {
+  background: var(--sb-bg-glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--sb-border-glass);
+  border-radius: 1.5rem;
+}
+
+.sb-card {
+  background: var(--sb-bg-glass);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.sb-card:hover {
+  transform: translateY(-4px);
+  background: var(--sb-bg-hover);
+  border-color: rgba(255,255,255,0.15);
+}
+
+.sb-title {
+  font-size: 2.25rem;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.sb-subtitle {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  color: var(--sb-text-muted);
+}
+
+.sb-meta {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--sb-text-muted);
+  text-transform: uppercase;
+}
+
+.sb-btn-primary {
+  background: var(--sb-primary);
+  color: white;
+  border-radius: 999px;
+  box-shadow: var(--sb-neon);
+}
+
+.sb-btn-ghost {
+  background: transparent;
+  color: var(--sb-text-muted);
+}
+
+.sb-btn-ghost:hover {
+  color: white;
+}
+
+/* Neutralise les backgrounds Quasar tabs */
+.q-tabs,
+.q-tab,
+.q-tab__content,
+.q-tab-panels,
+.q-tab-panel {
+  background: transparent !important;
+}
+/* Séparateur subtil sous les tabs */
+.sb-glass .q-tabs {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 0.25rem;
+}
+
+.custom-select-menu .q-item {
+        background-color: #ffffff;
+        color: #333;
+        transition: background-color 0.3s;
+    }
+
+    /* Style au SURVOL (hover) */
+.custom-select-menu .q-item:hover {
+        background-color: #e3f2fd !important; /* Bleu très clair */
+        color: #1976d2 !important;
+    }
+
+    /* Style de l'item déjà SÉLECTIONNÉ dans la liste */
+.custom-select-menu .q-item--active {
+        background-color: #bbdefb !important;
+        font-weight: bold;
+    }

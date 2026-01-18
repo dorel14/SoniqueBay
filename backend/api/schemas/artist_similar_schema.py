@@ -7,7 +7,7 @@ Pydantic schemas for artist similar relationships API endpoints.
 
 from __future__ import annotations
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from .base_schema import TimestampedSchema
 
 class ArtistSimilarBase(BaseModel):
@@ -38,8 +38,7 @@ class ArtistSimilar(ArtistSimilarBase, TimestampedSchema):
     """
     id: int = Field(..., description="Unique identifier for the similarity relationship")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ArtistSimilarWithDetails(ArtistSimilar):
     """

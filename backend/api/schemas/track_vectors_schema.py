@@ -4,7 +4,7 @@ Utilisé pour la validation et sérialisation des données de vectorisation.
 """
 from __future__ import annotations
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TrackVectorBase(BaseModel):
@@ -35,8 +35,8 @@ class TrackVector(TrackVectorBase):
     """
     id: int = Field(..., description="ID du vecteur")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
 
 
 class TrackVectorSearch(BaseModel):
