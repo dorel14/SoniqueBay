@@ -169,34 +169,51 @@ class ScanOptimizer:
         Returns:
             Liste des données de tracks inchangées (l'analyse est asynchrone)
         """
+        # === DIAGNOSTIC: LOG DÉTAILLÉ ===
+        logger.info(f"=== analyze_audio_batch appelé avec {len(track_data_list)} tracks ===")
+        
         if not track_data_list:
+            logger.warning("⚠️  track_data_list est vide!")
             return []
 
         start_time = time.time()
         tasks_sent = 0
+        
+        # Log détaillé des premières tracks
+        for i, track_data in enumerate(track_data_list[:3]):
+            logger.info(f"  Track {i+1}: id={track_data.get('id')}, path={track_data.get('path', 'N/A')}")
+            logger.info(f"    Tags présents: {'tags' in track_data}")
+            if 'tags' in track_data:
+                tags = track_data['tags']
+                logger.info(f"    Nombre de tags: {len(tags) if tags else 0}")
+                if tags:
+                    logger.info(f"    Clés des tags: {list(tags.keys())[:10]}")
 
         # Envoyer les tâches Celery pour l'analyse audio
+        logger.info(f"🚀 Envoi des tâches Celery vers la queue 'audio_analysis'...")
         for track_data in track_data_list:
             track_id = track_data.get('id')
             file_path = track_data.get('path')
+            tags = track_data.get('tags', {})
 
             if track_id and file_path:
                 try:
                     # Envoyer la tâche Celery à la queue 'audio_analysis'
+                    logger.debug(f"  Envoi tâche pour track {track_id}: {file_path}")
                     celery.send_task(
                         'backend_worker.tasks.audio_analysis_tasks.analyze_track_audio_features',
-                        args=[track_id, file_path],
+                        args=[track_id, file_path, tags],  # Ajout des tags
                         queue='audio_analysis'
                     )
                     tasks_sent += 1
                 except Exception as e:
-                    logger.error(f"Erreur envoi tâche analyse audio pour {file_path}: {e}")
+                    logger.error(f"❌ Erreur envoi tâche analyse audio pour {file_path}: {e}")
                     self.metrics.errors_count += 1
             else:
-                logger.warning(f"Track sans id ou path: {track_data}")
+                logger.warning(f"⚠️  Track sans id ou path: id={track_id}, path={file_path}")
 
         processing_time = time.time() - start_time
-        logger.info(f"Analyse audio batch: {tasks_sent}/{len(track_data_list)} tâches Celery envoyées en {processing_time:.2f}s")
+        logger.info(f"✅ Analyse audio batch: {tasks_sent}/{len(track_data_list)} tâches Celery envoyées en {processing_time:.2f}s")
 
         # Retourner les données inchangées (l'analyse est asynchrone)
         return track_data_list

@@ -2,8 +2,8 @@
 from fastapi import APIRouter, HTTPException, status, Body, Depends
 from typing import Optional
 import os
-from sqlalchemy.orm import Session as SQLAlchemySession
-from backend.api.utils.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.api.utils.database import get_async_session
 
 from backend.api.services.scan_service import ScanService
 from backend.api.schemas.scan_schema import ScanRequest
@@ -14,7 +14,7 @@ router = APIRouter(prefix='', tags=["scan"])
 
 
 @router.post("/scan", status_code=status.HTTP_201_CREATED)
-async def launch_scan(request: Optional[ScanRequest] = Body(None), db: SQLAlchemySession = Depends(get_db)):
+async def launch_scan(request: Optional[ScanRequest] = Body(None), db: AsyncSession = Depends(get_async_session)):
     """Lance un scan de la bibliothèque musicale."""
     from backend.api.utils.logging import logger
     logger.info("Endpoint /scan appelé avec request: %s", request)
@@ -22,7 +22,7 @@ async def launch_scan(request: Optional[ScanRequest] = Body(None), db: SQLAlchem
         directory = request.directory if request and request.directory else None
         cleanup_deleted = request.cleanup_deleted if request else False
         try:
-            result = ScanService.launch_scan(directory, db, cleanup_deleted)
+            result = await ScanService.launch_scan(directory, db, cleanup_deleted)
         except FileNotFoundError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except PermissionError as e:

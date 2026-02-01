@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from pydantic import ValidationError
-from sqlalchemy.orm import Session as SQLAlchemySession
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi_cache import FastAPICache
+from sqlalchemy import select
 
 from typing import List, Optional
 import json
-from backend.api.utils.database import get_db
+from backend.api.utils.database import get_async_session
 from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.utils.logging import logger
@@ -13,6 +14,13 @@ from backend.api.utils.validation_logger import log_validation_error
 from backend.api.services.track_service import TrackService
 
 router = APIRouter(prefix="/tracks", tags=["tracks"])
+
+@router.get("/count")
+async def get_tracks_count(db: AsyncSession = Depends(get_async_session)):
+    """Get the total number of tracks in the database."""
+    service = TrackService(db)
+    count = await service.get_tracks_count()
+    return {"count": count}
 
 @router.get("/search", response_model=List[Track])
 async def search_tracks(
@@ -27,7 +35,7 @@ async def search_tracks(
     mood_tags: Optional[List[str]] = Query(None),
     skip: int = Query(0, ge=0),
     limit: Optional[int] = Query(None, ge=1, le=1000),
-    db: SQLAlchemySession = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Recherche avancée de pistes."""
     service = TrackService(db)
@@ -42,7 +50,7 @@ async def search_tracks(
             tracks_data = json.loads(cached_result.decode('utf-8'))
             return [Track.model_validate(t) for t in tracks_data]
 
-        tracks = service.search_tracks(title, artist, album, genre, year, path, musicbrainz_id, genre_tags, mood_tags, skip, limit)
+        tracks = await service.search_tracks(title, artist, album, genre, year, path, musicbrainz_id, genre_tags, mood_tags, skip, limit)
         tracks_data = [Track.model_validate(t).model_dump() for t in tracks]
 
         # Convert datetime objects to strings for JSON serialization
@@ -68,10 +76,10 @@ async def search_tracks(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/batch", response_model=List[Track])
-async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request: Request = None, db: SQLAlchemySession = Depends(get_db)):
+async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request: Request = None, db: AsyncSession = Depends(get_async_session)):
     service = TrackService(db)
     try:
-        result = service.create_or_update_tracks_batch(tracks_data)
+        result = await service.create_or_update_tracks_batch(tracks_data)
 
         # Déclencher directement les tâches Celery de vectorisation
         # Simplification : appel direct au lieu de passer par Redis PubSub
@@ -146,10 +154,10 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/", response_model=Track)
-async def create_track(track: TrackCreate, request: Request = None, db: SQLAlchemySession = Depends(get_db)):
+async def create_track(track: TrackCreate, request: Request = None, db: AsyncSession = Depends(get_async_session)):
     service = TrackService(db)
     try:
-        created = service.create_track(track)
+        created = await service.create_track(track)
 
         # Déclencher directement la tâche Celery de vectorisation
         # Simplification : appel direct au lieu de passer par Redis PubSub
@@ -226,11 +234,11 @@ async def create_track(track: TrackCreate, request: Request = None, db: SQLAlche
 async def read_tracks(
     skip: int = 0,
     limit: int = 100,
-    db: SQLAlchemySession = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     service = TrackService(db)
     try:
-        tracks = service.read_tracks(skip, limit)
+        tracks = await service.read_tracks(skip, limit)
         result = []
         for track in tracks:
             track_dict = {
@@ -291,11 +299,11 @@ async def read_tracks(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{track_id}", response_model=TrackWithRelations)
-async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def read_track(track_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère une piste avec ses relations."""
     service = TrackService(db)
     try:
-        track = service.read_track(track_id)
+        track = await service.read_track(track_id)
 
         if track is None:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
@@ -370,26 +378,26 @@ async def read_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
 
 
 @router.get("/artists/{artist_id}/albums/{album_id}", response_model=List[TrackWithRelations])
-async def read_artist_tracks_by_album(artist_id: int, album_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def read_artist_tracks_by_album(artist_id: int, album_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère les pistes d'un artiste pour un album spécifique."""
     service = TrackService(db)
-    tracks = service.get_artist_tracks(artist_id, album_id)
+    tracks = await service.get_artist_tracks(artist_id, album_id)
     return [TrackWithRelations.model_validate(t).model_dump() for t in tracks]
 
 @router.get("/artists/{artist_id}", response_model=List[TrackWithRelations])
-async def read_artist_tracks(artist_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def read_artist_tracks(artist_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère toutes les pistes d'un artiste."""
     service = TrackService(db)
-    tracks = service.get_artist_tracks(artist_id)
+    tracks = await service.get_artist_tracks(artist_id)
     return [TrackWithRelations.model_validate(t).model_dump() for t in tracks]
 
 
 @router.put("/{track_id}", response_model=Track)
-async def update_track(track_id: int, track: TrackUpdate, request: Request, db: SQLAlchemySession = Depends(get_db)):
+async def update_track(track_id: int, track: TrackUpdate, request: Request, db: AsyncSession = Depends(get_async_session)):
     """Mise à jour d'une piste."""
     service = TrackService(db)
     try:
-        updated_track = service.update_track(track_id, track)
+        updated_track = await service.update_track(track_id, track)
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
 
@@ -465,12 +473,12 @@ async def update_track_tags(
     track_id: int,
     genre_tags: Optional[List[str]] = None,
     mood_tags: Optional[List[str]] = None,
-    db: SQLAlchemySession = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ) -> Track:
     """Mise à jour des tags d'une piste."""
     service = TrackService(db)
     try:
-        updated_track = service.update_track_tags(track_id, genre_tags, mood_tags)
+        updated_track = await service.update_track_tags(track_id, genre_tags, mood_tags)
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
         return Track.model_validate(updated_track)
@@ -480,9 +488,9 @@ async def update_track_tags(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
+async def delete_track(track_id: int, db: AsyncSession = Depends(get_async_session)):
     service = TrackService(db)
-    success = service.delete_track(track_id)
+    success = await service.delete_track(track_id)
     if not success:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
     return {"ok": True}
@@ -491,7 +499,7 @@ async def delete_track(track_id: int, db: SQLAlchemySession = Depends(get_db)):
 async def analyze_audio_tracks(
     track_ids: Optional[List[int]] = None,
     limit: int = 100,
-    db: SQLAlchemySession = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """
     Déclenche l'analyse audio des pistes.
@@ -511,26 +519,30 @@ async def analyze_audio_tracks(
             # Analyser les tracks spécifiques
             logger.info(f"Analyse audio demandée pour {len(track_ids)} tracks spécifiques")
             # Récupérer les chemins des fichiers
-            tracks = db.query(TrackModel).filter(TrackModel.id.in_(track_ids)).all()
+            result = await db.execute(select(TrackModel).where(TrackModel.id.in_(track_ids)))
+            tracks = result.scalars().all()
             track_data_list = [(track.id, track.path) for track in tracks if track.path]
         else:
             # Analyser les tracks sans caractéristiques audio
             logger.info(f"Analyse audio demandée pour tracks sans features (limit: {limit})")
-            tracks = db.query(TrackModel).filter(
-                TrackModel.bpm.is_(None) | TrackModel.key.is_(None)
-            ).limit(limit).all()
+            result = await db.execute(
+                select(TrackModel).where(
+                    (TrackModel.bpm.is_(None)) | (TrackModel.key.is_(None))
+                ).limit(limit)
+            )
+            tracks = result.scalars().all()
             track_data_list = [(track.id, track.path) for track in tracks if track.path]
 
         if not track_data_list:
             return {"message": "Aucune track à analyser", "count": 0}
 
         # Lancer la tâche Celery
-        result = celery_app.send_task("analyze_audio_batch_task", args=[track_data_list])
+        celery_result = celery_app.send_task("analyze_audio_batch_task", args=[track_data_list])
 
-        logger.info(f"Tâche d'analyse audio lancée: {result.id} pour {len(track_data_list)} tracks")
+        logger.info(f"Tâche d'analyse audio lancée: {celery_result.id} pour {len(track_data_list)} tracks")
 
         return {
-            "task_id": result.id,
+            "task_id": celery_result.id,
             "message": f"Analyse audio lancée pour {len(track_data_list)} tracks",
             "count": len(track_data_list)
         }
@@ -543,7 +555,7 @@ async def analyze_audio_tracks(
 async def update_track_features(
     track_id: int,
     features: dict,
-    db: SQLAlchemySession = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """
     Met à jour les caractéristiques audio d'une track.
@@ -558,7 +570,7 @@ async def update_track_features(
     """
     try:
         service = TrackService(db)
-        track = service.read_track(track_id)
+        track = await service.read_track(track_id)
 
         if not track:
             raise HTTPException(status_code=404, detail="Track non trouvée")
@@ -576,7 +588,7 @@ async def update_track_features(
                 update_data[field] = features[field]
 
         if update_data:
-            updated_track = service.update_track(track_id, update_data)
+            updated_track = await service.update_track(track_id, update_data)
             if not updated_track:
                 raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
 
@@ -587,5 +599,3 @@ async def update_track_features(
     except Exception as e:
         logger.error(f"Erreur mise à jour features track {track_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
-
-

@@ -75,7 +75,7 @@ def process_artist_images(artist_ids: List[int], priority: str = "normal"):
                             track_dir = Path(track_path).parent
                             # Supposer structure: .../Artiste/Album/Track
                             artist_path = str(track_dir.parent)
-                            logger.debug(f"[COVERS] Chemin artiste déduit pour {artist_name}: {artist_path}")
+                            logger.info(f"[COVERS] Chemin artiste déduit pour {artist_name}: {artist_path}")
             except Exception as e:
                 logger.debug(f"[COVERS] Impossible de déterminer le chemin de l'artiste {artist_id}: {str(e)}")
 

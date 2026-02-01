@@ -79,3 +79,32 @@ class ArtistService:
         except Exception as e:
             logger.error(f"Erreur récupération pistes: {e}")
             return []
+
+    @staticmethod
+    async def query_graphql(query: str, variables: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Exécute une requête GraphQL sur l'API.
+
+        Args:
+            query: La chaîne de requête GraphQL.
+            variables: Un dictionnaire de variables pour la requête GraphQL.
+
+        Returns:
+            Optional[Dict[str, Any]]: Le résultat de la requête GraphQL ou None en cas d'erreur.
+        """
+        try:
+            async with httpx.AsyncClient(follow_redirects=True) as client:
+                response = await client.post(
+                    f"{api_url}/api/graphql",
+                    json={'query': query, 'variables': variables},
+                    timeout=10
+                )
+                response.raise_for_status()
+                result = response.json()
+                logger.info(f"Réponse JSON complète GraphQL: {result}")
+                return result.get('data')
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Erreur HTTP GraphQL: {e.response.status_code} - {e.response.text}")
+            return None
+        except Exception as e:
+            logger.error(f"Erreur lors de la requête GraphQL: {e}")
+            return None

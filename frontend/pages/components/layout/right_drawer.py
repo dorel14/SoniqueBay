@@ -23,7 +23,12 @@ def right_drawer_component():
                     queue_tab = ui.tab('Queue', label='File d\'attente', icon='queue_music')
                 with ui.tab_panels(tabs, value=state.active_tab).bind_value(state, 'active_tab').classes('flex-1'):
                     with ui.tab_panel('Chat').classes('p-2'):
-                        ui.label('Chat')
+                        with ui.column().classes('gap-4'):
+                            with ui.scroll_area().classes('"flex-grow p-4"'):
+                                ui.label('Chat')
+                        ui.space()
+                        with ui.row().classes('w-full p-3 border-t border-white/5 items-center gap-2 bg-slate-800/50'):
+                                ui.input(placeholder="Votre message…").classes('flex-1 w-full bg-transparent text-white placeholder-white/50 border border-white/10 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500')
                     with ui.tab_panel('Queue').classes('p-2'):
                         ui.label('Queue')
                         

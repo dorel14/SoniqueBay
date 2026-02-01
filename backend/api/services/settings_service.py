@@ -3,6 +3,8 @@ from backend.api.models.settings_model import Setting as SettingModel
 from backend.api.schemas.settings_schema import SettingCreate
 from backend.api.utils.crypto import encrypt_value, decrypt_value
 from typing import Any, Dict, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 MUSIC_PATH_TEMPLATE = "music_path_template"
 ARTIST_IMAGE_FILES = "artist_image_files"
@@ -26,7 +28,7 @@ DEFAULT_SETTINGS = {
 
 
 class SettingsService:
-    async def initialize_default_settings(self, db=None):
+    async def initialize_default_settings(self, db: AsyncSession = None):
         """Initialise les paramètres par défaut dans la base si manquants."""
         from backend.api.models.settings_model import Setting as SettingModel
         from backend.api.schemas.settings_schema import SettingCreate
@@ -35,9 +37,10 @@ class SettingsService:
         for key, value in DEFAULT_SETTINGS.items():
             db_setting = None
             if db:
-                db_setting = (
-                    db.query(SettingModel).filter(SettingModel.key == key).first()
+                result = await db.execute(
+                    select(SettingModel).where(SettingModel.key == key)
                 )
+                db_setting = result.scalars().first()
             # Conversion en string si nécessaire
             str_value = (
                 value if isinstance(value, str) else __import__("json").dumps(value)
@@ -57,8 +60,8 @@ class SettingsService:
                         is_encrypted=setting.is_encrypted,
                     )
                     db.add(db_setting)
-                    db.commit()
-                    db.refresh(db_setting)
+                    await db.commit()
+                    await db.refresh(db_setting)
         # Optionnel : log
         import logging
 
@@ -81,7 +84,7 @@ class SettingsService:
         is_valid = PathVariables.validate_path_template(template)
         return {"is_valid": is_valid, "template": template}
 
-    def create_setting(self, setting: SettingCreate, db) -> SettingModel:
+    async def create_setting(self, setting: SettingCreate, db: AsyncSession) -> SettingModel:
         """Crée un paramètre, chiffre la valeur si nécessaire."""
         value = encrypt_value(setting.value) if setting.is_encrypted else setting.value
         db_setting = SettingModel(
@@ -91,20 +94,21 @@ class SettingsService:
             is_encrypted=setting.is_encrypted,
         )
         db.add(db_setting)
-        db.commit()
-        db.refresh(db_setting)
+        await db.commit()
+        await db.refresh(db_setting)
         # Retourne le modèle avec valeur déchiffrée si besoin
         if db_setting.is_encrypted and db_setting.value:
             db_setting.value = decrypt_value(db_setting.value)
         return db_setting
 
-    def read_settings(self, db) -> list[SettingModel]:
+    async def read_settings(self, db: AsyncSession) -> list[SettingModel]:
         """Retourne tous les paramètres, déchiffre les valeurs si besoin."""
         import logging
 
         logger = logging.getLogger(__name__)
 
-        settings = db.query(SettingModel).all()
+        result = await db.execute(select(SettingModel))
+        settings = result.scalars().all()
         logger.info(f"Nombre de paramètres trouvés: {len(settings)}")
 
         for setting in settings:
@@ -137,9 +141,13 @@ class SettingsService:
                     )
         return settings
 
-    def read_setting(self, key: str, db) -> Optional[SettingModel]:
+    async def read_setting(self, key: str, db: AsyncSession) -> Optional[SettingModel]:
         """Retourne un paramètre par clé, crée la valeur par défaut si besoin."""
-        db_setting = db.query(SettingModel).filter(SettingModel.key == key).first()
+        result = await db.execute(
+            select(SettingModel).where(SettingModel.key == key)
+        )
+        db_setting = result.scalars().first()
+
         if not db_setting:
             if key in DEFAULT_SETTINGS:
                 # Conversion en string si nécessaire
@@ -155,8 +163,8 @@ class SettingsService:
                     is_encrypted=False,
                 )
                 db.add(db_setting)
-                db.commit()
-                db.refresh(db_setting)
+                await db.commit()
+                await db.refresh(db_setting)
             else:
                 return None
         if db_setting.is_encrypted and db_setting.value:
@@ -175,11 +183,15 @@ class SettingsService:
             pass
         return db_setting
 
-    def update_setting(
-        self, key: str, setting: SettingCreate, db
+    async def update_setting(
+        self, key: str, setting: SettingCreate, db: AsyncSession
     ) -> Optional[SettingModel]:
         """Met à jour un paramètre existant, chiffre la valeur si besoin."""
-        db_setting = db.query(SettingModel).filter(SettingModel.key == key).first()
+        result = await db.execute(
+            select(SettingModel).where(SettingModel.key == key)
+        )
+        db_setting = result.scalars().first()
+
         if not db_setting:
             return None
         value = setting.value
@@ -192,8 +204,8 @@ class SettingsService:
         db_setting.value = value
         db_setting.description = setting.description
         db_setting.is_encrypted = setting.is_encrypted
-        db.commit()
-        db.refresh(db_setting)
+        await db.commit()
+        await db.refresh(db_setting)
         if db_setting.is_encrypted and db_setting.value:
             db_setting.value = decrypt_value(db_setting.value)
         # Désérialiser si c'est du JSON

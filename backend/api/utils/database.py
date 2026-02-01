@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy import MetaData, DateTime
 import datetime
 from urllib.parse import quote_plus
+from typing import AsyncGenerator
+from backend.api.utils.logging import logger
 load_dotenv()
 
 # Créer Base avant toute autre opération
@@ -84,9 +86,10 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-def get_async_session():
-    with AsyncSessionLocal() as session:
+async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+    logger.debug("Création d'une session async")
+    async with AsyncSessionLocal() as session:
         yield session
 
 # Exporter les éléments nécessaires
-__all__ = ['Base', 'TimestampMixin', 'SessionLocal', 'AsyncSessionLocal','get_db', 'engine','asyncEngine','get_session','get_async_session', 'get_database_url_raw']
+__all__ = ['Base', 'TimestampMixin', 'SessionLocal', 'AsyncSessionLocal', 'AsyncSession', 'get_db', 'engine', 'asyncEngine', 'get_session', 'get_async_session', 'get_database_url_raw']

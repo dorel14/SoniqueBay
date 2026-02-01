@@ -21,4 +21,5 @@ ui.run(
     favicon='./static/favicon.ico',
     show=False,
     storage_secret=storage_secret,
+    uvicorn_reload_excludes='*.log',
 )

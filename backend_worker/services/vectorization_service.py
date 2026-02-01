@@ -484,7 +484,7 @@ class OptimizedVectorizationService:
     
     def __init__(self):
         """Initialise le service optimisé."""
-        self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library-api:8001")
+        self.library_api_url = os.getenv("API_URL", "http://api:8001")
         # Note: Le stockage des vecteurs est géré par les tâches Celery
         # Plus besoin de recommender_api dans l'architecture actuelle
         
@@ -525,7 +525,7 @@ class OptimizedVectorizationService:
                             continue
                 else:
                     # Récupération de toutes les tracks
-                    response = await client.get(f"{self.library_api_url}/api/tracks")
+                    response = await client.get(f"{self.library_api_url}/api/tracks/")
                     if response.status_code == 200:
                         tracks_data = await response.json()
                     else:

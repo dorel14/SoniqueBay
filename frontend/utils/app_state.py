@@ -17,6 +17,7 @@ class Appstate:
     artists_cached_pages: dict[int, list] = field(default_factory=dict)  # Clé: skip, Valeur: liste d'artistes
     covers_cache: dict[int, str] = field(default_factory=dict)  # Clé: artist_id, Valeur: URL base64 complète
     view_mode: str = 'list'  # Possible values: 'list', 'grid', etc.
+    last_artists_page: int = 1
 
 
 def get_state():
@@ -55,6 +56,9 @@ def skip_page(current_page):
     state = get_state()
     return (current_page - 1) * state.page_size
 
+def get_current_page():
+    state = get_state()
+    return state.current_page
 
 def update_page_size(value: str):
     state = get_state()
