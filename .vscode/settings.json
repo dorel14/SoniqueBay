@@ -10,5 +10,6 @@
             "args": ["-NoExit", "-Command", ". '${workspaceFolder}\\profile.ps1'"]
         }
     },
-    "terminal.integrated.defaultProfile.windows": "SoniqueBay"
+    "terminal.integrated.defaultProfile.windows": "SoniqueBay",
+    "snyk.advanced.autoSelectOrganization": true
 }

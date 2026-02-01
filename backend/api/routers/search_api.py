@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.schemas.search_schema import SearchQuery, SearchResult
 from backend.api.services.search_service import SearchService
 from backend.api.services.search_indexing_service import SearchIndexingService
-from backend.api.utils.database import get_db
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -13,14 +13,14 @@ router = APIRouter(prefix="/search", tags=["search"])
 async def typeahead_search(
     q: str = None,
     limit: int = 10,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Recherche typeahead pour la barre de recherche."""
     try:
         if not q or not q.strip():
             return {"items": []}
 
-        results = SearchService.typeahead_search(q, limit, db)
+        results = await SearchService.typeahead_search(q, limit, db)
         return {"items": results}
 
     except Exception as e:
@@ -31,7 +31,7 @@ async def typeahead_search(
 @router.post("/", response_model=SearchResult)
 async def search(
     query: SearchQuery,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Recherche principale avec scoring hybride."""
     try:
@@ -41,7 +41,7 @@ async def search(
         if query.page_size < 1 or query.page_size > 100:
             query.page_size = 20
 
-        result = SearchService.search(query, db)
+        result = await SearchService.search(query, db)
         return result
 
     except Exception as e:
@@ -52,7 +52,7 @@ async def search(
 @router.post("/indexing/update-all")
 async def update_all_search_indexes(
     background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """Met à jour tous les index de recherche TSVECTOR."""
     try:
@@ -64,10 +64,10 @@ async def update_all_search_indexes(
         raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
 
 @router.post("/indexing/create-triggers")
-async def create_auto_indexing_triggers(db: Session = Depends(get_db)):
+async def create_auto_indexing_triggers(db: AsyncSession = Depends(get_async_session)):
     """Crée les triggers PostgreSQL pour l'indexation automatique."""
     try:
-        success = SearchIndexingService.create_triggers_for_auto_indexing(db)
+        success = await SearchIndexingService.create_triggers_for_auto_indexing(db)
         if success:
             return {"message": "Triggers d'indexation automatique créés", "status": "success"}
         else:
@@ -77,10 +77,10 @@ async def create_auto_indexing_triggers(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to create triggers: {str(e)}")
 
 @router.post("/indexing/create-materialized-views")
-async def create_materialized_views(db: Session = Depends(get_db)):
+async def create_materialized_views(db: AsyncSession = Depends(get_async_session)):
     """Crée les vues matérialisées pour optimiser les facettes."""
     try:
-        success = SearchIndexingService.create_materialized_views_for_facets(db)
+        success = await SearchIndexingService.create_materialized_views_for_facets(db)
         if success:
             return {"message": "Vues matérialisées créées", "status": "success"}
         else:
@@ -90,10 +90,10 @@ async def create_materialized_views(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to create materialized views: {str(e)}")
 
 @router.post("/indexing/refresh-materialized-views")
-async def refresh_materialized_views(db: Session = Depends(get_db)):
+async def refresh_materialized_views(db: AsyncSession = Depends(get_async_session)):
     """Rafraîchit les vues matérialisées pour les facettes."""
     try:
-        success = SearchIndexingService.refresh_materialized_views(db)
+        success = await SearchIndexingService.refresh_materialized_views(db)
         if success:
             return {"message": "Vues matérialisées rafraîchies", "status": "success"}
         else:
@@ -147,10 +147,10 @@ async def clear_all_cache():
         raise HTTPException(status_code=500, detail=f"Failed to clear all cache: {str(e)}")
 
 @router.get("/indexing/stats")
-async def get_indexing_stats(db: Session = Depends(get_db)):
+async def get_indexing_stats(db: AsyncSession = Depends(get_async_session)):
     """Récupère les statistiques d'indexation."""
     try:
-        stats = SearchIndexingService.get_indexing_stats(db)
+        stats = await SearchIndexingService.get_indexing_stats(db)
         return stats
     except Exception as e:
         logger.error(f"Erreur récupération stats indexation: {e}")
@@ -158,13 +158,13 @@ async def get_indexing_stats(db: Session = Depends(get_db)):
 
 # Endpoints dépréciés - maintenus pour compatibilité
 @router.post("/index")
-def api_get_or_create_index(index_dir: str = None):
+async def api_get_or_create_index(index_dir: str = None):
     """Endpoint déprécié - PostgreSQL gère automatiquement l'indexation."""
     logger.warning("Endpoint /index déprécié - utiliser PostgreSQL TSVECTOR")
     return {"message": "Indexation automatique via PostgreSQL", "deprecated": True}
 
 @router.post("/add")
-def api_add_to_index():
+async def api_add_to_index():
     """Endpoint déprécié - données indexées automatiquement."""
     logger.warning("Endpoint /add déprécié - indexation automatique")
     return {"message": "Indexation automatique", "deprecated": True}

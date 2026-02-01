@@ -43,21 +43,21 @@ class TagChangeDetector:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # Récupérer genres
-                genres_response = await client.get(f"{self.library_api_url}/api/genres")
+                genres_response = await client.get(f"{self.library_api_url}/api/genres/")
                 genres = set()
                 if genres_response.status_code == 200:
                     genres_data = await genres_response.json()
                     genres = {genre.get('name', '') for genre in genres_data if genre.get('name')}
                 
                 # Récupérer mood_tags
-                moods_response = await client.get(f"{self.library_api_url}/api/tags?type=mood")
+                moods_response = await client.get(f"{self.library_api_url}/api/tags/?type=mood")
                 mood_tags = set()
                 if moods_response.status_code == 200:
                     moods_data = await moods_response.json()
                     mood_tags = {tag.get('name', '') for tag in moods_data if tag.get('name')}
                 
                 # Récupérer genre_tags
-                genre_tags_response = await client.get(f"{self.library_api_url}/api/tags?type=genre")
+                genre_tags_response = await client.get(f"{self.library_api_url}/api/tags/?type=genre")
                 genre_tags = set()
                 if genre_tags_response.status_code == 200:
                     genre_tags_data = await genre_tags_response.json()

@@ -190,7 +190,7 @@ async def create_or_update_cover(client: httpx.AsyncClient, entity_type: str, en
         # Tentative de création (POST) si PUT a échoué
         try:
             response = await client.post(
-                f"{api_url}/api/covers",
+                f"{api_url}/api/covers/",
                 json=cover_create,
                 timeout=60,
                 follow_redirects=True
@@ -227,7 +227,7 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
 
         # Rechercher le genre par nom
         response = await client.get(
-            f"{api_url}/api/genres/search",
+            f"{api_url}/api/genres/search/",
             params={"name": genre_name},
             timeout=10
         )

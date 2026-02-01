@@ -5,17 +5,18 @@ Auteur : Kilo Code
 Dépendances : backend.api.schemas.search_schema
 """
 from typing import List, Dict, Any, Optional
-from sqlalchemy import text, func
-from sqlalchemy.orm import Session
+from sqlalchemy import text, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.schemas.search_schema import SearchQuery, SearchResult
 from backend.api.services.redis_cache_service import redis_cache_service
 from backend.api.utils.logging import logger
+
 
 class SearchService:
     """Service de recherche hybride PostgreSQL + pgvector."""
 
     @staticmethod
-    def search(query: SearchQuery, db: Optional[Session] = None) -> SearchResult:
+    async def search(query: SearchQuery, db: Optional[AsyncSession] = None) -> SearchResult:
         """
         Recherche hybride combinant recherche textuelle et vectorielle avec cache Redis.
 
@@ -27,8 +28,8 @@ class SearchService:
             Résultats de recherche avec scoring hybride
         """
         if not db:
-            from backend.api.utils.database import get_db
-            db = next(get_db())
+            from backend.api.utils.database import get_async_db
+            db = await get_async_db().__anext__()
 
         if not query.query or not query.query.strip():
             return SearchResult(
@@ -55,10 +56,10 @@ class SearchService:
         logger.debug(f"[SEARCH CACHE] Miss pour requête: '{query.query}' page {query.page}")
 
         # Recherche textuelle avec TSVECTOR
-        text_results = SearchService._text_search(query, db)
+        text_results = await SearchService._text_search(query, db)
 
         # Recherche vectorielle si disponible
-        vector_results = SearchService._vector_search(query, db)
+        vector_results = await SearchService._vector_search(query, db)
 
         # Fusionner et scorer hybride
         combined_results = SearchService._combine_results(text_results, vector_results, query)
@@ -68,7 +69,7 @@ class SearchService:
         paginated_items = combined_results[offset:offset + query.page_size]
 
         # Facettes
-        facets = SearchService._get_facets(query, db)
+        facets = await SearchService._get_facets(query, db)
 
         total = len(combined_results)
         total_pages = (total // query.page_size) + (1 if total % query.page_size else 0)
@@ -91,7 +92,7 @@ class SearchService:
         return result
 
     @staticmethod
-    def _text_search(query: SearchQuery, db: Session) -> List[Dict[str, Any]]:
+    async def _text_search(query: SearchQuery, db: AsyncSession) -> List[Dict[str, Any]]:
         """Recherche textuelle avec PostgreSQL TSVECTOR."""
         try:
             # Préparer la requête de recherche
@@ -116,7 +117,8 @@ class SearchService:
                 LIMIT 100
             """)
 
-            track_results = db.execute(track_query, {"search_terms": search_terms}).fetchall()
+            track_result = await db.execute(track_query, {"search_terms": search_terms})
+            track_results = track_result.fetchall()
 
             # Recherche dans artists
             artist_query = text("""
@@ -135,7 +137,8 @@ class SearchService:
                 LIMIT 50
             """)
 
-            artist_results = db.execute(artist_query, {"search_terms": search_terms}).fetchall()
+            artist_result = await db.execute(artist_query, {"search_terms": search_terms})
+            artist_results = artist_result.fetchall()
 
             # Combiner et formater
             results = []
@@ -172,7 +175,7 @@ class SearchService:
             return []
 
     @staticmethod
-    def _vector_search(query: SearchQuery, db: Session) -> List[Dict[str, Any]]:
+    async def _vector_search(query: SearchQuery, db: AsyncSession) -> List[Dict[str, Any]]:
         """Recherche vectorielle avec pgvector."""
         try:
             # Pour la recherche vectorielle, on utilise un embedding moyen des termes
@@ -221,7 +224,7 @@ class SearchService:
         return sorted_results
 
     @staticmethod
-    def _get_facets(query: SearchQuery, db: Session) -> Dict[str, List]:
+    async def _get_facets(query: SearchQuery, db: AsyncSession) -> Dict[str, List]:
         """Générer les facettes pour les résultats en utilisant les vues matérialisées et cache Redis."""
         # Vérifier le cache Redis d'abord
         cached_facets = redis_cache_service.get_cached_facets()
@@ -239,7 +242,8 @@ class SearchService:
                 WHERE rank <= 20
                 ORDER BY rank
             """)
-            genres = [{"name": row[0], "count": row[1]} for row in db.execute(genre_query).fetchall()]
+            genre_result = await db.execute(genre_query)
+            genres = [{"name": row[0], "count": row[1]} for row in genre_result.fetchall()]
 
             # Facette artistes depuis vue matérialisée
             artist_query = text("""
@@ -248,7 +252,8 @@ class SearchService:
                 WHERE rank <= 20
                 ORDER BY rank
             """)
-            artists = [{"name": row[0], "count": row[1]} for row in db.execute(artist_query).fetchall()]
+            artist_result = await db.execute(artist_query)
+            artists = [{"name": row[0], "count": row[1]} for row in artist_result.fetchall()]
 
             # Facette décennies depuis vue matérialisée
             decade_query = text("""
@@ -257,7 +262,8 @@ class SearchService:
                 WHERE rank <= 10
                 ORDER BY rank
             """)
-            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in db.execute(decade_query).fetchall() if row[0]]
+            decade_result = await db.execute(decade_query)
+            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in decade_result.fetchall() if row[0]]
 
             facets = {
                 "genres": genres,
@@ -273,13 +279,13 @@ class SearchService:
         except Exception as e:
             logger.error(f"Erreur génération facettes depuis vues matérialisées: {e}")
             # Fallback vers requêtes classiques si vues matérialisées indisponibles
-            facets = SearchService._get_facets_fallback(query, db)
+            facets = await SearchService._get_facets_fallback(query, db)
             # Essayer de mettre en cache même le fallback
             redis_cache_service.cache_facets(facets)
             return facets
 
     @staticmethod
-    def _get_facets_fallback(query: SearchQuery, db: Session) -> Dict[str, List]:
+    async def _get_facets_fallback(query: SearchQuery, db: AsyncSession) -> Dict[str, List]:
         """Fallback pour les facettes si vues matérialisées indisponibles."""
         try:
             # Facette genres
@@ -291,7 +297,8 @@ class SearchService:
                 ORDER BY count DESC
                 LIMIT 20
             """)
-            genres = [{"name": row[0], "count": row[1]} for row in db.execute(genre_query).fetchall()]
+            genre_result = await db.execute(genre_query)
+            genres = [{"name": row[0], "count": row[1]} for row in genre_result.fetchall()]
 
             # Facette artistes
             artist_query = text("""
@@ -302,7 +309,8 @@ class SearchService:
                 ORDER BY count DESC
                 LIMIT 20
             """)
-            artists = [{"name": row[0], "count": row[1]} for row in db.execute(artist_query).fetchall()]
+            artist_result = await db.execute(artist_query)
+            artists = [{"name": row[0], "count": row[1]} for row in artist_result.fetchall()]
 
             # Facette décennies
             decade_query = text("""
@@ -318,7 +326,8 @@ class SearchService:
                 ORDER BY decade DESC
                 LIMIT 10
             """)
-            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in db.execute(decade_query).fetchall() if row[0]]
+            decade_result = await db.execute(decade_query)
+            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in decade_result.fetchall() if row[0]]
 
             return {
                 "genres": genres,
@@ -331,11 +340,11 @@ class SearchService:
             return {"artists": [], "genres": [], "decades": []}
 
     @staticmethod
-    def typeahead_search(q: str, limit: int = 10, db: Optional[Session] = None) -> List[Dict[str, Any]]:
+    async def typeahead_search(q: str, limit: int = 10, db: Optional[AsyncSession] = None) -> List[Dict[str, Any]]:
         """Recherche typeahead pour suggestions en temps réel."""
         if not db:
-            from backend.api.utils.database import get_db
-            db = next(get_db())
+            from backend.api.utils.database import get_async_db
+            db = await get_async_db().__anext__()
 
         if not q or not q.strip():
             return []
@@ -359,7 +368,8 @@ class SearchService:
                 LIMIT :limit
             """)
 
-            results = db.execute(query, {"search_terms": search_terms, "limit": limit}).fetchall()
+            result = await db.execute(query, {"search_terms": search_terms, "limit": limit})
+            results = result.fetchall()
 
             return [{
                 "id": row.id,

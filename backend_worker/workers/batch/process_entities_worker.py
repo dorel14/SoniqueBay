@@ -156,6 +156,8 @@ def batch_entities(self, metadata_list: List[Dict[str, Any]], batch_id: str = No
 
         # Liste des tracks avec références
         tracks_data = []
+        tracks_with_audio_tags = []  # Tracks qui ont des tags audio à analyser
+        
         for track in metadata_list:
             artist_name = track.get('artist', '').strip().lower()
             album_name = track.get('album', '').strip().lower()
@@ -166,6 +168,46 @@ def batch_entities(self, metadata_list: List[Dict[str, Any]], batch_id: str = No
             track_data['album_title'] = album_name
 
             tracks_data.append(track_data)
+            
+            # Vérifier si la track a des tags audio à analyser
+            track_tags = track.get('tags', {})
+            if track_tags:
+                from backend_worker.services.audio_features_service import _has_valid_audio_tags
+                if _has_valid_audio_tags(track_tags):
+                    tracks_with_audio_tags.append({
+                        'path': track.get('path'),
+                        'tags': track_tags,
+                        'metadata': track_data  # Référence pour mise à jour ultérieure
+                    })
+
+        # Dispatcher les tâches d'analyse audio pour les tracks avec tags
+        if tracks_with_audio_tags:
+            logger.info(f"[BATCH] {len(tracks_with_audio_tags)} tracks avec tags audio détectés, dispatch des tâches Celery...")
+            audio_tasks_sent = 0
+            
+            for track_info in tracks_with_audio_tags:
+                try:
+                    file_path = track_info['path']
+                    tags = track_info['tags']
+                    
+                    if file_path:
+                        # Dispatcher la tâche Celery d'analyse audio
+                        # Note: Le track_id n'est pas encore connu à ce stade, il sera créé lors de l'insertion
+                        # On va donc utiliser le chemin comme identifiant temporaire
+                        celery.send_task(
+                            'backend_worker.tasks.audio_analysis_tasks.analyze_track_audio_features',
+                            args=[None, file_path, tags],  # track_id=None pour l'instant
+                            queue='audio_analysis',
+                            priority=5  # Priorité moyenne
+                        )
+                        audio_tasks_sent += 1
+                        logger.debug(f"[BATCH] Tâche d'analyse audio dispatchée pour: {file_path}")
+                except Exception as e:
+                    logger.error(f"[BATCH] Erreur lors du dispatch de la tâche audio: {e}")
+            
+            logger.info(f"[BATCH] {audio_tasks_sent} tâches d'analyse audio dispatchées avec succès")
+        else:
+            logger.info("[BATCH] Aucune track avec tags audio détectée")
 
         # Métriques du batching
         total_time = time.time() - start_time

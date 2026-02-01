@@ -644,11 +644,28 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
     Returns:
         Dictionnaire des caractéristiques audio extraites
     """
+    # === DIAGNOSTIC: LOG DÉTAILLÉ D'ENTRÉE ===
     logger.info(f"=== extract_audio_features appelé pour track {track_id} ===")
     logger.info(f"File path: {file_path}")
-    logger.info(f"Tags disponibles: {bool(tags)}")
+    logger.info(f"Audio object type: {type(audio)}")
+    logger.info(f"Audio object is None: {audio is None}")
+    logger.info(f"Tags parameter type: {type(tags)}")
+    logger.info(f"Tags is None: {tags is None}")
+    logger.info(f"Tags is empty dict: {tags == {}}")
+    
     if tags:
-        logger.info(f"Tags disponibles: {list(tags.keys())}")
+        logger.info(f"Nombre de tags: {len(tags)}")
+        logger.info(f"Toutes les clés de tags: {list(tags.keys())}")
+        
+        # Recherche de tags audio spécifiques
+        audio_related_keys = [k for k in tags.keys() if any(term in str(k).upper() for term in ['BPM', 'KEY', 'TEMPO', 'MOOD', 'DANCE', 'ENERGY', 'ACOUSTIC', 'AB:'])]
+        logger.info(f"Clés liées à l'audio trouvées: {audio_related_keys}")
+        
+        # Afficher les valeurs des tags audio trouvés
+        for key in audio_related_keys[:5]:  # Limiter à 5 pour éviter les logs trop longs
+            logger.info(f"  Tag '{key}': {tags[key]}")
+    else:
+        logger.warning(f"⚠️  AUCUN TAGS fourni pour track {track_id}!")
     
     # Initialiser les features avec des valeurs par défaut
     features = {

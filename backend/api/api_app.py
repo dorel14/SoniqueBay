@@ -1,23 +1,24 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
 import os
+import asyncio
 from dataclasses import dataclass
-from fastapi import FastAPI, status, Request, Depends
+from fastapi import FastAPI, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, AsyncExitStack
 from backend.api.utils import settings
 from strawberry.fastapi import GraphQLRouter, BaseContext
-from sqlalchemy.orm import Session
-from typing import Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.utils.logging import logger
 from backend.api.utils.settings import Settings
 from backend.api.services.settings_service import SettingsService
 from backend.ai.seed_agents import seed_default_agents
 import redis.asyncio as redis
-from backend.api.utils.database import get_session, get_async_session
+from backend.api.utils.database import get_async_session
+from backend.api.utils.locked_session import LockedSession
 from alembic.config import Config
 from alembic import command
 from fastapi_cache import FastAPICache
@@ -26,23 +27,33 @@ from fastapi_cache.backends.redis import RedisBackend
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
 from backend.api.graphql.queries.schema import schema # noqa: E402
-
+from backend.api.graphql.dataloader.dataloaders import CatalogLoaders
 
 @dataclass
 class AppContext(BaseContext):
     settings: Settings
-    session: Session
+    _session: AsyncSession
+    loaders: CatalogLoaders
+    lock: asyncio.Lock
+
+    @property
+    def session(self):
+        """Return a LockedSession to prevent concurrent access."""
+        return LockedSession(self._session, self.lock)
 
     @property
     def db(self):
         """Alias for session to maintain compatibility."""
         return self.session
 
-SessionDep = Annotated[Session, Depends(get_session)]
-
-async def get_context(session: SessionDep):
-        """Context passed to all GraphQL functions. Give database access"""
-        return AppContext(settings=settings, session=session)
+async def get_context():
+    """Context passed to all GraphQL functions. Give database access"""
+    # Use async for to properly manage the async generator lifecycle
+    async for session in get_async_session():
+        lock = asyncio.Lock()
+        loaders = CatalogLoaders(session)
+        yield AppContext(settings=settings, _session=session, loaders=loaders, lock=lock)
+        # Session will be properly closed by the generator's cleanup
 
 # Créer le router GraphQL standard (cache géré par FastAPICache)
 graphql_app = GraphQLRouter(

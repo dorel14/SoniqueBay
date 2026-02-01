@@ -3,8 +3,8 @@ Router pour les recommandations basées sur les embeddings d'artistes.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from backend.api.utils.database import get_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.api.utils.database import get_async_session
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.utils.logging import logger
 
@@ -14,7 +14,7 @@ router = APIRouter()
 async def get_artist_recommendations(
     artist_id: int,
     limit: int = 10,
-    db: Session = Depends(get_session)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """
     Récupère les recommandations d'artistes similaires basées sur les embeddings.
@@ -31,7 +31,7 @@ async def get_artist_recommendations(
 async def get_track_recommendations(
     track_id: int,
     limit: int = 10,
-    db: Session = Depends(get_session)
+    db: AsyncSession = Depends(get_async_session)
 ):
     """
     Récupère les recommandations de pistes similaires basées sur les embeddings.

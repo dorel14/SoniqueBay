@@ -2,20 +2,42 @@ from nicegui import ui
 import httpx
 import math
 import os
+import asyncio
 from urllib.parse import urlparse, parse_qs
 from frontend.utils.logging import logger
 from frontend.utils.config import sonique_bay_logo
 from frontend.utils.app_state import get_state, update_artists_page_size
 
+# URL interne pour les appels API depuis le conteneur frontend
 API_URL = os.getenv('API_URL', 'http://api:8001')
+# URL publique pour les ressources chargées par le navigateur (images, etc.)
+# Par défaut localhost:8001 pour le développement Windows
+PUBLIC_API_URL = os.getenv('PUBLIC_API_URL', 'http://localhost:8001')
 
 
 async def get_page_from_url() -> int:
-    url = await ui.run_javascript('window.location.href', timeout=5.0)
-    logger.info(f"URL from JavaScript: {url}")
-    query = parse_qs(urlparse(url).query)
-    logger.info(f"Query parameters from URL: {query}")
-    return int(query.get("page", [1])[0])
+    client = ui.context.client
+    logger.info(f"DEBUG get_page_from_url: client_id={client.id if client else 'None'}, has_socket={client.has_socket_connection if client else 'N/A'}")
+
+    try:
+        # Attendre que le client soit prêt avec un timeout court
+        if client and not client.has_socket_connection:
+            logger.warning("DEBUG get_page_from_url: Client pas encore connecté, attente...")
+            await asyncio.sleep(0.5)
+
+        url = await ui.run_javascript('window.location.href', timeout=5.0)
+        logger.info(f"get_page_from_url: URL from JavaScript: {url}")
+        query = parse_qs(urlparse(url).query)
+        logger.info(f"get_page_from_url: Query parameters from URL: {query}")
+        page = int(query.get("page", [1])[0])
+        logger.info(f"get_page_from_url: returning page={page}")
+        return page
+    except TimeoutError as e:
+        logger.error(f"DEBUG get_page_from_url: TimeoutError - client_id={client.id if client else 'None'}")
+        logger.error(f"DEBUG get_page_from_url: Exception details: {e}")
+        # Fallback: retourner page 1 par défaut en cas de timeout
+        logger.warning("DEBUG get_page_from_url: Fallback vers page=1")
+        return 1
 
 
 async def get_artists(skip: int, limit: int):
@@ -48,7 +70,9 @@ async def get_artists(skip: int, limit: int):
 
 def on_artist_click(artistid):
     try:
-        logger.info(f"Navigation vers les détails de l'artiste {artistid}")
+        state = get_state()
+        state.last_artists_page = state.artists_page
+        logger.info(f"Navigation vers les détails de l'artiste {artistid} depuis la page {state.last_artists_page}")
         ui.navigate.to(f"/artist_details/{artistid}")
     except Exception as e:
         logger.error(f"Erreur lors de la navigation vers l'artiste {artistid}: {e}")
@@ -91,14 +115,15 @@ async def artist_component():
             nonlocal state, artists_column, spinner
             
             logger.info(f"DEBUG: artist_view appelée avec page={page}, last_rendered_page={state.last_rendered_page}, timestamp={__import__('time').time()}")
-            
+
             if page < 1 or page == state.last_rendered_page:
                 logger.info(f"DEBUG: Skipping render for page {page} as it's already rendered or invalid")
                 return
-            
+
             logger.info(f"DEBUG: Proceeding with render for page {page}")
-            
+
             state.artists_page = page
+            logger.info(f"artist_view: set state.artists_page to {page}")
             skip = (page - 1) * state.artists_page_size
             
             logger.info(f"DEBUG: Calculated skip={skip} for page={page}, page_size={state.artists_page_size}")
@@ -118,38 +143,30 @@ async def artist_component():
                             'sb-card cursor-pointer hover:scale-105 transition-all duration-200 '
                             'w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
                         ).on('click', lambda e, a=artist['id']: on_artist_click(a) ):
-                            
+
                             artist_id = artist['id']
                             if artist_id in state.covers_cache:
                                 logger.info(f"Cover trouvée dans le cache pour l'artiste {artist_id}")
-                                ui.image(state.covers_cache[artist_id]).classes('aspect-[4/3] w-full object-cover')
+                                ui.image(state.covers_cache[artist_id])\
+                                    .classes('aspect-[4/3] w-full object-cover')\
+                                    .props('loading=lazy')
                             else:
-                                cover_data = artist.get('covers')
-                                logger.info(f"Données de cover pour l'artiste {artist_id}: {cover_data}")
-                                if cover_data and len(cover_data) > 0:
-                                    cover_value = cover_data[0].get('cover_data', '')
-                                    mime_type = cover_data[0].get('mime_type', 'image/png')
-                                    
-                                    if cover_value:
-                                        if cover_value.startswith('data:image/'):
-                                            state.covers_cache[artist_id] = cover_value
-                                            ui.image(cover_value).classes('aspect-[4/3] w-full object-cover')
-                                        else:
-                                            try:
-                                                base64_data = f"data:{mime_type};base64,{cover_value}"
-                                                state.covers_cache[artist_id] = base64_data
-                                                logger.info(f"Cover mise en cache pour l'artiste {artist_id}")
-                                                ui.image(base64_data).classes('aspect-[4/3] w-full object-cover')
-                                            except Exception as e:
-                                                logger.error(f"Erreur lors de la conversion base64 pour l'artiste {artist_id}: {e}")
-                                                ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
-                                    else:
-                                        logger.warning(f"cover_data est vide pour l'artiste {artist_id}")
-                                        ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
+                                covers= artist.get('covers')
+                                logger.info(f"Données de cover pour l'artiste {artist_id}: {covers}")
+                                if covers and covers[0].get('url'):
+                                    # Utiliser PUBLIC_API_URL pour les URLs accessibles par le navigateur
+                                    cover_url = f"{PUBLIC_API_URL}/api/covers/artist/{artist_id}"
+                                    logger.info(f"Cover trouvée pour l'artiste {artist_id}: {cover_url}")
+                                    state.covers_cache[artist_id] = cover_url
+                                    ui.image(cover_url)\
+                                                .classes('aspect-[4/3] w-full object-cover')\
+                                                .props('loading=lazy')
                                 else:
-                                    logger.warning(f"Aucun cover trouvé pour l'artiste {artist_id}, utilisation du logo par défaut.")
-                                    ui.image(sonique_bay_logo).classes('aspect-[4/3] w-full object-cover')
-                            
+                                        logger.warning(f"cover_data est vide pour l'artiste {artist_id}")
+                                        ui.image(sonique_bay_logo)\
+                                            .classes('aspect-[4/3] w-full object-cover')\
+                                            .props('loading=lazy')\
+                                            .tooltip("Aucun cover disponible")
                             with ui.card_section().classes(
                                 'sb-card flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'):
                                 label = ui.label(artist['name']).classes(
@@ -162,7 +179,7 @@ async def artist_component():
                                     ui.icon('o_favorite_border').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
             
             spinner.visible = False
-            #ui.run_javascript(f'window.history.replaceState(null, "", "?page={state.artists_page}")')
+            ui.run_javascript(f'window.history.replaceState(null, "", "?page={state.artists_page}")')
             pagination_section.refresh()
             state.last_rendered_page = page
         
@@ -200,6 +217,8 @@ async def artist_component():
         
         # Initialisation de la pagination
         pagination_section()
-        
-        # Lancer la première page au démarrage (toujours page 1)
-        await artist_view(1)
+
+        # Lancer la page initiale depuis l'URL ou page 1 par défaut
+        initial_page = await get_page_from_url()
+        logger.info(f"artist_component: initial_page={initial_page}")
+        await artist_view(initial_page)

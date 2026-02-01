@@ -1,256 +1,263 @@
-from nicegui import ui, PageArguments
+from nicegui import ui
 import httpx
 import os
-from urllib.parse import urlparse, parse_qs
+import datetime
 from frontend.utils.config import sonique_bay_logo
 from frontend.utils.logging import logger
+from frontend.utils.app_state import get_state
 
 from frontend.services.artist_service import ArtistService
 
 api_url = os.getenv('API_URL', 'http://api:8001')
+PUBLIC_API_URL = os.getenv('PUBLIC_API_URL', 'http://localhost:8001')
 
+async def get_artist_details(artist_id: int) -> dict | None:
+    """Récupère les informations complètes d'un artiste (infos, albums, pistes) via GraphQL.
 
-async def get_artist_info(artist_id: int):
-    """Récupère les informations d'un artiste depuis l'API via GraphQL."""
+    Args:
+        artist_id: L'identifiant de l'artiste.
+
+    Returns:
+        Un dictionnaire contenant les données de l'artiste ou None si non trouvé.
+    """
+    logger.info(f"get_artist_details() :: Récupération des données pour l'artiste {artist_id}")
+
     query = '''
-    query GetArtist($artistId: Int!) {
+    query GetArtistDetails($artistId: Int!) {
         artist(id: $artistId) {
             id
             name
             covers {
-                cover_data
-                mime_type
+                url
             }
             albums {
                 id
                 title
-                release_year
+                releaseYear
                 covers {
-                    cover_data
-                    mime_type
+                    url
+                }
+                tracks {
+                    id
+                    trackNumber
+                    title
+                    duration
                 }
             }
         }
     }
     '''
-    
+
     variables = {'artistId': artist_id}
-    
+
     try:
         result = await ArtistService.query_graphql(query, variables)
+        logger.debug(f"get_artist_details() :: Résultat GraphQL pour l'artiste {artist_id}: {result}")
+
         if result and 'artist' in result:
             return result['artist']
-        logger.error(f"Aucun artiste trouvé avec l'ID {artist_id}")
+
+        logger.error(f"get_artist_details() :: Aucun artiste trouvé avec l'ID {artist_id}")
         return None
+
     except Exception as e:
-        logger.error(f"Erreur GraphQL pour l'artiste {artist_id}: {e}")
-        # Fallback vers REST si GraphQL échoue
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{api_url}/api/artists/{artist_id}")
-            if response.status_code == 200:
-                return response.json()
+        logger.error(f"get_artist_details() :: Erreur GraphQL pour l'artiste {artist_id}: {e}")
+        return await _get_artist_details_fallback_rest(artist_id)
+
+
+async def _get_artist_details_fallback_rest(artist_id: int) -> dict | None:
+    """Fallback REST pour récupérer les détails d'un artiste si GraphQL échoue.
+
+    Args:
+        artist_id: L'identifiant de l'artiste.
+
+    Returns:
+        Un dictionnaire structuré comme la réponse GraphQL ou None si échec.
+    """
+    logger.info(f"_get_artist_details_fallback_rest() :: Fallback REST pour l'artiste {artist_id}")
+
+    async with httpx.AsyncClient() as client:
+        # Récupérer les infos de base de l'artiste
+        artist_response = await client.get(f"{api_url}/api/artists/{artist_id}")
+        if artist_response.status_code != 200:
+            logger.error(f"Fallback REST échoué pour l'artiste {artist_id}")
             return None
 
-async def get_artist_albums(artist_id: int):
-    """Récupère les albums d'un artiste depuis l'API via GraphQL."""
-    query = '''
-    query GetArtistAlbums($artistId: Int!) {
-        artist(id: $artistId) {
-            albums {
-                id
-                title
-                release_year
-                covers {
-                    cover_data
-                    mime_type
-                }
-            }
-        }
-    }
-    '''
-    
-    variables = {'artistId': artist_id}
-    
-    try:
-        result = await ArtistService.query_graphql(query, variables)
-        if result and 'artist' in result and result['artist']:
-            return result['artist']['albums']
-        logger.error(f"Aucun album trouvé pour l'artiste {artist_id}")
-        return []
-    except Exception as e:
-        logger.error(f"Erreur GraphQL pour les albums de l'artiste {artist_id}: {e}")
-        # Fallback vers REST si GraphQL échoue
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{api_url}/api/albums/artists/{artist_id}")
-            if response.status_code == 200:
-                return response.json()
-            return []
+        artist_data = artist_response.json()
 
-async def get_artist_tracks(artist_id: int, album_id: int = None):
-    """Récupère les pistes d'un artiste depuis l'API via GraphQL."""
-    if album_id:
-        query = '''
-        query GetAlbumTracks($artistId: Int!, $albumId: Int!) {
-            artist(id: $artistId) {
-                albums(where: {id: {eq: $albumId}}) {
-                    tracks {
-                        id
-                        title
-                        duration
-                    }
-                }
-            }
-        }
-        '''
-        variables = {'artistId': artist_id, 'albumId': album_id}
-    else:
-        query = '''
-        query GetArtistTracks($artistId: Int!) {
-            artist(id: $artistId) {
-                albums {
-                    tracks {
-                        id
-                        title
-                        duration
-                    }
-                }
-            }
-        }
-        '''
-        variables = {'artistId': artist_id}
-    
-    try:
-        result = await ArtistService.query_graphql(query, variables)
-        if result and 'artist' in result and result['artist']:
+        # Récupérer les albums
+        albums_response = await client.get(f"{api_url}/api/albums/artists/{artist_id}")
+        albums = albums_response.json() if albums_response.status_code == 200 else []
+
+        # Pour chaque album, récupérer les pistes
+        for album in albums:
+            album_id = album.get('id')
             if album_id:
-                if result['artist']['albums']:
-                    return result['artist']['albums'][0]['tracks']
-            else:
-                tracks = []
-                for album in result['artist']['albums']:
-                    tracks.extend(album['tracks'])
-                return tracks
-        logger.error(f"Aucune piste trouvée pour l'artiste {artist_id}")
-        return []
-    except Exception as e:
-        logger.error(f"Erreur GraphQL pour les pistes de l'artiste {artist_id}: {e}")
-        # Fallback vers REST si GraphQL échoue
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{api_url}/api/tracks/artists/{artist_id}/albums/{album_id}" if album_id else f"{api_url}/api/tracks/artists/{artist_id}")
-            if response.status_code == 200:
-                return response.json()
-            return []
-@ui.refreshable
-async def artist_tracks_container(artist_id: int, album_id: int = None):
-    # Si aucun album sélectionné, ne rien afficher ou afficher toutes les pistes
-    
-    if not album_id:
-        ui.label("Sélectionnez un album pour voir ses pistes.").classes('italic text-gray-500')
-        return
+                tracks_response = await client.get(f"{api_url}/api/tracks/artists/{artist_id}/albums/{album_id}")
+                album['tracks'] = tracks_response.json() if tracks_response.status_code == 200 else []
 
-    tracks_data = await get_artist_tracks(artist_id, album_id)
-    if not tracks_data:
-        ui.label("Aucune piste trouvée pour cet album.").classes("text-red-500")
-        return
-
-    with ui.card().classes('w-full max-w-4xl  p-4 bordered bg-base-200 mt-4'):
-        #ui.label(f"Pistes de l'album {album_id}").classes('text-xl font-bold mb-4')
-
-        ui.table(columns=[
-            {'name': 'title', 'label': 'Titre', 'field': 'title', 'sortable': True},
-            {'name': 'duration', 'label': 'Durée', 'field': 'duration', 'sortable': True},
-        ],
-            rows=tracks_data,
-            row_key='id')
+        artist_data['albums'] = albums
+        return artist_data
 
 
+def format_duration(seconds: float) -> str:
+    """Convertit une durée en secondes en format MM:SS ou HH:MM:SS.
+
+    Args:
+        seconds: Durée en secondes.
+
+    Returns:
+        Chaîne formatée (MM:SS si < 60min, sinon HH:MM:SS).
+    """
+    try:
+        seconds = int(seconds)
+        if seconds < 3600:  # Moins de 60 minutes
+            minutes, secs = divmod(seconds, 60)
+            return f"{minutes:02d}:{secs:02d}"
+        else:  # 60 minutes ou plus
+            delta = datetime.timedelta(seconds=seconds)
+            return str(delta)
+    except (ValueError, TypeError):
+        return "00:00"
 
 @ui.refreshable
-async def artist_container(artist_id: int):
-    artist_data = await get_artist_info(artist_id)
-    artist_container = ui.element('div').classes('w-full').props('id=artist-zone')
-    with artist_container:
-        with ui.card().classes('w-full bg-primary text-gray-10 p-4'):
+async def artist_container(artist_id: int) -> None:
+    """Affiche les détails d'un artiste avec ses albums et pistes.
+
+    Args:
+        artist_id: L'identifiant de l'artiste à afficher.
+    """
+    logger.info(f"artist_container() :: Affichage de l'artiste {artist_id}")
+
+    # Une seule requête GraphQL pour tout récupérer
+    artist_data = await get_artist_details(artist_id)
+
+    if artist_data is None:
+        ui.label("Impossible de charger les informations de l'artiste.").classes("text-red-500")
+        logger.error(f"artist_container() :: artist_data est None pour l'artiste {artist_id}")
+        return
+
+    albums_list = artist_data.get('albums', [])
+
+    with ui.element('div').classes('w-full').props('id=artist-zone'):
+        # Carte d'en-tête avec photo et infos
+        with ui.card().classes('w-full sb-card-artist flex gap-6 items-center'):
             with ui.row().classes('w-full items-center gap-4 p-4'):
                 # Zone photo artiste
-                with ui.card().classes('w-48 h-48'):
+                with ui.card().classes('w-48 h-48 rounded-xl bg-white p-2'):
                     try:
-                        if artist_data and artist_data['covers']:
-                            cover_value = artist_data['covers'][0]['cover_data']
-                            mime_type = artist_data['covers'][0].get('mime_type', 'image/png')
-
-                            # Vérifier si c'est une URL base64 valide
-                            if cover_value and not cover_value.startswith('data:image/'):
-                                # Les données semblent être des données base64 brutes, les formater correctement
-                                cover_data = f"data:{mime_type};base64,{cover_value}"
-                                logger.info(f"Conversion base64 réussie pour l'artiste {artist_id}")
-                            else:
-                                cover_data = cover_value
+                        if artist_data.get('covers'):
+                            cover_url = f"{PUBLIC_API_URL}/api/covers/artist/{artist_id}"
                         else:
                             logger.warning(f"Aucun cover trouvé pour l'artiste {artist_id}, utilisation du logo par défaut.")
-                            cover_data = sonique_bay_logo
+                            cover_url = sonique_bay_logo
                     except (IndexError, KeyError, TypeError) as e:
-                        logger.warning(f"Erreur lors de l'extraction du cover pour l'artiste {artist_id}: {e}, utilisation du logo par défaut.")
-                        cover_data = sonique_bay_logo
-                    ui.image(cover_data).classes('w-full h-full object-cover')
+                        logger.warning(f"Erreur lors de l'extraction du cover pour l'artiste {artist_id}: {e}")
+                        cover_url = sonique_bay_logo
+
+                    ui.image(cover_url).classes('w-full h-full object-cover').props('loading=lazy')
+
                 # Zone infos artiste
                 with ui.column().classes('flex-grow'):
                     ui.label(artist_data['name']).classes('text-2xl font-bold text-gray-100')
-                    ui.separator()
+                    ui.separator().classes('opacity-20 my-1')
                     with ui.row().classes('gap-4 text-sm mt-2 text-gray-100'):
-                        albums_count = ui.label()
-                        ui.label()
-                        albums_count.set_text(f"Albums: {len(artist_data.get('albums', []))}")
-        with ui.row().classes('w-full items-center justify-between mt-4'):
-            albums_list = await get_artist_albums(artist_id)
-            if albums_list:
-                with ui.grid(columns='repeat(auto-fill, minmax(200px, 1fr))').classes('gap-4 p-4 w-full justify-center'):
-                    for album in albums_list:
-                        album_id_value = album.get('id')
-                        with ui.card().tight().classes(
-                            'cursor-pointer hover:scale-105 transition-all duration-200 w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
-                        ).on('click', lambda artist_id=artist_id, album_id=album_id_value: artist_tracks_container.refresh(artist_id=artist_id, album_id=album_id)):
-                            # Check if album is a dictionary before calling get()
-                            if isinstance(album, dict):
-                                if album.get('covers') and isinstance(album.get('covers'), list) and len(album.get('covers')) > 0:
-                                    cover_value = album['covers'][0].get('cover_data', '')
-                                    mime_type = album['covers'][0].get('mime_type', 'image/png')
+                        ui.label(f"Albums: {len(albums_list)}")
 
-                                    # Vérifier si c'est une URL base64 valide
-                                    if cover_value and not cover_value.startswith('data:image/'):
-                                        # Les données semblent être des données base64 brutes, les formater correctement
-                                        cover_data = f"data:{mime_type};base64,{cover_value}"
-                                        logger.info(f"Conversion base64 réussie pour l'album {album.get('title', 'inconnu')}")
-                                    else:
-                                        cover_data = cover_value
-                                else:
-                                    logger.warning(f"Aucun cover trouvé pour l'album {album.get('title', 'inconnu')}, utilisation du logo par défaut.")
-                                    cover_data = sonique_bay_logo
-                            else:
-                                logger.error(f"Unexpected album type: {type(album)}")
-                                cover_data = sonique_bay_logo # provide a default
-                            ui.image(cover_data).classes('aspect-[4/3] w-full object-cover')
-                            ui.separator()
-                            with ui.card_section().classes(
-                                'flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'
-                            ):
-                                ui.label(album['title']).classes('text-sm font-semibold text-gray-20')
-                                ui.label(f"Année: {album.get('release_year', 'N/A')}").classes('text-sm text-gray-600')
-                            with ui.card_actions().classes('w-full justify-end mt-3'):
-                                ui.icon('play_circle_outline').classes('text-xl cursor-pointer')
-                                ui.icon('o_favorite_border').classes('text-xl cursor-pointer')
-            else:
+        # Liste des albums
+        with ui.row().classes('w-full items-center justify-between mt-4'):
+            if not albums_list:
                 ui.label("Aucun album trouvé pour cet artiste.").classes("text-red-500")
+            else:
+                for album in albums_list:
+                    await _render_album_expansion(album)
+
         ui.separator().classes('my-4')
 
+
+async def _render_album_expansion(album: dict) -> None:
+    """Rend l'expansion d'un album avec ses pistes.
+
+    Args:
+        album: Dictionnaire contenant les données de l'album (id, title, covers, tracks).
+    """
+    if not isinstance(album, dict):
+        logger.error(f"_render_album_expansion() :: Type d'album inattendu: {type(album)}")
+        return
+
+    album_title = album.get('title', 'Album inconnu')
+    tracks_data = album.get('tracks', [])
+
+    with ui.expansion(album_title).classes('w-full text-white').props('dense expand-separator duration:10') as expansion:
+        # Header de l'expansion avec cover
+        with expansion.add_slot('header'):
+            with ui.grid(columns='auto 1fr').classes('w-full flex-wrap align-start gap-2'):
+                # Récupération du cover
+                cover_url = sonique_bay_logo
+                try:
+                    covers = album.get('covers')
+                    if covers and isinstance(covers, list) and len(covers) > 0:
+                        cover_url = f"{PUBLIC_API_URL}/api/covers/album/{album.get('id')}"
+                        logger.info(f"Cover URL généré pour l'album {album_title}: {cover_url}")
+                except (KeyError, TypeError) as e:
+                    logger.warning(f"Erreur cover pour l'album {album_title}: {e}")
+
+                ui.image(cover_url).classes('aspect-[4/3] w-16 object-cover').props('loading=lazy')
+                ui.label(album_title).classes('text-white')
+
+        # Contenu: liste des pistes
+        if not tracks_data:
+            ui.label("Aucune piste trouvée pour cet album.").classes("text-red-500")
+            return
+
+        # Formatage des pistes avec durée
+        formatted_tracks = []
+        for track in tracks_data:
+            try:
+                track['duration_formatted'] = format_duration(track.get('duration', 0))
+                formatted_tracks.append(track)
+            except Exception as e:
+                logger.error(f"Erreur formatage durée pour la piste {track.get('title', 'inconnu')}: {e}")
+                track['duration_formatted'] = "00:00"
+                formatted_tracks.append(track)
+
+        # Tableau des pistes
+        tracks_table = ui.table(
+            columns=[
+                {'name': 'track_number', 'label': 'N°', 'field': 'trackNumber', 'sortable': True},
+                {'name': 'title', 'label': 'Titre', 'field': 'title', 'sortable': True},
+                {'name': 'duration_formatted', 'label': 'Durée', 'field': 'duration_formatted', 'sortable': True},
+                {'name': 'action', 'label': 'Action', 'align': 'center'},
+            ],
+            rows=formatted_tracks,
+            row_key='id',
+            column_defaults={
+                'align': 'left',
+                'headerClasses': 'uppercase text-black font-bold',
+            },
+        ).classes('sb-table-tracks w-full').props('flat bordered dense')
+
+        # Slot pour les actions
+        with tracks_table.add_slot('body-cell-action'):
+            with tracks_table.cell('action'):
+                with ui.row().classes('left-0 gap-3 w-full'):
+                    ui.icon('play_circle_outline').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
+                    ui.icon('o_favorite_border').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
+
+
 async def artist_details_page(artist_id: int):
+    def go_back():
+        state = get_state()
+        logger.info(f"Retour aux artistes, last_artists_page={state.last_artists_page}")
+        ui.run_javascript(f"window.location.href = '/?page={state.last_artists_page}'")
+
     with ui.column().classes('w-full p-4'):
-        ui.link('Retour à la liste des artistes',   ('/')).classes('')
+        ui.button('Retour aux artistes', icon='arrow_back', on_click=go_back)\
+            .props('outline rouded dense')\
+            .classes('sb-subtitle p-2 m-2 shadow-xl/10 shadow-indigo-500/50')
         ui.separator().classes('my-4')
         logger.info(f"DEBUG: artist_details_page() appelée avec artist_id={artist_id}")
         if artist_id:
             await artist_container(artist_id)
-            with ui.row().classes('w-full justify-between'):
-                await artist_tracks_container(artist_id=artist_id, album_id=None)
         else:
             ui.label("Aucun artiste sélectionné.").classes("text-red-500")

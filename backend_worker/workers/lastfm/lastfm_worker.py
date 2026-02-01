@@ -51,7 +51,7 @@ def fetch_artist_lastfm_info(self, artist_id: int) -> Dict[str, Any]:
             asyncio.get_running_loop()
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                artist_name, mb_artist_id = executor.submit(asyncio.run, get_artist_name()).result()
+                artist_name, mb_artist_id = executor.submit(lambda: asyncio.run(get_artist_name())).result()
         except RuntimeError:
             artist_name, mb_artist_id = asyncio.run(get_artist_name())
 
@@ -148,7 +148,7 @@ def fetch_similar_artists(self, artist_id: int, limit: int = 10) -> Dict[str, An
             asyncio.get_running_loop()
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                artist_name, mb_artist_id = executor.submit(asyncio.run, get_artist_name()).result()
+                artist_name, mb_artist_id = executor.submit(lambda: asyncio.run(get_artist_name())).result()
         except RuntimeError:
             artist_name, mb_artist_id = asyncio.run(get_artist_name())
 
@@ -238,8 +238,8 @@ def batch_fetch_lastfm_info(self, artist_ids: List[int], include_similar: bool =
         # Process artists sequentially to avoid overwhelming the API
         for artist_id in artist_ids:
             try:
-                # Fetch artist info
-                info_result = fetch_artist_lastfm_info.apply(args=[artist_id])
+                # Fetch artist info (appel direct de la fonction, pas via apply())
+                info_result = fetch_artist_lastfm_info(artist_id)
                 info_success = info_result.get('success', False)
 
                 artist_result = {
@@ -249,8 +249,8 @@ def batch_fetch_lastfm_info(self, artist_ids: List[int], include_similar: bool =
                 }
 
                 if info_success and include_similar:
-                    # Fetch similar artists
-                    similar_result = fetch_similar_artists.apply(args=[artist_id])
+                    # Fetch similar artists (appel direct de la fonction)
+                    similar_result = fetch_similar_artists(artist_id)
                     similar_success = similar_result.get('success', False)
                     artist_result["similar_fetched"] = similar_success
 

@@ -9,23 +9,26 @@ Refactorisé pour utiliser la nouvelle architecture de tâches Celery :
 import os
 import time
 from pathlib import Path
+from typing import Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.utils.logging import logger
 from backend.api.models.scan_sessions_model import ScanSession
-from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 
 class ScanService:
     """Service métier pour la gestion des scans de bibliothèque musicale."""
-    
+
     @staticmethod
     def convert_path_to_docker(input_path: str) -> str:
         """Convertit un chemin utilisateur en chemin Docker.
-        
+
         Args:
             input_path: Chemin fourni par l'utilisateur
-            
+
         Returns:
             Chemin converti pour l'environnement Docker
         """
@@ -43,12 +46,12 @@ class ScanService:
     @staticmethod
     def validate_base_directory(directory: str) -> None:
         """Valide le répertoire de base pour le scan.
-        
+
         Interdit les racines système et limite la profondeur du répertoire.
-        
+
         Args:
             directory: Chemin du répertoire à valider
-            
+
         Raises:
             ValueError: Si le répertoire n'est pas valide
         """
@@ -82,23 +85,25 @@ class ScanService:
         logger.info(f"[SCAN] Validation base_directory réussie: {resolved_str} (profondeur: {depth})")
 
     @staticmethod
-    def launch_scan(directory: str = None, db: Session = None, cleanup_deleted: bool = False):
+    async def launch_scan(
+        directory: str = None, db: AsyncSession = None, cleanup_deleted: bool = False
+    ):
         """Lance un scan de la bibliothèque musicale.
-        
+
         Utilise la nouvelle architecture de tâches Celery avec scan.discovery.
         Le paramètre cleanup_deleted est ignoré pour compatibilité (déprécié).
-        
+
         Args:
             directory: Répertoire à scanner (optionnel, utilise MUSIC_PATH si None)
             db: Session de base de données (optionnel)
             cleanup_deleted: Paramètre déprécié, ignoré pour compatibilité
-            
+
         Returns:
             Dict avec task_id et status du scan
         """
         start_time = time.time()
         logger.info(f"[SCAN] Démarrage du scan - répertoire: {directory or 'par défaut'}")
-        
+
         # DIAGNOSTIC: Variables d'environnement
         logger.info("[SCAN] === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
         for key in sorted(os.environ.keys()):
@@ -127,7 +132,7 @@ class ScanService:
         if not os.path.exists(resolved_docker_directory):
             logger.error(f"[SCAN] Répertoire non trouvé: {resolved_docker_directory}")
             raise FileNotFoundError(f"Le répertoire {resolved_docker_directory} n'est pas accessible")
-        
+
         try:
             os.listdir(resolved_docker_directory)
         except PermissionError:
@@ -139,14 +144,16 @@ class ScanService:
 
         # Vérifier scan existant
         if db:
-            existing_scan = db.query(ScanSession).filter(
-                ScanSession.directory == resolved_docker_directory,
-                ScanSession.status.in_(['running', 'paused'])
-            ).first()
+            result = await db.execute(
+                select(ScanSession).where(
+                    ScanSession.directory == resolved_docker_directory,
+                    ScanSession.status.in_(['running', 'paused'])
+                )
+            )
+            existing_scan = result.scalars().first()
             if existing_scan:
                 logger.warning(f"[SCAN] Scan déjà actif pour {resolved_docker_directory}")
                 return {"task_id": existing_scan.task_id, "status": "Scan déjà en cours", "resume": True}
-
 
         # Test connectivité Redis
         try:
@@ -197,20 +204,20 @@ class ScanService:
             if db:
                 scan_session = ScanSession(directory=resolved_docker_directory, status='running')
                 db.add(scan_session)
-                db.commit()
-                db.refresh(scan_session)
+                await db.commit()
+                await db.refresh(scan_session)
                 logger.info(f"[SCAN] Session créée: {scan_session.id}")
 
                 # Mettre à jour avec task_id
                 scan_session.task_id = result.id
-                db.commit()
+                await db.commit()
                 logger.info(f"[SCAN] Session mise à jour - task_id: {result.id}")
 
             duration = time.time() - start_time
             logger.info(f"[SCAN] Scan lancé avec succès en {duration:.2f}s")
-            
+
             return {
-                "task_id": result.id, 
+                "task_id": result.id,
                 "status": f"Scan lancé avec succès sur {resolved_docker_directory}",
                 "duration": duration,
                 "architecture": "nouvelle"

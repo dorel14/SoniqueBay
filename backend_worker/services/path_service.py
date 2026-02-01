@@ -1,6 +1,7 @@
 import os
 import httpx
 import json
+
 from typing import Optional,  List
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
@@ -20,7 +21,7 @@ async def get_artist_path(artist_name: str, full_path: str) -> Optional[str]:
     return await path_service.get_artist_path(artist_name, full_path)
 
 class PathService:
-    def __init__(self, api_url: str = os.getenv('API_URL', 'http://localhost:8001')):
+    def __init__(self, api_url: str = os.getenv('API_URL', 'http://api:8001')):
         self.api_url = api_url
         self.settings_service = SettingsService(api_url)
 
@@ -51,7 +52,7 @@ class PathService:
         """Cherche les images dans un dossier."""
         try:
             if not os.path.exists(directory):
-                logger.debug(f"Dossier non trouvé: {directory}")
+                logger.warning(f"[PATH_SERVICE] Dossier non trouvé: {directory}")
                 return None
 
             # Si image_type est une liste, l'utiliser directement
@@ -62,17 +63,19 @@ class PathService:
                 setting_key = ALBUM_COVER_FILES if image_type == "album" else ARTIST_IMAGE_FILES
                 image_files = json.loads(await self.settings_service.get_setting(setting_key))
 
+            logger.info(f"[PATH_SERVICE] Recherche images {image_type} dans {directory}: {image_files}")
+            
             for image_name in image_files:
                 image_path = (Path(directory) / image_name).as_posix()  # Use POSIX style paths
                 if os.path.isfile(image_path):
-                    logger.debug(f"Image trouvée: {image_path}")
+                    logger.info(f"[PATH_SERVICE] Image trouvée: {image_path}")
                     return image_path
 
-            logger.debug(f"Aucune image trouvée dans {directory}")
+            logger.warning(f"[PATH_SERVICE] Aucune image trouvée dans {directory}")
             return None
 
         except Exception as e:
-            logger.error(f"Erreur recherche image dans {directory}: {e}")
+            logger.error(f"[PATH_SERVICE] Erreur recherche image dans {directory}: {e}")
             return None
 
     @classmethod

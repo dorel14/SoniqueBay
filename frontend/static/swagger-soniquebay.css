@@ -1,0 +1,66 @@
+/* Root */
+.swagger-ui {
+    background: #020617;
+    color: #F1F5F9;
+    font-family: Inter, system-ui, sans-serif;
+}
+
+/* Topbar */
+.swagger-ui .topbar {
+    background: #0F172A;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+/* Section titles */
+.swagger-ui .opblock-tag {
+    color: #E0E7FF;
+    font-weight: 700;
+}
+
+/* Endpoint blocks */
+.swagger-ui .opblock {
+    background: #0F172A;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.08);
+    margin-bottom: 1rem;
+}
+
+/* GET / POST colors harmonisées */
+.swagger-ui .opblock.opblock-get {
+    border-left: 4px solid #6366F1;
+}
+.swagger-ui .opblock.opblock-post {
+    border-left: 4px solid #8B5CF6;
+}
+
+/* Headers */
+.swagger-ui .opblock-summary {
+    background: rgba(99,102,241,.08);
+}
+
+/* Buttons */
+.swagger-ui .btn {
+    background: #6366F1;
+    color: white;
+    border-radius: 8px;
+    border: none;
+}
+
+.swagger-ui .btn:hover {
+    background: #4F46E5;
+}
+
+/* Inputs */
+.swagger-ui input,
+.swagger-ui textarea,
+.swagger-ui select {
+    background: #020617;
+    color: #F1F5F9;
+    border: 1px solid rgba(255,255,255,.12);
+}
+
+/* Responses */
+.swagger-ui .responses-inner {
+    background: #020617;
+    border-radius: 8px;
+}

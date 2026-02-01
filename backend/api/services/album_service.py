@@ -1,391 +1,410 @@
-from backend.api.models.albums_model import Album as AlbumModel
-from backend.api.models.tracks_model import Track as TrackModel
-from backend.api.schemas.covers_schema import Cover
-from backend.api.schemas.albums_schema import AlbumCreate, AlbumUpdate, AlbumWithRelations
-from sqlalchemy import func, or_
-from sqlalchemy.orm import joinedload
-from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
+"""
+Service layer for Album entity operations.
+
+This module provides business logic for album-related operations,
+separating concerns from the API layer.
+
+Dependencies:
+    - SQLAlchemy: Database ORM operations
+    - backend.models: Album model definition
+
+Author: SoniqueBay Team
+"""
+
+from collections import defaultdict
+from typing import List, Optional
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+from backend.api.models import Album, Track
+
 
 class AlbumService:
-    def __init__(self, db):
+    """
+    Service class for album operations.
+
+    Encapsulates business logic for album CRUD operations and queries,
+    providing a clean interface between the API and database layers.
+
+    Attributes:
+        db: AsyncSession instance for database operations
+    """
+
+    def __init__(self, db: AsyncSession):
+        """
+        Initialize the album service.
+
+        Args:
+            db: Async SQLAlchemy session for database operations
+        """
         self.db = db
 
-    def search_albums(self, title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid, skip=0, limit=None):
-        query = self.db.query(AlbumModel)
-        if title:
-            query = query.filter(func.lower(AlbumModel.title).like(f"%{title.lower()}%"))
-        if artist_id:
-            query = query.filter(AlbumModel.album_artist_id == artist_id)
-        if musicbrainz_albumid:
-            query = query.filter(AlbumModel.musicbrainz_albumid == musicbrainz_albumid)
-        if musicbrainz_albumartistid:
-            query = query.filter(AlbumModel.musicbrainz_albumartistid == musicbrainz_albumartistid)
+    async def create_album(
+        self,
+        title: str,
+        artist_id: int,
+        release_year: Optional[int] = None,
+        cover_url: Optional[str] = None,
+    ) -> Album:
+        """
+        Create a new album.
 
-        # Appliquer la pagination
-        if limit is not None:
-            query = query.offset(skip).limit(limit)
+        Args:
+            title: Album title (required)
+            artist_id: ID of the artist (required)
+            release_year: Optional release year
+            cover_url: Optional URL to album cover
 
-        albums = query.all()
+        Returns:
+            Album: Created album instance
+        """
+        album = Album(
+            title=title,
+            album_artist_id=artist_id,
+            release_year=release_year,
+            cover_url=cover_url,
+        )
+        self.db.add(album)
+        await self.db.commit()
+        await self.db.refresh(album)
+        return album
+
+    async def read_albums(self, skip: int = 0, limit: int = 100) -> List[Album]:
+        """
+        Retrieve a list of albums with pagination.
+
+        Args:
+            skip: Number of records to skip (offset)
+            limit: Maximum number of records to return
+
+        Returns:
+            List[Album]: List of album instances
+        """
+        result = await self.db.execute(
+            select(Album).order_by(Album.title).offset(skip).limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def read_album(self, album_id: int) -> Optional[Album]:
+        """
+        Retrieve a single album by ID.
+
+        Args:
+            album_id: Unique identifier for the album
+
+        Returns:
+            Optional[Album]: Album instance if found, None otherwise
+        """
+        result = await self.db.execute(
+            select(Album).where(Album.id == album_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def read_album_with_tracks(self, album_id: int) -> Optional[Album]:
+        """
+        Retrieve a single album by ID with tracks eagerly loaded.
+
+        Args:
+            album_id: Unique identifier for the album
+
+        Returns:
+            Optional[Album]: Album instance with tracks if found, None otherwise
+        """
+        result = await self.db.execute(
+            select(Album)
+            .where(Album.id == album_id)
+            .options(selectinload(Album.tracks))
+        )
+        return result.scalar_one_or_none()
+
+    async def read_album_with_relations(self, album_id: int) -> Optional[Album]:
+        """
+        Retrieve a single album by ID with all relations eagerly loaded.
+
+        Args:
+            album_id: Unique identifier for the album
+
+        Returns:
+            Optional[Album]: Album instance with all relations if found, None otherwise
+        """
+        result = await self.db.execute(
+            select(Album)
+            .where(Album.id == album_id)
+            .options(
+                selectinload(Album.artist),
+                selectinload(Album.tracks),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def update_album(
+        self,
+        album_id: int,
+        title: Optional[str] = None,
+        release_year: Optional[int] = None,
+        cover_url: Optional[str] = None,
+    ) -> Optional[Album]:
+        """
+        Update an existing album.
+
+        Args:
+            album_id: Unique identifier for the album
+            title: Optional new title
+            release_year: Optional new release year
+            cover_url: Optional new cover URL
+
+        Returns:
+            Optional[Album]: Updated album instance if found, None otherwise
+        """
+        album = await self.read_album(album_id)
+        if album:
+            if title is not None:
+                album.title = title
+            if release_year is not None:
+                album.release_year = release_year
+            if cover_url is not None:
+                album.cover_url = cover_url
+            await self.db.commit()
+            await self.db.refresh(album)
+        return album
+
+    async def delete_album(self, album_id: int) -> bool:
+        """
+        Delete an album by ID.
+
+        Args:
+            album_id: Unique identifier for the album to delete
+
+        Returns:
+            bool: True if deleted, False if not found
+        """
+        album = await self.read_album(album_id)
+        if album:
+            await self.db.delete(album)
+            await self.db.commit()
+            return True
+        return False
+
+    async def search_albums(self, query: str, limit: int = 20) -> List[Album]:
+        """
+        Search albums by title.
+
+        Args:
+            query: Search string to match against album titles
+            limit: Maximum number of results to return
+
+        Returns:
+            List[Album]: List of matching albums
+        """
+        search_pattern = f"%{query}%"
+        result = await self.db.execute(
+            select(Album)
+            .where(Album.title.ilike(search_pattern))
+            .order_by(Album.title)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def count_albums(self) -> int:
+        """
+        Get total count of albums.
+
+        Returns:
+            int: Total number of albums in the database
+        """
+        result = await self.db.execute(select(func.count(Album.id)))
+        count = result.scalar()
+        return count if count is not None else 0
+
+    async def get_albums_by_artist(
+        self, artist_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Album]:
+        """
+        Get albums for a specific artist.
+
+        Args:
+            artist_id: Unique identifier for the artist
+            skip: Number of records to skip (offset)
+            limit: Maximum number of records to return
+
+        Returns:
+            List[Album]: List of album instances for the artist
+        """
+        result = await self.db.execute(
+            select(Album)
+            .where(Album.album_artist_id == artist_id)
+            .order_by(Album.title)
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_album_tracks(
+        self, album_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Track]:
+        """
+        Get tracks for a specific album.
+
+        Args:
+            album_id: Unique identifier for the album
+            skip: Number of records to skip (offset)
+            limit: Maximum number of records to return
+
+        Returns:
+            List[Track]: List of track instances for the album
+        """
+        result = await self.db.execute(
+            select(Track)
+            .where(Track.album_id == album_id)
+            .order_by(Track.track_number)
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_or_create_album(
+        self,
+        title: str,
+        artist_id: int,
+        release_year: Optional[int] = None,
+        cover_url: Optional[str] = None,
+    ) -> Album:
+        """
+        Get an existing album by title and artist or create a new one.
+
+        Args:
+            title: Album title to search for or create
+            artist_id: ID of the artist
+            release_year: Optional release year for new album
+            cover_url: Optional cover URL for new album
+
+        Returns:
+            Album: Existing or newly created album instance
+        """
+        # Normalize title for comparison
+        normalized_title = title.strip()
+
+        result = await self.db.execute(
+            select(Album).where(
+                (Album.album_artist_id == artist_id)
+                & (func.lower(Album.title) == func.lower(normalized_title))
+            )
+        )
+        album = result.scalar_one_or_none()
+
+        if album:
+            return album
+
+        # Create new album if not found
+        return await self.create_album(
+            title=normalized_title,
+            artist_id=artist_id,
+            release_year=release_year,
+            cover_url=cover_url,
+        )
+
+    async def bulk_create_albums(self, albums_data: List[dict]) -> List[Album]:
+        """
+        Create multiple albums in a single transaction.
+
+        Args:
+            albums_data: List of dictionaries containing album data
+                Each dict should have keys: title (required), artist_id (required),
+                release_year, cover_url
+
+        Returns:
+            List[Album]: List of created album instances
+        """
+        albums = []
+        for data in albums_data:
+            album = Album(
+                title=data["title"],
+                album_artist_id=data["artist_id"],
+                release_year=data.get("release_year"),
+                cover_url=data.get("cover_url"),
+            )
+            self.db.add(album)
+            albums.append(album)
+
+        await self.db.commit()
+
+        # Refresh all albums to get their IDs
+        for album in albums:
+            await self.db.refresh(album)
 
         return albums
 
-    def create_albums_batch(self, albums):
-        """Crée ou récupère plusieurs albums en une seule fois (batch)."""
-        try:
-            keys_to_find = set()
-            mbids_to_find = set()
-            for album_data in albums:
-                if album_data.musicbrainz_albumid:
-                    mbids_to_find.add(album_data.musicbrainz_albumid)
-                elif album_data.title and album_data.album_artist_id:
-                    keys_to_find.add((album_data.title.lower(), album_data.album_artist_id))
+    async def get_albums_with_stats(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[dict]:
+        """
+        Get albums with track counts.
 
-            existing_albums_query = self.db.query(AlbumModel)
-            if mbids_to_find:
-                existing_albums_query = existing_albums_query.filter(AlbumModel.musicbrainz_albumid.in_(mbids_to_find))
-            if keys_to_find:
-                or_conditions = []
-                for title, artist_id in keys_to_find:
-                    or_conditions.append(
-                        (func.lower(AlbumModel.title) == title) & (AlbumModel.album_artist_id == artist_id)
-                    )
-                existing_albums_query = existing_albums_query.filter(or_(*or_conditions))
+        Args:
+            skip: Number of records to skip (offset)
+            limit: Maximum number of records to return
 
-            existing_albums = existing_albums_query.options(joinedload(AlbumModel.covers)).all()
-            existing_by_mbid = {a.musicbrainz_albumid: a for a in existing_albums if a.musicbrainz_albumid}
-            existing_by_key = {(a.title.lower(), a.album_artist_id): a for a in existing_albums}
-
-            new_albums_to_create = []
-            final_album_map = {}
-
-            for album_data in albums:
-                key = album_data.musicbrainz_albumid or (album_data.title.lower(), album_data.album_artist_id)
-                if key in final_album_map:
-                    continue
-
-                existing = None
-                if album_data.musicbrainz_albumid:
-                    existing = existing_by_mbid.get(album_data.musicbrainz_albumid)
-                if not existing and album_data.title and album_data.album_artist_id:
-                    existing = existing_by_key.get((album_data.title.lower(), album_data.album_artist_id))
-
-                if existing:
-                    final_album_map[key] = existing
-                else:
-                    if key not in [a.musicbrainz_albumid or (a.title.lower(), a.album_artist_id) for a in new_albums_to_create]:
-                        new_albums_to_create.append(album_data)
-
-            if new_albums_to_create:
-                new_db_albums = [
-                    AlbumModel(**album.model_dump(exclude_unset=True), date_added=func.now(), date_modified=func.now())
-                    for album in new_albums_to_create
-                ]
-                self.db.add_all(new_db_albums)
-                self.db.commit()
-                for db_album in new_db_albums:
-                    self.db.refresh(db_album, ["covers"])
-                    key = db_album.musicbrainz_albumid or (db_album.title.lower(), db_album.album_artist_id)
-                    final_album_map[key] = db_album
-
-            result = []
-            for album_in in albums:
-                key = album_in.musicbrainz_albumid or (album_in.title.lower(), album_in.album_artist_id)
-                album = final_album_map[key]
-                covers = []
-                if hasattr(album, "covers"):
-                    covers = [Cover.model_validate(c) for c in album.covers]
-                album_data = {
-                    **album.__dict__,
-                    "covers": covers,
-                    "date_added": album.date_added or datetime.now(timezone.utc),
-                    "date_modified": album.date_modified or datetime.now(timezone.utc),
-                }
-                result.append(AlbumWithRelations.model_validate(album_data).model_dump())
-            return result
-
-        except IntegrityError:
-            self.db.rollback()
-            raise Exception("Conflit de données lors de la création en batch.")
-        except Exception:
-            self.db.rollback()
-            raise Exception("Erreur interne du serveur.")
-
-    def create_album(self, album_data: AlbumCreate):
-        """Crée un album ou retourne l'existant (doublon MBID ou titre+artiste)."""
-        try:
-            if album_data.musicbrainz_albumid:
-                existing_album = self.db.query(AlbumModel).filter(
-                    AlbumModel.musicbrainz_albumid == album_data.musicbrainz_albumid
-                ).first()
-                if existing_album:
-                    return existing_album
-
-            existing_album = self.db.query(AlbumModel).filter(
-                AlbumModel.title == album_data.title,
-                AlbumModel.album_artist_id == album_data.album_artist_id
-            ).first()
-            if existing_album:
-                return existing_album
-
-            db_album = AlbumModel(
-                **album_data.model_dump(exclude={"date_added", "date_modified"}),
-                date_added=func.now(),
-                date_modified=func.now()
+        Returns:
+            List[dict]: List of dictionaries containing album data with counts
+        """
+        # Build query with counts
+        stmt = (
+            select(
+                Album,
+                func.count(Track.id).label("track_count"),
             )
-            self.db.add(db_album)
-            self.db.commit()
-            self.db.refresh(db_album)
-            return db_album
+            .outerjoin(Track, Track.album_id == Album.id)
+            .group_by(Album.id)
+            .order_by(Album.title)
+            .offset(skip)
+            .limit(limit)
+        )
 
-        except IntegrityError as e:
-            self.db.rollback()
-            if "UNIQUE constraint failed: albums.musicbrainz_albumid" in str(e):
-                existing = self.db.query(AlbumModel).filter(
-                    AlbumModel.musicbrainz_albumid == album_data.musicbrainz_albumid
-                ).first()
-                if existing:
-                    return existing
-            raise Exception("Un album avec cet identifiant existe déjà")
-        except Exception as e:
-            self.db.rollback()
-            raise Exception(str(e))
+        result = await self.db.execute(stmt)
+        albums_with_stats = []
 
-    def read_albums(self, skip=0, limit=100):
-        albums = self.db.query(AlbumModel).offset(skip).limit(limit).all()
-        # Precompute current time for missing dates to avoid repeated system calls
-        now = datetime.now(timezone.utc)
-        results = []
-        append = results.append
+        for row in result.all():
+            album = row[0]
+            stats = {
+                "id": album.id,
+                "title": album.title,
+                "artist_id": album.album_artist_id,
+                "release_year": album.release_year,
+                "cover_url": album.cover_url,
+                "track_count": row[1],
+            }
+            albums_with_stats.append(stats)
+
+        return albums_with_stats
+
+    @staticmethod
+    async def fetch_albums_by_artist_ids(
+        ids: List[int], session
+    ) -> List[List[Album]]:
+        """
+        Fetch albums for multiple artists by their IDs.
+
+        This method is designed for use with DataLoader to efficiently
+        batch-load albums for multiple artists in a single query.
+
+        Args:
+            ids: List of artist IDs to fetch albums for
+            session: Async SQLAlchemy session for database operations
+
+        Returns:
+            List[List[Album]]: List of album lists, each corresponding to an artist ID.
+                              Returns empty lists for artists with no albums.
+        """
+        query = select(Album).where(Album.album_artist_id.in_(ids))
+        result = await session.execute(query)
+        albums = result.scalars().all()
+
+        # Group albums by album_artist_id
+        albums_by_artist = defaultdict(list)
         for album in albums:
-            date_added = album.date_added if album.date_added is not None else now
-            date_modified = album.date_modified if album.date_modified is not None else now
-            # Build dict directly rather than using {**album.__dict__, ...} for memory and perf
-            d = album.__dict__.copy()
-            d.update({
-                "covers": [],
-                "cover_url": None,
-                "date_added": date_added,
-                "date_modified": date_modified,
-            })
-            append(d)
-        return results
+            albums_by_artist[album.album_artist_id].append(album)
 
-    def read_album(self, album_id):
-        album = self.db.query(AlbumModel).options(joinedload(AlbumModel.covers)).filter(AlbumModel.id == album_id).first()
-        if not album:
-            return None
-        album_covers = []
-        if hasattr(album, 'covers') and album.covers:
-            for cover in album.covers:
-                cover_data = {
-                    "id": cover.id,
-                    "entity_type": "album",
-                    "entity_id": album.id,
-                    "url": cover.url,
-                    "cover_data": cover.cover_data,
-                    "date_added": cover.date_added,
-                    "date_modified": cover.date_modified,
-                    "mime_type": cover.mime_type
-                }
-                album_covers.append(Cover(**cover_data))
-        album_data = {
-            **album.__dict__,
-            "covers": album_covers,
-            "cover_url": album_covers[0].url if album_covers else None,
-            "date_added": album.date_added or datetime.now(timezone.utc),
-            "date_modified": album.date_modified or datetime.now(timezone.utc),
-        }
-        return album_data
-
-    def read_artist_albums(self, artist_id):
-        albums = self.db.query(AlbumModel).options(joinedload(AlbumModel.covers)).filter(AlbumModel.album_artist_id == artist_id).all()
-        return [
-            {
-                **album.__dict__,
-                "covers": [Cover.model_validate(c) for c in album.covers],
-                "date_added": album.date_added or datetime.now(timezone.utc),
-                "date_modified": album.date_modified or datetime.now(timezone.utc)
-            }
-            for album in albums
-        ]
-
-    def update_album(self, album_id, album_update: AlbumUpdate):
-        db_album = self.db.query(AlbumModel).filter(AlbumModel.id == album_id).first()
-        if db_album is None:
-            return None
-        update_data = album_update.model_dump(exclude_unset=True, exclude={"date_added", "date_modified"})
-        for key, value in update_data.items():
-            if hasattr(db_album, key):
-                setattr(db_album, key, value)
-        db_album.date_modified = func.now()
-        self.db.commit()
-        self.db.refresh(db_album)
-        return db_album
-
-    def read_album_tracks(self, album_id):
-        tracks = self.db.query(TrackModel).filter(TrackModel.album_id == album_id).all()
-        return [
-            {
-                "id": track.id,
-                "title": track.title,
-                "path": track.path,
-                "track_artist_id": track.track_artist_id,
-                "album_id": track.album_id,
-                "duration": track.duration,
-                "track_number": track.track_number,
-                "disc_number": track.disc_number,
-                "year": track.year,
-                "genre": track.genre,
-                "file_type": track.file_type,
-                "bitrate": track.bitrate,
-                "featured_artists": track.featured_artists,
-                "bpm": track.bpm,
-                "key": track.key,
-                "scale": track.scale,
-                "danceability": track.danceability,
-                "mood_happy": track.mood_happy,
-                "mood_aggressive": track.mood_aggressive,
-                "mood_party": track.mood_party,
-                "mood_relaxed": track.mood_relaxed,
-                "instrumental": track.instrumental,
-                "acoustic": track.acoustic,
-                "tonal": track.tonal,
-                "musicbrainz_id": track.musicbrainz_id,
-                "musicbrainz_albumid": track.musicbrainz_albumid,
-                "musicbrainz_artistid": track.musicbrainz_artistid,
-                "musicbrainz_albumartistid": track.musicbrainz_albumartistid,
-                "acoustid_fingerprint": track.acoustid_fingerprint,
-                "date_added": track.date_added,
-                "date_modified": track.date_modified,
-                "genre_tags": [tag.name for tag in track.genre_tags] if track.genre_tags else [],
-                "mood_tags": [tag.name for tag in track.mood_tags] if track.mood_tags else []
-            }
-            for track in tracks
-        ]
-
-    def delete_album(self, album_id):
-        album = self.db.query(AlbumModel).filter(AlbumModel.id == album_id).first()
-        if album is None:
-            return False
-        self.db.delete(album)
-        self.db.commit()
-        return True
-
-    def upsert_album(self, album_data):
-        """Upsert an album (create if not exists, update if exists)."""
-        try:
-            # Try to find existing album by musicbrainz_albumid first
-            existing_album = None
-            if hasattr(album_data, 'musicbrainz_albumid') and album_data.musicbrainz_albumid:
-                existing_album = self.db.query(AlbumModel).filter(
-                    AlbumModel.musicbrainz_albumid == album_data.musicbrainz_albumid
-                ).first()
-
-            # If not found by MBID, try by title and artist
-            if not existing_album and hasattr(album_data, 'title') and hasattr(album_data, 'album_artist_id'):
-                existing_album = self.db.query(AlbumModel).filter(
-                    AlbumModel.title == album_data.title,
-                    AlbumModel.album_artist_id == album_data.album_artist_id
-                ).first()
-
-            if existing_album:
-                # Update existing album
-                # Handle both Pydantic models and Strawberry objects
-                if hasattr(album_data, 'model_dump'):
-                    update_dict = album_data.model_dump(exclude_unset=True, exclude_none=True)
-                else:
-                    # Strawberry object - convert manually
-                    update_dict = {}
-                    for attr in ['title', 'album_artist_id', 'release_year', 'musicbrainz_albumid']:
-                        if hasattr(album_data, attr):
-                            value = getattr(album_data, attr)
-                            if value is not None:
-                                update_dict[attr] = value
-
-                for key, value in update_dict.items():
-                    if hasattr(existing_album, key) and value is not None:
-                        setattr(existing_album, key, value)
-                existing_album.date_modified = func.now()
-                self.db.commit()
-                self.db.refresh(existing_album)
-                return existing_album
-            else:
-                # Create new album
-                # Handle both Pydantic models and Strawberry objects
-                if hasattr(album_data, 'model_dump'):
-                    album_dict = album_data.model_dump(exclude_unset=True)
-                else:
-                    # Strawberry object - convert manually
-                    album_dict = {}
-                    for attr in ['title', 'album_artist_id', 'release_year', 'musicbrainz_albumid']:
-                        if hasattr(album_data, attr):
-                            value = getattr(album_data, attr)
-                            album_dict[attr] = value
-
-                db_album = AlbumModel(
-                    **album_dict,
-                    date_added=func.now(),
-                    date_modified=func.now()
-                )
-                self.db.add(db_album)
-                self.db.commit()
-                self.db.refresh(db_album)
-                return db_album
-
-        except IntegrityError as e:
-            self.db.rollback()
-            if "UNIQUE constraint failed: albums.musicbrainz_albumid" in str(e):
-                existing = self.db.query(AlbumModel).filter(
-                    AlbumModel.musicbrainz_albumid == album_data.musicbrainz_albumid
-                ).first()
-                if existing:
-                    return existing
-            raise Exception("Erreur lors de l'upsert de l'album")
-        except Exception as e:
-            self.db.rollback()
-            raise Exception(str(e))
-
-    def update_albums_by_filter(self, filter_data, update_data):
-        """Update multiple albums by filter."""
-        try:
-            query = self.db.query(AlbumModel)
-
-            # Apply filters
-            if 'title' in filter_data:
-                if 'icontains' in filter_data['title']:
-                    query = query.filter(
-                        func.lower(AlbumModel.title).like(f"%{filter_data['title']['icontains'].lower()}%")
-                    )
-                elif isinstance(filter_data['title'], str):
-                    query = query.filter(AlbumModel.title == filter_data['title'])
-
-            if 'musicbrainz_albumid' in filter_data:
-                query = query.filter(AlbumModel.musicbrainz_albumid == filter_data['musicbrainz_albumid'])
-
-            # Get albums to update
-            albums_to_update = query.all()
-
-            if not albums_to_update:
-                return []
-
-            # Update each album
-            updated_albums = []
-            for album in albums_to_update:
-                for key, value in update_data.items():
-                    if hasattr(album, key) and value is not None:
-                        setattr(album, key, value)
-                album.date_modified = func.now()
-                updated_albums.append(album)
-
-            self.db.commit()
-
-            # Refresh all updated albums
-            for album in updated_albums:
-                self.db.refresh(album)
-
-            return updated_albums
-
-        except Exception as e:
-            self.db.rollback()
-            raise Exception(f"Erreur lors de la mise à jour par filtre: {str(e)}")
+        # Return albums in the same order as the input IDs
+        return [albums_by_artist.get(artist_id, []) for artist_id in ids]

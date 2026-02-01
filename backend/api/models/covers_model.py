@@ -14,7 +14,7 @@ class Cover(Base):
     __tablename__ = "covers"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    entity_type: Mapped[EntityCoverType] = mapped_column(Enum(EntityCoverType), nullable=False)
+    entity_type: Mapped[EntityCoverType] = mapped_column(Enum(EntityCoverType, name='covertype'), nullable=False)
     entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
     cover_data: Mapped[str] = mapped_column(String, nullable=True)
     mime_type: Mapped[str] = mapped_column(String, nullable=True)

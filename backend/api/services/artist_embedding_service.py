@@ -7,12 +7,11 @@ Provides functionality for artist similarity and recommendation algorithms.
 """
 
 import json
-import numpy as np
+import asyncio
 from typing import List, Dict, Optional, Any
 from datetime import datetime
-from sqlalchemy.orm import Session
-from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import StandardScaler
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from backend.api.utils.logging import logger
 from backend.api.models.artist_embeddings_model import ArtistEmbedding, GMMModel
 from backend.api.schemas.artist_embeddings_schema import (
@@ -24,19 +23,29 @@ from backend.api.schemas.artist_embeddings_schema import (
 )
 from backend.api.services.vector_search_service import VectorSearchService
 
+# ML libraries - imported conditionally as they may not be available in all environments
+try:
+    import numpy as np
+    from sklearn.mixture import GaussianMixture
+    from sklearn.preprocessing import StandardScaler
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+    logger.warning("ML libraries (numpy, sklearn) not available. GMM training will be disabled.")
+
 
 class ArtistEmbeddingService:
     """Service for artist embeddings and GMM clustering."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.vector_search = VectorSearchService(db)
 
-    def create_embedding(self, embedding_data: ArtistEmbeddingCreate) -> ArtistEmbedding:
+    async def create_embedding(self, embedding_data: ArtistEmbeddingCreate) -> ArtistEmbedding:
         """Create a new artist embedding with vector search support."""
         try:
             # Store embedding in sqlite-vec for fast similarity search
-            vector_success = self.vector_search.add_artist_embedding(
+            vector_success = await self.vector_search.add_artist_embedding(
                 embedding_data.artist_name,
                 embedding_data.vector
             )
@@ -55,27 +64,28 @@ class ArtistEmbeddingService:
             )
 
             self.db.add(embedding)
-            self.db.commit()
-            self.db.refresh(embedding)
+            await self.db.commit()
+            await self.db.refresh(embedding)
 
             logger.info(f"Created embedding for artist: {embedding.artist_name}")
             return embedding
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error creating embedding for {embedding_data.artist_name}: {e}")
             raise
 
-    def get_embedding_by_artist(self, artist_name: str) -> Optional[ArtistEmbedding]:
+    async def get_embedding_by_artist(self, artist_name: str) -> Optional[ArtistEmbedding]:
         """Get embedding by artist name."""
-        return self.db.query(ArtistEmbedding).filter(
-            ArtistEmbedding.artist_name == artist_name
-        ).first()
+        result = await self.db.execute(
+            select(ArtistEmbedding).where(ArtistEmbedding.artist_name == artist_name)
+        )
+        return result.scalars().first()
 
-    def update_embedding(self, artist_name: str, update_data: ArtistEmbeddingUpdate) -> Optional[ArtistEmbedding]:
+    async def update_embedding(self, artist_name: str, update_data: ArtistEmbeddingUpdate) -> Optional[ArtistEmbedding]:
         """Update an existing artist embedding."""
         try:
-            embedding = self.get_embedding_by_artist(artist_name)
+            embedding = await self.get_embedding_by_artist(artist_name)
             if not embedding:
                 return None
 
@@ -88,52 +98,66 @@ class ArtistEmbeddingService:
             if update_data.cluster_probabilities is not None:
                 embedding.cluster_probabilities = json.dumps(update_data.cluster_probabilities)
 
-            self.db.commit()
-            self.db.refresh(embedding)
+            await self.db.commit()
+            await self.db.refresh(embedding)
 
             logger.info(f"Updated embedding for artist: {artist_name}")
             return embedding
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error updating embedding for {artist_name}: {e}")
             raise
 
-    def get_all_embeddings(self, skip: int = 0, limit: int = 100) -> List[ArtistEmbedding]:
+    async def get_all_embeddings(self, skip: int = 0, limit: int = 100) -> List[ArtistEmbedding]:
         """Get all artist embeddings with pagination."""
-        return self.db.query(ArtistEmbedding).offset(skip).limit(limit).all()
+        result = await self.db.execute(
+            select(ArtistEmbedding).offset(skip).limit(limit)
+        )
+        return result.scalars().all()
 
-    def get_embeddings_by_cluster(self, cluster: int) -> List[ArtistEmbedding]:
+    async def get_embeddings_by_cluster(self, cluster: int) -> List[ArtistEmbedding]:
         """Get all embeddings for a specific cluster."""
-        return self.db.query(ArtistEmbedding).filter(
-            ArtistEmbedding.cluster == cluster
-        ).all()
+        result = await self.db.execute(
+            select(ArtistEmbedding).where(ArtistEmbedding.cluster == cluster)
+        )
+        return result.scalars().all()
 
-    def delete_embedding(self, artist_name: str) -> bool:
+    async def delete_embedding(self, artist_name: str) -> bool:
         """Delete an artist embedding."""
         try:
-            embedding = self.get_embedding_by_artist(artist_name)
+            embedding = await self.get_embedding_by_artist(artist_name)
             if not embedding:
                 return False
 
-            self.db.delete(embedding)
-            self.db.commit()
+            await self.db.delete(embedding)
+            await self.db.commit()
 
             logger.info(f"Deleted embedding for artist: {artist_name}")
             return True
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error deleting embedding for {artist_name}: {e}")
             raise
 
-    def train_gmm(self, request: GMMTrainingRequest) -> GMMTrainingResponse:
+    async def train_gmm(self, request: GMMTrainingRequest) -> GMMTrainingResponse:
         """Train a Gaussian Mixture Model on artist embeddings."""
+        if not ML_AVAILABLE:
+            return GMMTrainingResponse(
+                success=False,
+                n_components=request.n_components,
+                n_artists=0,
+                log_likelihood=None,
+                training_time=0,
+                message="ML libraries not available"
+            )
+
         start_time = datetime.utcnow()
 
         try:
             # Get all embeddings
-            embeddings = self.get_all_embeddings(limit=10000)  # Reasonable limit
+            embeddings = await self.get_all_embeddings(limit=10000)  # Reasonable limit
             if len(embeddings) < request.n_components:
                 raise ValueError(f"Not enough embeddings ({len(embeddings)}) for {request.n_components} components")
 
@@ -152,26 +176,37 @@ class ArtistEmbeddingService:
             if len(vectors) < request.n_components:
                 raise ValueError(f"Not enough valid vectors ({len(vectors)}) for {request.n_components} components")
 
-            # Convert to numpy array
-            X = np.array(vectors)
+            # Run ML operations in thread pool to avoid blocking
+            def _train_gmm_model():
+                import numpy as np
+                from sklearn.mixture import GaussianMixture
+                from sklearn.preprocessing import StandardScaler
 
-            # Standardize features
-            scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X)
+                # Convert to numpy array
+                X = np.array(vectors)
 
-            # Train GMM
-            gmm = GaussianMixture(
-                n_components=request.n_components,
-                max_iter=request.max_iterations,
-                tol=request.convergence_threshold,
-                random_state=42
-            )
+                # Standardize features
+                scaler = StandardScaler()
+                X_scaled = scaler.fit_transform(X)
 
-            gmm.fit(X_scaled)
+                # Train GMM
+                gmm = GaussianMixture(
+                    n_components=request.n_components,
+                    max_iter=request.max_iterations,
+                    tol=request.convergence_threshold,
+                    random_state=42
+                )
 
-            # Get cluster assignments and probabilities
-            clusters = gmm.predict(X_scaled)
-            probabilities = gmm.predict_proba(X_scaled)
+                gmm.fit(X_scaled)
+
+                # Get cluster assignments and probabilities
+                clusters = gmm.predict(X_scaled)
+                probabilities = gmm.predict_proba(X_scaled)
+
+                return gmm, X_scaled, clusters, probabilities, scaler
+
+            # Run training in thread pool
+            gmm, X_scaled, clusters, probabilities, scaler = await asyncio.to_thread(_train_gmm_model)
 
             # Update embeddings with cluster information
             for i, (artist_name, cluster, probs) in enumerate(zip(artist_names, clusters, probabilities)):
@@ -181,10 +216,10 @@ class ArtistEmbeddingService:
                     cluster=int(cluster),
                     cluster_probabilities=cluster_probs
                 )
-                self.update_embedding(artist_name, update_data)
+                await self.update_embedding(artist_name, update_data)
 
             # Save GMM model
-            self._save_gmm_model(gmm, request)
+            await self._save_gmm_model(gmm, request, X_scaled)
 
             training_time = (datetime.utcnow() - start_time).total_seconds()
 
@@ -212,11 +247,13 @@ class ArtistEmbeddingService:
                 message=f"GMM training failed: {str(e)}"
             )
 
-    def _save_gmm_model(self, gmm: GaussianMixture, request: GMMTrainingRequest):
+    async def _save_gmm_model(self, gmm, request: GMMTrainingRequest, X_scaled):
         """Save GMM model parameters to database."""
         try:
             # Deactivate previous models
-            self.db.query(GMMModel).update({"is_active": False})
+            await self.db.execute(
+                GMMModel.update().values(is_active=False)
+            )
 
             # Save new model
             model = GMMModel(
@@ -224,7 +261,7 @@ class ArtistEmbeddingService:
                 convergence_threshold=request.convergence_threshold,
                 max_iterations=request.max_iterations,
                 n_features=gmm.n_features_in_,
-                log_likelihood=float(gmm.score(gmm.sample(100)[0])),  # Approximate score
+                log_likelihood=float(gmm.score(X_scaled)),
                 model_weights=json.dumps(gmm.weights_.tolist()),
                 model_means=json.dumps(gmm.means_.tolist()),
                 model_covariances=json.dumps(gmm.covariances_.tolist()),
@@ -232,20 +269,20 @@ class ArtistEmbeddingService:
             )
 
             self.db.add(model)
-            self.db.commit()
+            await self.db.commit()
 
             logger.info(f"Saved GMM model with {request.n_components} components")
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error saving GMM model: {e}")
             raise
 
-    def get_similar_artists(self, artist_name: str, limit: int = 10) -> ArtistSimilarityRecommendation:
+    async def get_similar_artists(self, artist_name: str, limit: int = 10) -> ArtistSimilarityRecommendation:
         """Get similar artists based on GMM clustering."""
         try:
             # Get the artist's embedding
-            embedding = self.get_embedding_by_artist(artist_name)
+            embedding = await self.get_embedding_by_artist(artist_name)
             if not embedding:
                 return ArtistSimilarityRecommendation(
                     artist_name=artist_name,
@@ -254,7 +291,7 @@ class ArtistEmbeddingService:
                 )
 
             # Get all artists in the same cluster
-            cluster_artists = self.get_embeddings_by_cluster(embedding.cluster)
+            cluster_artists = await self.get_embeddings_by_cluster(embedding.cluster)
 
             # Calculate similarities based on cluster probabilities
             similar_artists = []
@@ -312,7 +349,7 @@ class ArtistEmbeddingService:
         except Exception:
             return 0.0
 
-    def generate_artist_embeddings(self, artist_names: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def generate_artist_embeddings(self, artist_names: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Generate embeddings for artists by aggregating their tracks' embeddings.
 
@@ -338,10 +375,14 @@ class ArtistEmbeddingService:
                 # We need to access the library database
                 # For now, we'll assume we can access it through the same session
                 # In production, this might need cross-service communication
-                artists = self.db.query(LibraryArtist).filter(LibraryArtist.name.in_(artist_names)).all()
+                result = await self.db.execute(
+                    select(LibraryArtist).where(LibraryArtist.name.in_(artist_names))
+                )
+                artists = result.scalars().all()
             else:
                 from backend.api.models.artists_model import Artist as LibraryArtist
-                artists = self.db.query(LibraryArtist).all()
+                result = await self.db.execute(select(LibraryArtist))
+                artists = result.scalars().all()
 
             generated_count = 0
             skipped_count = 0
@@ -349,13 +390,13 @@ class ArtistEmbeddingService:
             for artist in artists:
                 try:
                     # Check if embedding already exists
-                    existing = self.get_embedding_by_artist(artist.name)
+                    existing = await self.get_embedding_by_artist(artist.name)
                     if existing:
                         skipped_count += 1
                         continue
 
                     # Generate embedding by aggregating track embeddings
-                    embedding_vector = self._aggregate_track_embeddings(artist)
+                    embedding_vector = await self._aggregate_track_embeddings(artist)
 
                     if embedding_vector:
                         from backend.api.schemas.artist_embeddings_schema import ArtistEmbeddingCreate
@@ -366,7 +407,7 @@ class ArtistEmbeddingService:
                             cluster_probabilities=None
                         )
 
-                        self.create_embedding(embedding_data)
+                        await self.create_embedding(embedding_data)
                         generated_count += 1
 
                         # Progress logging
@@ -390,7 +431,7 @@ class ArtistEmbeddingService:
             logger.error(f"[ARTIST EMBEDDING] Generation failed: {e}")
             raise
 
-    def _aggregate_track_embeddings(self, artist) -> Optional[List[float]]:
+    async def _aggregate_track_embeddings(self, artist) -> Optional[List[float]]:
         """
         Aggregate track embeddings to create artist embedding (centroid approach).
 
@@ -401,6 +442,10 @@ class ArtistEmbeddingService:
             Centroid vector as list of floats, or None if no valid tracks
         """
         try:
+            if not ML_AVAILABLE:
+                logger.warning(f"ML libraries not available for aggregating embeddings for {artist.name}")
+                return None
+
             # Get all tracks for this artist that have embeddings
             tracks_with_embeddings = []
             for track in artist.tracks:
@@ -419,12 +464,14 @@ class ArtistEmbeddingService:
                 logger.warning(f"No valid track embeddings found for artist: {artist.name}")
                 return None
 
-            # Calculate centroid (mean) of all track embeddings
-            vectors_array = np.array(tracks_with_embeddings)
-            centroid = np.mean(vectors_array, axis=0)
+            # Calculate centroid (mean) of all track embeddings in thread pool
+            def _calculate_centroid():
+                import numpy as np
+                vectors_array = np.array(tracks_with_embeddings)
+                centroid = np.mean(vectors_array, axis=0)
+                return centroid.tolist()
 
-            # Convert back to list and ensure it's a valid vector
-            embedding_vector = centroid.tolist()
+            embedding_vector = await asyncio.to_thread(_calculate_centroid)
 
             logger.info(f"Generated embedding for {artist.name} from {len(tracks_with_embeddings)} tracks")
 
@@ -434,7 +481,7 @@ class ArtistEmbeddingService:
             logger.error(f"Error aggregating embeddings for artist {artist.name}: {e}")
             return None
 
-    def find_similar_artists_vector(self, artist_name: str, limit: int = 10) -> List[ArtistSimilarityRecommendation]:
+    async def find_similar_artists_vector(self, artist_name: str, limit: int = 10) -> List[ArtistSimilarityRecommendation]:
         """
         Find artists similar to the given artist using vector similarity search.
 
@@ -449,14 +496,14 @@ class ArtistEmbeddingService:
         """
         try:
             # Get the embedding for the query artist
-            query_embedding = self.vector_search.get_artist_embedding(artist_name)
+            query_embedding = await self.vector_search.get_artist_embedding(artist_name)
 
             if not query_embedding:
                 logger.warning(f"No embedding found for artist: {artist_name}")
                 return []
 
             # Find similar artists using vector search
-            similar_results = self.vector_search.find_similar_artists(query_embedding, limit + 1)  # +1 to exclude self
+            similar_results = await self.vector_search.find_similar_artists(query_embedding, limit + 1)  # +1 to exclude self
 
             # Convert to ArtistSimilarityRecommendation objects
             recommendations = []
@@ -468,7 +515,7 @@ class ArtistEmbeddingService:
                     continue
 
                 # Get additional info from database
-                embedding = self.get_embedding_by_artist(similar_artist_name)
+                embedding = await self.get_embedding_by_artist(similar_artist_name)
 
                 recommendation = ArtistSimilarityRecommendation(
                     artist_name=similar_artist_name,
@@ -490,12 +537,12 @@ class ArtistEmbeddingService:
             logger.error(f"Error finding similar artists for {artist_name}: {e}")
             return []
 
-    def get_cluster_info(self) -> Dict[str, Any]:
+    async def get_cluster_info(self) -> Dict[str, Any]:
         """Get information about current clusters."""
         try:
             # Count artists per cluster
             cluster_counts = {}
-            embeddings = self.get_all_embeddings(limit=10000)
+            embeddings = await self.get_all_embeddings(limit=10000)
 
             for emb in embeddings:
                 cluster = emb.cluster
@@ -503,7 +550,10 @@ class ArtistEmbeddingService:
                     cluster_counts[cluster] = cluster_counts.get(cluster, 0) + 1
 
             # Get active GMM model
-            active_model = self.db.query(GMMModel).filter(GMMModel.is_active).first()
+            result = await self.db.execute(
+                select(GMMModel).where(GMMModel.is_active.is_(True))
+            )
+            active_model = result.scalars().first()
 
             return {
                 "total_artists": len(embeddings),

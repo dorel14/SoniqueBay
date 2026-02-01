@@ -94,7 +94,7 @@ services:
         command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
         volumes:
             - ./backend:/app/backend
-            - db-data:/app/backend/data/api_data
+            - api-data:/app/backend/data/
             - music-share:/music:ro
             - ./logs:/app/logs
             - /etc/localtime:/etc/localtime:ro
@@ -163,6 +163,7 @@ services:
             - .env
         environment:
             - API_URL=http://api:8001
+            - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
         depends_on:
@@ -269,7 +270,7 @@ services:
                     cpus: '0.1'
                     memory: 128M
     ollama:
-        image: ollama/ollama:0.14.3-rc1-rocm
+        image: ollama/ollama:latest
         container_name: ollama
         restart: unless-stopped
         pull_policy: always
@@ -305,18 +306,17 @@ services:
 
 
 volumes:
-    kanchi_data:
     redis-data:
         driver: local
         driver_opts:
             type: none
             device: ${PWD}/data/redis_data
             o: bind
-    db-data:
+    api-data:
         driver: local
         driver_opts:
             type: none
-            device: ./data/api_data
+            device: ./backend/data
             o: bind
     music-share:
         driver: local
