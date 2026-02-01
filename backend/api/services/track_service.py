@@ -1,12 +1,15 @@
+import stat
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.api.schemas.tracks_schema import TrackCreate
 from backend.api.utils.logging import logger
 from typing import List, Optional
+from collections import defaultdict
 
 class TrackService:
     """
@@ -19,7 +22,16 @@ class TrackService:
     Dépendances : backend.api.models.tracks_model, backend.utils.database
     """
 
-    def get_artist_tracks(self, artist_id: int, album_id: Optional[int] = None):
+    def __init__(self, session: AsyncSession):
+        """
+        Initialise le service avec une session de base de données.
+
+        Args:
+            session: Session SQLAlchemy asynchrone
+        """
+        self.session = session
+
+    async def get_artist_tracks(self, artist_id: int, album_id: Optional[int] = None):
         """
         Retourne les pistes d'un artiste, optionnellement filtrées par album.
 
@@ -30,9 +42,9 @@ class TrackService:
         Returns:
             Liste des pistes de l'artiste
         """
-        query = self.session.query(TrackModel).filter(TrackModel.track_artist_id == artist_id)
+        query = select(TrackModel).where(TrackModel.track_artist_id == artist_id)
         if album_id:
-            query = query.filter(TrackModel.album_id == album_id)
+            query = query.where(TrackModel.album_id == album_id)
         query = query.options(
             joinedload(TrackModel.genre_tags),
             joinedload(TrackModel.mood_tags),
@@ -40,18 +52,21 @@ class TrackService:
             joinedload(TrackModel.genres),
             joinedload(TrackModel.covers)
         )
-        return query.all()
-    def __init__(self, session):
+        result = await self.session.execute(query)
+        return result.scalars().unique().all()
+
+    async def get_tracks_count(self) -> int:
         """
-        Initialise le service avec une session de base de données.
+        Retourne le nombre total de pistes dans la base de données.
 
-        Args:
-            session: Session SQLAlchemy
+        Returns:
+            Nombre total de pistes
         """
-        self.session = session
+        from sqlalchemy import select, func
+        result = await self.session.execute(select(func.count(TrackModel.id)))
+        return result.scalar()
 
-
-    def create_track(self, data: TrackCreate):
+    async def create_track(self, data: TrackCreate):
         """
         Crée une nouvelle piste dans la base de données.
 
@@ -83,11 +98,11 @@ class TrackService:
             bitrate=data.bitrate
         )
         self.session.add(track)
-        self.session.commit()
-        self.session.refresh(track)
+        await self.session.commit()
+        await self.session.refresh(track)
         return track
 
-    def create_or_update_tracks_batch(self, tracks_data: List[TrackCreate]):
+    async def create_or_update_tracks_batch(self, tracks_data: List[TrackCreate]):
         """
         Crée ou met à jour des pistes en batch de manière optimisée.
 
@@ -107,20 +122,24 @@ class TrackService:
         # Étape 1: Récupérer tous les paths et musicbrainz_id existants
         paths = [data.path for data in tracks_data if data.path]
         mbid_values = [data.musicbrainz_id for data in tracks_data if data.musicbrainz_id]
-        
+
         existing_tracks_by_path = {}
         existing_tracks_by_mbid = {}
 
         # Requête pour récupérer les tracks existantes par path
         if paths:
-            existing_tracks = self.session.query(TrackModel).filter(TrackModel.path.in_(paths)).all()
+            result = await self.session.execute(
+                select(TrackModel).where(TrackModel.path.in_(paths))
+            )
+            existing_tracks = result.scalars().all()
             existing_tracks_by_path = {track.path: track for track in existing_tracks}
 
         # Requête pour récupérer les tracks existantes par musicbrainz_id
         if mbid_values:
-            existing_mbid_tracks = self.session.query(TrackModel).filter(
-                TrackModel.musicbrainz_id.in_(mbid_values)
-            ).all()
+            result = await self.session.execute(
+                select(TrackModel).where(TrackModel.musicbrainz_id.in_(mbid_values))
+            )
+            existing_mbid_tracks = result.scalars().all()
             existing_tracks_by_mbid = {track.musicbrainz_id: track for track in existing_mbid_tracks}
 
         # Étape 2: Séparer les tracks en évitant les doublons de musicbrainz_id
@@ -166,12 +185,12 @@ class TrackService:
 
         # Étape 3: Création en batch avec gestion d'erreur améliorée
         if tracks_to_create:
-            created_tracks = self._create_tracks_batch_optimized(tracks_to_create)
+            created_tracks = await self._create_tracks_batch_optimized(tracks_to_create)
             result.extend(created_tracks)
 
         # Étape 4: Mise à jour en batch
         if tracks_to_update:
-            updated_tracks = self._update_tracks_batch_optimized(tracks_to_update)
+            updated_tracks = await self._update_tracks_batch_optimized(tracks_to_update)
             result.extend(updated_tracks)
 
         # Étape 5: Ajouter les pistes inchangées directement (pas besoin de requête DB)
@@ -180,7 +199,7 @@ class TrackService:
         logger.info(f"[TRACK_BATCH] Batch terminé: {len(result)} pistes traitées")
         return result
 
-    def _create_tracks_batch_optimized(self, tracks_data: List[TrackCreate]):
+    async def _create_tracks_batch_optimized(self, tracks_data: List[TrackCreate]):
         """Crée plusieurs pistes en une seule transaction avec gestion robuste des contraintes d'unicité."""
         try:
             # Préparer les objets TrackModel avec dédoublonnage préalable
@@ -202,14 +221,16 @@ class TrackService:
                 # Vérifier si la track existe déjà en base (path ou MBID)
                 existing = None
                 if data.musicbrainz_id:
-                    existing = self.session.query(TrackModel).filter(
-                        TrackModel.musicbrainz_id == data.musicbrainz_id
-                    ).first()
+                    result = await self.session.execute(
+                        select(TrackModel).where(TrackModel.musicbrainz_id == data.musicbrainz_id)
+                    )
+                    existing = result.scalars().first()
                     
                 if not existing and data.path:
-                    existing = self.session.query(TrackModel).filter(
-                        TrackModel.path == data.path
-                    ).first()
+                    result = await self.session.execute(
+                        select(TrackModel).where(TrackModel.path == data.path)
+                    )
+                    existing = result.scalars().first()
                 
                 if existing:
                     logger.warning(f"[TRACK_BATCH] Track déjà existante ignorée: {data.title} (ID: {existing.id})")
@@ -261,9 +282,9 @@ class TrackService:
             # Insertion en batch avec gestion d'erreur spécifique
             try:
                 self.session.add_all(tracks_to_insert)
-                self.session.commit()
+                await self.session.commit()
             except IntegrityError as e:
-                self.session.rollback()
+                await self.session.rollback()
                 
                 # Gestion spécifique des violations de contrainte
                 if "UNIQUE constraint failed: tracks.musicbrainz_id" in str(e):
@@ -271,9 +292,10 @@ class TrackService:
                     # Vérifier quels MBIDs causent problème
                     for track_data in tracks_data:
                         if track_data.musicbrainz_id:
-                            existing = self.session.query(TrackModel).filter(
-                                TrackModel.musicbrainz_id == track_data.musicbrainz_id
-                            ).first()
+                            result = await self.session.execute(
+                                select(TrackModel).where(TrackModel.musicbrainz_id == track_data.musicbrainz_id)
+                            )
+                            existing = result.scalars().first()
                             if existing:
                                 logger.warning(f"[TRACK_BATCH] MBID existant: {track_data.musicbrainz_id} → Track ID: {existing.id}")
                     
@@ -287,10 +309,10 @@ class TrackService:
                         logger.info(f"[TRACK_BATCH] Réinsertion sans MBIDs: {len(tracks_without_mbid)} tracks")
                         try:
                             self.session.add_all(tracks_without_mbid)
-                            self.session.commit()
+                            await self.session.commit()
                             tracks_to_insert = tracks_without_mbid
                         except Exception as retry_e:
-                            self.session.rollback()
+                            await self.session.rollback()
                             logger.error(f"[TRACK_BATCH] Erreur lors de la réinsertion: {retry_e}")
                             raise retry_e
                     else:
@@ -303,13 +325,13 @@ class TrackService:
                     logger.error(f"[TRACK_BATCH] Violation de contrainte non gérée: {e}")
                     raise e
             except Exception as e:
-                self.session.rollback()
+                await self.session.rollback()
                 logger.error(f"[TRACK_BATCH] Erreur création batch: {e}")
                 raise
 
             # Refresh pour récupérer les IDs générés
             for track in tracks_to_insert:
-                self.session.refresh(track)
+                await self.session.refresh(track)
             
             # Gérer les tags mood et genre pour les tracks créés
             for i, track in enumerate(tracks_to_insert):
@@ -317,7 +339,10 @@ class TrackService:
                 # Gérer les genre tags
                 if hasattr(data, 'genre_tags') and data.genre_tags:
                     for tag_name in data.genre_tags:
-                        tag = self.session.query(GenreTag).filter_by(name=tag_name).first()
+                        result = await self.session.execute(
+                            select(GenreTag).where(GenreTag.name == tag_name)
+                        )
+                        tag = result.scalars().first()
                         if not tag:
                             tag = GenreTag(name=tag_name)
                             self.session.add(tag)
@@ -326,25 +351,28 @@ class TrackService:
                 # Gérer les mood tags
                 if hasattr(data, 'mood_tags') and data.mood_tags:
                     for tag_name in data.mood_tags:
-                        tag = self.session.query(MoodTag).filter_by(name=tag_name).first()
+                        result = await self.session.execute(
+                            select(MoodTag).where(MoodTag.name == tag_name)
+                        )
+                        tag = result.scalars().first()
                         if not tag:
                             tag = MoodTag(name=tag_name)
                             self.session.add(tag)
                         track.mood_tags.append(tag)
             
             # Commit pour les tags
-            self.session.commit()
+            await self.session.commit()
             
             logger.info(f"[TRACK_BATCH] {len(tracks_to_insert)} pistes créées en batch")
             return tracks_to_insert
 
         except Exception as e:
             if self.session.is_active:
-                self.session.rollback()
+                await self.session.rollback()
             logger.error(f"[TRACK_BATCH] Erreur création batch: {e}")
             raise
 
-    def _update_tracks_batch_optimized(self, tracks_to_update: List[tuple]):
+    async def _update_tracks_batch_optimized(self, tracks_to_update: List[tuple]):
         """Met à jour plusieurs pistes en une seule transaction."""
         try:
             updated_tracks = []
@@ -360,7 +388,7 @@ class TrackService:
                 updated_tracks.append(existing)
  
             # Commit unique pour toutes les mises à jour
-            self.session.commit()
+            await self.session.commit()
  
             # Gérer les tags mood et genre pour les tracks mises à jour
             for existing, data in tracks_to_update:
@@ -368,7 +396,10 @@ class TrackService:
                 if hasattr(data, 'genre_tags') and data.genre_tags:
                     existing.genre_tags = []
                     for tag_name in data.genre_tags:
-                        tag = self.session.query(GenreTag).filter_by(name=tag_name).first()
+                        result = await self.session.execute(
+                            select(GenreTag).where(GenreTag.name == tag_name)
+                        )
+                        tag = result.scalars().first()
                         if not tag:
                             tag = GenreTag(name=tag_name)
                             self.session.add(tag)
@@ -378,51 +409,54 @@ class TrackService:
                 if hasattr(data, 'mood_tags') and data.mood_tags:
                     existing.mood_tags = []
                     for tag_name in data.mood_tags:
-                        tag = self.session.query(MoodTag).filter_by(name=tag_name).first()
+                        result = await self.session.execute(
+                            select(MoodTag).where(MoodTag.name == tag_name)
+                        )
+                        tag = result.scalars().first()
                         if not tag:
                             tag = MoodTag(name=tag_name)
                             self.session.add(tag)
                         existing.mood_tags.append(tag)
             
             # Commit pour les tags
-            self.session.commit()
+            await self.session.commit()
  
             # Refresh pour s'assurer que les données sont à jour
             for track in updated_tracks:
-                self.session.refresh(track)
+                await self.session.refresh(track)
  
             logger.info(f"[TRACK_BATCH] {len(updated_tracks)} pistes mises à jour en batch")
             return updated_tracks
 
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.error(f"[TRACK_BATCH] Erreur mise à jour batch: {e}")
             raise
 
-    def search_tracks(self,
+    async def search_tracks(self,
         title: Optional[str], artist: Optional[str], album: Optional[str], genre: Optional[str], year: Optional[str],
         path: Optional[str], musicbrainz_id: Optional[str], genre_tags: Optional[List[str]], mood_tags: Optional[List[str]],
         skip: int = 0, limit: Optional[int] = None
     ):
-        query = self.session.query(TrackModel)
+        query = select(TrackModel)
         if title:
-            query = query.filter(TrackModel.title.ilike(f"%{title}%"))
+            query = query.where(TrackModel.title.ilike(f"%{title}%"))
         if artist:
-            query = query.join(TrackModel.artist).filter_by(name=artist)
+            query = query.join(TrackModel.artist).where(TrackModel.artist.has(name=artist))
         if album:
-            query = query.join(TrackModel.album).filter_by(title=album)
+            query = query.join(TrackModel.album).where(TrackModel.album.has(title=album))
         if genre:
-            query = query.filter(TrackModel.genre.ilike(f"%{genre}%"))
+            query = query.where(TrackModel.genre.ilike(f"%{genre}%"))
         if year:
-            query = query.filter(TrackModel.year == year)
+            query = query.where(TrackModel.year == year)
         if path:
-            query = query.filter(TrackModel.path == path)
+            query = query.where(TrackModel.path == path)
         if musicbrainz_id:
-            query = query.filter(TrackModel.musicbrainz_id == musicbrainz_id)
+            query = query.where(TrackModel.musicbrainz_id == musicbrainz_id)
         if genre_tags:
-            query = query.join(TrackModel.genre_tags).filter(GenreTag.name.in_(genre_tags))
+            query = query.join(TrackModel.genre_tags).where(GenreTag.name.in_(genre_tags))
         if mood_tags:
-            query = query.join(TrackModel.mood_tags).filter(MoodTag.name.in_(mood_tags))
+            query = query.join(TrackModel.mood_tags).where(MoodTag.name.in_(mood_tags))
 
         options = []
         if genre_tags:
@@ -440,13 +474,14 @@ class TrackService:
         if limit is not None:
             query = query.offset(skip).limit(limit)
 
-        tracks = query.all()
+        result = await self.session.execute(query)
+        tracks = result.scalars().unique().all()
 
         return tracks
 
-    def read_tracks(self, skip: int = 0, limit: int = 100):
-        tracks = (
-            self.session.query(TrackModel)
+    async def read_tracks(self, skip: int = 0, limit: int = 100):
+        query = (
+            select(TrackModel)
             .options(
                 joinedload(TrackModel.genre_tags),
                 joinedload(TrackModel.mood_tags),
@@ -456,13 +491,13 @@ class TrackService:
             )
             .offset(skip)
             .limit(limit)
-            .all()
         )
-        return tracks
+        result = await self.session.execute(query)
+        return result.scalars().unique().all()
 
-    def read_track(self, track_id: int):
-        track = (
-            self.session.query(TrackModel)
+    async def read_track(self, track_id: int):
+        query = (
+            select(TrackModel)
             .options(
                 joinedload(TrackModel.genre_tags),
                 joinedload(TrackModel.mood_tags),
@@ -470,15 +505,18 @@ class TrackService:
                 joinedload(TrackModel.album),
                 joinedload(TrackModel.genres)
             )
-            .filter(TrackModel.id == track_id)
-            .first()
+            .where(TrackModel.id == track_id)
         )
-        return track
+        result = await self.session.execute(query)
+        return result.scalars().first()
 
-    def update_track(self, track_id: int, track_data):
+    async def update_track(self, track_id: int, track_data):
         from sqlalchemy import func
 
-        db_track = self.session.query(TrackModel).filter(TrackModel.id == track_id).first()
+        result = await self.session.execute(
+            select(TrackModel).where(TrackModel.id == track_id)
+        )
+        db_track = result.scalars().first()
         if not db_track:
             return None
 
@@ -504,35 +542,39 @@ class TrackService:
         if hasattr(track_data, 'genres') and isinstance(track_data.genres, list):
             genres = []
             for genre_id in track_data.genres:
-                genre = self.session.query(Genre).get(genre_id)
+                genre_result = await self.session.execute(select(Genre).where(Genre.id == genre_id))
+                genre = genre_result.scalars().first()
                 if genre:
                     genres.append(genre)
             db_track.genres = genres
 
         # Mise à jour des tags
         if hasattr(track_data, 'genre_tags'):
-            self.update_track_tags(track_id, genre_tags=track_data.genre_tags)
+            await self.update_track_tags(track_id, genre_tags=track_data.genre_tags)
         if hasattr(track_data, 'mood_tags'):
-            self.update_track_tags(track_id, mood_tags=track_data.mood_tags)
+            await self.update_track_tags(track_id, mood_tags=track_data.mood_tags)
 
         # Mise à jour de la date de modification
         db_track.date_modified = func.now()
 
         # Commit et refresh
         try:
-            self.session.commit()
-            self.session.refresh(db_track)
+            await self.session.commit()
+            await self.session.refresh(db_track)
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.error(f"Erreur lors du commit update_track: {str(e)}")
             raise
 
         return db_track
 
-    def update_track_tags(self, track_id: int, genre_tags: Optional[List[str]] = None, mood_tags: Optional[List[str]] = None):
+    async def update_track_tags(self, track_id: int, genre_tags: Optional[List[str]] = None, mood_tags: Optional[List[str]] = None):
         from sqlalchemy import func
 
-        db_track = self.session.query(TrackModel).filter(TrackModel.id == track_id).first()
+        result = await self.session.execute(
+            select(TrackModel).where(TrackModel.id == track_id)
+        )
+        db_track = result.scalars().first()
         if not db_track:
             return None
 
@@ -541,7 +583,10 @@ class TrackService:
             if genre_tags is not None:
                 db_track.genre_tags = []
                 for tag_name in genre_tags:
-                    tag = self.session.query(GenreTag).filter_by(name=tag_name).first()
+                    tag_result = await self.session.execute(
+                        select(GenreTag).where(GenreTag.name == tag_name)
+                    )
+                    tag = tag_result.scalars().first()
                     if not tag:
                         tag = GenreTag(name=tag_name)
                         self.session.add(tag)
@@ -551,46 +596,54 @@ class TrackService:
             if mood_tags is not None:
                 db_track.mood_tags = []
                 for tag_name in mood_tags:
-                    tag = self.session.query(MoodTag).filter_by(name=tag_name).first()
+                    tag_result = await self.session.execute(
+                        select(MoodTag).where(MoodTag.name == tag_name)
+                    )
+                    tag = tag_result.scalars().first()
                     if not tag:
                         tag = MoodTag(name=tag_name)
                         self.session.add(tag)
                     db_track.mood_tags.append(tag)
 
             db_track.date_modified = func.now()
-            self.session.commit()
-            self.session.refresh(db_track)
+            await self.session.commit()
+            await self.session.refresh(db_track)
             return db_track
 
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             logger.error(f"Erreur mise à jour tags: {str(e)}")
             raise
 
-    def delete_track(self, track_id: int):
-        track = self.session.query(TrackModel).filter(TrackModel.id == track_id).first()
+    async def delete_track(self, track_id: int):
+        result = await self.session.execute(
+            select(TrackModel).where(TrackModel.id == track_id)
+        )
+        track = result.scalars().first()
         if not track:
             return False
 
-        self.session.delete(track)
-        self.session.commit()
+        await self.session.delete(track)
+        await self.session.commit()
         return True
 
-    def upsert_track(self, track_data):
+    async def upsert_track(self, track_data):
         """Upsert a track (create if not exists, update if exists)."""
         try:
             # Try to find existing track by musicbrainz_id first
             existing_track = None
             if hasattr(track_data, 'musicbrainz_id') and track_data.musicbrainz_id:
-                existing_track = self.session.query(TrackModel).filter(
-                    TrackModel.musicbrainz_id == track_data.musicbrainz_id
-                ).first()
+                result = await self.session.execute(
+                    select(TrackModel).where(TrackModel.musicbrainz_id == track_data.musicbrainz_id)
+                )
+                existing_track = result.scalars().first()
 
             # If not found by MBID, try by path
             if not existing_track and hasattr(track_data, 'path') and track_data.path:
-                existing_track = self.session.query(TrackModel).filter(
-                    TrackModel.path == track_data.path
-                ).first()
+                result = await self.session.execute(
+                    select(TrackModel).where(TrackModel.path == track_data.path)
+                )
+                existing_track = result.scalars().first()
 
             if existing_track:
                 # Update existing track
@@ -605,11 +658,11 @@ class TrackService:
                     # Strawberry object - convert manually
                     update_data = {}
                     track_attrs = ['title', 'path', 'track_artist_id', 'album_id', 'duration', 'track_number',
-                                 'disc_number', 'year', 'genre', 'file_type', 'bitrate', 'featured_artists',
-                                 'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
-                                 'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
-                                 'camelot_key', 'genre_main', 'musicbrainz_id', 'musicbrainz_albumid',
-                                 'musicbrainz_artistid', 'musicbrainz_albumartistid', 'acoustid_fingerprint']
+                                  'disc_number', 'year', 'genre', 'file_type', 'bitrate', 'featured_artists',
+                                  'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
+                                  'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
+                                  'camelot_key', 'genre_main', 'musicbrainz_id', 'musicbrainz_albumid',
+                                  'musicbrainz_artistid', 'musicbrainz_albumartistid', 'acoustid_fingerprint']
                     for attr in track_attrs:
                         if hasattr(track_data, attr):
                             value = getattr(track_data, attr)
@@ -622,8 +675,8 @@ class TrackService:
                         setattr(existing_track, key, value)
 
                 existing_track.date_modified = func.now()
-                self.session.commit()
-                self.session.refresh(existing_track)
+                await self.session.commit()
+                await self.session.refresh(existing_track)
                 return existing_track
             else:
                 # Create new track
@@ -634,11 +687,11 @@ class TrackService:
                     # Strawberry object - convert manually
                     track_dict = {}
                     track_attrs = ['title', 'path', 'track_artist_id', 'album_id', 'duration', 'track_number',
-                                 'disc_number', 'year', 'genre', 'file_type', 'bitrate', 'featured_artists',
-                                 'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
-                                 'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
-                                 'camelot_key', 'genre_main', 'musicbrainz_id', 'musicbrainz_albumid',
-                                 'musicbrainz_artistid', 'musicbrainz_albumartistid', 'acoustid_fingerprint']
+                                  'disc_number', 'year', 'genre', 'file_type', 'bitrate', 'featured_artists',
+                                  'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
+                                  'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
+                                  'camelot_key', 'genre_main', 'musicbrainz_id', 'musicbrainz_albumid',
+                                  'musicbrainz_artistid', 'musicbrainz_albumartistid', 'acoustid_fingerprint']
                     for attr in track_attrs:
                         if hasattr(track_data, attr):
                             value = getattr(track_data, attr)
@@ -646,42 +699,44 @@ class TrackService:
 
                 db_track = TrackModel(**track_dict)
                 self.session.add(db_track)
-                self.session.commit()
-                self.session.refresh(db_track)
+                await self.session.commit()
+                await self.session.refresh(db_track)
                 return db_track
 
         except IntegrityError as e:
-            self.session.rollback()
+            await self.session.rollback()
             if "UNIQUE constraint failed: tracks.musicbrainz_id" in str(e):
-                existing = self.session.query(TrackModel).filter(
-                    TrackModel.musicbrainz_id == track_data.musicbrainz_id
-                ).first()
+                result = await self.session.execute(
+                    select(TrackModel).where(TrackModel.musicbrainz_id == track_data.musicbrainz_id)
+                )
+                existing = result.scalars().first()
                 if existing:
                     return existing
             raise Exception("Erreur lors de l'upsert de la piste")
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             raise Exception(str(e))
 
-    def update_tracks_by_filter(self, filter_data, update_data):
+    async def update_tracks_by_filter(self, filter_data, update_data):
         """Update multiple tracks by filter."""
         try:
-            query = self.session.query(TrackModel)
+            query = select(TrackModel)
 
             # Apply filters
             if 'title' in filter_data:
                 if 'icontains' in filter_data['title']:
-                    query = query.filter(
+                    query = query.where(
                         func.lower(TrackModel.title).like(f"%{filter_data['title']['icontains'].lower()}%")
                     )
                 elif isinstance(filter_data['title'], str):
-                    query = query.filter(TrackModel.title == filter_data['title'])
+                    query = query.where(TrackModel.title == filter_data['title'])
 
             if 'musicbrainz_id' in filter_data:
-                query = query.filter(TrackModel.musicbrainz_id == filter_data['musicbrainz_id'])
+                query = query.where(TrackModel.musicbrainz_id == filter_data['musicbrainz_id'])
 
             # Get tracks to update
-            tracks_to_update = query.all()
+            result = await self.session.execute(query)
+            tracks_to_update = result.scalars().all()
 
             if not tracks_to_update:
                 return []
@@ -695,14 +750,33 @@ class TrackService:
                 track.date_modified = func.now()
                 updated_tracks.append(track)
 
-            self.session.commit()
+            await self.session.commit()
 
             # Refresh all updated tracks
             for track in updated_tracks:
-                self.session.refresh(track)
+                await self.session.refresh(track)
 
             return updated_tracks
 
         except Exception as e:
-            self.session.rollback()
+            await self.session.rollback()
             raise Exception(f"Erreur lors de la mise à jour par filtre: {str(e)}")
+    @staticmethod
+    async def fetch_tracks(ids: List[int], session) -> List[TrackModel]:
+        # 1. Requête SQL groupée : SELECT * FROM tracks WHERE id IN (1, 5, 2)
+        query = select(TrackModel).where(TrackModel.id.in_(ids))
+        result = await session.execute(query)
+        tracks = result.scalars().all()
+        track_map = {track.id: track for track in tracks}
+
+        return [track_map.get(track_id) for track_id in ids]
+
+    @staticmethod
+    async def fetch_tracks_by_album_ids(ids: List[int], session) -> List[List[TrackModel]]:
+        query = select(TrackModel).where(TrackModel.album_id.in_(ids))
+        result = await session.execute(query)
+        tracks = result.scalars().all()
+        tracks_by_album = defaultdict(list)
+        for track in tracks:
+            tracks_by_album[track.album_id].append(track)
+        return [tracks_by_album.get(album_id, []) for album_id in ids]

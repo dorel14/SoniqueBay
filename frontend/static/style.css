@@ -130,3 +130,52 @@ body {
         background-color: #bbdefb !important;
         font-weight: bold;
     }
+
+.sb-card-artist {
+    background: linear-gradient(
+        135deg,
+        #6366F1,
+        #7C3AED
+    );
+    border-radius: 1.25rem;
+    padding: 1.5rem;
+    box-shadow:
+        0 20px 40px rgba(0,0,0,.35),
+        inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.sb-table-tracks {
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 1rem;
+    overflow: hidden;
+    color: #F1F5F9;
+}
+
+/* Header */
+.sb-table-tracks thead tr {
+    background: rgba(99, 102, 241, 0.35);
+}
+
+.sb-table-tracks th {
+    font-size: 0.75rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #E0E7FF;
+    padding: 0.75rem 1rem;
+}
+
+/* Rows */
+.sb-table-tracks td {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid rgba(255,255,255,.08);
+    font-size: 0.85rem;
+}
+
+.sb-table-tracks tbody tr {
+    transition: background 0.2s ease;
+}
+
+.sb-table-tracks tbody tr:hover {
+    background: rgba(124, 58, 237, 0.25);
+    cursor: pointer;
+}

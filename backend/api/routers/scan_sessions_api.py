@@ -1,17 +1,44 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from backend.api.utils.database import get_db
-from backend.api.models.scan_sessions_model import ScanSession
-from typing import List
+"""
+Router pour la gestion des sessions de scan.
 
-router = APIRouter(prefix="/scan-sessions", tags=["scan-sessions"], redirect_slashes=False)
+Fournit des endpoints pour lister, récupérer, mettre à jour et supprimer
+les sessions de scan de la bibliothèque musicale.
+"""
+
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.models.scan_sessions_model import ScanSession
+from backend.api.utils.database import get_async_session
+from backend.api.utils.logging import logger
+
+router = APIRouter(
+    prefix="/scan-sessions",
+    tags=["scan-sessions"],
+    redirect_slashes=False
+)
+
 
 @router.get("/", response_model=List[dict])
-def list_scan_sessions(db: Session = Depends(get_db)):
-    from backend.api.utils.logging import logger
+async def list_scan_sessions(db: AsyncSession = Depends(get_async_session)) -> List[dict]:
+    """Liste toutes les sessions de scan, ordonnées par date de début décroissante.
+
+    Args:
+        db: Session de base de données asynchrone.
+
+    Returns:
+        Liste des sessions de scan sous forme de dictionnaires.
+    """
     logger.info("Endpoint /scan-sessions/ appelé - Liste des sessions de scan")
-    sessions = db.query(ScanSession).order_by(ScanSession.started_at.desc()).all()
+
+    stmt = select(ScanSession).order_by(ScanSession.started_at.desc())
+    result = await db.execute(stmt)
+    sessions = result.scalars().all()
+
     logger.info(f"Nombre de sessions trouvées: {len(sessions)}")
+
     return [
         {
             "id": s.id,
@@ -27,11 +54,28 @@ def list_scan_sessions(db: Session = Depends(get_db)):
         for s in sessions
     ]
 
+
 @router.get("/{session_id}")
-def get_scan_session(session_id: str, db: Session = Depends(get_db)):
-    session = db.query(ScanSession).filter(ScanSession.id == session_id).first()
+async def get_scan_session(session_id: str, db: AsyncSession = Depends(get_async_session)) -> dict:
+    """Récupère une session de scan par son identifiant.
+
+    Args:
+        session_id: Identifiant unique de la session.
+        db: Session de base de données asynchrone.
+
+    Returns:
+        La session de scan sous forme de dictionnaire.
+
+    Raises:
+        HTTPException: Si la session n'est pas trouvée (404).
+    """
+    stmt = select(ScanSession).where(ScanSession.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
     if not session:
         raise HTTPException(status_code=404, detail="Scan session not found")
+
     return {
         "id": session.id,
         "directory": session.directory,
@@ -44,18 +88,57 @@ def get_scan_session(session_id: str, db: Session = Depends(get_db)):
         "updated_at": session.updated_at
     }
 
+
 @router.delete("/{session_id}")
-def delete_scan_session(session_id: str, db: Session = Depends(get_db)):
-    session = db.query(ScanSession).filter(ScanSession.id == session_id).first()
+async def delete_scan_session(session_id: str, db: AsyncSession = Depends(get_async_session)) -> dict:
+    """Supprime une session de scan par son identifiant.
+
+    Args:
+        session_id: Identifiant unique de la session à supprimer.
+        db: Session de base de données asynchrone.
+
+    Returns:
+        Message de confirmation de la suppression.
+
+    Raises:
+        HTTPException: Si la session n'est pas trouvée (404).
+    """
+    stmt = select(ScanSession).where(ScanSession.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
     if not session:
         raise HTTPException(status_code=404, detail="Scan session not found")
-    db.delete(session)
-    db.commit()
+
+    await db.delete(session)
+    await db.commit()
+
     return {"message": "Scan session deleted"}
 
+
 @router.put("/{session_id}/progress")
-def update_scan_progress(session_id: str, progress: dict, db: Session = Depends(get_db)):
-    session = db.query(ScanSession).filter(ScanSession.id == session_id).first()
+async def update_scan_progress(
+    session_id: str,
+    progress: dict,
+    db: AsyncSession = Depends(get_async_session)
+) -> dict:
+    """Met à jour la progression d'une session de scan.
+
+    Args:
+        session_id: Identifiant unique de la session.
+        progress: Dictionnaire contenant les champs à mettre à jour.
+        db: Session de base de données asynchrone.
+
+    Returns:
+        Message de confirmation de la mise à jour.
+
+    Raises:
+        HTTPException: Si la session n'est pas trouvée (404).
+    """
+    stmt = select(ScanSession).where(ScanSession.id == session_id)
+    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+
     if not session:
         raise HTTPException(status_code=404, detail="Scan session not found")
 
@@ -68,5 +151,6 @@ def update_scan_progress(session_id: str, progress: dict, db: Session = Depends(
     if "status" in progress:
         session.status = progress["status"]
 
-    db.commit()
+    await db.commit()
+
     return {"message": "Progress updated"}

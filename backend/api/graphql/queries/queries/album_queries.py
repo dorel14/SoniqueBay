@@ -2,8 +2,8 @@ from __future__ import annotations
 import strawberry
 from typing import Optional
 from backend.api.graphql.types.albums_type import AlbumType
-from backend.api.graphql.types.covers_type import CoverType
 from backend.api.services.album_service import AlbumService
+from backend.api.utils.logging import logger
 
 
 @strawberry.type
@@ -11,10 +11,17 @@ class AlbumQueries:
     """Queries for albums."""
 
     @strawberry.field
-    def album(self, info: strawberry.types.Info, id: int) -> Optional[AlbumType]:
+    async def album(self, info: strawberry.types.Info, id: int) -> Optional[AlbumType]:
+        from backend.api.utils.cache_utils import graphql_cache
+
+        cache_params = {'id': id}
+        cached_data = graphql_cache.get("album_v2", **cache_params)
+        if cached_data is not None:
+            return AlbumType(**cached_data)
+
         db = info.context.session
         service = AlbumService(db)
-        album = service.read_album(id)
+        album = await service.read_album(id)
         if album:
             if isinstance(album, dict):
                 album_data = album
@@ -22,6 +29,7 @@ class AlbumQueries:
                 album_data = album.__dict__
 
             # Extract only the fields that exist in AlbumType
+            # Note: covers is a resolver method, not an attribute
             data = {
                 'id': album_data.get('id'),
                 'title': album_data.get('title'),
@@ -30,30 +38,23 @@ class AlbumQueries:
                 'musicbrainz_albumid': album_data.get('musicbrainz_albumid')
             }
 
-            # Add covers
-            covers = []
-            if hasattr(album, 'covers') and album.covers:
-                covers = [CoverType(
-                    id=c.id,
-                    entity_type=c.entity_type,
-                    entity_id=c.entity_id,
-                    url=c.url,
-                    cover_data=c.cover_data,
-                    date_added=str(c.date_added),
-                    date_modified=str(c.date_modified),
-                    mime_type=c.mime_type
-                ) for c in album.covers]
-            data['covers'] = covers
-
+            graphql_cache.set("album_v2", data, 300, **cache_params)
             return AlbumType(**data)
         return None
 
     @strawberry.field
-    def albums(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[AlbumType]:
+    async def albums(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[AlbumType]:
+        from backend.api.utils.cache_utils import graphql_cache
+
+        cache_params = {'skip': skip, 'limit': limit}
+        cached_data = graphql_cache.get("albums_v2", **cache_params)
+        if cached_data is not None:
+            return [AlbumType(**d) for d in cached_data]
+
         db = info.context.session
         service = AlbumService(db)
-        albums = service.read_albums(skip, limit)
-        result = []
+        albums = await service.read_albums(skip, limit)
+        data_list = []
         for a in albums:
             if isinstance(a, dict):
                 album_data = a
@@ -61,6 +62,7 @@ class AlbumQueries:
                 album_data = a.__dict__
 
             # Extract only the fields that exist in AlbumType
+            # Note: covers is a resolver method, not an attribute
             data = {
                 'id': album_data.get('id'),
                 'title': album_data.get('title'),
@@ -69,20 +71,6 @@ class AlbumQueries:
                 'musicbrainz_albumid': album_data.get('musicbrainz_albumid')
             }
 
-            # Add covers
-            covers = []
-            if hasattr(a, 'covers') and a.covers:
-                covers = [CoverType(
-                    id=c.id,
-                    entity_type=c.entity_type,
-                    entity_id=c.entity_id,
-                    url=c.url,
-                    cover_data=c.cover_data,
-                    date_added=str(c.date_added),
-                    date_modified=str(c.date_modified),
-                    mime_type=c.mime_type
-                ) for c in a.covers]
-            data['covers'] = covers
-
-            result.append(AlbumType(**data))
-        return result
+            data_list.append(data)
+        graphql_cache.set("albums_v2", data_list, 60, **cache_params)
+        return [AlbumType(**d) for d in data_list]

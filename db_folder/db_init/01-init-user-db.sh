@@ -11,7 +11,12 @@ export TZ=${TZ}
 export LANG=${LOCALE_LANGUAGE}.UTF-8
 export LANGUAGE=${LOCALE_LANGUAGE}.UTF-8
 export LC_ALL=${LOCALE_LANGUAGE}.UTF-8
-createuser --superuser postgres
+
+# Create postgres superuser only if it doesn't exist and POSTGRES_USER is different
+if [ "$POSTGRES_USER" != "postgres" ]; then
+    echo "Creating postgres superuser..."
+    createuser -U "$POSTGRES_USER" --superuser postgres || echo "User postgres may already exist or creation skipped"
+fi
 
 # Check if a backup exists and restore it
 BACKUP_FILE="/db_folder/backup.sql"

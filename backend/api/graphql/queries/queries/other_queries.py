@@ -28,17 +28,17 @@ class OtherQueries:
         return [GenreType.from_orm(g) for g in genres]
 
     @strawberry.field
-    def cover(self, info: strawberry.types.Info, id: int) -> Optional[CoverType]:
+    async def cover(self, info: strawberry.types.Info, id: int) -> Optional[CoverType]:
         db = info.context.session
         service = CoverService(db)
-        cover = service.get_cover_by_id(id)
+        cover = await service.get_cover_by_id(id)
         return CoverType.from_orm(cover) if cover else None
 
     @strawberry.field
-    def covers(self, info: strawberry.types.Info) -> list[CoverType]:
+    async def covers(self, info: strawberry.types.Info) -> list[CoverType]:
         db = info.context.session
         service = CoverService(db)
-        covers = service.get_covers()
+        covers = await service.get_covers()
         return [CoverType.from_orm(c) for c in covers]
 
     @strawberry.field

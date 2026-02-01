@@ -41,8 +41,8 @@ COPY alembic.ini .
 COPY scripts/healthcheck.sh /healthcheck.sh
 RUN chmod +x /healthcheck.sh
 
-# Création des répertoires nécessaires
-RUN mkdir -p /app/backend/api/data /app/logs
+# Création des répertoires nécessaires pour les données persistantes (img, static, api_data)
+RUN mkdir -p /app/backend/data/img /app/backend/data/static /app/backend/data/api_data /app/logs
 
 # Exposition du port
 EXPOSE 8001

@@ -26,6 +26,7 @@ redis_data/
 celery_beat_data/
 flower_data/
 pg_db/
+pg_db_old/
 _old/
 ./ollama/*id_ed25519
 ollama/*.pub*

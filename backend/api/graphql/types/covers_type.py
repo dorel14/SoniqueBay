@@ -7,8 +7,11 @@ class CoverType:
     id: int
     entity_type: str
     entity_id: int
-    url: str
-    cover_data: str | None
+    cover_data: str | None = strawberry.field(name="coverData")
     date_added: str
     date_modified: str
-    mime_type: str | None
+    mime_type: str | None = strawberry.field(name="mimeType")
+
+    @strawberry.field
+    def url(self) -> str:
+        return f"/covers/{self.entity_type}/{self.entity_id}"
