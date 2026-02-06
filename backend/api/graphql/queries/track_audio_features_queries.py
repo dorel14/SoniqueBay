@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_audio_features_service: TrackAudioFeaturesService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -28,7 +28,7 @@ from backend.api.graphql.types.track_audio_features_type import (
 from backend.api.services.track_audio_features_service import (
     TrackAudioFeaturesService,
 )
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -51,7 +51,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Les caractéristiques audio ou None si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             features = await service.get_by_track_id(track_id)
 
@@ -93,7 +93,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Les caractéristiques audio ou None si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             features = await service.get_by_id(features_id)
 
@@ -142,7 +142,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des caractéristiques audio dans la plage de BPM
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.search_by_bpm_range(
                 min_bpm=min_bpm,
@@ -196,7 +196,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des caractéristiques audio correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.search_by_key(
                 key=key,
@@ -248,7 +248,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des caractéristiques audio correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.search_by_camelot_key(
                 camelot_key=camelot_key,
@@ -305,7 +305,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des caractéristiques audio correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.search_by_mood(
                 happy_min=happy_min,
@@ -361,7 +361,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des caractéristiques audio similaires
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.get_similar_by_bpm_and_key(
                 track_id=track_id,
@@ -403,7 +403,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Dictionnaire des statistiques (count, bpm range, etc.)
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             stats = await service.get_analysis_statistics()
             return stats
@@ -421,7 +421,7 @@ class TrackAudioFeaturesQuery:
         Returns:
             Liste des IDs de pistes sans caractéristiques
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             results = await service.get_tracks_without_features(limit=limit)
             return results

@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_embeddings_service: TrackEmbeddingsService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -27,7 +27,7 @@ from backend.api.graphql.types.track_embeddings_type import (
     TrackEmbeddingsUpdateInput,
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -54,7 +54,7 @@ class TrackEmbeddingsMutation:
             ValueError: Si le vecteur n'a pas 512 dimensions
             Exception: Si un embedding du même type existe déjà
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
 
             try:
@@ -96,7 +96,7 @@ class TrackEmbeddingsMutation:
         Returns:
             L'embedding créé ou mis à jour
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
 
             embedding = await service.create_or_update(
@@ -131,7 +131,7 @@ class TrackEmbeddingsMutation:
         Returns:
             L'embedding mis à jour ou None si non trouvé
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
 
             embedding = await service.update(
@@ -172,7 +172,7 @@ class TrackEmbeddingsMutation:
         Returns:
             True si supprimés, False si non trouvés
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             result = await service.delete(
                 track_id=track_id,
@@ -193,7 +193,7 @@ class TrackEmbeddingsMutation:
         Returns:
             True si supprimé, False si non trouvé
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             result = await service.delete_by_id(embedding_id=embedding_id)
             return result

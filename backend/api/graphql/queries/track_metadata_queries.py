@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_metadata_service: TrackMetadataService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -28,7 +28,7 @@ from backend.api.graphql.types.track_metadata_type import (
     MetadataSourceStatistics,
 )
 from backend.api.services.track_metadata_service import TrackMetadataService
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -56,7 +56,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des métadonnées de la piste
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.get_by_track_id(
                 track_id=track_id,
@@ -91,7 +91,7 @@ class TrackMetadataQuery:
         Returns:
             La métadonnée ou None si non trouvée
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             metadata = await service.get_by_id(metadata_id)
 
@@ -127,7 +127,7 @@ class TrackMetadataQuery:
         Returns:
             La valeur de la métadonnée ou la valeur par défaut
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             value = await service.get_metadata_value(
                 track_id=track_id,
@@ -152,7 +152,7 @@ class TrackMetadataQuery:
         Returns:
             Dictionnaire {clé: valeur} des métadonnées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             result = await service.get_metadata_as_dict(
                 track_id=track_id,
@@ -178,7 +178,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des métadonnées correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.search_by_key(
                 metadata_key=metadata_key,
@@ -218,7 +218,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des métadonnées correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.search_by_key_prefix(
                 key_prefix=key_prefix,
@@ -260,7 +260,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des métadonnées correspondantes
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.search_by_value(
                 metadata_value=metadata_value,
@@ -301,7 +301,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des métadonnées de cette source
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.search_by_source(
                 metadata_source=metadata_source,
@@ -331,7 +331,7 @@ class TrackMetadataQuery:
         Returns:
             Statistiques globales des métadonnées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             stats = await service.get_metadata_statistics()
 
@@ -364,7 +364,7 @@ class TrackMetadataQuery:
         Returns:
             Liste des IDs de pistes sans métadonnées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             results = await service.get_tracks_without_metadata(
                 metadata_key=metadata_key,

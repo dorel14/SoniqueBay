@@ -8,7 +8,7 @@ Rôle:
 
 Dépendances:
     - strawberry: Framework GraphQL
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -27,7 +27,7 @@ from backend.api.graphql.types.track_mir_type import (
     TrackMIRBatchResult,
 )
 from backend.api.graphql.types.tracks_type import TrackType
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -53,7 +53,7 @@ class TrackMIRMutation:
         """
         logger.info(f"Mutation reprocess_track_mir pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter le dispatch vers Celery
             # Pour l'instant, retourne une piste vide
             return TrackType(
@@ -140,7 +140,7 @@ class TrackMIRMutation:
         """
         logger.info(f"Mutation create_track_mir_raw pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la création en base de données
             return TrackMIRRawType(
                 id=0,
@@ -202,7 +202,7 @@ class TrackMIRMutation:
         """
         logger.info(f"Mutation create_track_mir_normalized pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la création en base de données
             return TrackMIRNormalizedType(
                 id=0,
@@ -248,7 +248,7 @@ class TrackMIRMutation:
         """
         logger.info(f"Mutation add_synthetic_tag pour track {track_id}: {tag_name}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la création en base de données
             return TrackMIRSyntheticTagType(
                 id=0,
@@ -274,6 +274,6 @@ class TrackMIRMutation:
         """
         logger.info(f"Mutation delete_track_mir pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la suppression en base de données
             return True
