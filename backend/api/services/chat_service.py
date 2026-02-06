@@ -7,6 +7,7 @@ import uuid
 import asyncio
 from typing import List, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory
 from backend.api.utils.logging import logger
 
@@ -250,3 +251,172 @@ class ChatService:
             chunks.append(current_chunk)
 
         return chunks
+
+    # ==========================================================================
+    # === Phase 12: Intégration MIR =============================================
+    # ==========================================================================
+
+    @staticmethod
+    async def generate_track_context(
+        db: AsyncSession,
+        track_id: int,
+        track_title: str,
+        artist_name: str,
+        album_name: Optional[str] = None,
+    ) -> str:
+        """
+        Génère le contexte de track avec données MIR pour les prompts LLM.
+
+        Args:
+            db: Session de base de données asynchrone
+            track_id: ID de la piste
+            track_title: Titre de la piste
+            artist_name: Nom de l'artiste
+            album_name: Nom de l'album (optionnel)
+
+        Returns:
+            Contexte formaté pour les LLM
+        """
+        try:
+            # Import du service LLM MIR
+            from backend.api.services.mir_llm_service import MIRLLMService
+
+            mir_service = MIRLLMService(db)
+
+            # Générer la description complète
+            description = await mir_service.generate_track_description_for_llm(
+                track_id=track_id,
+                track_title=track_title,
+                artist_name=artist_name,
+                album_name=album_name,
+            )
+
+            logger.debug(f"[CHAT] Contexte MIR généré pour track_id={track_id}")
+            return description
+
+        except Exception as e:
+            logger.error(f"[CHAT] Erreur génération contexte MIR: {e}")
+            # Fallback simple
+            return f"Piste: '{track_title}' par {artist_name}"
+
+    @staticmethod
+    async def get_mir_recommendations(
+        db: AsyncSession,
+        mood: Optional[str] = None,
+        energy_min: Optional[float] = None,
+        genre: Optional[str] = None,
+        limit: int = 5,
+    ) -> str:
+        """
+        Génère des recommandations basées sur les données MIR.
+
+        Args:
+            db: Session de base de données asynchrone
+            mood: Mood souhaité (happy, aggressive, relaxed, party)
+            energy_min: Score d'énergie minimum [0-1]
+            genre: Genre souhaité
+            limit: Nombre de recommandations
+
+        Returns:
+            Description des recommandations
+        """
+        try:
+            from sqlalchemy import select, and_, func
+            from backend.api.models.tracks_model import Track
+            from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
+
+            # Construire la requête
+            conditions = []
+
+            if mood:
+                mood_field = getattr(TrackMIRNormalized, f"mood_{mood}", None)
+                if mood_field:
+                    conditions.append(mood_field >= 0.5)
+
+            if energy_min is not None:
+                # Chercher dans TrackMIRScores pour energy_score
+                from backend.api.models.track_mir_scores_model import TrackMIRScores
+                conditions.append(TrackMIRScores.energy_score >= energy_min)
+
+            if genre:
+                conditions.append(TrackMIRNormalized.genre_main.ilike(genre))
+
+            # Requête de base
+            query = (
+                select(Track, TrackMIRNormalized)
+                .join(TrackMIRNormalized, Track.id == TrackMIRNormalized.track_id)
+            )
+
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            query = query.limit(limit)
+
+            result = await db.execute(query)
+            tracks = result.all()
+
+            if tracks:
+                recommendations = []
+                for track, mir in tracks[:limit]:
+                    rec = f"• {track.title} - {track.get('artist_name', 'Inconnu')}"
+                    if mir.genre_main:
+                        rec += f" [{mir.genre_main}]"
+                    if mir.bpm:
+                        rec += f" ({int(mir.bpm)} BPM)"
+                    recommendations.append(rec)
+
+                return "Voici mes recommandations MIR :\n" + "\n".join(recommendations)
+            else:
+                return "Aucune piste ne correspond à vos critères de recherche MIR."
+
+        except Exception as e:
+            logger.error(f"[CHAT] Erreur recommandations MIR: {e}")
+            return "Désolé, je n'ai pas pu générer de recommandations basées sur MIR."
+
+    @staticmethod
+    async def describe_track_with_mir(
+        db: AsyncSession,
+        track_id: int,
+        track_title: str,
+        artist_name: str,
+    ) -> str:
+        """
+        Décrit une piste en utilisant les données MIR.
+
+        Args:
+            db: Session de base de données asynchrone
+            track_id: ID de la piste
+            track_title: Titre de la piste
+            artist_name: Nom de l'artiste
+
+        Returns:
+            Description formatée
+        """
+        try:
+            from backend.api.services.mir_llm_service import MIRLLMService
+
+            mir_service = MIRLLMService(db)
+            mir_data = await mir_service.get_mir_data(track_id)
+
+            if not mir_data:
+                return f"Piste: '{track_title}' par {artist_name}"
+
+            # Générer le résumé
+            summary = mir_service.generate_track_summary(track_id, mir_data)
+
+            # Générer les suggestions de recherche
+            suggestions = mir_service.generate_search_query_suggestions(mir_data)
+
+            # Construire la réponse
+            parts = [f"Analyse de '{track_title}' par {artist_name}:", "", summary]
+
+            if suggestions:
+                parts.extend(["", "Suggestions de recherche:"])
+                for s in suggestions[:5]:
+                    parts.append(f"• {s}")
+
+            return "\n".join(parts)
+
+        except Exception as e:
+            logger.error(f"[CHAT] Erreur description MIR: {e}")
+            return f"Piste: '{track_title}' par {artist_name}"

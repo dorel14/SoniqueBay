@@ -120,19 +120,50 @@ class TrackVectorizationService:
             while len(features) < target_length:
                 features.append(0.0)
 
-            # Normalize the entire vector
-            features_array = np.array(features)
-            if np.std(features_array) > 0:
-                features_array = (features_array - np.mean(features_array)) / np.std(features_array)
+            features_array = np.array(features, dtype=np.float32)
 
-            embedding = features_array.tolist()
+            # Adjust embedding to exactly 512 dimensions
+            embedding = self._adjust_embedding_to_512(features_array)
 
             logger.debug(f"Created embedding for track with {len(embedding)} dimensions")
-            return embedding
+            return embedding.tolist()
 
         except Exception as e:
             logger.error(f"Error creating track embedding: {e}")
             return None
+
+    def _adjust_embedding_to_512(self, embedding: np.ndarray) -> np.ndarray:
+        """
+        Adjust embedding to exactly 512 dimensions with L2 normalization.
+
+        If embedding length > 512: truncate to first 512 elements.
+        If embedding length < 512: pad with zeros at the end.
+        Then apply L2 normalization to the 512-dimensional vector.
+
+        Args:
+            embedding: Input numpy array
+
+        Returns:
+            Normalized 512-dimensional numpy array
+        """
+        TARGET_DIMENSION = 512
+
+        if len(embedding) > TARGET_DIMENSION:
+            # Truncate to 512 dimensions
+            adjusted = embedding[:TARGET_DIMENSION].copy()
+        elif len(embedding) < TARGET_DIMENSION:
+            # Pad with zeros to reach 512 dimensions
+            adjusted = np.zeros(TARGET_DIMENSION, dtype=np.float32)
+            adjusted[:len(embedding)] = embedding
+        else:
+            adjusted = embedding.copy()
+
+        # Apply L2 normalization to the 512-dimensional vector
+        norm = np.linalg.norm(adjusted)
+        if norm > 0:
+            adjusted = adjusted / norm
+
+        return adjusted
 
     def _encode_genre(self, genre: str) -> List[float]:
         """Encode genre as a vector."""

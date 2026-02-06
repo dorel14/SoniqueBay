@@ -2,17 +2,21 @@
 """
 Service d'indexation PostgreSQL pour la recherche full-text
 Gère le remplissage automatique des colonnes TSVECTOR pour tracks et artists.
+Supporte également la vectorisation via TrackEmbeddings.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
-from backend.api.utils.logging import logger
+
 from backend.api.utils.database import get_db
+from backend.api.utils.logging import logger
 
 
 class SearchIndexingService:
-    """Service pour maintenir les index de recherche PostgreSQL."""
+    """Service pour maintenir les index de recherche PostgreSQL et TrackEmbeddings."""
 
     @staticmethod
     def update_track_search_vectors(db: Optional[Session] = None, track_ids: Optional[List[int]] = None) -> Dict[str, Any]:
@@ -88,6 +92,172 @@ class SearchIndexingService:
                 "error": str(e),
                 "tracks_updated": 0,
                 "type": "tracks"
+            }
+
+    @staticmethod
+    async def index_track(
+        track_id: int,
+        embedding: Optional[List[float]] = None,
+        embedding_type: str = 'semantic',
+        embedding_source: Optional[str] = None,
+        embedding_model: Optional[str] = None,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Indexe une track avec TSVECTOR et optionnellement un embedding.
+
+        Crée un embedding dans TrackEmbeddings si un vecteur est fourni.
+
+        Args:
+            track_id: ID de la track
+            embedding: Vecteur d'embedding optionnel
+            embedding_type: Type d'embedding
+            embedding_source: Source de vectorisation
+            embedding_model: Modèle utilisé
+            db: Session de base de données
+
+        Returns:
+            Statistiques d'indexation
+        """
+        try:
+            logger.info(f"[SEARCH INDEXING] Indexation track {track_id}")
+
+            # Mise à jour du TSVECTOR
+            if not db:
+                from backend.api.utils.database import get_async_db
+                db = await get_async_db().__anext__()
+
+            search_query = text("""
+                UPDATE tracks
+                SET search = to_tsvector('english',
+                    COALESCE(title, '') || ' ' ||
+                    COALESCE(genre, '') || ' ' ||
+                    COALESCE(year, '') || ' ' ||
+                    COALESCE((SELECT name FROM artists WHERE id = track_artist_id), '') || ' ' ||
+                    COALESCE((SELECT title FROM albums WHERE id = album_id), '')
+                )
+                WHERE id = :track_id
+            """)
+            await db.execute(search_query, {"track_id": track_id})
+            await db.commit()
+
+            # Création de l'embedding si fourni
+            embedding_result = {"created": False}
+            if embedding:
+                embedding_result = await SearchIndexingService._create_embedding(
+                    track_id=track_id,
+                    embedding=embedding,
+                    embedding_type=embedding_type,
+                    embedding_source=embedding_source,
+                    embedding_model=embedding_model,
+                    db=db
+                )
+
+            logger.info(f"[SEARCH INDEXING] Track {track_id} indexé avec succès")
+            return {
+                "success": True,
+                "track_id": track_id,
+                "search_updated": True,
+                "embedding": embedding_result
+            }
+
+        except Exception as e:
+            logger.error(f"[SEARCH INDEXING] Erreur indexation track {track_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "track_id": track_id
+            }
+
+    @staticmethod
+    async def _create_embedding(
+        track_id: int,
+        embedding: List[float],
+        embedding_type: str = 'semantic',
+        embedding_source: Optional[str] = None,
+        embedding_model: Optional[str] = None,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """Crée un embedding dans TrackEmbeddings."""
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            if not db:
+                from backend.api.utils.database import get_async_db
+                db = await get_async_db().__anext__()
+
+            service = TrackEmbeddingsService(db)
+            await service.create_or_update(
+                track_id=track_id,
+                vector=embedding,
+                embedding_type=embedding_type,
+                embedding_source=embedding_source,
+                embedding_model=embedding_model
+            )
+
+            logger.debug(f"[SEARCH INDEXING] Embedding créé pour track {track_id}")
+            return {"created": True, "type": embedding_type}
+
+        except ImportError:
+            logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
+            return {"created": False, "error": "Service non disponible"}
+        except Exception as e:
+            logger.error(f"[SEARCH INDEXING] Erreur création embedding pour track {track_id}: {e}")
+            return {"created": False, "error": str(e)}
+
+    @staticmethod
+    async def remove_track_from_index(
+        track_id: int,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Supprime une track de l'index de recherche.
+
+        Supprime également l'embedding de TrackEmbeddings.
+
+        Args:
+            track_id: ID de la track
+            db: Session de base de données
+
+        Returns:
+            Statistiques de suppression
+        """
+        try:
+            logger.info(f"[SEARCH INDEXING] Suppression track {track_id} de l'index")
+
+            if not db:
+                from backend.api.utils.database import get_async_db
+                db = await get_async_db().__anext__()
+
+            # Supprimer l'embedding de TrackEmbeddings
+            try:
+                from backend.api.services.track_embeddings_service import \
+                    TrackEmbeddingsService
+
+                service = TrackEmbeddingsService(db)
+                await service.delete(track_id)
+                logger.debug(f"[SEARCH INDEXING] Embedding supprimé pour track {track_id}")
+
+            except ImportError:
+                logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
+            except Exception as e:
+                logger.warning(f"[SEARCH INDEXING] Erreur suppression embedding: {e}")
+
+            # Le TSVECTOR n'est pas supprimé, la track reste en base
+            logger.info(f"[SEARCH INDEXING] Track {track_id} retiré de l'index")
+            return {
+                "success": True,
+                "track_id": track_id,
+                "embedding_deleted": True
+            }
+
+        except Exception as e:
+            logger.error(f"[SEARCH INDEXING] Erreur suppression track {track_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "track_id": track_id
             }
 
     @staticmethod
@@ -199,7 +369,7 @@ class SearchIndexingService:
             db = next(get_db())
 
         try:
-            # Stats tracks
+            # Stats tracks TSVECTOR
             track_stats = db.execute(text("""
                 SELECT
                     COUNT(*) as total_tracks,
@@ -221,6 +391,22 @@ class SearchIndexingService:
                 FROM artists
             """)).fetchone()
 
+            # Stats TrackEmbeddings
+            try:
+                te_stats = db.execute(text("""
+                    SELECT
+                        COUNT(*) as total_embeddings,
+                        COUNT(DISTINCT track_id) as tracks_with_embeddings
+                    FROM track_embeddings
+                    WHERE embedding_type = 'semantic'
+                """)).fetchone()
+                embedding_stats = {
+                    "total": te_stats.total_embeddings or 0,
+                    "tracks_with_embeddings": te_stats.tracks_with_embeddings or 0
+                }
+            except Exception:
+                embedding_stats = {"total": 0, "tracks_with_embeddings": 0}
+
             return {
                 "tracks": {
                     "total": track_stats.total_tracks,
@@ -231,7 +417,8 @@ class SearchIndexingService:
                     "total": artist_stats.total_artists,
                     "indexed": artist_stats.indexed_artists,
                     "percentage": artist_stats.indexing_percentage
-                }
+                },
+                "embeddings": embedding_stats
             }
 
         except Exception as e:
@@ -412,3 +599,112 @@ class SearchIndexingService:
             db.rollback()
             logger.error(f"[SEARCH INDEXING] Erreur rafraîchissement vues matérialisées: {e}")
             return False
+
+    @staticmethod
+    async def vectorize_track(
+        track_id: int,
+        embedding: List[float],
+        embedding_type: str = 'semantic',
+        embedding_source: Optional[str] = None,
+        embedding_model: Optional[str] = None,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Crée ou met à jour un embedding pour une track via TrackEmbeddingsService.
+
+        Args:
+            track_id: ID de la track
+            embedding: Vecteur d'embedding
+            embedding_type: Type d'embedding
+            embedding_source: Source de vectorisation
+            embedding_model: Modèle utilisé
+            db: Session de base de données
+
+        Returns:
+            Résultat de l'opération
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            if not db:
+                from backend.api.utils.database import get_async_db
+                db = await get_async_db().__anext__()
+
+            service = TrackEmbeddingsService(db)
+            result = await service.create_or_update(
+                track_id=track_id,
+                vector=embedding,
+                embedding_type=embedding_type,
+                embedding_source=embedding_source,
+                embedding_model=embedding_model
+            )
+
+            logger.info(f"[SEARCH INDEXING] Vectorisation track {track_id}: {embedding_type}")
+            return {
+                "success": True,
+                "track_id": track_id,
+                "embedding_type": embedding_type,
+                "embedding_id": result.id if result else None
+            }
+
+        except ImportError:
+            logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
+            return {
+                "success": False,
+                "error": "Service non disponible"
+            }
+        except Exception as e:
+            logger.error(f"[SEARCH INDEXING] Erreur vectorisation track {track_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    @staticmethod
+    async def delete_track_embedding(
+        track_id: int,
+        embedding_type: Optional[str] = None,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Supprime les embeddings d'une track via TrackEmbeddingsService.
+
+        Args:
+            track_id: ID de la track
+            embedding_type: Type spécifique à supprimer (None = tous)
+            db: Session de base de données
+
+        Returns:
+            Résultat de l'opération
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            if not db:
+                from backend.api.utils.database import get_async_db
+                db = await get_async_db().__anext__()
+
+            service = TrackEmbeddingsService(db)
+            result = await service.delete(track_id, embedding_type)
+
+            logger.info(f"[SEARCH INDEXING] Suppression embedding track {track_id}")
+            return {
+                "success": result,
+                "track_id": track_id,
+                "embedding_type": embedding_type or "all"
+            }
+
+        except ImportError:
+            logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
+            return {
+                "success": False,
+                "error": "Service non disponible"
+            }
+        except Exception as e:
+            logger.error(f"[SEARCH INDEXING] Erreur suppression embedding track {track_id}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }

@@ -1,4 +1,3 @@
-import stat
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -11,6 +10,11 @@ from backend.api.utils.logging import logger
 from typing import List, Optional
 from collections import defaultdict
 
+# Import des nouveaux services pour l'intégration
+from backend.api.services.track_audio_features_service import TrackAudioFeaturesService
+from backend.api.services.track_embeddings_service import TrackEmbeddingsService
+from backend.api.services.track_metadata_service import TrackMetadataService
+
 class TrackService:
     """
     Service métier pour la gestion des pistes musicales.
@@ -18,18 +22,46 @@ class TrackService:
     Ce service fournit toutes les opérations CRUD pour les tracks,
     ainsi que les fonctionnalités de recherche et de mise à jour.
 
+    Il intègre également les nouveaux services pour la gestion des
+    caractéristiques audio, embeddings et métadonnées enrichies via
+    composition de services.
+
     Auteur : Kilo Code
-    Dépendances : backend.api.models.tracks_model, backend.utils.database
+    Dépendances :
+        - backend.api.models.tracks_model
+        - backend.api.services.track_audio_features_service
+        - backend.api.services.track_embeddings_service
+        - backend.api.services.track_metadata_service
     """
 
     def __init__(self, session: AsyncSession):
         """
         Initialise le service avec une session de base de données.
 
+        Initialise également les services dédiés pour les caractéristiques
+        audio, embeddings et métadonnées.
+
         Args:
             session: Session SQLAlchemy asynchrone
         """
         self.session = session
+
+        # Services dédiés pour les nouvelles tables
+        self.audio_features_service = TrackAudioFeaturesService(session)
+        self.embeddings_service = TrackEmbeddingsService(session)
+        self.metadata_service = TrackMetadataService(session)
+
+    def get_audio_features_service(self) -> TrackAudioFeaturesService:
+        """Retourne le service de gestion des caractéristiques audio."""
+        return self.audio_features_service
+
+    def get_embeddings_service(self) -> TrackEmbeddingsService:
+        """Retourne le service de gestion des embeddings."""
+        return self.embeddings_service
+
+    def get_metadata_service(self) -> TrackMetadataService:
+        """Retourne le service de gestion des métadonnées enrichies."""
+        return self.metadata_service
 
     async def get_artist_tracks(self, artist_id: int, album_id: Optional[int] = None):
         """

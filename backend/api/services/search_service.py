@@ -4,9 +4,11 @@ Utilise PostgreSQL full-text search avec TSVECTOR et recherche vectorielle hybri
 Auteur : Kilo Code
 Dépendances : backend.api.schemas.search_schema
 """
-from typing import List, Dict, Any, Optional
-from sqlalchemy import text, func, select
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.api.schemas.search_schema import SearchQuery, SearchResult
 from backend.api.services.redis_cache_service import redis_cache_service
 from backend.api.utils.logging import logger
@@ -58,7 +60,7 @@ class SearchService:
         # Recherche textuelle avec TSVECTOR
         text_results = await SearchService._text_search(query, db)
 
-        # Recherche vectorielle si disponible
+        # Recherche vectorielle via TrackEmbeddings
         vector_results = await SearchService._vector_search(query, db)
 
         # Fusionner et scorer hybride
@@ -176,17 +178,219 @@ class SearchService:
 
     @staticmethod
     async def _vector_search(query: SearchQuery, db: AsyncSession) -> List[Dict[str, Any]]:
-        """Recherche vectorielle avec pgvector."""
-        try:
-            # Pour la recherche vectorielle, on utilise un embedding moyen des termes
-            # En production, utiliser un modèle d'embedding réel
-            # Recherche de tracks similaires (placeholder - besoin d'embedding de la requête)
-            # Pour l'instant, retourner vide si pas d'embedding disponible
-            return []
+        """
+        Recherche vectorielle via TrackEmbeddings.
 
+        Utilise TrackEmbeddingsService pour la recherche de similarité sémantique.
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            # Pour la recherche vectorielle, on génère un embedding des termes de recherche
+            # En production, utiliser un modèle d'embedding réel (Ollama, etc.)
+            embedding_vector = await SearchService._generate_query_embedding(query.query, db)
+
+            if not embedding_vector:
+                logger.debug("[SEARCH] Pas d'embedding disponible pour la recherche vectorielle")
+                return []
+
+            # Recherche via TrackEmbeddingsService
+            service = TrackEmbeddingsService(db)
+            results = await service.find_similar(
+                query_vector=embedding_vector,
+                embedding_type='semantic',
+                limit=100
+            )
+
+            # Formater les résultats
+            vector_results = []
+            for embedding, distance in results:
+                # Récupérer les infos de la track
+                track_info = await SearchService._get_track_info(embedding.track_id, db)
+
+                if track_info:
+                    vector_results.append({
+                        "id": embedding.track_id,
+                        "title": track_info.get("title", ""),
+                        "artist": track_info.get("artist", ""),
+                        "album": track_info.get("album", ""),
+                        "genre": track_info.get("genre", ""),
+                        "path": track_info.get("path", ""),
+                        "text_score": 0.0,
+                        "vector_score": 1.0 / (1.0 + float(distance)),
+                        "type": "track"
+                    })
+
+            logger.debug(f"[SEARCH] Recherche vectorielle: {len(vector_results)} résultats")
+            return vector_results
+
+        except ImportError as e:
+            logger.warning(f"[SEARCH] TrackEmbeddingsService non disponible: {e}")
+            return []
         except Exception as e:
             logger.error(f"Erreur recherche vectorielle: {e}")
             return []
+
+    @staticmethod
+    async def _generate_query_embedding(query_text: str, db: AsyncSession) -> Optional[List[float]]:
+        """
+        Génère un embedding pour les termes de recherche.
+
+        Pour l'implémentation complète, utiliser Ollama ou un autre service de vectorisation.
+        Pour l'instant, retourne None si pas de modèle disponible.
+
+        Args:
+            query_text: Texte de la requête
+            db: Session de base de données
+
+        Returns:
+            Vecteur d'embedding ou None
+        """
+        try:
+            # TODO: Implémenter avec Ollama ou un autre service de vectorisation
+            # Pour l'instant, on utilise une implémentation placeholder
+
+            # Essayer d'utiliser Ollama service si disponible
+            try:
+                from backend.api.services.ollama_service import ollama_service
+
+                # Générer un embedding via Ollama
+                embedding = await ollama_service.get_embeddings(query_text)
+
+                if embedding and len(embedding) == 512:
+                    return embedding
+
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.debug(f"[SEARCH] Ollama non disponible: {e}")
+
+            # Fallback: Pas d'embedding disponible
+            logger.debug("[SEARCH] Pas de service de vectorisation disponible")
+            return None
+
+        except Exception as e:
+            logger.error(f"Erreur génération embedding: {e}")
+            return None
+
+    @staticmethod
+    async def _get_track_info(track_id: int, db: AsyncSession) -> Optional[Dict[str, Any]]:
+        """Récupère les informations d'une track pour les résultats de recherche."""
+        try:
+            track_query = text("""
+                SELECT
+                    t.id,
+                    t.title,
+                    a.name as artist,
+                    al.title as album,
+                    t.genre,
+                    t.path
+                FROM tracks t
+                LEFT JOIN artists a ON t.track_artist_id = a.id
+                LEFT JOIN albums al ON t.album_id = al.id
+                WHERE t.id = :track_id
+                LIMIT 1
+            """)
+
+            result = await db.execute(track_query, {"track_id": track_id})
+            row = result.fetchone()
+
+            if row:
+                return {
+                    "id": row.id,
+                    "title": row.title or "",
+                    "artist": row.artist or "",
+                    "album": row.album or "",
+                    "genre": row.genre or "",
+                    "path": row.path or ""
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Erreur récupération infos track {track_id}: {e}")
+            return None
+
+    @staticmethod
+    async def get_track_search_vector(track_id: int, db: AsyncSession) -> Optional[List[float]]:
+        """
+        Récupère le vecteur de recherche sémantique pour une track.
+
+        Utilise TrackEmbeddingsService pour récupérer l'embedding de type 'semantic'.
+
+        Args:
+            track_id: ID de la track
+            db: Session de base de données
+
+        Returns:
+            Vecteur d'embedding ou None
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            service = TrackEmbeddingsService(db)
+            embedding = await service.get_single_by_track_id(track_id, 'semantic')
+
+            return embedding.vector if embedding else None
+
+        except ImportError:
+            logger.warning("[SEARCH] TrackEmbeddingsService non disponible")
+            return None
+        except Exception as e:
+            logger.error(f"Erreur récupération embedding pour track {track_id}: {e}")
+            return None
+
+    @staticmethod
+    async def save_track_search_embedding(
+        track_id: int,
+        embedding: List[float],
+        embedding_source: Optional[str] = None,
+        embedding_model: Optional[str] = None,
+        db: Optional[AsyncSession] = None
+    ) -> bool:
+        """
+        Sauvegarde l'embedding de recherche sémantique pour une track.
+
+        Utilise TrackEmbeddingsService.create() pour créer l'embedding.
+
+        Args:
+            track_id: ID de la track
+            embedding: Vecteur d'embedding
+            embedding_source: Source de vectorisation
+            embedding_model: Modèle utilisé
+            db: Session de base de données
+
+        Returns:
+            True si succès, False sinon
+        """
+        if not db:
+            from backend.api.utils.database import get_async_db
+            db = await get_async_db().__anext__()
+
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            service = TrackEmbeddingsService(db)
+            await service.create_or_update(
+                track_id=track_id,
+                vector=embedding,
+                embedding_type='semantic',
+                embedding_source=embedding_source,
+                embedding_model=embedding_model
+            )
+
+            logger.debug(f"[SEARCH] Embedding sauvegardé pour track {track_id}")
+            return True
+
+        except ImportError:
+            logger.warning("[SEARCH] TrackEmbeddingsService non disponible")
+            return False
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde embedding pour track {track_id}: {e}")
+            return False
 
     @staticmethod
     def _combine_results(text_results: List[Dict], vector_results: List[Dict], query: SearchQuery) -> List[Dict]:
