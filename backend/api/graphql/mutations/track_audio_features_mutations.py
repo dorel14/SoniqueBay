@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_audio_features_service: TrackAudioFeaturesService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -29,7 +29,7 @@ from backend.api.graphql.types.track_audio_features_type import (
 from backend.api.services.track_audio_features_service import (
     TrackAudioFeaturesService,
 )
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -55,7 +55,7 @@ class TrackAudioFeaturesMutation:
         Raises:
             Exception: Si les caractéristiques existent déjà pour cette piste
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
 
             try:
@@ -118,7 +118,7 @@ class TrackAudioFeaturesMutation:
         Returns:
             Les caractéristiques audio créées ou mises à jour
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
 
             features = await service.create_or_update(
@@ -174,7 +174,7 @@ class TrackAudioFeaturesMutation:
         Returns:
             Les caractéristiques audio mises à jour ou None si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
 
             features = await service.update(
@@ -233,7 +233,7 @@ class TrackAudioFeaturesMutation:
         Returns:
             True si supprimées, False si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             result = await service.delete(track_id=track_id)
             return result
@@ -251,7 +251,7 @@ class TrackAudioFeaturesMutation:
         Returns:
             True si supprimées, False si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackAudioFeaturesService(session)
             result = await service.delete_by_id(features_id=features_id)
             return result

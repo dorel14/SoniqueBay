@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_metadata_service: TrackMetadataService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -30,7 +30,7 @@ from backend.api.graphql.types.track_metadata_type import (
     TrackMetadataDeleteInput,
 )
 from backend.api.services.track_metadata_service import TrackMetadataService
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -56,7 +56,7 @@ class TrackMetadataMutation:
         Raises:
             Exception: Si une métadonnée identique existe déjà
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
 
             try:
@@ -97,7 +97,7 @@ class TrackMetadataMutation:
         Returns:
             La métadonnée créée ou mise à jour
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
 
             metadata = await service.create_or_update(
@@ -131,7 +131,7 @@ class TrackMetadataMutation:
         Returns:
             Résultat de l'opération batch
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
 
             try:
@@ -190,7 +190,7 @@ class TrackMetadataMutation:
         Returns:
             La métadonnée mise à jour ou None si non trouvée
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
 
             metadata = await service.update(
@@ -232,7 +232,7 @@ class TrackMetadataMutation:
         Returns:
             True si supprimées, False si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             result = await service.delete(
                 track_id=track_id,
@@ -254,7 +254,7 @@ class TrackMetadataMutation:
         Returns:
             True si supprimée, False si non trouvée
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             result = await service.delete_by_id(metadata_id=metadata_id)
             return result
@@ -272,7 +272,7 @@ class TrackMetadataMutation:
         Returns:
             True si supprimées, False si non trouvées
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackMetadataService(session)
             result = await service.delete(
                 track_id=input.track_id,
