@@ -4,7 +4,9 @@ from .base_schema import TimestampedSchema
 from .covers_schema import Cover
 from .tags_schema import Tag
 
+
 class TrackBase(BaseModel):
+    """Schéma de base pour les pistes musicales."""
     title: str = Field(..., description="Titre de la piste")
     path: str = Field(..., description="Chemin du fichier")
     track_artist_id: int = Field(..., description="ID de l'artiste principal")
@@ -18,19 +20,8 @@ class TrackBase(BaseModel):
     bitrate: Optional[int] = Field(None, description="Bitrate en kbps")
     featured_artists: Optional[str] = Field(None, description="Artistes en featuring")
     
-    # Caractéristiques audio
-    bpm: Optional[float] = Field(None, description="Tempo en BPM")
-    key: Optional[str] = Field(None, description="Tonalité")
-    scale: Optional[str] = Field(None, description="Mode (majeur/mineur)")
-    danceability: Optional[float] = Field(None, ge=0, le=1, description="Score de dansabilité")
-    mood_happy: Optional[float] = Field(None, ge=0, le=1)
-    mood_aggressive: Optional[float] = Field(None, ge=0, le=1)
-    mood_party: Optional[float] = Field(None, ge=0, le=1)
-    mood_relaxed: Optional[float] = Field(None, ge=0, le=1)
-    instrumental: Optional[float] = None
-    acoustic: Optional[float] = None
-    tonal: Optional[float] = None
-    camelot_key: Optional[str] = Field(None, description="Clé Camelot pour la tonalité")
+    # Note: Les caractéristiques audio (bpm, key, mood, etc.) ont été migrées
+    # vers TrackAudioFeatures. Utilisez l'endpoint /api/tracks/audio-features pour les gérer.
     
     # Tags as lists of strings for input
     genre_tags: Optional[List[str]] = None
@@ -45,10 +36,14 @@ class TrackBase(BaseModel):
     file_mtime: Optional[float] = Field(None, description="File modification time")
     file_size: Optional[int] = Field(None, description="File size in bytes")
 
+
 class TrackCreate(TrackBase):
+    """Schéma pour la création d'une piste."""
     pass
 
+
 class TrackUpdate(BaseModel):
+    """Schéma pour la mise à jour d'une piste."""
     title: Optional[str] = None
     path: Optional[str] = None
     track_artist_id: Optional[int] = None
@@ -61,19 +56,6 @@ class TrackUpdate(BaseModel):
     file_type: Optional[str] = None
     bitrate: Optional[int] = None
     featured_artists: Optional[str] = None
-    bpm: Optional[float] = None
-    key: Optional[str] = None
-    scale: Optional[str] = None
-    danceability: Optional[float] = None
-    mood_happy: Optional[float] = None
-    mood_aggressive: Optional[float] = None
-    mood_party: Optional[float] = None
-    mood_relaxed: Optional[float] = None
-    instrumental: Optional[float] = None
-    acoustic: Optional[float] = None
-    tonal: Optional[float] = None
-    camelot_key: Optional[str] = None
-    genre_main: Optional[str] = None
     musicbrainz_id: Optional[str] = None
     musicbrainz_albumid: Optional[str] = None
     musicbrainz_artistid: Optional[str] = None
@@ -82,9 +64,11 @@ class TrackUpdate(BaseModel):
     genre_tags: Optional[List[str]] = None
     mood_tags: Optional[List[str]] = None
 
+
 class Track(TrackBase, TimestampedSchema):
+    """Schéma complet pour une piste musicale."""
     id: int
-    covers: List[Cover] = []  # Ajouter le champ covers
+    covers: List[Cover] = []
     file_mtime: Optional[float] = Field(None, description="File modification time")
     file_size: Optional[int] = Field(None, description="File size in bytes")
 
@@ -111,6 +95,8 @@ class Track(TrackBase, TimestampedSchema):
             return result
         return value
 
+
 class TrackWithRelations(Track):
+    """Schéma pour une piste avec relations."""
     covers: Optional[List[Cover]] = []
     album_title: Optional[str] = Field(None, description="Album title")

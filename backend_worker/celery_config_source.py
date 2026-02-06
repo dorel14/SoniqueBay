@@ -50,6 +50,7 @@ def get_unified_queues():
         Queue('vectorization_monitoring', routing_key='vectorization_monitoring'),
         Queue('celery', routing_key='celery'),
         Queue('audio_analysis', routing_key='audio_analysis'),
+        Queue('mir', routing_key='mir'),
         
         # === QUEUES DIFFÉRÉES (PRIORITÉ BASSE) ===
         Queue('deferred_vectors', routing_key='deferred_vectors'),
@@ -83,6 +84,13 @@ def get_unified_task_routes():
         # === ANALYSE AUDIO AVEC LIBROSA ===
         'audio_analysis.extract_features': {'queue': 'audio_analysis'},
         'audio_analysis.batch_extract': {'queue': 'audio_analysis'},
+        
+        # === PIPELINE MIR (Music Information Retrieval) ===
+        'mir.process_track': {'queue': 'mir'},
+        'mir.process_batch': {'queue': 'mir'},
+        'mir.reprocess_track': {'queue': 'mir'},
+        'mir.calculate_scores': {'queue': 'mir'},
+        'mir.generate_synthetic_tags': {'queue': 'mir'},
     }
 
 

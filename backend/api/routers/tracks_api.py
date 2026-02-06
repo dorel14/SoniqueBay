@@ -2,18 +2,17 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi_cache import FastAPICache
-from sqlalchemy import select
 
 from typing import List, Optional
 import json
 from backend.api.utils.database import get_async_session
 from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
-from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.utils.logging import logger
 from backend.api.utils.validation_logger import log_validation_error
 from backend.api.services.track_service import TrackService
 
 router = APIRouter(prefix="/tracks", tags=["tracks"])
+
 
 @router.get("/count")
 async def get_tracks_count(db: AsyncSession = Depends(get_async_session)):
@@ -21,6 +20,7 @@ async def get_tracks_count(db: AsyncSession = Depends(get_async_session)):
     service = TrackService(db)
     count = await service.get_tracks_count()
     return {"count": count}
+
 
 @router.get("/search", response_model=List[Track])
 async def search_tracks(
@@ -75,72 +75,19 @@ async def search_tracks(
         logger.error(f"Erreur recherche pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/batch", response_model=List[Track])
 async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request: Request = None, db: AsyncSession = Depends(get_async_session)):
+    """Crée ou met à jour un lot de pistes.
+    
+    Note: Les caractéristiques audio doivent être gérées via l'endpoint /api/tracks/audio-features
+    après la création des pistes.
+    """
     service = TrackService(db)
     try:
         result = await service.create_or_update_tracks_batch(tracks_data)
-
-        # Déclencher directement les tâches Celery de vectorisation
-        # Simplification : appel direct au lieu de passer par Redis PubSub
-        try:
-            from backend.api.utils.celery_app import celery_app
-
-            def trigger_vectorization_tasks():
-                """Déclencher les tâches de vectorisation pour chaque track."""
-                try:
-                    for track in result:
-                        # Préparer les métadonnées pour la vectorisation
-                        metadata = {
-                            "track_id": str(track.id),
-                            "title": track.title,
-                            "genre": track.genre or "",
-                            "year": track.year,
-                            "duration": track.duration,
-                            "bitrate": track.bitrate,
-                            "bpm": track.bpm,
-                            "key": track.key,
-                            "scale": track.scale,
-                            "danceability": track.danceability,
-                            "mood_happy": track.mood_happy,
-                            "mood_aggressive": track.mood_aggressive,
-                            "mood_party": track.mood_party,
-                            "mood_relaxed": track.mood_relaxed,
-                            "instrumental": track.instrumental,
-                            "acoustic": track.acoustic,
-                            "tonal": track.tonal,
-                            "genre_main": getattr(track, 'genre_main', None),
-                            "camelot_key": getattr(track, 'camelot_key', None),
-                            # Utiliser les tags directs si disponibles, sinon liste vide
-                            "genre_tags": getattr(track, 'genre_tags', []) or [],
-                            "mood_tags": getattr(track, 'mood_tags', []) or []
-                        }
-
-                        # Déclencher la tâche Celery directement
-                        celery_app.send_task(
-                            'calculate_vector',
-                            args=[track.id, metadata],
-                            queue='vectorization',
-                            priority=5
-                        )
-
-                        logger.info(f"Tâche vectorisation déclenchée pour track {track.id}")
-
-                except Exception as e:
-                    logger.warning(f"Erreur déclenchement tâches vectorisation batch: {e}")
-
-            # Lancer les tâches de manière asynchrone (non-bloquante)
-            import threading
-            thread = threading.Thread(target=trigger_vectorization_tasks, daemon=True)
-            thread.start()
-
-        except Exception as e:
-            logger.warning(f"Erreur initialisation vectorisation batch: {e}")
-            # Ne pas échouer la création de tracks pour autant
-
         return [Track.model_validate(t) for t in result]
     except ValidationError as e:
-        # Gestion spécifique des erreurs de validation Pydantic
         log_validation_error(
             endpoint="/api/tracks/batch",
             method="POST",
@@ -153,71 +100,19 @@ async def create_or_update_tracks_batch(tracks_data: List[TrackCreate], request:
         logger.error(f"Erreur batch pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/", response_model=Track)
 async def create_track(track: TrackCreate, request: Request = None, db: AsyncSession = Depends(get_async_session)):
+    """Crée une nouvelle piste.
+    
+    Note: Les caractéristiques audio doivent être gérées via l'endpoint /api/tracks/audio-features
+    après la création de la piste.
+    """
     service = TrackService(db)
     try:
         created = await service.create_track(track)
-
-        # Déclencher directement la tâche Celery de vectorisation
-        # Simplification : appel direct au lieu de passer par Redis PubSub
-        try:
-            from backend.api.utils.celery_app import celery_app
-
-            def trigger_vectorization_task():
-                """Déclencher la tâche de vectorisation pour la track créée."""
-                try:
-                    # Préparer les métadonnées pour la vectorisation
-                    metadata = {
-                        "track_id": str(created.id),
-                        "title": created.title,
-                        "genre": created.genre or "",
-                        "year": created.year,
-                        "duration": created.duration,
-                        "bitrate": created.bitrate,
-                        "bpm": created.bpm,
-                        "key": created.key,
-                        "scale": created.scale,
-                        "danceability": created.danceability,
-                        "mood_happy": created.mood_happy,
-                        "mood_aggressive": created.mood_aggressive,
-                        "mood_party": created.mood_party,
-                        "mood_relaxed": created.mood_relaxed,
-                        "instrumental": created.instrumental,
-                        "acoustic": created.acoustic,
-                        "tonal": created.tonal,
-                        "genre_main": getattr(created, 'genre_main', None),
-                        "camelot_key": getattr(created, 'camelot_key', None),
-                        # Utiliser les tags directs si disponibles, sinon liste vide
-                        "genre_tags": getattr(created, 'genre_tags', []) or [],
-                        "mood_tags": getattr(created, 'mood_tags', []) or []
-                    }
-
-                    # Déclencher la tâche Celery directement
-                    celery_app.send_task(
-                        'calculate_vector',
-                        args=[created.id, metadata],
-                        queue='vectorization',
-                        priority=5
-                    )
-
-                    logger.info(f"Tâche vectorisation déclenchée pour track {created.id}")
-
-                except Exception as e:
-                    logger.warning(f"Erreur déclenchement tâche vectorisation: {e}")
-
-            # Lancer la tâche de manière asynchrone (non-bloquante)
-            import threading
-            thread = threading.Thread(target=trigger_vectorization_task, daemon=True)
-            thread.start()
-
-        except Exception as e:
-            logger.warning(f"Erreur initialisation vectorisation: {e}")
-            # Ne pas échouer la création de track pour autant
-
         return Track.model_validate(created)
     except ValidationError as e:
-        # Gestion spécifique des erreurs de validation Pydantic
         log_validation_error(
             endpoint="/api/tracks",
             method="POST",
@@ -230,12 +125,14 @@ async def create_track(track: TrackCreate, request: Request = None, db: AsyncSes
         logger.error(f"Erreur création piste: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/", response_model=List[TrackWithRelations])
 async def read_tracks(
     skip: int = 0,
     limit: int = 100,
     db: AsyncSession = Depends(get_async_session)
 ):
+    """Récupère une liste de pistes avec leurs relations."""
     service = TrackService(db)
     try:
         tracks = await service.read_tracks(skip, limit)
@@ -255,17 +152,6 @@ async def read_tracks(
                 "file_type": track.file_type,
                 "bitrate": track.bitrate,
                 "featured_artists": track.featured_artists,
-                "bpm": track.bpm,
-                "key": track.key,
-                "scale": track.scale,
-                "danceability": track.danceability,
-                "mood_happy": track.mood_happy,
-                "mood_aggressive": track.mood_aggressive,
-                "mood_party": track.mood_party,
-                "mood_relaxed": track.mood_relaxed,
-                "instrumental": track.instrumental,
-                "acoustic": track.acoustic,
-                "tonal": track.tonal,
                 "musicbrainz_id": track.musicbrainz_id,
                 "musicbrainz_albumid": track.musicbrainz_albumid,
                 "musicbrainz_artistid": track.musicbrainz_artistid,
@@ -298,6 +184,7 @@ async def read_tracks(
         logger.error(f"Erreur lecture pistes: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/{track_id}", response_model=TrackWithRelations)
 async def read_track(track_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère une piste avec ses relations."""
@@ -323,17 +210,6 @@ async def read_track(track_id: int, db: AsyncSession = Depends(get_async_session
             "file_type": track.file_type,
             "bitrate": track.bitrate,
             "featured_artists": track.featured_artists,
-            "bpm": track.bpm,
-            "key": track.key,
-            "scale": track.scale,
-            "danceability": track.danceability,
-            "mood_happy": track.mood_happy,
-            "mood_aggressive": track.mood_aggressive,
-            "mood_party": track.mood_party,
-            "mood_relaxed": track.mood_relaxed,
-            "instrumental": track.instrumental,
-            "acoustic": track.acoustic,
-            "tonal": track.tonal,
             "musicbrainz_id": track.musicbrainz_id,
             "musicbrainz_albumid": track.musicbrainz_albumid,
             "musicbrainz_artistid": track.musicbrainz_artistid,
@@ -384,6 +260,7 @@ async def read_artist_tracks_by_album(artist_id: int, album_id: int, db: AsyncSe
     tracks = await service.get_artist_tracks(artist_id, album_id)
     return [TrackWithRelations.model_validate(t).model_dump() for t in tracks]
 
+
 @router.get("/artists/{artist_id}", response_model=List[TrackWithRelations])
 async def read_artist_tracks(artist_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère toutes les pistes d'un artiste."""
@@ -400,73 +277,11 @@ async def update_track(track_id: int, track: TrackUpdate, request: Request, db: 
         updated_track = await service.update_track(track_id, track)
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
-
-        # Déclencher directement la tâche Celery de vectorisation si des métadonnées importantes ont changé
-        # Simplification : appel direct au lieu de passer par Redis PubSub
-        try:
-            # Vérifier si des champs impactant la vectorisation ont été modifiés
-            important_fields = ['title', 'artist_id', 'album_id', 'genre', 'year', 'duration', 'bitrate', 'bpm', 'key', 'scale']
-            if any(getattr(track, field, None) is not None for field in important_fields):
-
-                from backend.api.utils.celery_app import celery_app
-
-                def trigger_vectorization_task():
-                    """Déclencher la tâche de vectorisation pour la track mise à jour."""
-                    try:
-                        # Préparer les métadonnées pour la vectorisation
-                        metadata = {
-                            "track_id": str(updated_track.id),
-                            "title": updated_track.title,
-                            "genre": updated_track.genre or "",
-                            "year": updated_track.year,
-                            "duration": updated_track.duration,
-                            "bitrate": updated_track.bitrate,
-                            "bpm": updated_track.bpm,
-                            "key": updated_track.key,
-                            "scale": updated_track.scale,
-                            "danceability": updated_track.danceability,
-                            "mood_happy": updated_track.mood_happy,
-                            "mood_aggressive": updated_track.mood_aggressive,
-                            "mood_party": updated_track.mood_party,
-                            "mood_relaxed": updated_track.mood_relaxed,
-                            "instrumental": updated_track.instrumental,
-                            "acoustic": updated_track.acoustic,
-                            "tonal": updated_track.tonal,
-                            "genre_main": getattr(updated_track, 'genre_main', None),
-                            "camelot_key": getattr(updated_track, 'camelot_key', None),
-                            # Utiliser les tags directs si disponibles, sinon liste vide
-                            "genre_tags": getattr(updated_track, 'genre_tags', []) or [],
-                            "mood_tags": getattr(updated_track, 'mood_tags', []) or []
-                        }
-
-                        # Déclencher la tâche Celery directement
-                        celery_app.send_task(
-                            'calculate_vector',
-                            args=[updated_track.id, metadata],
-                            queue='vectorization',
-                            priority=5
-                        )
-
-                        logger.info(f"Tâche vectorisation déclenchée pour track mise à jour {updated_track.id}")
-
-                    except Exception as e:
-                        logger.warning(f"Erreur déclenchement tâche vectorisation update: {e}")
-
-                # Lancer la tâche de manière asynchrone (non-bloquante)
-                import threading
-                thread = threading.Thread(target=trigger_vectorization_task, daemon=True)
-                thread.start()
-
-        except Exception as e:
-            logger.warning(f"Erreur initialisation vectorisation update: {e}")
-            # Ne pas échouer la mise à jour de track pour autant
-
-        # Conversion et retour
         return Track.model_validate(updated_track)
-
     except Exception as e:
         logger.error(f"Erreur inattendue pour track {track_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.put("/{track_id}/tags", response_model=Track)
 async def update_track_tags(
@@ -482,120 +297,23 @@ async def update_track_tags(
         if not updated_track:
             raise HTTPException(status_code=404, detail="Piste non trouvée")
         return Track.model_validate(updated_track)
-
     except Exception as e:
         logger.error(f"Erreur mise à jour tags: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.delete("/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_track(track_id: int, db: AsyncSession = Depends(get_async_session)):
+    """Supprime une piste."""
     service = TrackService(db)
     success = await service.delete_track(track_id)
     if not success:
         raise HTTPException(status_code=404, detail="Piste non trouvée")
     return {"ok": True}
 
-@router.post("/analyze-audio", status_code=status.HTTP_202_ACCEPTED)
-async def analyze_audio_tracks(
-    track_ids: Optional[List[int]] = None,
-    limit: int = 100,
-    db: AsyncSession = Depends(get_async_session)
-):
-    """
-    Déclenche l'analyse audio des pistes.
 
-    Args:
-        track_ids: Liste spécifique d'IDs de tracks, ou None pour analyser toutes les tracks sans features
-        limit: Nombre maximum de tracks à analyser
-        db: Session de base de données
-
-    Returns:
-        Informations sur la tâche lancée
-    """
-    try:
-        from backend.api.utils.celery_app import celery_app
-
-        if track_ids:
-            # Analyser les tracks spécifiques
-            logger.info(f"Analyse audio demandée pour {len(track_ids)} tracks spécifiques")
-            # Récupérer les chemins des fichiers
-            result = await db.execute(select(TrackModel).where(TrackModel.id.in_(track_ids)))
-            tracks = result.scalars().all()
-            track_data_list = [(track.id, track.path) for track in tracks if track.path]
-        else:
-            # Analyser les tracks sans caractéristiques audio
-            logger.info(f"Analyse audio demandée pour tracks sans features (limit: {limit})")
-            result = await db.execute(
-                select(TrackModel).where(
-                    (TrackModel.bpm.is_(None)) | (TrackModel.key.is_(None))
-                ).limit(limit)
-            )
-            tracks = result.scalars().all()
-            track_data_list = [(track.id, track.path) for track in tracks if track.path]
-
-        if not track_data_list:
-            return {"message": "Aucune track à analyser", "count": 0}
-
-        # Lancer la tâche Celery
-        celery_result = celery_app.send_task("analyze_audio_batch_task", args=[track_data_list])
-
-        logger.info(f"Tâche d'analyse audio lancée: {celery_result.id} pour {len(track_data_list)} tracks")
-
-        return {
-            "task_id": celery_result.id,
-            "message": f"Analyse audio lancée pour {len(track_data_list)} tracks",
-            "count": len(track_data_list)
-        }
-
-    except Exception as e:
-        logger.error(f"Erreur lancement analyse audio: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors du lancement de l'analyse: {str(e)}")
-
-@router.put("/{track_id}/features", status_code=status.HTTP_200_OK)
-async def update_track_features(
-    track_id: int,
-    features: dict,
-    db: AsyncSession = Depends(get_async_session)
-):
-    """
-    Met à jour les caractéristiques audio d'une track.
-
-    Args:
-        track_id: ID de la track
-        features: Dictionnaire des caractéristiques audio
-        db: Session de base de données
-
-    Returns:
-        Confirmation de mise à jour
-    """
-    try:
-        service = TrackService(db)
-        track = await service.read_track(track_id)
-
-        if not track:
-            raise HTTPException(status_code=404, detail="Track non trouvée")
-
-        # Mise à jour des champs audio
-        update_data = {}
-        audio_fields = [
-            'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
-            'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
-            'camelot_key', 'genre_main'
-        ]
-
-        for field in audio_fields:
-            if field in features:
-                update_data[field] = features[field]
-
-        if update_data:
-            updated_track = await service.update_track(track_id, update_data)
-            if not updated_track:
-                raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
-
-        return {"message": f"Caractéristiques audio mises à jour pour track {track_id}"}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur mise à jour features track {track_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la mise à jour: {str(e)}")
+# NOTE: Les endpoints pour les caractéristiques audio ont été migrés vers:
+# - POST /api/tracks/audio-features/analyze pour l'analyse audio
+# - PUT /api/tracks/audio-features/{track_id} pour la mise à jour
+# - GET /api/tracks/audio-features/{track_id} pour la récupération
+# Voir backend/api/routers/track_audio_features_api.py

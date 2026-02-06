@@ -332,35 +332,137 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 
 # === TÂCHES DE VECTORISATION ===
 @celery.task(name="vectorization.calculate", queue="vectorization", bind=True)
-def calculate_vector(self, track_id: int, metadata: dict):
+def calculate_vector(self, track_id: int, metadata: dict = None):
     """
-    Calcule le vecteur d'une track et le stocke dans la Recommender API.
-
+    Calcule le vecteur d'une track et le stocke via l'API.
+    
+    Pipeline:
+        1. Récupère les données de la track via l'API
+        2. Génère l'embedding avec OptimizedVectorizationService
+        3. Stocke le vecteur via l'API backend
+    
     Args:
         track_id: ID de la track
-        metadata: Métadonnées de la track
-
+        metadata: Métadonnées optionnelles de la track
+        
     Returns:
-        Résultat du calcul
+        Résultat du calcul avec statut et métadonnées
     """
+    import asyncio
+    import time
+    
+    start_time = time.time()
+    task_id = self.request.id
+    
+    logger.info(f"[VECTOR] Démarrage calcul vecteur: track_id={track_id}")
+    
     try:
-        import time
-        start_time = time.time()
-        task_id = self.request.id
-
-        logger.info(f"[VECTOR] Démarrage calcul vecteur: track_id={track_id}")
-
-        # Pour l'instant, simple placeholder - sera implémenté avec la vraie logique
+        # Import du service de vectorisation
+        from backend_worker.services.vectorization_service import (
+            OptimizedVectorizationService,
+            VectorizationError
+        )
+        
+        # Instanciation du service
+        service = OptimizedVectorizationService()
+        
+        # Fonction async pour récupérer les données et stocker le vecteur
+        async def run_vectorization():
+            nonlocal service
+            
+            # Récupération des données de la track via l'API
+            logger.info(f"[VECTOR] Récupération données track {track_id}...")
+            tracks_data = await service.fetch_tracks_from_api([track_id])
+            
+            if not tracks_data:
+                error_msg = f"Aucune données trouvée pour track {track_id}"
+                logger.error(f"[VECTOR] {error_msg}")
+                return {
+                    'task_id': task_id,
+                    'track_id': track_id,
+                    'status': 'error',
+                    'message': error_msg,
+                    'calculation_time': time.time() - start_time
+                }
+            
+            track_data = tracks_data[0]
+            logger.info(f"[VECTOR] Track récupérée: {track_data.get('title', 'Unknown')}")
+            
+            # Génération de l'embedding (méthode sync)
+            logger.info(f"[VECTOR] Vectorisation de la track...")
+            embedding = service.vectorize_single_track(track_data)
+            
+            if embedding is None or all(v == 0.0 for v in embedding):
+                logger.warning(f"[VECTOR] Vecteur nul pour track {track_id}")
+                return {
+                    'task_id': task_id,
+                    'track_id': track_id,
+                    'status': 'warning',
+                    'message': 'Vecteur nul généré',
+                    'vector_dimension': len(embedding) if embedding else 0,
+                    'calculation_time': time.time() - start_time
+                }
+            
+            logger.info(f"[VECTOR] Vecteur généré: {len(embedding)} dimensions")
+            
+            # Stockage du vecteur via l'API (méthode async)
+            logger.info(f"[VECTOR] Stockage vecteur pour track {track_id}...")
+            success = await service.store_vector_to_database(track_id, embedding)
+            
+            calculation_time = time.time() - start_time
+            
+            if success:
+                logger.info(f"[VECTOR] Vecteur stocké avec succès: track_id={track_id}, time={calculation_time:.2f}s")
+                return {
+                    'task_id': task_id,
+                    'track_id': track_id,
+                    'status': 'success',
+                    'track_title': track_data.get('title', 'Unknown'),
+                    'vector_dimension': len(embedding),
+                    'storage_success': True,
+                    'calculation_time': calculation_time
+                }
+            else:
+                logger.error(f"[VECTOR] Échec stockage vecteur: track_id={track_id}")
+                return {
+                    'task_id': task_id,
+                    'track_id': track_id,
+                    'status': 'error',
+                    'message': 'Échec stockage vecteur',
+                    'vector_dimension': len(embedding) if embedding else 0,
+                    'storage_success': False,
+                    'calculation_time': calculation_time
+                }
+        
+        # Exécution de la fonction async
+        result = asyncio.run(run_vectorization())
+        return result
+        
+    except VectorizationError as ve:
+        error_time = time.time() - start_time
+        logger.error(f"[VECTOR] Erreur vectorisation: {str(ve)}")
         return {
             'task_id': task_id,
             'track_id': track_id,
-            'success': True,
-            'calculation_time': time.time() - start_time
+            'status': 'error',
+            'message': str(ve),
+            'error_type': 'VectorizationError',
+            'calculation_time': error_time
         }
-
+        
     except Exception as e:
-        logger.error(f"[VECTOR] Erreur calcul vecteur: {str(e)}")
-        raise
+        error_time = time.time() - start_time
+        logger.error(f"[VECTOR] Erreur inattendue: {str(e)}")
+        import traceback
+        logger.error(f"[VECTOR] Traceback: {traceback.format_exc()}")
+        return {
+            'task_id': task_id,
+            'track_id': track_id,
+            'status': 'error',
+            'message': str(e),
+            'error_type': type(e).__name__,
+            'calculation_time': error_time
+        }
 
 
 # === TÂCHES DE COVERS ===

@@ -124,7 +124,7 @@ async def _update_track_features_async(track_id: int, features: dict):
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.put(
-                f"{API_URL}/api/tracks/{track_id}/features",
+                f"{API_URL}/api/tracks/{track_id}/audio-features",
                 json={"features": features}
             )
             
@@ -139,7 +139,7 @@ async def _update_track_features_async(track_id: int, features: dict):
 
     except httpx.HTTPStatusError as e:
         logger.error(f"Erreur HTTP {e.response.status_code} lors de la mise à jour de la track {track_id}: {e.response.text}")
-        logger.error(f"Endpoint utilisé: {API_URL}/api/tracks/{track_id}/features")
+        logger.error(f"Endpoint utilisé: {API_URL}/api/tracks/{track_id}/audio-features")
         return False
     except httpx.RequestError as e:
         logger.error(f"Erreur de requête lors de la mise à jour de la track {track_id}: {str(e)}")
@@ -793,4 +793,202 @@ async def extract_audio_features(audio, tags, file_path: str = None, track_id: i
         "mood_tags": []
     }
 
-# Note: retry_failed_updates function removed as Celery handles task retries
+async def extract_and_store_mir_raw(track_id: int, file_path: str, tags: dict) -> dict:
+    """
+    Extrait et stocke les tags MIR bruts.
+    
+    Cette fonction extrait les tags MIR bruts (AcoustID et standards) depuis les tags
+    fournis et les stocke dans TrackMIRRaw via l'API.
+    
+    Args:
+        track_id: ID de la track
+        file_path: Chemin vers le fichier audio
+        tags: Dictionnaire des tags sérialisés
+        
+    Returns:
+        Dictionnaire des features MIR brutes extraites
+    """
+    logger.info(f"Extraction MIR brute pour track {track_id}")
+    
+    try:
+        # Extraire les tags AcoustID + standards
+        raw_features = _extract_features_from_acoustid_tags(tags)
+        raw_features.update(_extract_features_from_standard_tags(tags))
+        
+        # Stocker dans TrackMIRRaw via API
+        await _store_mir_raw(track_id, raw_features)
+        
+        logger.info(f"MIR brute extraite et stockée pour track {track_id}")
+        return raw_features
+    
+    except Exception as e:
+        logger.error(f"Erreur extraction MIR brute pour track {track_id}: {e}")
+        return {}
+
+
+async def normalize_and_store_mir(track_id: int, raw_features: dict) -> dict:
+    """
+    Normalise et stocke les tags MIR.
+    
+    Cette fonction normalise les features MIR brutes et stocke les résultats
+    dans TrackMIRNormalized via l'API.
+    
+    Args:
+        track_id: ID de la track
+        raw_features: Dictionnaire des features MIR brutes
+        
+    Returns:
+        Dictionnaire des features MIR normalisées
+    """
+    logger.info(f"Normalisation MIR pour track {track_id}")
+    
+    try:
+        from backend_worker.services.mir_normalization_service import MIRNormalizationService
+        
+        # Normaliser les features
+        normalization_service = MIRNormalizationService()
+        normalized = normalization_service.normalize_all_features(raw_features)
+        
+        # Stocker dans TrackMIRNormalized via API
+        await _store_mir_normalized(track_id, normalized)
+        
+        logger.info(f"MIR normalisée et stockée pour track {track_id}")
+        return normalized
+    
+    except ImportError as e:
+        logger.error(f"Impossible d'importer MIRNormalizationService: {e}")
+        return {}
+    except Exception as e:
+        logger.error(f"Erreur normalisation MIR pour track {track_id}: {e}")
+        return {}
+
+
+async def _store_mir_raw(track_id: int, raw_features: dict) -> bool:
+    """
+    Stocke les features MIR brutes via l'API.
+    
+    Args:
+        track_id: ID de la track
+        raw_features: Dictionnaire des features brutes
+        
+    Returns:
+        True si le stockage a réussi, False sinon
+    """
+    API_URL = os.getenv("API_URL", "http://api:8001")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{API_URL}/api/tracks/{track_id}/mir/raw",
+                json=raw_features
+            )
+            response.raise_for_status()
+            logger.info(f"MIR brute stockée pour track {track_id}")
+            return True
+    
+    except Exception as e:
+        logger.error(f"Erreur stockage MIR brute pour track {track_id}: {e}")
+        return False
+
+
+async def _store_mir_normalized(track_id: int, normalized_features: dict) -> bool:
+    """
+    Stocke les features MIR normalisées via l'API.
+    
+    Args:
+        track_id: ID de la track
+        normalized_features: Dictionnaire des features normalisées
+        
+    Returns:
+        True si le stockage a réussi, False sinon
+    """
+    API_URL = os.getenv("API_URL", "http://api:8001")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{API_URL}/api/tracks/{track_id}/mir/normalized",
+                json=normalized_features
+            )
+            response.raise_for_status()
+            logger.info(f"MIR normalisée stockée pour track {track_id}")
+            return True
+    
+    except Exception as e:
+        logger.error(f"Erreur stockage MIR normalisée pour track {track_id}: {e}")
+        return False
+
+
+async def reprocess_track_mir(track_id: int, file_path: str) -> dict:
+    """
+    Re-traite complètement les tags MIR d'une track.
+    
+    Args:
+        track_id: ID de la track
+        file_path: Chemin vers le fichier audio
+        
+    Returns:
+        Dictionnaire contenant raw_features et normalized_features
+    """
+    logger.info(f"Re-traitement MIR complet pour track {track_id}")
+    
+    # Extraire les tags (simulés pour l'exemple)
+    tags = {}
+    
+    # Extraire et stocker MIR brute
+    raw_features = await extract_and_store_mir_raw(track_id, file_path, tags)
+    
+    # Normaliser et stocker MIR
+    normalized_features = await normalize_and_store_mir(track_id, raw_features)
+    
+    return {
+        "raw_features": raw_features,
+        "normalized_features": normalized_features,
+        "track_id": track_id
+    }
+
+
+async def batch_reprocess_tracks_mir(track_data_list: list) -> dict:
+    """
+    Re-traite en lot les tags MIR de plusieurs tracks.
+    
+    Args:
+        track_data_list: Liste de dictionnaires avec track_id et file_path
+        
+    Returns:
+        Résultats du traitement batch
+    """
+    logger.info(f"Re-traitement batch MIR de {len(track_data_list)} tracks")
+    
+    successful = 0
+    failed = 0
+    results = []
+    
+    for track_data in track_data_list:
+        track_id = track_data.get("track_id") or track_data.get("id")
+        file_path = track_data.get("file_path") or track_data.get("path")
+        
+        if not track_id or not file_path:
+            logger.error(f"Données track invalides: {track_data}")
+            failed += 1
+            continue
+        
+        try:
+            result = await reprocess_track_mir(track_id, file_path)
+            if result:
+                successful += 1
+                results.append(result)
+            else:
+                failed += 1
+        except Exception as e:
+            logger.error(f"Erreur batch track {track_id}: {e}")
+            failed += 1
+    
+    logger.info(f"Batch MIR terminé: {successful} succès, {failed} échecs")
+    
+    return {
+        "total": len(track_data_list),
+        "successful": successful,
+        "failed": failed,
+        "results": results
+    }

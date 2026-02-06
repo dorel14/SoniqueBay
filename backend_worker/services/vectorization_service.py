@@ -670,19 +670,14 @@ class OptimizedVectorizationService:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 vector_data = {
-                    "track_id": track_id,
-                    "embedding": embedding,
-                    "embedding_version": "scikit-learn-optimized",
-                    "vectorizer_info": {
-                        "text_model": "TfidfVectorizer+TruncatedSVD",
-                        "audio_model": "StandardScaler+FeatureEngineering",
-                        "dimension": self.vector_dimension,
-                        "optimized_for": "RPi4"
-                    }
+                    "vector": embedding,
+                    "embedding_type": "semantic",
+                    "embedding_source": "scikit-learn-optimized",
+                    "embedding_model": "TfidfVectorizer+TruncatedSVD+AudioFeatures"
                 }
                 
                 response = await client.post(
-                    f"{self.library_api_url}/api/track-vectors/",
+                    f"{self.library_api_url}/api/tracks/{track_id}/embeddings",
                     json=vector_data
                 )
                 
@@ -736,21 +731,36 @@ class OptimizedVectorizationService:
             if vectors_data:
                 try:
                     async with httpx.AsyncClient(timeout=60.0) as client:
-                        response = await client.post(
-                            f"{self.library_api_url}/api/track-vectors/batch",
-                            json=vectors_data
-                        )
-                        
-                        if response.status_code == 201:
-                            successful = len(vectors_data)
-                            logger.info(f"Batch stocké avec succès: {successful} vecteurs")
-                        else:
-                            failed = len(vectors_data)
-                            logger.error(f"Erreur stockage batch: {response.status_code}")
+                        # Envoyer chaque vecteur individuellement à l'endpoint
+                        for vector_entry in vectors_data:
+                            single_track_id = vector_entry["track_id"]
+                            single_embedding = vector_entry["embedding"]
                             
+                            vector_data = {
+                                "vector": single_embedding,
+                                "embedding_type": "semantic",
+                                "embedding_source": "scikit-learn-optimized",
+                                "embedding_model": "TfidfVectorizer+TruncatedSVD+AudioFeatures"
+                            }
+                            
+                            response = await client.post(
+                                f"{self.library_api_url}/api/tracks/{single_track_id}/embeddings",
+                                json=vector_data
+                            )
+                            
+                            if response.status_code in (200, 201):
+                                successful += 1
+                            else:
+                                failed += 1
+                                logger.error(f"Erreur stockage track {single_track_id}: {response.status_code}")
+                        
+                        if successful > 0:
+                            logger.info(f"Batch stocké avec succès: {successful} vecteurs")
+                        
                 except Exception as e:
                     logger.error(f"Exception stockage batch: {e}")
-                    failed = len(vectors_data)
+                    # Compter les non encore traités comme échecs
+                    failed = len(vectors_data) - successful
             
             result = {
                 "status": "success",
