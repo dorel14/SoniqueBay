@@ -20,6 +20,9 @@ from backend.api.routers.realtime_router import router as realtime_router  # noq
 from backend.api.routers.ws_ai import router as ws_ai_router  # noqa: E402
 from backend.api.routers.agents_api import router as agents_router  # noqa: E402
 from backend.api.routers.ollama_api import router as ollama_router  # noqa: E402
+from backend.api.routers.track_audio_features_api import router as track_audio_features_router  # noqa: E402
+from backend.api.routers.track_embeddings_api import router as track_embeddings_router  # noqa: E402
+from backend.api.routers.track_metadata_api import router as track_metadata_router  # noqa: E402
 
 
 
@@ -33,6 +36,9 @@ ROUTERS = [
     artists_router,
     covers_router,
     tracks_router,
+    track_audio_features_router,
+    track_embeddings_router,
+    track_metadata_router,
     genres_router,
     scan_router,
     scan_sessions_router,
@@ -46,7 +52,7 @@ ROUTERS = [
     realtime_router,
     ws_ai_router,
     agents_router,
-    ollama_router
+    ollama_router,
 ]
 
 # Inclure tous les routers

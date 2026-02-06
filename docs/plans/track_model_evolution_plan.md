@@ -253,77 +253,162 @@ Table dédiée pour les métadonnées enrichies (extensible):
 
 ---
 
+## Impact GraphQL
+
+### Analyse de l'impact
+
+Le projet utilise **Strawberry (GraphQL)** avec les fichiers suivants pour Track:
+
+| Fichier | Rôle | Impact de la migration |
+|---------|------|------------------------|
+| [`tracks_type.py`](backend/api/graphql/types/tracks_type.py) | Types GraphQL TrackType, TrackCreateInput, TrackUpdateInput | **CRITIQUE** - Contient tous les champs audio features |
+| [`track_queries.py`](backend/api/graphql/queries/queries/track_queries.py) | Queries `track(id)` et `tracks(skip, limit, where)` | **MOYEN** - Utilise TrackService |
+| [`track_mutations.py`](backend/api/graphql/queries/mutations/track_mutations.py) | Mutations create, update, upsert, batch | **CRITIQUE** - Passe tous les champs audio features |
+
+### Champs audio features dans GraphQL
+
+Les types GraphQL actuels contiennent directement les champs audio features:
+- `bpm`, `key`, `scale`, `danceability`
+- `mood_happy`, `mood_aggressive`, `mood_party`, `mood_relaxed`
+- `instrumental`, `acoustic`, `tonal`
+- `camelot_key`, `genre_main`
+
+### Stratégie de migration GraphQL
+
+**Approche: Compatibilité rétroactive avec propriétés calculées**
+
+Pour ne pas cracker les requêtes GraphQL existantes, nous allons:
+
+1. **Créer les nouveaux types GraphQL** pour les tables dédiées:
+   - `TrackAudioFeaturesType`
+   - `TrackEmbeddingsType`
+   - `TrackMetadataType`
+
+2. **Ajouter les relations** sur `TrackType`:
+   - `audio_features: TrackAudioFeaturesType | None`
+   - `embeddings: list[TrackEmbeddingsType]`
+   - `metadata: list[TrackMetadataType]`
+
+3. **Maintenir les champs existants** comme propriétés calculées:
+   - Les champs audio features resteront dans `TrackType`
+   - Ils liront les données depuis la relation `audio_features`
+   - Cela assure la compatibilité avec les requêtes existantes
+
+4. **Mettre à jour les inputs** pour supporter les nouvelles structures:
+   - `TrackCreateInput` et `TrackUpdateInput` garderont les champs audio features
+   - Les services mapperont ces champs vers les nouvelles tables
+
+### Diagramme de flux GraphQL
+
+```mermaid
+graph TD
+    A[Client GraphQL] -->|Query/Mutation| B[TrackType]
+    B -->|Propriétés calculées| C[TrackAudioFeatures]
+    B -->|Relation directe| C
+    B -->|Relation directe| D[TrackEmbeddings]
+    B -->|Relation directe| E[TrackMetadata]
+    C -->|Données audio| B
+    D -->|Données vectorielles| B
+    E -->|Métadonnées enrichies| B
+```
+
+---
+
 ## Plan de Migration
 
-### Phase 1: Création des nouvelles tables
+### Phase 1: Création des nouvelles tables ✅ TERMINÉ
 
-1. Créer le modèle [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
-2. Créer le modèle [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
-3. Créer le modèle [`TrackMetadata`](backend/api/models/track_metadata_model.py)
-4. Créer les schémas Pydantic correspondants
-5. Créer la migration Alembic pour les nouvelles tables
+1. ✅ Créer le modèle [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
+2. ✅ Créer le modèle [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
+3. ✅ Créer le modèle [`TrackMetadata`](backend/api/models/track_metadata_model.py)
+4. ✅ Créer les schémas Pydantic correspondants
+5. ✅ Créer la migration Alembic pour les nouvelles tables
 
-### Phase 2: Migration des données existantes
+### Phase 2: Migration des données existantes ✅ TERMINÉ
 
-1. Créer la migration Alembic pour migrer les données:
-   - Copier les champs audio de [`Track`](backend/api/models/tracks_model.py:44-56) vers [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
-   - Copier le vecteur de [`Track`](backend/api/models/tracks_model.py:40) vers [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
-   - Créer des entrées [`TrackMetadata`](backend/api/models/track_metadata_model.py) pour les métadonnées enrichies
+1. ✅ Créer la migration Alembic pour migrer les données:
+   - ✅ Copier les champs audio de [`Track`](backend/api/models/tracks_model.py:44-56) vers [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
+   - ✅ Copier le vecteur de [`Track`](backend/api/models/tracks_model.py:40) vers [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
+   - ✅ Créer des entrées [`TrackMetadata`](backend/api/models/track_metadata_model.py) pour les métadonnées enrichies
 
-### Phase 3: Mise à jour du modèle Track
+### Phase 3: Mise à jour du modèle Track ✅ TERMINÉ
 
-1. Ajouter les relations avec les nouvelles tables dans [`Track`](backend/api/models/tracks_model.py)
-2. Marquer les champs migrés comme `deprecated` (optionnel)
-3. Mettre à jour les index
+1. ✅ Ajouter les relations avec les nouvelles tables dans [`Track`](backend/api/models/tracks_model.py)
+2. ✅ Marquer les champs migrés comme `deprecated` (optionnel)
+3. ✅ Mettre à jour les index
 
-### Phase 4: Mise à jour des services
+### Phase 4: Mise à jour des services ✅ TERMINÉ
 
-1. Créer [`TrackAudioFeaturesService`](backend/api/services/track_audio_features_service.py)
-2. Créer [`TrackEmbeddingsService`](backend/api/services/track_embeddings_service.py)
-3. Créer [`TrackMetadataService`](backend/api/services/track_metadata_service.py)
-4. Mettre à jour [`TrackService`](backend/api/services/track_service.py) pour utiliser les nouvelles tables
+1. ✅ Créer [`TrackAudioFeaturesService`](backend/api/services/track_audio_features_service.py)
+2. ✅ Créer [`TrackEmbeddingsService`](backend/api/services/track_embeddings_service.py)
+3. ✅ Créer [`TrackMetadataService`](backend/api/services/track_metadata_service.py)
+4. ✅ Mettre à jour [`TrackService`](backend/api/services/track_service.py) pour utiliser les nouvelles tables
 
-### Phase 5: Mise à jour des routers API
+### Phase 5: Mise à jour des routers API ✅ TERMINÉ
 
-1. Créer [`track_audio_features_api.py`](backend/api/routers/track_audio_features_api.py)
-2. Créer [`track_embeddings_api.py`](backend/api/routers/track_embeddings_api.py)
-3. Créer [`track_metadata_api.py`](backend/api/routers/track_metadata_api.py)
-4. Mettre à jour [`tracks_api.py`](backend/api/routers/tracks_api.py) pour utiliser les nouvelles tables
+1. ✅ Créer [`track_audio_features_api.py`](backend/api/routers/track_audio_features_api.py)
+2. ✅ Créer [`track_embeddings_api.py`](backend/api/routers/track_embeddings_api.py)
+3. ✅ Créer [`track_metadata_api.py`](backend/api/routers/track_metadata_api.py)
+4. ✅ Mettre à jour [`tracks_api.py`](backend/api/routers/tracks_api.py) pour utiliser les nouvelles tables
 
-### Phase 6: Mise à jour des workers
+### Phase 6: Mise à jour de GraphQL ✅ TERMINÉ
 
-1. Mettre à jour [`audio_features_service.py`](backend_worker/services/audio_features_service.py) pour utiliser [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
-2. Mettre à jour [`vectorization_service.py`](backend_worker/services/vectorization_service.py) pour utiliser [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
-3. Mettre à jour les tâches Celery correspondantes
+1. ✅ Créer les nouveaux types GraphQL:
+   - ✅ [`TrackAudioFeaturesType`](backend/api/graphql/types/track_audio_features_type.py)
+   - ✅ [`TrackEmbeddingsType`](backend/api/graphql/types/track_embeddings_type.py)
+   - ✅ [`TrackMetadataType`](backend/api/graphql/types/track_metadata_type.py)
+   - ✅ Inputs correspondants (Create/Update)
 
-### Phase 7: Optimisation des performances
+2. ✅ Mettre à jour [`TrackType`](backend/api/graphql/types/tracks_type.py):
+   - ✅ Ajouter la relation `audio_features: TrackAudioFeaturesType | None`
+   - ✅ Ajouter la relation `embeddings: list[TrackEmbeddingsType]`
+   - ✅ Ajouter la relation `metadata: list[TrackMetadataType]`
+   - ✅ **Garder les champs audio features existants** comme propriétés calculées (compatibilité rétroactive)
 
-1. Créer les index PostgreSQL pour les nouvelles tables
-2. Mettre à jour le cache Redis pour les nouvelles tables
-3. Optimiser les requêtes SQL
+3. ✅ Mettre à jour [`track_queries.py`](backend/api/graphql/queries/queries/track_queries.py):
+   - ✅ Mettre à jour les queries pour charger les relations audio_features, embeddings, metadata
+   - ✅ Maintenir la compatibilité avec les champs existants
 
-### Phase 8: Tests et validation
+4. ✅ Mettre à jour [`track_mutations.py`](backend/api/graphql/queries/mutations/track_mutations.py):
+   - ✅ Mettre à jour les mutations pour créer/mettre à jour les nouvelles tables
+   - ✅ Mapper les champs audio features vers TrackAudioFeatures
+   - ✅ Maintenir la compatibilité avec les inputs existants
 
-1. Écrire les tests unitaires pour les nouvelles tables
-2. Écrire les tests d'intégration pour les nouvelles tables
-3. Exécuter les tests et valider la migration
-4. Valider le démarrage Docker et les 4 conteneurs
+5. ✅ Créer les queries et mutations pour les nouvelles tables:
+   - ✅ Queries pour TrackAudioFeatures, TrackEmbeddings, TrackMetadata
+   - ✅ Mutations pour TrackAudioFeatures, TrackEmbeddings, TrackMetadata
 
-### Phase 9: Nettoyage
+6. ✅ Mettre à jour le cache GraphQL pour les nouvelles tables
 
-1. Supprimer les champs redondants dans [`Track`](backend/api/models/tracks_model.py):
-   - `cover_data`, `cover_mime_type` (utiliser la table [`Cover`](backend/api/models/covers_model.py))
-   - `genre` (utiliser la relation `genres`)
-   - `musicbrainz_genre` (utiliser la relation `genre_tags`)
-2. Supprimer les champs migrés (optionnel, après validation):
-   - Champs audio (bpm, key, scale, etc.)
-   - `vector`, `search`
+### Phase 7: Mise à jour des workers ✅ TERMINÉ
 
-### Phase 10: Documentation
+1. ✅ Mettre à jour [`audio_features_service.py`](backend_worker/services/audio_features_service.py) pour utiliser [`TrackAudioFeatures`](backend/api/models/track_audio_features_model.py)
+2. ✅ Mettre à jour [`vectorization_service.py`](backend_worker/services/vectorization_service.py) pour utiliser [`TrackEmbeddings`](backend/api/models/track_embeddings_model.py)
+3. ✅ Mettre à jour les tâches Celery correspondantes
 
-1. Mettre à jour la documentation (README, architecture.md)
-2. Documenter la migration
-3. Créer un guide de migration pour les utilisateurs
+### Phase 8: Optimisation des performances ✅ TERMINÉ
+
+1. ✅ Créer les index PostgreSQL pour les nouvelles tables
+2. ✅ Mettre à jour le cache Redis pour les nouvelles tables
+3. ✅ Optimiser les requêtes SQL
+
+### Phase 9: Tests et validation ✅ TERMINÉ
+
+1. ✅ Écrire les tests unitaires pour les nouvelles tables
+2. ✅ Écrire les tests d'intégration pour les nouvelles tables
+3. ✅ Écrire les tests GraphQL pour les nouvelles tables:
+   - ✅ Tests pour TrackAudioFeaturesType queries/mutations
+   - ✅ Tests pour TrackEmbeddingsType queries/mutations
+   - ✅ Tests pour TrackMetadataType queries/mutations
+   - ✅ Tests de compatibilité rétroactive pour TrackType
+4. ✅ Exécuter les tests et valider la migration
+5. ✅ Valider le démarrage Docker et les 4 conteneurs
+
+### Phase 10: Documentation ✅ TERMINÉ
+
+1. ✅ Mettre à jour la documentation (README, architecture.md)
+2. ✅ Documenter la migration
+3. ✅ Créer un guide de migration pour les utilisateurs
 
 ---
 
@@ -384,70 +469,118 @@ Table dédiée pour les métadonnées enrichies (extensible):
 
 ## Checklist de Migration
 
-### Phase 1: Création des nouvelles tables
-- [ ] Créer le modèle TrackAudioFeatures
-- [ ] Créer le modèle TrackEmbeddings
-- [ ] Créer le modèle TrackMetadata
-- [ ] Créer les schémas Pydantic
-- [ ] Créer la migration Alembic
+### Phase 1: Création des nouvelles tables ✅
+- [x] Créer le modèle TrackAudioFeatures
+- [x] Créer le modèle TrackEmbeddings
+- [x] Créer le modèle TrackMetadata
+- [x] Créer les schémas Pydantic
+- [x] Créer la migration Alembic
 
-### Phase 2: Migration des données existantes
-- [ ] Créer la migration Alembic pour les données
-- [ ] Migrer les caractéristiques audio
-- [ ] Migrer les embeddings
-- [ ] Créer les métadonnées enrichies
+### Phase 2: Migration des données existantes ✅
+- [x] Créer la migration Alembic pour les données
+- [x] Migrer les caractéristiques audio
+- [x] Migrer les embeddings
+- [x] Créer les métadonnées enrichies
 
-### Phase 3: Mise à jour du modèle Track
-- [ ] Ajouter les relations
-- [ ] Marquer les champs comme deprecated
-- [ ] Mettre à jour les index
+### Phase 3: Mise à jour du modèle Track ✅
+- [x] Ajouter les relations
+- [x] Marquer les champs comme deprecated
+- [x] Mettre à jour les index
 
-### Phase 4: Mise à jour des services
-- [ ] Créer TrackAudioFeaturesService
-- [ ] Créer TrackEmbeddingsService
-- [ ] Créer TrackMetadataService
-- [ ] Mettre à jour TrackService
+### Phase 4: Mise à jour des services ✅
+- [x] Créer TrackAudioFeaturesService
+- [x] Créer TrackEmbeddingsService
+- [x] Créer TrackMetadataService
+- [x] Mettre à jour TrackService
 
-### Phase 5: Mise à jour des routers API
-- [ ] Créer track_audio_features_api.py
-- [ ] Créer track_embeddings_api.py
-- [ ] Créer track_metadata_api.py
-- [ ] Mettre à jour tracks_api.py
+### Phase 5: Mise à jour des routers API ✅
+- [x] Créer track_audio_features_api.py
+- [x] Créer track_embeddings_api.py
+- [x] Créer track_metadata_api.py
+- [x] Mettre à jour tracks_api.py
 
-### Phase 6: Mise à jour des workers
-- [ ] Mettre à jour audio_features_service.py
-- [ ] Mettre à jour vectorization_service.py
-- [ ] Mettre à jour les tâches Celery
+### Phase 6: Mise à jour des workers ✅
+- [x] Mettre à jour audio_features_service.py
+- [x] Mettre à jour vectorization_service.py
+- [x] Mettre à jour les tâches Celery
 
-### Phase 7: Optimisation des performances
-- [ ] Créer les index PostgreSQL
-- [ ] Mettre à jour le cache Redis
-- [ ] Optimiser les requêtes SQL
+### Phase 7: Optimisation des performances ✅
+- [x] Créer les index PostgreSQL
+- [x] Mettre à jour le cache Redis
+- [x] Optimiser les requêtes SQL
 
-### Phase 8: Tests et validation
-- [ ] Écrire les tests unitaires
-- [ ] Écrire les tests d'intégration
-- [ ] Exécuter les tests
-- [ ] Valider Docker
+### Phase 8: Tests et validation ✅
+- [x] Écrire les tests unitaires
+- [x] Écrire les tests d'intégration
+- [x] Exécuter les tests
+- [x] Valider Docker
 
-### Phase 9: Nettoyage
+### Phase 9: Nettoyage ⏳
 - [ ] Supprimer les champs redondants
 - [ ] Supprimer les champs migrés
 
-### Phase 10: Documentation
-- [ ] Mettre à jour README
-- [ ] Mettre à jour architecture.md
-- [ ] Documenter la migration
+### Phase 10: Documentation ✅
+- [x] Mettre à jour README
+- [x] Mettre à jour architecture.md
+- [x] Documenter la migration
+- [x] Créer guide de migration
 
 ---
 
 ## Livrables
 
-1. Nouveaux modèles SQLAlchemy (TrackAudioFeatures, TrackEmbeddings, TrackMetadata)
-2. Nouveaux schémas Pydantic
-3. Nouveaux services (TrackAudioFeaturesService, TrackEmbeddingsService, TrackMetadataService)
-4. Nouveaux routers API
-5. Migrations Alembic
-6. Tests unitaires et d'intégration
-7. Documentation mise à jour
-8. Validation Docker réussie
+1. ✅ Nouveaux modèles SQLAlchemy (TrackAudioFeatures, TrackEmbeddings, TrackMetadata)
+2. ✅ Nouveaux schémas Pydantic
+3. ✅ Nouveaux services (TrackAudioFeaturesService, TrackEmbeddingsService, TrackMetadataService)
+4. ✅ Nouveaux routers API
+5. ✅ Migrations Alembic
+6. ✅ Tests unitaires et d'intégration
+7. ✅ Documentation mise à jour
+8. ✅ Validation Docker réussie
+
+---
+
+## Fichiers Créés/Modifiés
+
+### Modèles
+- [`backend/api/models/track_audio_features_model.py`](backend/api/models/track_audio_features_model.py) ✅
+- [`backend/api/models/track_embeddings_model.py`](backend/api/models/track_embeddings_model.py) ✅
+- [`backend/api/models/track_metadata_model.py`](backend/api/models/track_metadata_model.py) ✅
+
+### Services
+- [`backend/api/services/track_audio_features_service.py`](backend/api/services/track_audio_features_service.py) ✅
+- [`backend/api/services/track_embeddings_service.py`](backend/api/services/track_embeddings_service.py) ✅
+- [`backend/api/services/track_metadata_service.py`](backend/api/services/track_metadata_service.py) ✅
+
+### Routers API
+- [`backend/api/routers/track_audio_features_api.py`](backend/api/routers/track_audio_features_api.py) ✅
+- [`backend/api/routers/track_embeddings_api.py`](backend/api/routers/track_embeddings_api.py) ✅
+- [`backend/api/routers/track_metadata_api.py`](backend/api/routers/track_metadata_api.py) ✅
+
+### Schémas
+- [`backend/api/schemas/track_audio_features_schema.py`](backend/api/schemas/track_audio_features_schema.py) ✅
+- [`backend/api/schemas/track_embeddings_schema.py`](backend/api/schemas/track_embeddings_schema.py) ✅
+- [`backend/api/schemas/track_metadata_schema.py`](backend/api/schemas/track_metadata_schema.py) ✅
+
+### GraphQL Types
+- [`backend/api/graphql/types/track_audio_features_type.py`](backend/api/graphql/types/track_audio_features_type.py) ✅
+- [`backend/api/graphql/types/track_embeddings_type.py`](backend/api/graphql/types/track_embeddings_type.py) ✅
+- [`backend/api/graphql/types/track_metadata_type.py`](backend/api/graphql/types/track_metadata_type.py) ✅
+
+### GraphQL Queries
+- [`backend/api/graphql/queries/track_audio_features_queries.py`](backend/api/graphql/queries/track_audio_features_queries.py) ✅
+- [`backend/api/graphql/queries/track_embeddings_queries.py`](backend/api/graphql/queries/track_embeddings_queries.py) ✅
+- [`backend/api/graphql/queries/track_metadata_queries.py`](backend/api/graphql/queries/track_metadata_queries.py) ✅
+
+### GraphQL Mutations
+- [`backend/api/graphql/mutations/track_audio_features_mutations.py`](backend/api/graphql/mutations/track_audio_features_mutations.py) ✅
+- [`backend/api/graphql/mutations/track_embeddings_mutations.py`](backend/api/graphql/mutations/track_embeddings_mutations.py) ✅
+- [`backend/api/graphql/mutations/track_metadata_mutations.py`](backend/api/graphql/mutations/track_metadata_mutations.py) ✅
+
+### Migration Alembic
+- [`alembic/versions/create_track_features_embeddings_metadata_tables.py`](alembic/versions/create_track_features_embeddings_metadata_tables.py) ✅
+
+### Documentation
+- [`docs/migration/track_model_migration_guide.md`](docs/migration/track_model_migration_guide.md) ✅
+- [`docs/architecture/02-services.md`](docs/architecture/02-services.md) ✅
+- [`docs/architecture/09-backend-api.md`](docs/architecture/09-backend-api.md) ✅

@@ -264,7 +264,7 @@ class VectorizationEventListener:
 
                     # Déclencher la tâche Celery avec le payload Redis
                     celery.send_task(
-                        'calculate_vector',
+                        'vectorization.calculate',
                         args=[track_id, event_data],
                         queue='vectorization',
                         priority=5

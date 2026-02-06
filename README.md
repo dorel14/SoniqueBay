@@ -19,6 +19,25 @@ SoniqueBay utilise maintenant **Server-Sent Events (SSE)** pour afficher la prog
 SSE_URL=http://library:8001/api/events
 ```
 
+### 🎵 Évolution du Modèle Track
+
+Nouvelle architecture avec tables dédiées pour une meilleure séparation des responsabilités :
+
+- **TrackAudioFeatures** : Caractéristiques audio (BPM, tonalité, mood, etc.)
+- **TrackEmbeddings** : Vecteurs d'embeddings pour les recommandations sémantiques
+- **TrackMetadata** : Métadonnées extensibles (clé-valeur) pour l'enrichissement
+
+**API REST dédiée :**
+- `/tracks/{track_id}/audio-features` - Caractéristiques audio
+- `/tracks/{track_id}/embeddings` - Embeddings vectoriels
+- `/tracks/{track_id}/metadata` - Métadonnées enrichies
+
+**GraphQL avec rétrocompatibilité :**
+- Nouveaux types: `TrackAudioFeaturesType`, `TrackEmbeddingsType`, `TrackMetadataType`
+- Champs audio préservés dans `TrackType` via propriétés calculées
+
+Voir le [Guide de Migration](docs/migration/track_model_migration_guide.md) pour plus de détails.
+
 ## 🚀 Démarrage Rapide
 
 ### Prérequis
@@ -26,7 +45,7 @@ SSE_URL=http://library:8001/api/events
 - Docker et Docker Compose
 - Python 3.11+
 - Redis
-- PostgreSQL (optionnel, SQLite par défaut)
+- PostgreSQL
 
 ### Installation
 
@@ -52,9 +71,6 @@ SSE_URL=http://library:8001/api/events
    ```bash
    # Services principaux
    docker-compose up -d
-
-   # Services optimisés (scan haute performance)
-   docker-compose -f docker-compose-scan-optimized.yml up -d
    ```
 
 4. **Accéder à l'application**
@@ -192,6 +208,8 @@ services:
 - [⚙️ Configuration Celery](docs/celery_optimization_config.md) - Workers haute performance
 - [🔍 Plan d'Optimisation](docs/plan_optimisation_scan.md) - Améliorations du scan
 - [🧪 Tests d'Optimisation](docs/README_OPTIMIZATION_TESTS.md) - Validation des performances
+- [📖 Guide Migration Track](docs/migration/track_model_migration_guide.md) - Évolution du modèle Track
+- [📋 Plan Évolution Track](docs/plans/track_model_evolution_plan.md) - Détails de l'implémentation
 
 ## 🤝 Contribution
 

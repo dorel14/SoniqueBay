@@ -4,24 +4,24 @@ Artist Embedding Service
 
 Service for managing artist vector embeddings and Gaussian Mixture Model clustering.
 Provides functionality for artist similarity and recommendation algorithms.
+Uses TrackEmbeddings for track-level embeddings.
 """
 
-import json
 import asyncio
-from typing import List, Dict, Optional, Any
+import json
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from backend.api.utils.logging import logger
-from backend.api.models.artist_embeddings_model import ArtistEmbedding, GMMModel
+
+from backend.api.models.artist_embeddings_model import (ArtistEmbedding,
+                                                        GMMModel)
 from backend.api.schemas.artist_embeddings_schema import (
-    ArtistEmbeddingCreate,
-    ArtistEmbeddingUpdate,
-    GMMTrainingRequest,
-    GMMTrainingResponse,
-    ArtistSimilarityRecommendation
-)
+    ArtistEmbeddingCreate, ArtistEmbeddingUpdate,
+    ArtistSimilarityRecommendation, GMMTrainingRequest, GMMTrainingResponse)
 from backend.api.services.vector_search_service import VectorSearchService
+from backend.api.utils.logging import logger
 
 # ML libraries - imported conditionally as they may not be available in all environments
 try:
@@ -357,6 +357,8 @@ class ArtistEmbeddingService:
         track embeddings for each artist, which is the standard approach used
         by music recommendation systems like Spotify, Last.fm, etc.
 
+        Uses TrackEmbeddingsService to get track embeddings.
+
         Args:
             artist_names: List of artist names to process (None = all artists)
 
@@ -367,20 +369,16 @@ class ArtistEmbeddingService:
             logger.info("[ARTIST EMBEDDING] Starting artist embedding generation from tracks")
 
             # Import Track model from library_api
+            from backend.api.models.artists_model import \
+                Artist as LibraryArtist
 
             # Get artists to process
             if artist_names:
-                # Get artists by name from library_api
-                from backend.api.models.artists_model import Artist as LibraryArtist
-                # We need to access the library database
-                # For now, we'll assume we can access it through the same session
-                # In production, this might need cross-service communication
                 result = await self.db.execute(
                     select(LibraryArtist).where(LibraryArtist.name.in_(artist_names))
                 )
                 artists = result.scalars().all()
             else:
-                from backend.api.models.artists_model import Artist as LibraryArtist
                 result = await self.db.execute(select(LibraryArtist))
                 artists = result.scalars().all()
 
@@ -396,10 +394,11 @@ class ArtistEmbeddingService:
                         continue
 
                     # Generate embedding by aggregating track embeddings
-                    embedding_vector = await self._aggregate_track_embeddings(artist)
+                    embedding_vector = await self._aggregate_track_embeddings_new(artist)
 
                     if embedding_vector:
-                        from backend.api.schemas.artist_embeddings_schema import ArtistEmbeddingCreate
+                        from backend.api.schemas.artist_embeddings_schema import \
+                            ArtistEmbeddingCreate
                         embedding_data = ArtistEmbeddingCreate(
                             artist_name=artist.name,
                             vector=embedding_vector,
@@ -431,12 +430,14 @@ class ArtistEmbeddingService:
             logger.error(f"[ARTIST EMBEDDING] Generation failed: {e}")
             raise
 
-    async def _aggregate_track_embeddings(self, artist) -> Optional[List[float]]:
+    async def _aggregate_track_embeddings_new(self, artist) -> Optional[List[float]]:
         """
-        Aggregate track embeddings to create artist embedding (centroid approach).
+        Aggregate track embeddings from TrackEmbeddings table to create artist embedding.
+
+        Uses TrackEmbeddingsService to get all embeddings for tracks of this artist.
 
         Args:
-            artist: Artist object with tracks relationship
+            artist: Artist object
 
         Returns:
             Centroid vector as list of floats, or None if no valid tracks
@@ -446,40 +447,136 @@ class ArtistEmbeddingService:
                 logger.warning(f"ML libraries not available for aggregating embeddings for {artist.name}")
                 return None
 
-            # Get all tracks for this artist that have embeddings
-            tracks_with_embeddings = []
-            for track in artist.tracks:
-                if track.vector:  # Assuming track has a vector field
-                    try:
-                        # Parse the vector (assuming it's stored as JSON string)
-                        if isinstance(track.vector, str):
-                            vector = json.loads(track.vector)
-                        else:
-                            vector = track.vector
-                        tracks_with_embeddings.append(vector)
-                    except (json.JSONDecodeError, TypeError, ValueError):
-                        continue
+            # Get all tracks for this artist from the database
+            from backend.api.models.tracks_model import Track
 
-            if not tracks_with_embeddings:
+            result = await self.db.execute(
+                select(Track.id).where(Track.track_artist_id == artist.id)
+            )
+            track_ids = [row[0] for row in result.fetchall()]
+
+            if not track_ids:
+                logger.warning(f"No tracks found for artist: {artist.name}")
+                return None
+
+            # Get track embeddings from TrackEmbeddings
+            try:
+                from backend.api.services.track_embeddings_service import \
+                    TrackEmbeddingsService
+
+                service = TrackEmbeddingsService(self.db)
+                track_embeddings = await service.get_by_track_ids(track_ids, embedding_type='semantic')
+
+                if not track_embeddings:
+                    logger.debug(f"No semantic embeddings found for tracks of artist: {artist.name}")
+                    # Try to use any available embedding type
+                    track_embeddings = await service.get_by_track_ids(track_ids)
+
+                if not track_embeddings:
+                    logger.warning(f"No embeddings found for tracks of artist: {artist.name}")
+                    return None
+
+                # Extract vectors
+                vectors = [emb.vector for emb in track_embeddings]
+
+            except ImportError:
+                logger.warning(f"TrackEmbeddingsService not available for artist: {artist.name}")
+                return None
+            except Exception as e:
+                logger.error(f"Error getting track embeddings for artist {artist.name}: {e}")
+                return None
+
+            if not vectors:
                 logger.warning(f"No valid track embeddings found for artist: {artist.name}")
                 return None
 
             # Calculate centroid (mean) of all track embeddings in thread pool
             def _calculate_centroid():
                 import numpy as np
-                vectors_array = np.array(tracks_with_embeddings)
+                vectors_array = np.array(vectors)
                 centroid = np.mean(vectors_array, axis=0)
                 return centroid.tolist()
 
             embedding_vector = await asyncio.to_thread(_calculate_centroid)
 
-            logger.info(f"Generated embedding for {artist.name} from {len(tracks_with_embeddings)} tracks")
+            logger.info(f"Generated embedding for {artist.name} from {len(vectors)} tracks (TrackEmbeddings)")
 
             return embedding_vector
 
         except Exception as e:
             logger.error(f"Error aggregating embeddings for artist {artist.name}: {e}")
             return None
+
+    async def get_track_embedding(self, track_id: int, embedding_type: str = 'semantic') -> Optional[List[float]]:
+        """
+        Get a track embedding using TrackEmbeddingsService.
+
+        Args:
+            track_id: Track ID
+            embedding_type: Type of embedding to retrieve
+
+        Returns:
+            Embedding vector or None if not found
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            service = TrackEmbeddingsService(self.db)
+            embedding = await service.get_single_by_track_id(track_id, embedding_type)
+
+            return embedding.vector if embedding else None
+
+        except ImportError:
+            logger.warning("TrackEmbeddingsService not available")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting track embedding for {track_id}: {e}")
+            return None
+
+    async def generate_track_embeddings(
+        self,
+        track_id: int,
+        embedding: List[float],
+        embedding_type: str = 'semantic',
+        embedding_source: Optional[str] = None,
+        embedding_model: Optional[str] = None
+    ) -> bool:
+        """
+        Generate and store a track embedding using TrackEmbeddingsService.
+
+        Args:
+            track_id: Track ID
+            embedding: Vector embedding
+            embedding_type: Type of embedding
+            embedding_source: Source of vectorization
+            embedding_model: Model used
+
+        Returns:
+            True if successful
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            service = TrackEmbeddingsService(self.db)
+            await service.create_or_update(
+                track_id=track_id,
+                vector=embedding,
+                embedding_type=embedding_type,
+                embedding_source=embedding_source,
+                embedding_model=embedding_model
+            )
+
+            logger.debug(f"[ARTIST EMBEDDING] Generated embedding for track {track_id}")
+            return True
+
+        except ImportError:
+            logger.warning("TrackEmbeddingsService not available")
+            return False
+        except Exception as e:
+            logger.error(f"Error generating track embedding for {track_id}: {e}")
+            return False
 
     async def find_similar_artists_vector(self, artist_name: str, limit: int = 10) -> List[ArtistSimilarityRecommendation]:
         """
@@ -569,3 +666,31 @@ class ArtistEmbeddingService:
         except Exception as e:
             logger.error(f"Error getting cluster info: {e}")
             return {"error": str(e)}
+
+    async def delete_track_embedding(self, track_id: int, embedding_type: Optional[str] = None) -> bool:
+        """
+        Delete track embeddings using TrackEmbeddingsService.
+
+        Args:
+            track_id: Track ID
+            embedding_type: Specific type to delete (None = all)
+
+        Returns:
+            True if successful
+        """
+        try:
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
+
+            service = TrackEmbeddingsService(self.db)
+            result = await service.delete(track_id, embedding_type)
+
+            logger.debug(f"Deleted embedding for track {track_id}")
+            return result
+
+        except ImportError:
+            logger.warning("TrackEmbeddingsService not available")
+            return False
+        except Exception as e:
+            logger.error(f"Error deleting track embedding for {track_id}: {e}")
+            return False

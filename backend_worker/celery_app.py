@@ -106,8 +106,8 @@ celery = Celery(
         # Last.fm workers
         'backend_worker.workers.lastfm.lastfm_worker',
 
-        # Vectorization workers
-        'backend_worker.workers.vectorization.track_vectorization_worker',
+        # Vectorization workers (DÉSACTIVÉ - logique déplacée vers celery_tasks)
+        # 'backend_worker.workers.vectorization.track_vectorization_worker',
 
         # Tâches de covers (NOUVEAU - requis pour process_artist_images et process_album_covers)
         'backend_worker.tasks.covers_tasks',
