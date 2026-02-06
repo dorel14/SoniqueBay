@@ -9,7 +9,7 @@ Rôle:
 Dépendances:
     - strawberry: Framework GraphQL
     - backend.api.services.track_embeddings_service: TrackEmbeddingsService
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -26,7 +26,7 @@ from backend.api.graphql.types.track_embeddings_type import (
     SimilarTrackResult,
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -52,7 +52,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Liste des embeddings de la piste
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             results = await service.get_by_track_id(
                 track_id=track_id,
@@ -86,7 +86,7 @@ class TrackEmbeddingsQuery:
         Returns:
             L'embedding ou None si non trouvé
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             embedding = await service.get_by_id(embedding_id)
 
@@ -126,7 +126,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Liste des résultats de similarité
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             results = await service.find_similar(
                 query_vector=query_vector,
@@ -176,7 +176,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Liste des résultats de similarité
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             results = await service.find_similar_by_track_id(
                 track_id=track_id,
@@ -211,7 +211,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Dictionnaire {type: count}
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             counts = await service.get_embedding_types_count()
             return counts
@@ -224,7 +224,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Dictionnaire des statistiques
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             stats = await service.get_models_statistics()
             return stats
@@ -245,7 +245,7 @@ class TrackEmbeddingsQuery:
         Returns:
             Liste des IDs de pistes sans embeddings
         """
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             service = TrackEmbeddingsService(session)
             results = await service.get_tracks_without_embeddings(
                 embedding_type=embedding_type,

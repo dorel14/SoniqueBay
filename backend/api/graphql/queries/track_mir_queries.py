@@ -8,7 +8,7 @@ Rôle:
 
 Dépendances:
     - strawberry: Framework GraphQL
-    - backend.api.utils.database: get_db_session
+    - backend.api.utils.database: get_async_session
     - backend.api.utils.logging: logger
 
 Auteur: SoniqueBay Team
@@ -26,7 +26,7 @@ from backend.api.graphql.types.track_mir_type import (
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )
-from backend.api.utils.database import get_db_session
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 
@@ -51,7 +51,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query track_mir_raw pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la récupération depuis la base de données
             # Pour l'instant, retourne None
             return None
@@ -71,7 +71,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query track_mir_normalized pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la récupération depuis la base de données
             return None
 
@@ -90,7 +90,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query track_mir_scores pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la récupération depuis la base de données
             return None
 
@@ -109,7 +109,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query track_mir_synthetic_tags pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la récupération depuis la base de données
             return []
 
@@ -135,7 +135,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query tracks_by_energy_range: {min_energy}-{max_energy}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la recherche
             return []
 
@@ -161,7 +161,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query tracks_by_mood: {mood} >= {min_score}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la recherche
             return []
 
@@ -187,7 +187,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query tracks_by_bpm_range: {min_bpm}-{max_bpm}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la recherche
             return []
 
@@ -211,7 +211,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query tracks_by_camelot_key: {camelot_key}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la recherche
             return []
 
@@ -233,7 +233,7 @@ class TrackMIRQuery:
         """
         logger.info(f"Query similar_tracks_by_mir pour track {track_id}")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter la recherche de similarité
             return []
 
@@ -247,7 +247,7 @@ class TrackMIRQuery:
         """
         logger.info("Query mir_statistics")
         
-        async with get_db_session() as session:
+        async with get_async_session() as session:
             # TODO: Implémenter le calcul des statistiques
             return {
                 "total_tracks_with_mir": 0,
