@@ -23,6 +23,11 @@ from backend.api.routers.ollama_api import router as ollama_router  # noqa: E402
 from backend.api.routers.track_audio_features_api import router as track_audio_features_router  # noqa: E402
 from backend.api.routers.track_embeddings_api import router as track_embeddings_router  # noqa: E402
 from backend.api.routers.track_metadata_api import router as track_metadata_router  # noqa: E402
+from backend.api.routers.track_vectors_api import router as track_vectors_router  # noqa: E402
+from backend.api.routers.mir_api import router as mir_router  # noqa: E402
+from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
+from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: E402
+
 
 
 
@@ -53,6 +58,10 @@ ROUTERS = [
     ws_ai_router,
     agents_router,
     ollama_router,
+    mir_router,
+    gmm_router,
+    synonyms_router,
+    track_vectors_router,
 ]
 
 # Inclure tous les routers
