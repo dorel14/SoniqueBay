@@ -10,6 +10,7 @@ Version: 1.0.0
 from typing import Optional
 from collections import defaultdict
 from backend_worker.utils.logging import logger
+from backend_worker.utils.genre_yaml_loader import get_genre_loader
 
 
 class GenreTaxonomyService:
@@ -30,7 +31,9 @@ class GenreTaxonomyService:
     - Standards (poids: 0.8)
     """
     
-    # Configuration des taxonomies et leurs poids
+    # Configuration des taxonomies et leurs poids (gardée pour les tags AcoustID)
+    # Note: GENRE_NORMALIZATION et compatible_groups sont maintenant chargés
+    # depuis genre-tree.yaml via genre_yaml_loader
     TAXONOMY_CONFIG = {
         'gtzan': {
             'prefix': 'ab:hi:genre_tzanetakis',
@@ -73,36 +76,37 @@ class GenreTaxonomyService:
     }
     
     # Mapping des genres standard vers une nomenclature unifiée
-    GENRE_NORMALIZATION = {
-        # Variations de rock
-        'rock': 'Rock', 'rocknroll': 'Rock', 'rock-and-roll': 'Rock',
-        # Variations de hip-hop
-        'hiphop': 'Hip-Hop', 'hip hop': 'Hip-Hop', 'rap': 'Hip-Hop',
-        # Variations de electronic
-        'edm': 'Electronic', 'electro': 'Electronic', 'dance': 'Electronic',
-        # Variations de jazz
-        'jazz': 'Jazz', 'bebop': 'Jazz', 'swing': 'Jazz',
-        # Variations de classical
-        'classical': 'Classical', 'classic': 'Classical', 'orchestral': 'Classical',
-        # Variations de metal
-        'metal': 'Metal', 'metall': 'Metal', 'heavy-metal': 'Metal',
-        # Variations de pop
-        'pop': 'Pop', 'popular': 'Pop', 'indie': 'Pop',
-        # Variations de blues
-        'blues': 'Blues', 'delta-blues': 'Blues', 'electric-blues': 'Blues',
-        # Variations de country
-        'country': 'Country', 'americana': 'Country', 'folk-country': 'Country',
-        # Variations de soul
-        'soul': 'Soul', 'r-and-b': 'Soul', 'rnb': 'Soul', 'rb': 'Soul',
-        # Variations de reggae
-        'reggae': 'Reggae', 'dub': 'Reggae', 'dancehall': 'Reggae',
-        # Variations de disco
-        'disco': 'Disco', 'funk': 'Disco', 'groove': 'Disco',
+    # NOTE: Ce dictionnaire a été externalisé vers genre-tree.yaml
+    # La classe GenreYamlLoader génère automatiquement ce mapping depuis le YAML
+    # Les aliases supplémentaires pour les cas spéciaux sont conservés ici
+    GENRE_NORMALIZATION_ADDITIONAL = {
+        # Variations spécifiques non déductibles de la hiérarchie
+        'rocknroll': 'Rock',
+        'rock-and-roll': 'Rock',
+        'hip hop': 'Hip-Hop',
+        'bebop': 'Jazz',
+        'swing': 'Jazz',
+        'classic': 'Classical',
+        'orchestral': 'Classical',
+        'metall': 'Metal',
+        'heavy-metal': 'Metal',
+        'popular': 'Pop',
+        'indie': 'Pop',
+        'delta-blues': 'Blues',
+        'electric-blues': 'Blues',
+        'americana': 'Country',
+        'folk-country': 'Country',
+        'r-and-b': 'Soul',
+        'rnb': 'Soul',
+        'rb': 'Soul',
+        'dancehall': 'Reggae',
+        'groove': 'Disco',
     }
     
     def __init__(self) -> None:
         """Initialise le service de taxonomie de genres."""
         logger.info("[GenreTaxonomyService] Initialisation du service de taxonomie de genres")
+        self._genre_loader = get_genre_loader()
     
     def extract_genres_from_tags(self, raw_features: dict) -> dict:
         """Extrait les genres depuis les tags bruts.
@@ -174,13 +178,8 @@ class GenreTaxonomyService:
         if not isinstance(genre_name, str):
             return 'Unknown'
         
-        # Nettoyer et lower
-        clean_name = genre_name.strip().lower()
-        
-        # Appliquer le mapping
-        normalized = self.GENRE_NORMALIZATION.get(clean_name, clean_name.title())
-        
-        return normalized
+        # Utiliser le loader YAML pour la normalisation
+        return self._genre_loader.normalize(genre_name)
     
     def _calculate_weighted_score(self, genre: str, votes: dict) -> float:
         """Calcule le score pondéré pour un genre.
@@ -382,28 +381,16 @@ class GenreTaxonomyService:
         if not genre1 or not genre2:
             return 0.0
         
-        # Groupes de genres compatibles
-        compatible_groups = [
-            {'rock', 'metal', 'alternative', 'indie', 'punk'},
-            {'hip-hop', 'rap', 'r-and-b', 'soul'},
-            {'jazz', 'blues', 'soul', 'r-and-b'},
-            {'electronic', 'edm', 'house', 'techno', 'trance', 'ambient'},
-            {'pop', 'dance', 'disco'},
-            {'classical', 'ambient', 'new-age'},
-            {'country', 'folk', 'americana'},
-        ]
-        
+        # Vérifier l'égalité après normalisation
         g1_normalized = self._normalize_genre_name(genre1).lower()
         g2_normalized = self._normalize_genre_name(genre2).lower()
         
-        # Vérifier si les genres sont dans le même groupe
-        for group in compatible_groups:
-            if g1_normalized in group and g2_normalized in group:
-                return 0.9  # Haute compatibilité
-        
-        # Vérifier les genres exacts ou similaires
         if g1_normalized == g2_normalized:
             return 1.0
+        
+        # Utiliser les groupes de compatibilité du loader YAML
+        if self._genre_loader.are_compatible(g1_normalized, g2_normalized):
+            return 0.9  # Haute compatibilité
         
         # Compatibilité partielle (mots communs)
         g1_words = set(g1_normalized.split('-'))

@@ -95,6 +95,31 @@ celery.conf.beat_schedule = {
         'task': 'backend_worker.tasks.maintenance_tasks.validate_system_integrity_task',
         'schedule': crontab(minute=0, hour='*/12'),  # Toutes les 12 heures
         'options': {'queue': 'maintenance'}
+    },
+
+    # === GMM CLUSTERING TASKS ===
+    
+    # Rafraîchissement hebdomadaire des clusters (Dimanche 3h)
+    'gmm-refresh-clusters-weekly': {
+        'task': 'gmm.refresh_stale_clusters',
+        'schedule': crontab(hour=3, minute=0, day_of_week=0),  # Dimanche 3h
+        'args': (24,),  # max_age_hours
+        'options': {'queue': 'gmm'}
+    },
+    
+    # Vérification de stabilité des clusters (Mercredi 2h)
+    'gmm-stability-check': {
+        'task': 'gmm.refresh_stale_clusters',
+        'schedule': crontab(hour=2, minute=0, day_of_week=3),  # Mercredi 2h
+        'args': (12,),  # max_age_hours plus court pour stabilité
+        'options': {'queue': 'gmm'}
+    },
+    
+    # Nettoyage des anciens clusters (Lundi 1h)
+    'gmm-cleanup-old-clusters': {
+        'task': 'gmm.cleanup_old_clusters',
+        'schedule': crontab(hour=1, minute=0, day_of_week=1),  # Lundi 1h
+        'options': {'queue': 'gmm'}
     }
 }
 

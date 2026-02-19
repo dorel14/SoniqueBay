@@ -47,7 +47,7 @@ class ArtistMutations:
             }
             artists_data.append(ArtistCreate(**artist_data_dict))
 
-        artists = service.create_artists_batch(artists_data)
+        artists = service.bulk_create_artists(artists_data)
         return [
             ArtistType(
                 id=artist.id,

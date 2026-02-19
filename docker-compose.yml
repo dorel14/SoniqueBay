@@ -269,21 +269,31 @@ services:
                 reservations:
                     cpus: '0.1'
                     memory: 128M
-    ollama:
-        image: ollama/ollama:latest
-        container_name: ollama
+    llm-service:
+        image: koboldai/koboldcpp:latest
+        container_name: llm-service
         restart: unless-stopped
         pull_policy: always
         environment:
             - TZ=${TZ}
-            - OLLAMA_KEEP_ALIVE=-1
+            - HF_TOKEN=${HF_TOKEN}
+            - MODEL=qwen2.5-3b-instruct-q4_k_m.gguf
+            - KCPP_DONT_UPDATE=false
+            - KCPP_DONT_TUNNEL=true
+            - KCPP_E
+            - KCPP_ARGS=
+                --model qwen2.5-3b-instruct-q4_k_m.gguf
+                --embeddingsmodel=https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/blob/main/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true
+                --usecpu
+                --threads 4
+                --port 5001
+                --blasbatchsize 512
+                --usemlock
         tty: true
         volumes:
-            - ./ollama:/root/.ollama
-            - ./ollama/entrypoint.sh:/entrypoint.sh
+            - ./llm-service/models:/workspace
         ports:
-            - "11434:11434"
-        entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
+            - "11434:5001"
 
     celery-insights:
         image: ghcr.io/danyi1212/celery-insights:latest
@@ -301,7 +311,7 @@ services:
                 condition: service_healthy
             celery-worker:
                 condition: service_started
-                
+
 
 
 
