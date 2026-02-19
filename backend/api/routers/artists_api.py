@@ -44,7 +44,7 @@ async def search_artists(
 async def create_artists_batch(artists: List[ArtistCreate], db: AsyncSession = Depends(get_async_session)):
     service = ArtistService(db)
     try:
-        result = await service.create_artists_batch(artists)
+        result = await service.bulk_create_artists(artists)
         return [Artist.model_validate(a) for a in result]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

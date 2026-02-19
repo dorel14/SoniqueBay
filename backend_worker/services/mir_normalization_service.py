@@ -251,6 +251,242 @@ class MIRNormalizationService:
         logger.debug(f"[MIRNormalization] Score de confiance: {confidence:.3f}")
         return confidence
     
+    def normalize_acoustid_tags(self, raw_tags: dict) -> dict:
+        """Normalise les tags AcoustID en scores continus.
+        
+        Args:
+            raw_tags: Dictionnaire des tags bruts d'AcoustID
+            
+        Returns:
+            Dictionnaire des scores normalisés
+        """
+        normalized: dict = {}
+        
+        # Mapping des tags AcoustID vers les noms normalisés
+        tag_mapping: dict[str, str] = {
+            'danceable': 'danceability',
+            'mood_happy': 'mood_happy',
+            'mood_sad': 'mood_sad',
+            'mood_aggressive': 'mood_aggressive',
+            'mood_party': 'mood_party',
+            'mood_relaxed': 'mood_relaxed',
+            'acoustic': 'acoustic',
+            'instrumental': 'instrumental',
+            'electronic': 'electronic',
+            'tonal': 'tonal',
+            'voice': 'voice',
+        }
+        
+        confidence = raw_tags.get('confidence', 1.0)
+        
+        for acoustid_tag, normalized_name in tag_mapping.items():
+            if acoustid_tag in raw_tags:
+                value = raw_tags[acoustid_tag]
+                # Gérer les valeurs float directement (pour instrumental, voice, etc.)
+                if isinstance(value, (int, float)):
+                    normalized_score = float(value)
+                else:
+                    normalized_score = self.normalize_binary_to_continuous(value, confidence)
+                    if normalized_score is None:
+                        logger.warning(
+                            f"[MIRNormalization] Tag AcoustID invalide: "
+                            f"{acoustid_tag}={value}"
+                        )
+                        continue
+                normalized[normalized_name] = normalized_score
+        
+        # Gestion des tags opposés
+        opposing_pairs: list[tuple[str, str]] = [
+            ('happy', 'not_happy'),
+            ('sad', 'not_sad'),
+            ('aggressive', 'not_aggressive'),
+            ('party', 'not_party'),
+            ('relaxed', 'not_relaxed'),
+            ('acoustic', 'not_acoustic'),
+            ('electronic', 'not_electronic'),
+        ]
+        
+        for pos, neg in opposing_pairs:
+            pos_score = normalized.get(f'mood_{pos}', 0.0)
+            neg_score = normalized.get(f'mood_{neg}', 0.0)
+            
+            if pos_score > 0 or neg_score > 0:
+                net_score, _ = self.handle_opposing_tags(pos_score, neg_score)
+                normalized[f'mood_{pos}'] = net_score if net_score is not None else 0.0
+                if f'mood_{neg}' in normalized:
+                    del normalized[f'mood_{neg}']
+        
+        # Gestion des tags voix/instrumental
+        if 'instrumental' in normalized and 'voice' in normalized:
+            instrumental_score = normalized['instrumental']
+            normalized['instrumental'] = instrumental_score
+            normalized['voice'] = 1.0 - instrumental_score
+        
+        logger.debug(
+            f"[MIRNormalization] Tags AcoustID normalisés: {normalized}"
+        )
+        
+        return normalized
+    
+    def normalize_moods_mirex(self, moods_mirex: list[str]) -> dict:
+        """Normalise les moods MIREX complexes.
+        
+        Les moods MIREX sont des chaînes de caractères qui nécessitent
+        un parsing pour extraire les scores.
+        
+        Args:
+            moods_mirex: Liste des moods MIREX bruts
+            
+        Returns:
+            Dictionnaire des scores de mood normalisés
+        """
+        normalized: dict = {}
+        
+        # Scores par défaut pour les moods MIREX
+        mood_defaults: dict[str, float] = {
+            'danceable': 0.8,
+            'happy': 0.8,
+            'sad': 0.8,
+            'aggressive': 0.8,
+            'relaxed': 0.8,
+            'party': 0.8,
+            'acoustic': 0.8,
+            'electronic': 0.8,
+            'instrumental': 0.8,
+            'tonal': 0.8,
+            'atmospheric': 0.7,
+            'energetic': 0.9,
+            'melancholic': 0.7,
+            'romantic': 0.7,
+            'mysterious': 0.6,
+            'dark': 0.7,
+            'bright': 0.7,
+        }
+        
+        # Moods opposites pour calcul net
+        opposing_moods: list[tuple[str, str]] = [
+            ('happy', 'sad'),
+            ('aggressive', 'relaxed'),
+            ('acoustic', 'electronic'),
+            ('dark', 'bright'),
+            ('energetic', 'relaxed'),
+        ]
+        
+        for mood in moods_mirex:
+            if not mood:
+                continue
+            
+            mood_lower = mood.lower().strip()
+            
+            # Chercher une correspondance directe
+            if mood_lower in mood_defaults:
+                normalized[mood_lower] = mood_defaults[mood_lower]
+            else:
+                # Chercher des correspondances partielles
+                for key, default_score in mood_defaults.items():
+                    if key in mood_lower or mood_lower in key:
+                        normalized[key] = default_score
+                        break
+                else:
+                    # Mood non reconnu, ajouter avec score faible
+                    logger.debug(
+                        f"[MIRNormalization] Mood MIREX non reconnu: {mood}"
+                    )
+                    normalized[mood_lower] = 0.3
+        
+        # Appliquer la logique des oppositions
+        for pos, neg in opposing_moods:
+            if pos in normalized and neg in normalized:
+                pos_score = normalized[pos]
+                neg_score = normalized[neg]
+                net_score, _ = self.handle_opposing_tags(pos_score, neg_score)
+                normalized[pos] = net_score if net_score is not None else pos_score
+                del normalized[neg]
+        
+        logger.debug(
+            f"[MIRNormalization] Moods MIREX normalisés: {normalized}"
+        )
+        
+        return normalized
+    
+    def normalize_genre_taxonomies(self, raw_tags: dict) -> dict:
+        """Normalise les genres des différentes taxonomies.
+        
+        Args:
+            raw_tags: Dictionnaire des tags de genre bruts de différentes sources
+            
+        Returns:
+            Dictionnaire des genres normalisés avec scores
+        """
+        normalized: dict = {}
+        
+        # Aggregation de tous les genres
+        all_genres: list[tuple[str, float]] = []
+        
+        # Sources de genres et leurs poids
+        source_weights: dict[str, float] = {
+            'lastfm': 0.9,
+            'discogs': 0.85,
+            'musicbrainz': 0.8,
+            'spotify': 0.75,
+            'acoustid': 0.7,
+            'manual': 1.0,
+        }
+        
+        for source, genres in raw_tags.items():
+            if not genres:
+                continue
+            
+            weight = source_weights.get(source.lower(), 0.5)
+            
+            if isinstance(genres, list):
+                for i, genre in enumerate(genres):
+                    genre_weight = weight * (1.0 - i * 0.1)  # Pondération par ordre
+                    all_genres.append((genre.strip().lower(), genre_weight))
+            else:
+                all_genres.append((str(genres).strip().lower(), weight))
+        
+        if not all_genres:
+            return normalized
+        
+        # Grouper par genre et calculer le score moyen
+        genre_scores: dict[str, float] = {}
+        genre_counts: dict[str, int] = {}
+        
+        for genre, score in all_genres:
+            if genre in genre_scores:
+                genre_scores[genre] = max(genre_scores[genre], score)
+                genre_counts[genre] += 1
+            else:
+                genre_scores[genre] = score
+                genre_counts[genre] = 1
+        
+        # Trier par score
+        sorted_genres = sorted(
+            genre_scores.items(),
+            key=lambda x: (x[1], genre_counts.get(x[0], 0)),
+            reverse=True
+        )
+        
+        # Genre principal
+        if sorted_genres:
+            genre_main = sorted_genres[0][0].capitalize()
+            normalized['genre_main'] = genre_main
+        
+        # Genres secondaires (top 5)
+        if len(sorted_genres) > 1:
+            secondary = [
+                g[0].capitalize()
+                for g in sorted_genres[1:6]
+            ]
+            normalized['genre_secondary'] = secondary
+        
+        logger.debug(
+            f"[MIRNormalization] Genres normalisés: {normalized}"
+        )
+        
+        return normalized
+    
     def normalize_all_features(self, raw_features: dict) -> dict:
         """Normalise toutes les features MIR brutes.
         
