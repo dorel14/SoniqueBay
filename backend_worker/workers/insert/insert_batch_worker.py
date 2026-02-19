@@ -260,8 +260,8 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
         track_path = track.get('path')
         if track_path:
             query = """
-            query GetTrackMusicBrainzIDs($path: String!) {
-                tracks(where: {path: {equals: $path}}) {
+            query GetTrackMusicBrainzIDs($filePath: String!) {
+                tracks(where: {filePath: {equals: $filePath}}) {
                     musicbrainzId
                     musicbrainzAlbumid
                     musicbrainzArtistid
@@ -269,7 +269,7 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
                 }
             }
             """
-            result = await execute_graphql_query(client, query, {"path": track_path})
+            result = await execute_graphql_query(client, query, {"filePath": track_path})
             tracks_found = result.get("tracks", [])
             if tracks_found:
                 track_in_db = tracks_found[0]
@@ -324,92 +324,36 @@ async def resolve_album_for_track(track: Dict, artist_map: Dict, album_map: Dict
     return resolved_track
 
 
-async def verify_musicbrainz_ids_in_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
+async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
     """
-    Vérifie que les IDs MusicBrainz sont bien présents dans les données des tracks avant insertion.
+    Résout l'ID de l'artiste pour une track en utilisant artist_map.
+    
+    Args:
+        track: Données de la track contenant artist_name ou musicbrainz_artistid/musicbrainz_albumartistid
+        artist_map: Mapping des noms d'artistes vers leurs IDs
+    
+    Returns:
+        L'ID de l'artiste (int) ou None si non trouvé
     """
-    logger.info("[DIAGNOSTIC MBID] Vérification des IDs MusicBrainz dans les tracks avant insertion")
-    for track in tracks_data:
-        mb_ids = {
-            'musicbrainz_id': track.get('musicbrainz_id'),
-            'musicbrainz_albumid': track.get('musicbrainz_albumid'),
-            'musicbrainz_artistid': track.get('musicbrainz_artistid'),
-            'musicbrainz_albumartistid': track.get('musicbrainz_albumartistid')
-        }
-        logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs: {mb_ids}")
-
-
-async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
-    """
-    Vérifie que les IDs MusicBrainz sont bien persistés en base de données.
-    """
-    logger.info("[DIAGNOSTIC MBID] Vérification de la persistance des IDs MusicBrainz en base")
-    for track in tracks_data:
-        track_path = track.get('path')
-        if track_path:
-            query = """
-            query GetTrackMusicBrainzIDs($path: String!) {
-                tracks(where: {path: {equals: $path}}) {
-                    musicbrainzId
-                    musicbrainzAlbumid
-                    musicbrainzArtistid
-                    musicbrainzAlbumartistid
-                }
-            }
-            """
-            result = await execute_graphql_query(client, query, {"path": track_path})
-            tracks_found = result.get("tracks", [])
-            if tracks_found:
-                track_in_db = tracks_found[0]
-                mb_ids_in_db = {
-                    'musicbrainz_id': track_in_db.get('musicbrainzId'),
-                    'musicbrainz_albumid': track_in_db.get('musicbrainzAlbumid'),
-                    'musicbrainz_artistid': track_in_db.get('musicbrainzArtistid'),
-                    'musicbrainz_albumartistid': track_in_db.get('musicbrainzAlbumartistid')
-                }
-                logger.info(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' - MBIDs en base: {mb_ids_in_db}")
-            else:
-                logger.error(f"[DIAGNOSTIC MBID] Track '{track.get('title', 'unknown')}' non trouvée en base")
-
-
-async def resolve_album_for_track(track: Dict, artist_map: Dict, album_map: Dict, client: httpx.AsyncClient) -> Dict:
-    """
-    Résout l'album pour une track en utilisant les IDs MusicBrainz ou les informations de l'album.
-    """
-    resolved_track = dict(track)
-    album_title = track.get('album_title') or track.get('album')
     artist_name = track.get('artist_name') or track.get('artist')
-
-    # Utiliser les IDs MusicBrainz si disponibles
-    mb_album_id = track.get('musicbrainz_albumid')
+    
+    # Essayer d'abord avec le nom d'artiste
+    if artist_name and artist_name in artist_map:
+        artist_id = artist_map[artist_name]['id']
+        logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom -> ID {artist_id}")
+        return artist_id
+    
+    # Essayer avec musicbrainz_artistid ou musicbrainz_albumartistid
     mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
-
-    if mb_album_id:
-        # Clé basée sur MusicBrainz ID
-        album_key = mb_album_id
-        logger.info(f"[DIAGNOSTIC ALBUM] Utilisation de MusicBrainz Album ID pour la résolution: {album_key}")
-    else:
-        # Clé basée sur titre + ID artiste
-        normalized_album_title = album_title.strip().lower() if album_title else None
-        if normalized_album_title and artist_name:
-            # Résoudre l'artiste d'abord
-            if artist_name in artist_map:
-                artist_id = artist_map[artist_name]['id']
-                album_key = (normalized_album_title, artist_id)
-            else:
-                logger.error(f"[DIAGNOSTIC ALBUM] Artiste '{artist_name}' non trouvé pour l'album '{album_title}'")
-                album_key = None
-        else:
-            album_key = None
-
-    if album_key and album_key in album_map:
-        resolved_track['album_id'] = album_map[album_key]['id']
-        logger.info(f"[DIAGNOSTIC ALBUM] Album résolu avec succès pour la track: {album_key} -> ID {album_map[album_key]['id']}")
-    else:
-        logger.error(f"[DIAGNOSTIC ALBUM] Album non résolu pour la track. Clé: {album_key}, Album map keys: {list(album_map.keys())}")
-        resolved_track['album_id'] = None
-
-    return resolved_track
+    if mb_artist_id:
+        # Chercher par MusicBrainz ID dans artist_map
+        for name, data in artist_map.items():
+            if isinstance(data, dict) and data.get('musicbrainz_id') == mb_artist_id:
+                logger.debug(f"[RESOLVE_ARTIST] Artiste MBID {mb_artist_id} résolu via MBID -> ID {data['id']}")
+                return data['id']
+    
+    logger.warning(f"[RESOLVE_ARTIST] Impossible de résoudre l'artiste pour la track '{track.get('title', 'unknown')}'")
+    return None
 
 
 async def process_genres_and_tags_for_tracks(client: httpx.AsyncClient, tracks_data: List[Dict]) -> None:
@@ -576,8 +520,8 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
 
                         # Requête spécifique pour cette track - utiliser le champ correct 'path'
                         query = """
-                        query GetTrackByPath($path: String!) {
-                            tracks(where: {path: {equals: $path}}) {
+                        query GetTrackByPath($filePath: String!) {
+                            tracks(where: {filePath: {equals: $filePath}}) {
                                 id
                                 path
                                 bpm
@@ -601,7 +545,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                             }
                         }
                         """
-                        result = await execute_graphql_query(client, query, {"path": track_path})
+                        result = await execute_graphql_query(client, query, {"filePath": track_path})
                         tracks_found = result.get("tracks", [])
                         if not tracks_found:
                             missing_entities.append(f"Track: {track_path}")
@@ -845,7 +789,12 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     # Résoudre les références artiste/album pour les tracks
                     resolved_tracks_data = []
                     for track in tracks_data:
+                        # Résoudre track_artist_id d'abord
+                        track_artist_id = await resolve_track_artist_id(track, artist_map)
                         resolved_track = await resolve_album_for_track(track, artist_map, album_map, client)
+                        # Ajouter track_artist_id résolu
+                        if track_artist_id:
+                            resolved_track['track_artist_id'] = track_artist_id
                         resolved_tracks_data.append(resolved_track)
 
                     # Vérifier les IDs MusicBrainz avant l'insertion des tracks

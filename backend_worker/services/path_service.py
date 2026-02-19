@@ -30,7 +30,7 @@ class PathService:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{self.api_url}/api/settings/music_path_template")
             if response.status_code == 200:
-                return (await response.json()).get("value")
+                return response.json().get("value")
             return None
 
     async def get_artist_path(self, artist_name: str, full_path: str) -> Optional[str]:

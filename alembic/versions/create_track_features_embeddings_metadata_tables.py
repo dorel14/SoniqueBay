@@ -33,7 +33,7 @@ import logging
 logger = logging.getLogger('alembic.runtime.migration')
 
 # revision identifiers, used by Alembic.
-revision: str = 'a1b2c3d4e5f6_create_track_features_tables'
+revision: str = 'a1b2c3d4e5f6'
 down_revision: Union[str, Sequence[str], None] = 'merge_all_heads'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

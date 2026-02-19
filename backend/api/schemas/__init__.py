@@ -48,6 +48,26 @@ from backend.api.schemas.track_embeddings_schema import (
     EmbeddingBatchRequest,
     EmbeddingBatchResponse,
 )
+from backend.api.schemas.gmm_schema import (
+    ClusterResponse,
+    SimilarArtistsResponse,
+    ClusterStatusResponse,
+    ClusteringTaskResponse,
+    RefreshClustersResponse,
+)
+from backend.api.schemas.mir_schema import (
+    MIRRawPayload,
+    MIRNormalizedPayload,
+    MIRScoresPayload,
+    SyntheticTagPayload,
+    MIRStoragePayload,
+    MIRStorageResponse,
+    MIRSummaryResponse,
+    MIRRawResponse,
+    MIRNormalizedResponse,
+    MIRScoresResponse,
+    SyntheticTagResponse,
+)
 from backend.api.schemas.track_metadata_schema import (
     TrackMetadataBase,
     TrackMetadataCreate,
@@ -62,6 +82,15 @@ from backend.api.schemas.track_metadata_schema import (
     TrackMetadataFilter,
     TrackMetadataStats,
     CommonMetadataKeys,
+)
+from backend.api.schemas.synonyms_schema import (
+    SynonymRequest,
+    SynonymResponse,
+    SearchResultItem,
+    SearchResponse,
+    TriggerTaskResponse,
+    DeleteResponse,
+    GenerateRequest,
 )
 
 if TYPE_CHECKING:
@@ -97,4 +126,15 @@ __all__ = [
     'TrackMetadataByKey', 'TrackMetadataBySource',
     'TrackMetadataBatchCreate', 'TrackMetadataBatchResponse',
     'TrackMetadataFilter', 'TrackMetadataStats', 'CommonMetadataKeys',
+    # GMM schemas
+    'ClusterResponse', 'SimilarArtistsResponse', 'ClusterStatusResponse',
+    'ClusteringTaskResponse', 'RefreshClustersResponse',
+    # MIR schemas
+    'MIRRawPayload', 'MIRNormalizedPayload', 'MIRScoresPayload',
+    'SyntheticTagPayload', 'MIRStoragePayload', 'MIRStorageResponse',
+    'MIRSummaryResponse', 'MIRRawResponse', 'MIRNormalizedResponse',
+    'MIRScoresResponse', 'SyntheticTagResponse',
+    # Synonyms schemas
+    'SynonymRequest', 'SynonymResponse', 'SearchResultItem',
+    'SearchResponse', 'TriggerTaskResponse', 'DeleteResponse', 'GenerateRequest',
 ]

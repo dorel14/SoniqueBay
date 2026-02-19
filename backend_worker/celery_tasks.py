@@ -334,11 +334,11 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 @celery.task(name="vectorization.calculate", queue="vectorization", bind=True)
 def calculate_vector(self, track_id: int, metadata: dict = None):
     """
-    Calcule le vecteur d'une track et le stocke via l'API.
+    Calcule le vecteur d'une track via le service d'embeddings local.
     
     Pipeline:
         1. Récupère les données de la track via l'API
-        2. Génère l'embedding avec OptimizedVectorizationService
+        2. Génère l'embedding avec OllamaEmbeddingService (local)
         3. Stocke le vecteur via l'API backend
     
     Args:
@@ -357,7 +357,7 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
     logger.info(f"[VECTOR] Démarrage calcul vecteur: track_id={track_id}")
     
     try:
-        # Import du service de vectorisation
+        # Import du service de vectorisation Ollama
         from backend_worker.services.vectorization_service import (
             OptimizedVectorizationService,
             VectorizationError
@@ -366,76 +366,26 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
         # Instanciation du service
         service = OptimizedVectorizationService()
         
-        # Fonction async pour récupérer les données et stocker le vecteur
+        # Fonction async pour vectoriser et stocker
         async def run_vectorization():
             nonlocal service
             
-            # Récupération des données de la track via l'API
-            logger.info(f"[VECTOR] Récupération données track {track_id}...")
-            tracks_data = await service.fetch_tracks_from_api([track_id])
-            
-            if not tracks_data:
-                error_msg = f"Aucune données trouvée pour track {track_id}"
-                logger.error(f"[VECTOR] {error_msg}")
-                return {
-                    'task_id': task_id,
-                    'track_id': track_id,
-                    'status': 'error',
-                    'message': error_msg,
-                    'calculation_time': time.time() - start_time
-                }
-            
-            track_data = tracks_data[0]
-            logger.info(f"[VECTOR] Track récupérée: {track_data.get('title', 'Unknown')}")
-            
-            # Génération de l'embedding (méthode sync)
-            logger.info(f"[VECTOR] Vectorisation de la track...")
-            embedding = service.vectorize_single_track(track_data)
-            
-            if embedding is None or all(v == 0.0 for v in embedding):
-                logger.warning(f"[VECTOR] Vecteur nul pour track {track_id}")
-                return {
-                    'task_id': task_id,
-                    'track_id': track_id,
-                    'status': 'warning',
-                    'message': 'Vecteur nul généré',
-                    'vector_dimension': len(embedding) if embedding else 0,
-                    'calculation_time': time.time() - start_time
-                }
-            
-            logger.info(f"[VECTOR] Vecteur généré: {len(embedding)} dimensions")
-            
-            # Stockage du vecteur via l'API (méthode async)
-            logger.info(f"[VECTOR] Stockage vecteur pour track {track_id}...")
-            success = await service.store_vector_to_database(track_id, embedding)
-            
-            calculation_time = time.time() - start_time
-            
-            if success:
-                logger.info(f"[VECTOR] Vecteur stocké avec succès: track_id={track_id}, time={calculation_time:.2f}s")
-                return {
-                    'task_id': task_id,
-                    'track_id': track_id,
-                    'status': 'success',
-                    'track_title': track_data.get('title', 'Unknown'),
-                    'vector_dimension': len(embedding),
-                    'storage_success': True,
-                    'calculation_time': calculation_time
-                }
-            else:
-                logger.error(f"[VECTOR] Échec stockage vecteur: track_id={track_id}")
-                return {
-                    'task_id': task_id,
-                    'track_id': track_id,
-                    'status': 'error',
-                    'message': 'Échec stockage vecteur',
-                    'vector_dimension': len(embedding) if embedding else 0,
-                    'storage_success': False,
-                    'calculation_time': calculation_time
-                }
+            # Vectoriser et stocker
+            result = await service.vectorize_and_store(track_id, metadata)
+            return result
         
         # Exécution de la fonction async
         result = asyncio.run(run_vectorization())
+        
+        # Ajouter les métadonnées de la tâche
+        result['task_id'] = task_id
+        result['calculation_time'] = time.time() - start_time
+        result['embedding_model'] = 'nomic-embed-text'
+        
+        logger.info(
+            f"[VECTOR] Résultat: status={result['status']}, "
+            f"track_id={track_id}, time={result['calculation_time']:.2f}s"
+        )
         return result
         
     except VectorizationError as ve:
@@ -447,7 +397,8 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             'status': 'error',
             'message': str(ve),
             'error_type': 'VectorizationError',
-            'calculation_time': error_time
+            'calculation_time': error_time,
+            'embedding_model': OllamaEmbeddingService.MODEL_NAME
         }
         
     except Exception as e:
@@ -461,7 +412,61 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             'status': 'error',
             'message': str(e),
             'error_type': type(e).__name__,
-            'calculation_time': error_time
+            'calculation_time': error_time,
+            'embedding_model': OllamaEmbeddingService.MODEL_NAME
+        }
+
+
+@celery.task(name="vectorization.batch", queue="vectorization", bind=True)
+def calculate_vector_batch(self, track_ids: list[int]):
+    """
+    Calcule les vecteurs d'un batch de tracks via le service local.
+    
+    Args:
+        track_ids: Liste des IDs de tracks
+        
+    Returns:
+        Résultat du calcul batch
+    """
+    import asyncio
+    import time
+    
+    start_time = time.time()
+    task_id = self.request.id
+    
+    logger.info(f"[VECTOR] Démarrage batch: {len(track_ids)} tracks")
+    
+    try:
+        from backend_worker.services.vectorization_service import (
+            OptimizedVectorizationService
+        )
+        
+        service = OptimizedVectorizationService()
+        
+        async def run_batch():
+            return await service.vectorize_and_store_batch(track_ids)
+        
+        result = asyncio.run(run_batch())
+        
+        result['task_id'] = task_id
+        result['calculation_time'] = time.time() - start_time
+        result['embedding_model'] = 'nomic-embed-text'
+        
+        logger.info(
+            f"[VECTOR] Batch terminé: {result['successful']} succès, "
+            f"{result['failed']} échecs en {result['calculation_time']:.2f}s"
+        )
+        return result
+        
+    except Exception as e:
+        error_time = time.time() - start_time
+        logger.error(f"[VECTOR] Erreur batch: {str(e)}")
+        return {
+            'task_id': task_id,
+            'status': 'error',
+            'message': str(e),
+            'calculation_time': error_time,
+            'embedding_model': OllamaEmbeddingService.MODEL_NAME
         }
 
 
@@ -525,3 +530,90 @@ def enrich_tracks_batch_task(self, track_ids: list[int]):
     except Exception as e:
         logger.error(f"[METADATA] Erreur enrichissement: {str(e)}")
         raise
+
+
+# ============================================================
+# GMM CLUSTERING TASKS
+# ============================================================
+
+@celery.task(name="gmm.cluster_all_artists", bind=True)
+def cluster_all_artists(self, force_refresh: bool = False) -> dict:
+    """
+    Déclenche le clustering GMM de tous les artistes.
+    
+    Args:
+        force_refresh: Si True, force le recalcul même si récent
+        
+    Returns:
+        Dict avec statistiques de clustering
+    """
+    from backend_worker.services.artist_clustering_service import (
+        ArtistClusteringService
+    )
+    
+    async def _cluster() -> dict:
+        async with ArtistClusteringService() as service:
+            return await service.cluster_all_artists(force_refresh=force_refresh)
+    
+    import asyncio
+    return asyncio.run(_cluster())
+
+
+@celery.task(name="gmm.cluster_artist", bind=True)
+def cluster_artist(self, artist_id: int) -> dict:
+    """
+    Cluster un artiste spécifique.
+    
+    Args:
+        artist_id: ID de l'artiste
+        
+    Returns:
+        Dict avec infos de cluster
+    """
+    from backend_worker.services.artist_clustering_service import (
+        ArtistClusteringService
+    )
+    
+    async def _cluster() -> dict:
+        async with ArtistClusteringService() as service:
+            return await service.cluster_artist(artist_id)
+    
+    import asyncio
+    return asyncio.run(_cluster())
+
+
+@celery.task(name="gmm.refresh_stale_clusters", bind=True)
+def refresh_stale_clusters(self, max_age_hours: int = 24) -> dict:
+    """
+    Rafraîchit les clusters trop anciens.
+    
+    Args:
+        max_age_hours: Âge maximum en heures avant rafraîchissement
+        
+    Returns:
+        Dict avec nombre de clusters rafraîchis
+    """
+    from backend_worker.services.artist_clustering_service import (
+        ArtistClusteringService
+    )
+    
+    async def _refresh() -> dict:
+        async with ArtistClusteringService() as service:
+            count = await service.refresh_stale_clusters(max_age_hours)
+            return {"refreshed_count": count}
+    
+    import asyncio
+    return asyncio.run(_refresh())
+
+
+@celery.task(name="gmm.cleanup_old_clusters", bind=True)
+def cleanup_old_clusters(self) -> dict:
+    """
+    Nettoie les anciens clusters orphelins.
+    
+    Returns:
+        Dict avec nombre de clusters nettoyés
+    """
+    logger.info("[GMM] Cleanup des anciens clusters")
+    # Implémentation simplifiée - peut être étendue
+    return {"cleaned_count": 0}

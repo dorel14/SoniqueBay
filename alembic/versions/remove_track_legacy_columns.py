@@ -32,8 +32,8 @@ import logging
 logger = logging.getLogger('alembic.runtime.migration')
 
 # Revision identifiers, used by Alembic.
-revision: str = 'a1b2c3d4e5f7_remove_track_legacy_columns'
-down_revision: Union[str, Sequence[str], None] = 'a1b2c3d4e5f6_create_track_features_tables'
+revision: str = 'a1b2c3d4e5f7'
+down_revision: Union[str, Sequence[str], None] = 'a1b2c3d4e5f6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -52,40 +52,40 @@ def upgrade() -> None:
         - analysis_source, analyzed_at
     """
     # Suppression des colonnes de couverture (redondantes avec table Cover)
-    op.drop_column('tracks', 'cover_data')
-    op.drop_column('tracks', 'cover_mime_type')
-    logger.info("✓ Colonnes cover_data et cover_mime_type supprimées")
+    op.drop_column('tracks', 'cover_data', if_exists=True)
+    op.drop_column('tracks', 'cover_mime_type', if_exists=True)
+    logger.info("✓ Colonnes cover_data et cover_mime_type supprimées (si existantes)")
     
     # Suppression de la colonne vector (migrée vers TrackEmbeddings)
-    op.drop_column('tracks', 'vector')
-    logger.info("✓ Colonne vector supprimée")
+    op.drop_column('tracks', 'vector', if_exists=True)
+    logger.info("✓ Colonne vector supprimée (si existante)")
     
     # Suppression des colonnes audio (migrées vers TrackAudioFeatures)
-    op.drop_column('tracks', 'bpm')
-    op.drop_column('tracks', 'key')
-    op.drop_column('tracks', 'scale')
-    op.drop_column('tracks', 'danceability')
-    op.drop_column('tracks', 'mood_happy')
-    op.drop_column('tracks', 'mood_aggressive')
-    op.drop_column('tracks', 'mood_party')
-    op.drop_column('tracks', 'mood_relaxed')
-    op.drop_column('tracks', 'instrumental')
-    op.drop_column('tracks', 'acoustic')
-    op.drop_column('tracks', 'tonal')
-    op.drop_column('tracks', 'genre_main')
-    op.drop_column('tracks', 'camelot_key')
-    op.drop_column('tracks', 'analysis_source')
-    op.drop_column('tracks', 'analyzed_at')
-    logger.info("✓ Colonnes audio supprimées")
+    op.drop_column('tracks', 'bpm', if_exists=True)
+    op.drop_column('tracks', 'key', if_exists=True)
+    op.drop_column('tracks', 'scale', if_exists=True)
+    op.drop_column('tracks', 'danceability', if_exists=True)
+    op.drop_column('tracks', 'mood_happy', if_exists=True)
+    op.drop_column('tracks', 'mood_aggressive', if_exists=True)
+    op.drop_column('tracks', 'mood_party', if_exists=True)
+    op.drop_column('tracks', 'mood_relaxed', if_exists=True)
+    op.drop_column('tracks', 'instrumental', if_exists=True)
+    op.drop_column('tracks', 'acoustic', if_exists=True)
+    op.drop_column('tracks', 'tonal', if_exists=True)
+    op.drop_column('tracks', 'genre_main', if_exists=True)
+    op.drop_column('tracks', 'camelot_key', if_exists=True)
+    op.drop_column('tracks', 'analysis_source', if_exists=True)
+    op.drop_column('tracks', 'analyzed_at', if_exists=True)
+    logger.info("✓ Colonnes audio supprimées (si existantes)")
     
     # Suppression des index obsolètes
     # L'index idx_tracks_vector n'est plus nécessaire car la colonne vector est supprimée
-    op.drop_index('idx_tracks_vector', table_name='tracks')
-    logger.info("✓ Index idx_tracks_vector supprimé")
+    op.drop_index('idx_tracks_vector', table_name='tracks', if_exists=True)
+    logger.info("✓ Index idx_tracks_vector supprimé (si existant)")
     
     # L'index idx_tracks_missing_audio peut être supprimé car il ciblait les colonnes bpm/key
-    op.drop_index('idx_tracks_missing_audio', table_name='tracks')
-    logger.info("✓ Index idx_tracks_missing_audio supprimé")
+    op.drop_index('idx_tracks_missing_audio', table_name='tracks', if_exists=True)
+    logger.info("✓ Index idx_tracks_missing_audio supprimé (si existant)")
     
     logger.info("Migration de suppression des colonnes legacy terminée avec succès!")
 

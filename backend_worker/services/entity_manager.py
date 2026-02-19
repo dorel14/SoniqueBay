@@ -655,6 +655,10 @@ def clean_track_data(file: Dict) -> Dict:
         "mood_tags": mood_tags,
     }
 
+    # DIAGNOSTIC: Log pour vérifier les données entrantes
+    logger.debug(f"[CLEAN_TRACK] Données track avant nettoyage: title={file.get('title')}, path={file.get('path')}, track_artist_id={file.get('track_artist_id')}, album_id={file.get('album_id')}")
+    logger.debug(f"[CLEAN_TRACK] MusicBrainz data: {mb_data}")
+
     # Log pour debug
     logger.debug(f"Valeurs booléennes avant nettoyage: {file.get('instrumental')}, {file.get('acoustic')}, {file.get('tonal')}")
     logger.debug(f"Valeurs booléennes après conversion: {track_data['instrumental']}, {track_data['acoustic']}, {track_data['tonal']}")

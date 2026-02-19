@@ -1,7 +1,7 @@
 from __future__ import annotations
 from sqlalchemy import Column, String, Integer, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from backend.api.utils.database import Base
+from backend.api.utils.database import Base, TimestampMixin
 from datetime import datetime, timezone
 
 # Tables d'association
@@ -29,13 +29,11 @@ track_genres = Table(
     extend_existing=True
 )
 
-class Genre(Base):
+class Genre(TimestampMixin, Base):
     __tablename__ = 'genres'
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    date_added: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=True)
-    date_modified: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=True)
 
     # Relations
     artists: Mapped[list["Artist"]] = relationship("Artist", secondary=artist_genres, back_populates="genres") # type: ignore # noqa: F821

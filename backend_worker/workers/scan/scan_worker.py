@@ -5,6 +5,7 @@ Responsabilités :
 - Discovery des fichiers musicaux (scan récursif optimisé)
 - Extraction des métadonnées (avec ThreadPoolExecutor limité à 2 workers)
 - Envoi vers batching et insertion
+- Auto-queueing du clustering GMM après scan réussi
 
 Optimisations Raspberry Pi :
 - max_workers = 2 pour éviter surcharge CPU/mémoire
@@ -14,8 +15,10 @@ Optimisations Raspberry Pi :
 """
 
 import time
+import os
 from pathlib import Path
 from typing import List, Dict, Any
+import httpx
 
 from backend_worker.utils.logging import logger
 
@@ -131,6 +134,10 @@ def start_scan(directory: str, callback=None) -> Dict[str, Any]:
         }
         
         logger.info(f"[SCAN] Discovery terminée: {result}")
+        
+        # Vérifier si le clustering GMM doit être déclenché
+        _maybe_trigger_gmm_clustering(result)
+        
         return result
         
     except Exception as e:
@@ -144,3 +151,121 @@ def start_scan(directory: str, callback=None) -> Dict[str, Any]:
             "success": False
         }
         return error_result
+
+
+# === Auto-queueing GMM ===
+
+def _get_clustering_stats_via_api() -> Dict[str, int]:
+    """
+    Récupère les stats de clustering via l'API REST.
+    
+    Returns:
+        Dict contenant 'artists_with_features' et 'tracks_analyzed'
+    """
+    import asyncio
+    
+    async def _fetch_stats() -> Dict[str, int]:
+        """Récupère les stats de manière asynchrone."""
+        library_api_url = os.getenv("API_URL", "http://api:8001")
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(
+                    f"{library_api_url}/api/tracks/stats/clustering"
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    return {
+                        "artists_with_features": data.get("artists_with_features", 0),
+                        "tracks_analyzed": data.get("tracks_analyzed", 0)
+                    }
+        except Exception as e:
+            logger.warning(f"[SCAN] Erreur appel API stats clustering: {e}")
+        return {"artists_with_features": 0, "tracks_analyzed": 0}
+    
+    try:
+        return asyncio.run(_fetch_stats())
+    except Exception as e:
+        logger.error(f"[SCAN] Erreur lors de la récupération des stats: {e}")
+        return {"artists_with_features": 0, "tracks_analyzed": 0}
+
+
+def _maybe_trigger_gmm_clustering(scan_result: Dict[str, Any]) -> None:
+    """
+    Vérifie les conditions et déclenche le clustering GMM après un scan réussi.
+    
+    Conditions:
+    - Au moins 50 artistes avec features audio
+    - Au moins 500 tracks analysées
+    - Ou plus de 20% de changements depuis le dernier clustering
+    
+    Args:
+        scan_result: Résultat du scan contenant les statistiques
+    """
+    try:
+        if not scan_result.get("success", False):
+            logger.info("[SCAN] Scan non réussi, pas de déclenchement GMM")
+            return
+        
+        # Récupérer les statistiques du scan
+        files_discovered = scan_result.get("files_discovered", 0)
+        
+        # Vérifier les seuils minimaux
+        if files_discovered < 50:
+            logger.info(
+                f"[SCAN] Pas assez de fichiers découverts ({files_discovered}) "
+                f"pour déclencher le clustering GMM (minimum 50)"
+            )
+            return
+        
+        # Récupérer les statistiques via l'API (respect de l'architecture)
+        stats = _get_clustering_stats_via_api()
+        artists_with_features = stats.get("artists_with_features", 0)
+        tracks_analyzed = stats.get("tracks_analyzed", 0)
+        
+        # Vérifier les conditions
+        min_artists = 50
+        min_tracks = 500
+        
+        if artists_with_features >= min_artists:
+            logger.info(
+                f"[SCAN] {artists_with_features} artistes avec features >= {min_artists}, "
+                f"déclenchement du clustering GMM"
+            )
+            _trigger_gmm_clustering()
+            return
+        
+        if tracks_analyzed >= min_tracks:
+            logger.info(
+                f"[SCAN] {tracks_analyzed} tracks analysées >= {min_tracks}, "
+                f"déclenchement du clustering GMM"
+            )
+            _trigger_gmm_clustering()
+            return
+        
+        logger.info(
+            f"[SCAN] Conditions GMM non remplies: "
+            f"artists_with_features={artists_with_features}/{min_artists}, "
+            f"tracks_analyzed={tracks_analyzed}/{min_tracks}"
+        )
+        
+    except Exception as e:
+        logger.error(f"[SCAN] Erreur dans _maybe_trigger_gmm_clustering: {str(e)}")
+
+
+def _trigger_gmm_clustering() -> None:
+    """
+    Déclenche la tâche Celery de clustering GMM en arrière-plan.
+    """
+    try:
+        from backend_worker.celery_app import celery
+        
+        logger.info("[SCAN] Déclenchement du clustering GMM post-scan")
+        celery.send_task(
+            'gmm.cluster_all_artists',
+            args=[False],  # force_refresh=False
+            queue='gmm'
+        )
+        logger.info("[SCAN] Tâche GMM envoyée avec succès")
+        
+    except Exception as e:
+        logger.error(f"[SCAN] Erreur lors du déclenchement GMM: {str(e)}")

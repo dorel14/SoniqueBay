@@ -90,8 +90,22 @@ async def lifespan(app: FastAPI):
             command.upgrade(alembic_cfg, "head")
             logger.info("Migrations Alembic appliquées avec succès.")
         except Exception as migration_error:
-            logger.error(f"Erreur pendant l'exécution des migrations: {str(migration_error)}")
-            raise RuntimeError(f"Échec des migrations: {str(migration_error)}")
+            # si plusieurs têtes existent on retente avec "heads", qui appliquera
+            # toutes les branches simultanément. Nous évitons d'importer des
+            # classes spécifiques d'Alembic parce que leur emplacement peut
+            # varier entre les versions.
+            msg = str(migration_error)
+            if "Multiple head revisions" in msg or "Multiple heads" in msg:
+                logger.warning("Têtes multiples détectées, tentative d'upgrade sur 'heads'...")
+                try:
+                    command.upgrade(alembic_cfg, "heads")
+                    logger.info("Migrations Alembic appliquées avec succès sur 'heads'.")
+                except Exception as e:
+                    logger.error(f"Nouvelle erreur pendant l'upgrade des heads: {e}")
+                    raise RuntimeError(f"Échec des migrations (heads): {e}")
+            else:
+                logger.error(f"Erreur pendant l'exécution des migrations: {msg}")
+                raise RuntimeError(f"Échec des migrations: {msg}")
 
     except Exception as config_error:
         logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
