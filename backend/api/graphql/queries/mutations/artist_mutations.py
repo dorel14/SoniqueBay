@@ -31,23 +31,22 @@ class ArtistMutations:
         )
 
     @strawberry.mutation
-    def create_artists(self, data: list[ArtistCreateInput], info: strawberry.types.Info) -> list[ArtistType]:
+    async def create_artists(self, data: list[ArtistCreateInput], info: strawberry.types.Info) -> list[ArtistType]:
         """Create multiple artists."""
         from backend.api.services.artist_service import ArtistService
-        from backend.api.schemas.artists_schema import ArtistCreate
         session = info.context.session
         service = ArtistService(session)
 
-        # Convertir les objets Strawberry en objets Pydantic
+        # Convertir les objets Strawberry en dictionnaires
         artists_data = []
         for artist_input in data:
             artist_data_dict = {
                 'name': artist_input.name,
                 'musicbrainz_artistid': artist_input.musicbrainz_artistid
             }
-            artists_data.append(ArtistCreate(**artist_data_dict))
+            artists_data.append(artist_data_dict)
 
-        artists = service.bulk_create_artists(artists_data)
+        artists = await service.bulk_create_artists(artists_data)
         return [
             ArtistType(
                 id=artist.id,
@@ -58,10 +57,9 @@ class ArtistMutations:
         ]
 
     @strawberry.mutation
-    def update_artist_by_id(self, data: ArtistUpdateInput, info: strawberry.types.Info) -> ArtistType:
+    async def update_artist_by_id(self, data: ArtistUpdateInput, info: strawberry.types.Info) -> ArtistType:
         """Update an artist by ID."""
         from backend.api.services.artist_service import ArtistService
-        from backend.api.schemas.artists_schema import ArtistUpdate
         session = info.context.session
         service = ArtistService(session)
 
@@ -72,9 +70,12 @@ class ArtistMutations:
         if data.musicbrainz_artistid is not None:
             artist_data_dict['musicbrainz_artistid'] = data.musicbrainz_artistid
 
-        artist_update = ArtistUpdate(**artist_data_dict)
-
-        artist = service.update_artist(data.id, artist_update)
+        artist = await service.update_artist(
+            artist_id=data.id,
+            name=artist_data_dict.get('name'),
+            musicbrainz_artistid=artist_data_dict.get('musicbrainz_artistid'),
+            image_url=None
+        )
         if not artist:
             raise ValueError(f"Artist with id {data.id} not found")
         return ArtistType(
@@ -84,21 +85,18 @@ class ArtistMutations:
         )
 
     @strawberry.mutation
-    def upsert_artist(self, data: ArtistCreateInput, info: strawberry.types.Info) -> ArtistType:
+    async def upsert_artist(self, data: ArtistCreateInput, info: strawberry.types.Info) -> ArtistType:
         """Upsert an artist (create if not exists, update if exists)."""
         from backend.api.services.artist_service import ArtistService
-        from backend.api.schemas.artists_schema import ArtistCreate
         session = info.context.session
         service = ArtistService(session)
 
-        # Convertir l'objet Strawberry en objet Pydantic
-        artist_data_dict = {
-            'name': data.name,
-            'musicbrainz_artistid': data.musicbrainz_artistid
-        }
-        artist_create = ArtistCreate(**artist_data_dict)
-
-        artist = service.upsert_artist(artist_create)
+        # Utiliser get_or_create qui existe dans le service
+        artist = await service.get_or_create_artist(
+            name=data.name,
+            musicbrainz_artistid=data.musicbrainz_artistid,
+            image_url=None
+        )
         return ArtistType(
             id=artist.id,
             name=artist.name,
@@ -106,19 +104,32 @@ class ArtistMutations:
         )
 
     @strawberry.mutation
-    def update_artists(self, filter: str, data: str, info: strawberry.types.Info) -> list[ArtistType]:
+    async def update_artists(self, filter: str, data: str, info: strawberry.types.Info) -> list[ArtistType]:
         """Update multiple artists by filter."""
         from backend.api.services.artist_service import ArtistService
         session = info.context.session
         service = ArtistService(session)
-        filter_data = {"name": {"icontains": filter}}
-        update_data = {"name": data}
-        artists = service.update_artists_by_filter(filter_data, update_data)
+        
+        # Recherche les artistes par nom
+        artists = await service.search_artists(name=filter)
+        
+        # Met à jour chaque artiste
+        updated_artists = []
+        for artist in artists:
+            updated = await service.update_artist(
+                artist_id=artist.id,
+                name=data,
+                musicbrainz_artistid=None,
+                image_url=None
+            )
+            if updated:
+                updated_artists.append(updated)
+        
         return [
             ArtistType(
                 id=artist.id,
                 name=artist.name,
                 musicbrainz_artistid=artist.musicbrainz_artistid
             )
-            for artist in artists
+            for artist in updated_artists
         ]

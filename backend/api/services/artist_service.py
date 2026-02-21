@@ -42,20 +42,20 @@ class ArtistService:
         self.db = db
 
     async def create_artist(
-        self, name: str, bio: Optional[str] = None, image_url: Optional[str] = None
+        self, name: str, musicbrainz_artistid: Optional[str], image_url: Optional[str] = None
     ) -> Artist:
         """
         Create a new artist.
 
         Args:
             name: Artist name (required)
-            bio: Optional artist biography
+            musicbrainz_artistid: Optional MusicBrainz artist ID
             image_url: Optional URL to artist image
 
         Returns:
             Artist: Created artist instance
         """
-        artist = Artist(name=name, bio=bio, image_url=image_url)
+        artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid, image_url=image_url)
         self.db.add(artist)
         await self.db.commit()
         await self.db.refresh(artist)
@@ -134,7 +134,7 @@ class ArtistService:
         self,
         artist_id: int,
         name: Optional[str] = None,
-        bio: Optional[str] = None,
+        musicbrainz_artistid: Optional[str] = None,
         image_url: Optional[str] = None,
     ) -> Optional[Artist]:
         """
@@ -143,7 +143,6 @@ class ArtistService:
         Args:
             artist_id: Unique identifier for the artist
             name: Optional new name for the artist
-            bio: Optional new biography
             image_url: Optional new image URL
 
         Returns:
@@ -153,8 +152,8 @@ class ArtistService:
         if artist:
             if name is not None:
                 artist.name = name
-            if bio is not None:
-                artist.bio = bio
+            if musicbrainz_artistid is not None:
+                artist.musicbrainz_artistid = musicbrainz_artistid
             if image_url is not None:
                 artist.image_url = image_url
             await self.db.commit()
@@ -182,7 +181,6 @@ class ArtistService:
         self,
         name: Optional[str] = None,
         musicbrainz_artistid: Optional[str] = None,
-        genre: Optional[str] = None,
         skip: int = 0,
         limit: Optional[int] = None
     ) -> List[Artist]:
