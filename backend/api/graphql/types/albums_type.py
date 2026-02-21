@@ -11,12 +11,12 @@ class AlbumType:
     release_year: str | None = strawberry.field(name="releaseYear")
     musicbrainz_albumid: str | None
     @strawberry.field
-    async def covers(self, info) -> list[CoverType]:
+    async def covers(self, info: strawberry.types.Info) -> list[CoverType]:
         """Get all covers for this album."""
         return await info.context.loaders.covers_by_entity_id(self.id, "album")
 
     @strawberry.field
-    async def tracks(self, info) -> list[TrackType]:
+    async def tracks(self, info: strawberry.types.Info) -> list[TrackType]:
         """Get all tracks for this album."""
         result = await info.context.loaders.tracks_by_id(self.id)
         return result if result is not None else []
