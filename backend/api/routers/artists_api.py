@@ -44,7 +44,7 @@ async def search_artists(
 async def create_artists_batch(artists: List[ArtistCreate], db: AsyncSession = Depends(get_async_session)):
     service = ArtistService(db)
     try:
-        result = await service.create_artists_batch(artists)
+        result = await service.bulk_create_artists(artists)
         return [Artist.model_validate(a) for a in result]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -54,7 +54,7 @@ async def create_artists_batch(artists: List[ArtistCreate], db: AsyncSession = D
 async def create_artist(artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)):
     service = ArtistService(db)
     try:
-        created = await service.create_artist(artist)
+        created = await service.create_artist(artist_data=artist)
         return Artist.model_validate(created)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,7 +97,11 @@ async def read_artist(artist_id: int, db: AsyncSession = Depends(get_async_sessi
 @router.put("/{artist_id}", response_model=Artist)
 async def update_artist(artist_id: int, artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)):
     service = ArtistService(db)
-    updated = await service.update_artist(artist_id, artist)
+    updated = await service.update_artist(
+        artist_id=artist_id,
+        name=artist.name,
+        musicbrainz_artistid=artist.musicbrainz_artistid
+    )
     if not updated:
         raise HTTPException(status_code=404, detail="Artiste non trouvé")
     return Artist.model_validate(updated)

@@ -9,6 +9,7 @@ Avant de committer ou pousser du code, vérifie :
 * [ ] Le code respecte **PEP8** et les règles définies ci-dessous.
 * [ ] Le code ne contient pas de vulnérabilités ou failles de sécurité potentielles, un contrôle temps réel est effectué via Snyk
 * [ ] Les **tests passent** et aucune régression n’est introduite,  les tests sont lancés en masse via la commande "python -m pytest .\tests\ -x --tb=no -q --snapshot-update".
+* [ ] Tu fais un revoew à chaque implémentation de nouveau code ou corrections de bugs
 * [ ] Les commits suivent le format standard (`feat`, `fix`, etc.).
 * [ ] Aucun fichier sensible ou généré n’est committé (`.env`, cache, DB locale, etc.).
 

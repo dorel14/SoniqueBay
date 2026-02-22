@@ -11,12 +11,12 @@ class ArtistType:
     musicbrainz_artistid: str | None    
     
     @strawberry.field
-    async def albums(self, info) -> list[AlbumType]:
+    async def albums(self, info: strawberry.types.Info) -> list[AlbumType]:
         """Get all albums for this artist."""
         return await info.context.loaders.albums_by_id(self.id)
 
     @strawberry.field
-    async def covers(self, info) -> list[CoverType]:
+    async def covers(self, info: strawberry.types.Info) -> list[CoverType]:
         """Get all covers for this artist."""
         return await info.context.loaders.covers_by_entity_id(self.id, entity_type='artist')
 
