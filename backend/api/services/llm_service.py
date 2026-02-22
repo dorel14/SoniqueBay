@@ -236,6 +236,8 @@ class LLMService:
         import json
         model_name = model_name or self.default_model
         
+        logger.debug(f"[LLM] Démarrage du streaming avec {self.provider_type} sur {self.base_url}")
+        
         try:
             if self.provider_type == 'koboldcpp':
                 # Utiliser l'API OpenAI de KoboldCPP avec streaming
@@ -252,17 +254,28 @@ class LLMService:
                     "stream": True
                 }
                 
-                async with httpx.AsyncClient(timeout=60) as client:
+                # Timeout augmenté à 120s pour les réponses longues
+                async with httpx.AsyncClient(timeout=120.0) as client:
                     async with client.stream("POST", url, json=payload, headers=headers) as response:
                         response.raise_for_status()
                         
+                        logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
+                        
                         # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                         async for line in response.aiter_lines():
-                            if line and line.startswith('data: '):
+                            if not line:
+                                continue
+                                
+                            # Gestion des lignes de données SSE
+                            if line.startswith('data: '):
+                                data_str = line[6:]  # Enlever 'data: '
+                                
+                                # Détection de la fin du stream SSE
+                                if data_str.strip() == '[DONE]':
+                                    logger.debug("[LLM] Fin du stream SSE détectée ([DONE])")
+                                    break
+                                
                                 try:
-                                    data_str = line[6:]  # Enlever 'data: '
-                                    if data_str == '[DONE]':
-                                        break
                                     data = json.loads(data_str)
                                     if 'choices' in data and len(data['choices']) > 0:
                                         delta = data['choices'][0].get('delta', {})
@@ -270,9 +283,16 @@ class LLMService:
                                         if content:
                                             yield content
                                 except json.JSONDecodeError:
+                                    # Ligne non-JSON, ignorer silencieusement
                                     continue
                                 except (KeyError, AttributeError):
                                     continue
+                            elif line.startswith(':'):
+                                # Commentaire SSE (heartbeat), ignorer
+                                continue
+                                
+                logger.debug("[LLM] Streaming SSE terminé proprement")
+                
             else:
                 # Ollama - utiliser l'API native avec streaming
                 url = f"{self.base_url}/api/chat"
@@ -289,29 +309,37 @@ class LLMService:
                     }
                 }
                 
-                async with httpx.AsyncClient(timeout=60) as client:
+                # Timeout augmenté à 120s pour les réponses longues
+                async with httpx.AsyncClient(timeout=120.0) as client:
                     async with client.stream("POST", url, json=payload, headers=headers) as response:
                         response.raise_for_status()
                         
+                        logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
+                        
                         # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                         async for line in response.aiter_lines():
-                            if line:
-                                try:
-                                    data = json.loads(line)
-                                    if 'message' in data:
-                                        content = data['message'].get('content', '')
-                                        if content:
-                                            yield content
-                                    # Ollama envoie aussi un champ 'done' à la fin
-                                    if data.get('done', False):
-                                        break
-                                except json.JSONDecodeError:
-                                    continue
-                                except (KeyError, AttributeError):
-                                    continue
+                            if not line:
+                                continue
+                                
+                            try:
+                                data = json.loads(line)
+                                if 'message' in data:
+                                    content = data['message'].get('content', '')
+                                    if content:
+                                        yield content
+                                # Ollama envoie aussi un champ 'done' à la fin
+                                if data.get('done', False):
+                                    logger.debug("[LLM] Fin du stream Ollama détectée (done=true)")
+                                    break
+                            except json.JSONDecodeError:
+                                continue
+                            except (KeyError, AttributeError):
+                                continue
+                                
+                logger.debug("[LLM] Streaming Ollama terminé proprement")
                     
         except Exception as e:
-            logger.error(f"[LLM] Erreur streaming réponse: {e}")
+            logger.error(f"[LLM] Erreur streaming réponse: {e}", exc_info=True)
             raise
 
     async def generate_chat_response(

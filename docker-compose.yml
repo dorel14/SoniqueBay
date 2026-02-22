@@ -278,7 +278,7 @@ services:
         image: koboldai/koboldcpp:latest
         container_name: llm-service
         restart: unless-stopped
-        pull_policy: always
+        pull_policy: missing
         environment:
             - TZ=${TZ}
             - HF_TOKEN=${HF_TOKEN}
@@ -298,14 +298,14 @@ services:
         volumes:
             - ./llm-service/models:/workspace
         ports:
-            - "11434:5001"
+            - "5001:5001"
         networks:
             default:
                 aliases:
                     - llm-service
         healthcheck:
-            # KoboldCpp expose /api/v1/info sur le port 5001
-            test: ["CMD-SHELL", "curl -sf http://localhost:5001/api/v1/info || exit 1"]
+            # KoboldCpp expose /v1/models sur le port 5001 (endpoint OpenAI-compatible)
+            test: ["CMD-SHELL", "curl -sf http://localhost:5001/v1/models || exit 1"]
             interval: 30s
             timeout: 10s
             retries: 5

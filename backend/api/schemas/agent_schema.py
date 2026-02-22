@@ -50,9 +50,12 @@ class AgentOut(BaseModel):
     rules: Optional[str] = None
     output_schema: Optional[str] = None
     state_strategy: Optional[str] = None
-    tools: List[Dict[str, Any]]
-    tags: List[str]
+    tools: Any
+    tags: Any
     version: str
     temperature: float
     top_p: float
     num_ctx: int
+
+    class Config:
+        from_attributes = True

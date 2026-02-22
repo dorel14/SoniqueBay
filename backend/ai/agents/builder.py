@@ -102,12 +102,11 @@ def build_agent(agent_model: AgentModel) -> Agent:
             )
     
     # Configuration du modèle LLM avec paramètres RTCROS
+    # Note: temperature et top_p sont gérés au niveau des requêtes API, pas dans le constructeur
     try:
         ollama_model = get_ollama_model(
             model_name=agent_model.model,
-            num_ctx=agent_model.num_ctx,
-            temperature=agent_model.temperature,
-            top_p=agent_model.top_p
+            num_ctx=agent_model.num_ctx
         )
     except Exception as e:
         logger.error(
@@ -127,8 +126,7 @@ def build_agent(agent_model: AgentModel) -> Agent:
             name=agent_model.name,
             model=ollama_model,
             system_prompt=system_prompt,
-            tools=tools,
-            result_type=agent_model.output_schema  # Support du schema de sortie RTCROS
+            tools=tools
         )
         
         logger.info(
@@ -196,8 +194,7 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
         name=agent_model.name,
         model=parent_agent.model,  # Hérite du modèle du parent
         system_prompt=child_prompt,
-        tools=child_tools,
-        result_type=agent_model.output_schema
+        tools=child_tools
     )
     
     logger.info(
@@ -299,9 +296,7 @@ def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
         from backend.ai.ollama import get_ollama_model
         get_ollama_model(
             model_name=agent_model.model,
-            num_ctx=agent_model.num_ctx,
-            temperature=agent_model.temperature,
-            top_p=agent_model.top_p
+            num_ctx=agent_model.num_ctx
         )
         validation_report["details"]["model_validation"] = "success"
     except Exception as e:

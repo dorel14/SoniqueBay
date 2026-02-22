@@ -46,7 +46,7 @@ class OllamaSynonymService:
     Exemple:
         >>> service = OllamaSynonymService()
         >>> result = await service.generate_synonyms("Rock", "genre")
-        >>> result["search_terms"]
+        >> result["search_terms"]
         ['rock', 'rock music', 'rock and roll', ...]
     """
 
