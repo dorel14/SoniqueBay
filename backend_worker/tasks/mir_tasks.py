@@ -7,11 +7,11 @@ Rôle:
     incluant l'extraction, la normalisation, le scoring et la génération de tags.
 
 Dépendances:
-    - backend.api.services.mir_pipeline_service: MIRPipelineService
-    - backend.api.services.mir_normalization_service: MIRNormalizationService
-    - backend.api.services.mir_scoring_service: MIRScoringService
-    - backend.api.services.genre_taxonomy_service: GenreTaxonomyService
-    - backend.api.services.synthetic_tags_service: SyntheticTagsService
+    - backend.worker.services.mir_pipeline_service: MIRPipelineService
+    - backend.worker.services.mir_normalization_service: MIRNormalizationService
+    - backend.worker.services.mir_scoring_service: MIRScoringService
+    - backend.worker.services.genre_taxonomy_service: GenreTaxonomyService
+    - backend.worker.services.synthetic_tags_service: SyntheticTagsService
     - celery: shared_task
 
 Auteur: SoniqueBay Team

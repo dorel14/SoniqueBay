@@ -12,17 +12,18 @@ router = APIRouter(prefix="/genres", tags=["genres"])
 
 
 @router.get("/search", response_model=List[Genre])
-@cache(expire=300)  # Cache for 5 minutes
 async def search_genres(
     name: Optional[str] = Query(None, description="Nom du genre à rechercher"),
     skip: int = Query(0, ge=0),
     limit: Optional[int] = Query(None, ge=1, le=1000),
+    exact_match: Optional[bool] = Query(None, description="Recherche exacte (true) ou partielle (false)"),
     db: AsyncSession = Depends(get_async_session)
 ):
     """Recherche des genres par nom."""
     service = GenreService(db)
     try:
-        genres = await service.search_genres(name, skip, limit)
+        genres = await service.search_genres(name, skip, limit, exact_match=exact_match or False)
+        # Always return 200 with results (even if empty list)
         return [Genre.model_validate(genre) for genre in genres]
     except Exception as e:
         logger.error(f"Erreur lors de la recherche de genres: {e}")

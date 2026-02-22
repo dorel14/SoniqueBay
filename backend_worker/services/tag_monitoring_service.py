@@ -46,28 +46,28 @@ class TagChangeDetector:
                 genres_response = await client.get(f"{self.library_api_url}/api/genres/")
                 genres = set()
                 if genres_response.status_code == 200:
-                    genres_data = await genres_response.json()
+                    genres_data = genres_response.json()
                     genres = {genre.get('name', '') for genre in genres_data if genre.get('name')}
                 
                 # Récupérer mood_tags
                 moods_response = await client.get(f"{self.library_api_url}/api/tags/?type=mood")
                 mood_tags = set()
                 if moods_response.status_code == 200:
-                    moods_data = await moods_response.json()
+                    moods_data = moods_response.json()
                     mood_tags = {tag.get('name', '') for tag in moods_data if tag.get('name')}
                 
                 # Récupérer genre_tags
                 genre_tags_response = await client.get(f"{self.library_api_url}/api/tags/?type=genre")
                 genre_tags = set()
                 if genre_tags_response.status_code == 200:
-                    genre_tags_data = await genre_tags_response.json()
+                    genre_tags_data = genre_tags_response.json()
                     genre_tags = {tag.get('name', '') for tag in genre_tags_data if tag.get('name')}
                 
                 # Récupérer nombre de tracks
                 tracks_response = await client.get(f"{self.library_api_url}/api/tracks/count")
                 tracks_count = 0
                 if tracks_response.status_code == 200:
-                    tracks_count = (await tracks_response.json()).get('count', 0)
+                    tracks_count = tracks_response.json().get('count', 0)
                 
                 current_tags = {
                     'genres': genres,

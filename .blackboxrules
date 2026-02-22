@@ -1,0 +1,140 @@
+# Blackbox AI Rules — SoniqueBay (repo-aware)
+
+## Contexte repo
+Ce projet correspond au dépôt GitHub SoniqueBay (structure avec `backend/` et `backend_worker/` ; `docker-compose.yml` définit `api-service`, `celery-worker`, `frontend`, `redis`, `postgres`). Voir le repo pour référence.
+(Seul l'API container doit accéder à PostgreSQL.) :contentReference[oaicite:3]{index=3}
+
+------------------------------------------------------------
+PRINCIPES GÉNÉRAUX
+------------------------------------------------------------
+
+- Architecture : containerisée et service-oriented.
+- Cibles : CPU-only, Raspberry Pi 4, faible mémoire.
+- Séparation stricte : API (seul accès DB) / Worker (Celery, sans accès direct DB) / GUI / LLM / Redis / Postgres.
+- Tu t'astreins à toujours répoçndre en français
+
+------------------------------------------------------------
+EXIGENCES TECHNIQUES (essentielles)
+------------------------------------------------------------
+
+Stack (réalité du repo) :
+- Python 3.11+
+- FastAPI (backend dans `backend/`)
+- Workers Celery (code dans `backend_worker/`)
+- PostgreSQL (asyncpg) — BDD accessible **uniquement** par `api-service`
+- SQLAlchemy 2.0 (mode async)
+- Redis (broker/result backend pour Celery)
+- pgvector pour embeddings (stockés en Postgres)
+- KoboldCpp local LLM (service HTTP OpenAI-compatible)
+- NiceGUI (frontend) communiquant **seulement** avec l'API (frontend dans le dossier '/frontend')
+- Docker & docker-compose (fichiers présents dans la racine du repo)
+
+------------------------------------------------------------
+RÈGLES CRITIQUES (NE PAS IGNORER)
+------------------------------------------------------------
+
+1. **DB = PostgreSQL** exclusivement. Jamais SQLite.
+2. **Accès DB restreint** : seul `api-service` doit exécuter connexions SQL (create_async_engine, asyncpg).
+3. **Workers = sans DB** : les tâches Celery appellent des endpoints internes de l'API (ex : `/internal/tasks/...`) pour toute lecture/écriture.
+4. **LLM = KoboldCpp** : LLM local accessible via URL (ex : `[http://koboldcpp:port](http://localhost:11434/api)`) ; les appels LLM passent par l'API.
+5. **Tout asynchrone** : `async def` / `await` / pas de `time.sleep()` / pas d'I/O bloquante dans event loop.
+6. **pgvector** : indexer colonnes vector pour recherches (HNSW recommandé), limiter `LIMIT 50` par défaut.
+7. **WebSocket** : géré par l'API (playqueue sync, UI updates). Ne jamais bloquer la boucle WebSocket.
+8. **Service layer pattern** : logique métier dans `backend/services/` ; routes FastAPI dans `backend/` uniquement pour orchestration.
+9. **Sécurité & robustesse** : timeouts pour appels KoboldCpp, validation/sanitation des réponses LLM, retry backoff côté worker pour requêtes API.
+10. **Resources** : limiter concurrence Celery (`--concurrency=1` par défaut sur Raspberry Pi), surveiller mémoire.
+
+------------------------------------------------------------
+DIRECTIVES SPÉCIFIQUES POUR BLACKBOX AI
+------------------------------------------------------------
+
+Quand Blackbox génère/modifie du code pour ce repo :
+- Règle #1 : respecter chemins existants (`backend/`, `backend_worker/`, `frontend/`).
+- Règle #2 : **ne pas** ajouter accès direct à Postgres hors `backend/`.
+- Règle #3 : utiliser variables d'env du `docker-compose.yml` du repo (ex : `API_URL`, `CELERY_BROKER_URL`) pour endpoints.
+- Règle #4 : préférer modifications incrémentales : patch d’un fichier ciblé plutôt que gros rewrite.
+- Règle #5 : fournir tests unitaires/pytest minimal pour chaque changement substantiel (regarder `tests/`).
+- Règle #6 : inclure commentaires TODO ciblés pour le développeur humain (ex: limites mémoire, fallback LLM).
+- Règle #7 : les tests doivent intégrés dans le dossier test
+- Règle #8 : les plans et TODO doivent être créés dans le dossier docs/plans 
+- Règle #9 : Chaque corrections fait l'objet d'un commit selon le format 'Conventional Commits'
+
+------------------------------------------------------------
+CONSIGNES POUR LES APPELS LLM (KoboldCpp)
+------------------------------------------------------------
+
+- Utiliser `httpx.AsyncClient` avec timeout (ex: 10s).
+- Token limit / prompt chunking pour éviter OOM.
+- LLM calls encapsulés dans `backend/services/llm_service.py`.
+- LLM ne doit jamais écrire directement en DB : retourner un payload que l'API validera et appliquera.
+
+------------------------------------------------------------
+CELERY / WORKER
+------------------------------------------------------------
+
+- Workers (dans `backend_worker/`) doivent être stateless et communiquer via API (ex: `POST http://api:8001/api/`).
+- Heavy tasks : vectorization, scan FS, extraction métadonnées.
+- Worker retry/backoff et protection contre la surcharge API.
+- Concurrency faible par défaut sur RPi (1 ou 2).
+
+------------------------------------------------------------
+CONSIGNES DEVOPS / DOCKER
+------------------------------------------------------------
+
+- docker-compose doit exposer uniquement les ports nécessaires (API, frontend, Redis pour monitoring si besoin).
+- Ajouter healthchecks robustes (pg_isready, curl API health).
+- Monter volumes pour données (`backend/data`) et pour musique (`music-share`).
+- Swap off ou limiter mémoire si RPi.
+
+------------------------------------------------------------
+PRIORITÉS D'OPTIMISATION
+------------------------------------------------------------
+
+1. Correctness & sécurité
+2. Async safety (non-blocking)
+3. Performance (CPU/mémoire)
+4. Readability & tests
+
+------------------------------------------------------------
+## Règles de codage
+
+### Python (FastAPI, Celery)
+
+* Respecter **PEP8** et utiliser un formateur (ex. `black` + `isort` + `ruff`) .
+* Utiliser des **annotations de type** (`typing`) systématiquement.
+* Ajouter des **docstrings** claires (module, classes, fonctions).
+* Préférer les **imports absolus** dans les modules internes.
+* Travailler dans une architecture MVC afin de séparer logique métier et api par exemple 
+* Bien séparer :
+
+  * API (FastAPI/GraphQL),
+  * Workers Celery,
+  * Logique métier.
+* Gestion d’erreurs : lever des exceptions explicites, logs utiles, pas de `except: pass`.
+* Gestion des logs: dans chacun des dossiers principaux , il existe un sous dossier utils et une lib logging.py , elle doit être utilisée pour la gestion des logs ,  pas de print autorisé
+
+### Frontend (NiceGUI)
+
+* Favoriser les **composants réutilisables**.
+* Maintenir une cohérence graphique (clair/sombre).
+* Commenter les parties complexes (animations, transitions, WebSocket).
+* Soigner les performances (latence, taille des listes, throttling des events).
+* On interroge le backend via l'api REST ou GraphQL ou websocket selon le niveau de performance et de mise àjour temps réel à  obtenir
+
+### Base de données
+
+* Respecter le schéma SQLAlchemy existant.
+* Toute nouvelle table doit avoir :
+
+  * un identifiant unique (`id`),
+  * des index si nécessaire,
+  * une migration associée (si Alembic est utilisé).
+
+* Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets.
+
+
+------------------------------------------------------------
+
+Notes finales:
+- Ce fichier est adapté au repo SoniqueBay (structure réelle : `backend/`, `backend_worker/`, `frontend/`,`docker-compose.yml`). :contentReference[oaicite:4]{index=4}
+- Toujours valider les PRs Blackbox avec tests et revue manuelle.

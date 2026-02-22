@@ -120,6 +120,7 @@ def get_fallback_config() -> Dict[str, Any]:
     logger.warning("[CELERY_CONFIG_LOADER] Utilisation de la configuration de fallback")
     
     return {
+        'use_fallback_config_marker': True,  # Marqueur pour identifier le fallback
         'task_serializer': 'json',
         'accept_content': ['json'],
         'result_serializer': 'json',
@@ -203,9 +204,10 @@ def load_celery_config_from_redis(max_retries: int = 5, retry_delay: float = 2.0
             # Vérifier si la configuration existe
             version = redis_client.get('celery_config:version')
             if not version:
-                logger.warning("[CELERY_CONFIG_LOADER] Aucune configuration trouvée dans Redis")
+                logger.warning("[CELERY_CONFIG_LOADER] Aucune configuration trouvée dans Redis (clé: celery_config:version)")
                 if attempt == max_retries - 1:
                     # Dernière tentative - utiliser le fallback
+                    logger.warning("[CELERY_CONFIG_LOADER] >>> UTILISATION DU FALLBACK (attempt {})".format(attempt + 1))
                     return get_fallback_config()
                 else:
                     logger.info(f"[CELERY_CONFIG_LOADER] Attente {retry_delay}s avant nouvelle tentative...")
