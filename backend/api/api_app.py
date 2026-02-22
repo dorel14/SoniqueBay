@@ -118,8 +118,9 @@ async def lifespan(app: FastAPI):
     # Insérer les agents par défaut dans la BDD
     try:
         logger.info("Insertion des agents par défaut dans la BDD...")
-        async with get_async_session() as async_session:
+        async for async_session in get_async_session():
             await seed_default_agents(async_session)
+            break  # Sortir après la première itération
         logger.info("Agents par défaut insérés avec succès.")
     except Exception as e:
         logger.error(f"Erreur lors de l'insertion des agents par défaut: {str(e)}")

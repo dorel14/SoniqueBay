@@ -174,10 +174,7 @@ class Orchestrator:
             orch = self.agents["orchestrator"]
             
             intent_res = await asyncio.wait_for(
-                orch.run(
-                    message,
-                    context=self.context.export()
-                ),
+                orch.run(message),
                 timeout=timeout
             )
             
@@ -373,8 +370,7 @@ class Orchestrator:
                 session=self.session,
                 agent_name=agent_name,
                 intent=intent,
-                success=success,
-                response_time=response_time
+                success=success
             )
             
             # Logging de l'apprentissage
