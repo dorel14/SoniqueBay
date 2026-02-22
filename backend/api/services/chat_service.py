@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory
 from backend.api.utils.logging import logger
-from backend.api.services.llm_service import llm_service
+from backend.api.services.llm_service import get_llm_service
 
 
 class ChatService:
@@ -75,6 +75,7 @@ Sois concis, amical et utile. Réponds en français."""
             ]
             
             # Générer la réponse via le service LLM
+            llm_service = await get_llm_service()
             response = await llm_service.generate_chat_response(
                 messages=messages,
                 temperature=0.7,
@@ -267,6 +268,7 @@ Sois concis, amical et utile. Réponds en français."""
             ]
             
             # Générer la réponse en streaming via le service LLM
+            llm_service = await get_llm_service()
             response = await llm_service.generate_chat_response(
                 messages=messages,
                 temperature=0.7,
