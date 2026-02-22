@@ -22,5 +22,5 @@ ui.run(
     show=False,
     storage_secret=storage_secret,
     uvicorn_reload_excludes='*.log',
-    uvicorn_reload_dirs=['/app/frontend'],
+    uvicorn_reload_dirs='/app/frontend',
 )
