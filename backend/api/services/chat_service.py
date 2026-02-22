@@ -1,6 +1,6 @@
 """
 Service de chat IA pour SoniqueBay.
-Gère les interactions avec l'assistant IA musical.
+Gère les interactions avec l'assistant IA musical via LLM (Ollama/KoboldCPP).
 Auteur : Kilo Code
 """
 import uuid
@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory
 from backend.api.utils.logging import logger
+from backend.api.services.llm_service import llm_service
 
 
 class ChatService:
@@ -59,28 +60,50 @@ class ChatService:
     @staticmethod
     async def _generate_ai_response(user_message: str, db: Session) -> str:
         """
-        Génère une réponse IA basée sur le message utilisateur.
-        Pour l'instant, simulation simple. À remplacer par un vrai modèle IA.
+        Génère une réponse IA basée sur le message utilisateur via LLM.
+        Utilise le service LLM unifié (Ollama ou KoboldCPP).
         """
-        # Simulation de traitement asynchrone
-        await asyncio.sleep(0.5)
+        try:
+            # Construire le contexte pour le LLM
+            system_prompt = """Tu es l'assistant musical de SoniqueBay, une application de gestion musicale.
+Tu aides les utilisateurs à découvrir de la musique, chercher des artistes, et obtenir des recommandations.
+Sois concis, amical et utile. Réponds en français."""
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
+            
+            # Générer la réponse via le service LLM
+            response = await llm_service.generate_chat_response(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1024,
+                stream=False
+            )
+            
+            return response.get("content", "Désolé, je n'ai pas pu générer de réponse.")
+            
+        except Exception as e:
+            logger.error(f"[CHAT] Erreur génération réponse LLM: {e}")
+            # Fallback sur la logique simple en cas d'erreur
+            return await ChatService._generate_fallback_response(user_message, db)
 
-        # Logique simple de réponse basée sur des mots-clés
+    @staticmethod
+    async def _generate_fallback_response(user_message: str, db: Session) -> str:
+        """
+        Réponse de fallback en cas d'indisponibilité du LLM.
+        """
         message_lower = user_message.lower()
 
         if "recommande" in message_lower or "suggère" in message_lower:
-            # Rechercher des pistes dans la DB pour recommandations
             return await ChatService._get_music_recommendations(db)
-
         elif "cherche" in message_lower or "trouve" in message_lower:
             return "Je peux vous aider à chercher dans votre bibliothèque musicale. Que cherchez-vous ?"
-
         elif "joue" in message_lower or "écoute" in message_lower:
             return "Pour écouter de la musique, utilisez le player intégré de SoniqueBay."
-
         elif "artiste" in message_lower:
             return await ChatService._get_artist_info(db)
-
         else:
             return f"Je suis l'assistant musical de SoniqueBay. Je peux vous aider à découvrir de la musique, chercher des artistes, ou obtenir des recommandations. Votre message : '{user_message}'"
 
@@ -229,28 +252,76 @@ class ChatService:
     @staticmethod
     async def _generate_streaming_response(user_message: str, db: Session) -> List[str]:
         """
-        Génère une réponse IA en chunks pour streaming.
-        Simulation pour développement.
+        Génère une réponse IA en chunks pour streaming via LLM.
+        Utilise le service LLM unifié (Ollama ou KoboldCPP).
         """
-        # Simulation de génération progressive
-        base_response = await ChatService._generate_ai_response(user_message, db)
-
-        # Diviser en chunks
-        chunks = []
-        words = base_response.split()
-        current_chunk = ""
-
-        for word in words:
-            current_chunk += word + " "
-            if len(current_chunk) > 20:  # Chunk d'environ 20 caractères
-                chunks.append(current_chunk)
+        try:
+            # Construire le contexte pour le LLM
+            system_prompt = """Tu es l'assistant musical de SoniqueBay, une application de gestion musicale.
+Tu aides les utilisateurs à découvrir de la musique, chercher des artistes, et obtenir des recommandations.
+Sois concis, amical et utile. Réponds en français."""
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
+            
+            # Générer la réponse en streaming via le service LLM
+            response = await llm_service.generate_chat_response(
+                messages=messages,
+                temperature=0.7,
+                max_tokens=1024,
+                stream=True
+            )
+            
+            # Traiter le stream de réponse
+            chunks = []
+            if hasattr(response, 'iter_lines'):
+                # Streaming via KoboldCPP/Ollama
+                for line in response.iter_lines():
+                    if line:
+                        try:
+                            import json
+                            data = json.loads(line.decode('utf-8').replace('data: ', ''))
+                            if 'choices' in data and len(data['choices']) > 0:
+                                delta = data['choices'][0].get('delta', {})
+                                content = delta.get('content', '')
+                                if content:
+                                    chunks.append(content)
+                        except:
+                            pass
+            else:
+                # Fallback: diviser la réponse complète en chunks
+                full_response = await ChatService._generate_ai_response(user_message, db)
+                words = full_response.split()
                 current_chunk = ""
-                await asyncio.sleep(0.1)  # Simulation de latence
-
-        if current_chunk:
-            chunks.append(current_chunk)
-
-        return chunks
+                for word in words:
+                    current_chunk += word + " "
+                    if len(current_chunk) > 20:
+                        chunks.append(current_chunk)
+                        current_chunk = ""
+                        await asyncio.sleep(0.05)
+                if current_chunk:
+                    chunks.append(current_chunk)
+            
+            return chunks if chunks else ["Désolé, je n'ai pas pu générer de réponse."]
+            
+        except Exception as e:
+            logger.error(f"[CHAT] Erreur streaming LLM: {e}")
+            # Fallback sur la méthode non-streaming
+            base_response = await ChatService._generate_fallback_response(user_message, db)
+            words = base_response.split()
+            chunks = []
+            current_chunk = ""
+            for word in words:
+                current_chunk += word + " "
+                if len(current_chunk) > 20:
+                    chunks.append(current_chunk)
+                    current_chunk = ""
+                    await asyncio.sleep(0.05)
+            if current_chunk:
+                chunks.append(current_chunk)
+            return chunks
 
     # ==========================================================================
     # === Phase 12: Intégration MIR =============================================

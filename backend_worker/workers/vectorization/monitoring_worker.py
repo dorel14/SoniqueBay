@@ -163,15 +163,15 @@ def trigger_vectorizer_retrain(self, retrain_request: Dict[str, Any]) -> Dict[st
 
             # Publication SSE - début retrain
             try:
-                from backend_worker.utils.redis_utils import publish_event
-                # Appel synchrone direct (pas d'asyncio dans Celery)
-                publish_event('notifications', 'vectorization_progress', {
+                from backend_worker.utils.pubsub import publish_event
+                # Version synchrone pour Celery
+                publish_event('vectorization_progress', {
                     'stage': 'retrain_starting',
                     'status': 'in_progress',
                     'trigger_reason': trigger_reason,
                     'priority': priority,
                     'message': f"Début retrain: {trigger_reason}"
-                })
+                }, channel='notifications')
             except Exception as e:
                 logger.warning(f"Erreur publication SSE début: {e}")
 
@@ -196,15 +196,16 @@ def trigger_vectorizer_retrain(self, retrain_request: Dict[str, Any]) -> Dict[st
 
             # Publication SSE - fin retrain
             try:
-                # Appel synchrone direct (pas d'asyncio dans Celery)
-                publish_event('notifications', 'vectorization_progress', {
+                from backend_worker.utils.pubsub import publish_event
+                # Version synchrone pour Celery
+                publish_event('vectorization_progress', {
                     'stage': 'retrain_completed',
                     'status': 'success' if result['status'] == 'success' else 'error',
                     'trigger_reason': trigger_reason,
                     'priority': priority,
                     'new_version': result.get('new_version'),
                     'message': result.get('message', f"Retrain {result['status']}")
-                })
+                }, channel='notifications')
             except Exception as e:
                 logger.warning(f"Erreur publication SSE fin: {e}")
 
@@ -225,15 +226,16 @@ def trigger_vectorizer_retrain(self, retrain_request: Dict[str, Any]) -> Dict[st
 
             # Publication SSE - erreur
             try:
-                # Appel synchrone direct (pas d'asyncio dans Celery)
-                publish_event('notifications', 'vectorization_progress', {
+                from backend_worker.utils.pubsub import publish_event
+                # Version synchrone pour Celery
+                publish_event('vectorization_progress', {
                     'stage': 'retrain_failed',
                     'status': 'error',
                     'trigger_reason': retrain_request.get('trigger_reason', 'unknown'),
                     'priority': retrain_request.get('priority', 'medium'),
                     'error': str(e),
                     'message': f"Échec retrain: {str(e)}"
-                })
+                }, channel='notifications')
             except Exception as sse_error:
                 logger.warning(f"Erreur publication SSE erreur: {sse_error}")
 
@@ -265,13 +267,12 @@ def manual_retrain_vectorizer(self, force: bool = True, new_version: str = None)
     try:
         logger.info(f"[MANUAL_RETRAIN] Retrain manuel demandé (force={force}, version={new_version})")
         
-        # Import de publish_event pour cette fonction
-        from backend_worker.utils.redis_utils import publish_event
+        # Import de publish_event (version synchrone pour Celery)
+        from backend_worker.utils.pubsub import publish_event
         
         # Publication SSE - début retrain manuel
         try:
-            # Appel synchrone direct (pas d'asyncio dans Celery)
-            publish_event('notifications', 'vectorization_progress', {
+            publish_event('vectorization_progress', {
                 'stage': 'manual_retrain_starting',
                 'status': 'in_progress',
                 'trigger_reason': 'manual_request',
@@ -279,7 +280,7 @@ def manual_retrain_vectorizer(self, force: bool = True, new_version: str = None)
                 'message': "Début retrain manuel",
                 'force': force,
                 'new_version': new_version
-            })
+            }, channel='notifications')
         except Exception as e:
             logger.warning(f"Erreur publication SSE début manuel: {e}")
         
@@ -319,15 +320,14 @@ def manual_retrain_vectorizer(self, force: bool = True, new_version: str = None)
         
         # Publication SSE - fin retrain manuel
         try:
-            # Appel synchrone direct (pas d'asyncio dans Celery)
-            publish_event('notifications', 'vectorization_progress', {
+            publish_event('vectorization_progress', {
                 'stage': 'manual_retrain_completed',
                 'status': 'success',
                 'trigger_reason': 'manual_request',
                 'priority': 'critical',
                 'new_version': version_name,
                 'message': f"Retrain manuel terminé: {version_name}"
-            })
+            }, channel='notifications')
         except Exception as e:
             logger.warning(f"Erreur publication SSE fin manuel: {e}")
         
@@ -339,15 +339,14 @@ def manual_retrain_vectorizer(self, force: bool = True, new_version: str = None)
         
         # Publication SSE - erreur manuelle
         try:
-            # Appel synchrone direct (pas d'asyncio dans Celery)
-            publish_event('notifications', 'vectorization_progress', {
+            publish_event('vectorization_progress', {
                 'stage': 'manual_retrain_failed',
                 'status': 'error',
                 'trigger_reason': 'manual_request',
                 'priority': 'critical',
                 'error': str(e),
                 'message': f"Échec retrain manuel: {str(e)}"
-            })
+            }, channel='notifications')
         except Exception as sse_error:
             logger.warning(f"Erreur publication SSE erreur manuelle: {sse_error}")
         

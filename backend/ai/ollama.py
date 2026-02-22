@@ -1,18 +1,39 @@
 
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.ollama import OllamaProvider
+"""
+Module Ollama - Fournit l'accès aux modèles LLM via le service unifié.
+Supporte Ollama et KoboldCPP.
+"""
 import os
+from backend.api.services.llm_service import LLMService
+
+# Initialiser le service LLM une seule fois
+llm_service = LLMService()
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")  # docker-compose
 DEFAULT_OLLAMA_MODEL = os.getenv("AGENT_MODEL", "Qwen/Qwen3-4B-Instruct:Q3_K_M")
 
 
 def get_ollama_model(
-    model_name: str,
-    num_ctx: int = 4096
+    model_name: str = None,
+    num_ctx: int = 4096,
+    temperature: float = 0.7,
+    top_p: float = 0.9
 ):
-    return OpenAIChatModel(
-        model_name=DEFAULT_OLLAMA_MODEL,
-        provider=OllamaProvider(base_url=OLLAMA_BASE_URL),
-        max_context_length=num_ctx
+    """
+    Récupère un modèle LLM configuré (Ollama ou KoboldCPP).
+    
+    Args:
+        model_name: Nom du modèle (utilise le modèle par défaut si None)
+        num_ctx: Taille du contexte
+        temperature: Température de génération
+        top_p: Valeur top_p pour la génération
+        
+    Returns:
+        OpenAIChatModel configuré avec le fournisseur détecté
+    """
+    return llm_service.get_model(
+        model_name=model_name,
+        num_ctx=num_ctx,
+        temperature=temperature,
+        top_p=top_p
     )
