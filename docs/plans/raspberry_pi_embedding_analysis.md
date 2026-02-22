@@ -24,15 +24,18 @@ Le modèle `all-mpnet-base-v2` (768 dimensions) pose des défis sur Raspberry Pi
 ### Option 1 : Garder 768D avec `all-mpnet-base-v2` (Actuel)
 
 **Avantages :**
+
 - Qualité sémantique supérieure
 - Compatible avec le schéma DB existant (Vector(768))
 
 **Inconvénients :**
+
 - ~420MB de RAM juste pour le modèle
 - Risque d'OOM (Out Of Memory) sur RPi4 2GB
 - Temps de chargement lent au démarrage
 
 **Mitigations possibles :**
+
 ```python
 # Dans ollama_embedding_service.py
 # Charger le modèle une seule fois au démarrage du worker
@@ -46,15 +49,18 @@ Le modèle `all-mpnet-base-v2` (768 dimensions) pose des défis sur Raspberry Pi
 ### Option 2 : Réduire à 384D avec `all-MiniLM-L6-v2`
 
 **Avantages :**
+
 - ~80MB de RAM (5x moins)
 - 2-3x plus rapide sur CPU
 - Très stable sur RPi4
 
 **Inconvénients :**
+
 - Nécessite une migration DB : `Vector(768)` → `Vector(384)`
 - Perte de précision sémantique (légère)
 
 **Migration requise :**
+
 ```sql
 -- Alembic migration nécessaire
 ALTER TABLE mir_synonyms ALTER COLUMN embedding TYPE vector(384);
@@ -64,10 +70,12 @@ ALTER TABLE mir_synonyms ALTER COLUMN embedding TYPE vector(384);
 ### Option 3 : Modèle hybride selon la charge
 
 **Stratégie :**
+
 - Utiliser `all-mpnet-base-v2` (768D) sur les machines avec ≥4GB RAM
 - Utiliser `all-MiniLM-L6-v2` (384D) sur les machines avec 2GB RAM
 
 **Implémentation :**
+
 ```python
 # Détection automatique de la mémoire disponible
 import psutil
@@ -83,16 +91,19 @@ def select_model_by_memory():
 ### Option 4 : Service d'embeddings externe (Ollama/KoboldCpp)
 
 **Stratégie :**
+
 - Ne pas charger sentence-transformers dans le worker
 - Appeler le service LLM (Ollama) pour les embeddings
 - Utiliser `nomic-embed-text` via API HTTP
 
 **Avantages :**
+
 - Zero RAM utilisée dans le worker pour les embeddings
 - Modèle peut être sur une autre machine
 - Mise à jour du modèle sans redéployer le worker
 
 **Inconvénients :**
+
 - Latence réseau (~10-50ms)
 - Dépendance au service LLM
 - Nécessite que le service LLM soit up
@@ -102,11 +113,13 @@ def select_model_by_memory():
 ### Pour le développement actuel (768D avec `all-mpnet-base-v2`)
 
 **OK si :**
+
 - RPi4 4GB ou 8GB
 - Peu d'embeddings générés simultanément
 - Worker dédié aux embeddings (pas d'autres tâches lourdes)
 
 **À surveiller :**
+
 ```python
 # Dans ollama_embedding_service.py
 import psutil
@@ -145,6 +158,7 @@ La migration DB est nécessaire mais le gain en stabilité est significatif.
 ## Conclusion
 
 La dimension 768D est **techniquement compatible** avec RPi4 4GB+ mais :
+
 - Nécessite une surveillance mémoire stricte
 - Peut causer des ralentissements lors du chargement initial
 - Risque d'instabilité sur RPi4 2GB

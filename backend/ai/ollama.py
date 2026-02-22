@@ -31,9 +31,6 @@ def get_ollama_model(
     Returns:
         OpenAIChatModel configuré avec le fournisseur détecté
     """
-    return llm_service.get_model(
-        model_name=model_name,
-        num_ctx=num_ctx,
-        temperature=temperature,
-        top_p=top_p
-    )
+    # Note: num_ctx, temperature et top_p sont gérés au niveau des requêtes API
+    # OpenAIChatModel ne supporte pas ces paramètres dans son constructeur
+    return llm_service.get_model(model_name=model_name)

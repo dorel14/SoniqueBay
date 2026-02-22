@@ -3,9 +3,35 @@ from fastapi.websockets import WebSocketDisconnect
 from backend.api.utils.database import AsyncSessionLocal
 from backend.ai.orchestrator import Orchestrator
 from backend.api.utils.logging import logger
+from pydantic import BaseModel
+from typing import Any, Dict
 
 
 router = APIRouter()
+
+
+def serialize_chunk(chunk: Any) -> Dict[str, Any]:
+    """
+    Convertit un chunk en dictionnaire JSON-sérialisable.
+    Gère les objets Pydantic, les StreamEvent, et les dictionnaires.
+    """
+    if isinstance(chunk, BaseModel):
+        return chunk.model_dump()
+    elif isinstance(chunk, dict):
+        return chunk
+    elif hasattr(chunk, '__dict__'):
+        # Pour les objets qui ne sont pas des BaseModel mais ont un __dict__
+        return {
+            "type": "chunk",
+            "content": str(chunk),
+            "data": chunk.__dict__
+        }
+    else:
+        # Fallback : convertir en chaîne
+        return {
+            "type": "chunk",
+            "content": str(chunk)
+        }
 
 
 @router.websocket("/ws/chat")
@@ -33,7 +59,9 @@ async def chat(ws: WebSocket) -> None:
                         extra={"message_preview": msg[:80]}
                     )
                     async for chunk in orchestrator.handle_stream(msg):
-                        await ws.send_json(chunk)
+                        # Sérialiser le chunk avant envoi
+                        serialized = serialize_chunk(chunk)
+                        await ws.send_json(serialized)
 
                 except WebSocketDisconnect:
                     logger.info("WebSocket /ws/chat : client déconnecté proprement")

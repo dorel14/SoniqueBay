@@ -131,7 +131,7 @@ class AgentRuntime:
                 extra={
                     "agent_name": self.name,
                     "error": str(e),
-                    "message": message[:100]  # Limiter la longueur du log
+                    "msg_preview": message[:100]  # Limiter la longueur du log
                 },
                 exc_info=True
             )
@@ -166,9 +166,10 @@ class AgentRuntime:
         
         buffer = StreamingBuffer()
         last_chunk_time = time.time()
-        max_silence = 2.0  # Secondes max de silence
+        max_silence = 5.0  # Augmenté à 5s pour éviter les interruptions prématurées
         
-        async for event in self._call_agent_stream_with_timeout(message, context, timeout=30):
+        # Timeout augmenté à 90s pour les réponses longues
+        async for event in self._call_agent_stream_with_timeout(message, context, timeout=90):
             normalized = self._normalize_stream_event(event)
             
             if normalized is None:
@@ -220,7 +221,7 @@ class AgentRuntime:
                 yield normalized
                 last_chunk_time = time.time()
 
-        # Flush final
+        # Flush final - toujours envoyer le contenu restant même si vide
         final_content = buffer.flush()
         if final_content.strip():
             yield StreamEvent(
@@ -230,6 +231,12 @@ class AgentRuntime:
                 content=final_content,
                 timestamp=time.time()
             )
+        
+        # Log de fin de bufferisation
+        logger.debug(
+            f"Bufferisation terminée pour {self.name}",
+            extra={"agent_name": self.name, "final_buffer_size": len(final_content)}
+        )
 
     # -------------------------------------------------
     # Appels agents avec retry et timeout
@@ -275,16 +282,44 @@ class AgentRuntime:
         self,
         message: str,
         context,
-        timeout: float = 30.0
+        timeout: float = 90.0
     ):
-        """Appel stream avec timeout global."""
+        """Appel stream avec timeout global augmenté pour les réponses longues."""
         
         try:
-            async for event in asyncio.wait_for(
-                self._call_agent_stream(self.agent.run_stream, message, context),
-                timeout=timeout
-            ):
+            # Appel avec timeout sur le premier élément (initialisation)
+            stream_gen = self._call_agent_stream(self.agent.run_stream, message, context)
+            # Utiliser wait_for sur l'itération avec timeout entre chaque chunk
+            start_time = asyncio.get_event_loop().time()
+            chunk_count = 0
+            
+            async for event in stream_gen:
+                chunk_count += 1
+                # Vérifier le timeout global
+                current_time = asyncio.get_event_loop().time()
+                if current_time - start_time > timeout:
+                    logger.warning(
+                        f"Streaming timeout global atteint pour l'agent {self.name}",
+                        extra={
+                            "agent_name": self.name,
+                            "timeout": timeout,
+                            "chunks_received": chunk_count,
+                            "elapsed_time": current_time - start_time
+                        }
+                    )
+                    raise asyncio.TimeoutError()
                 yield event
+            
+            # Log de fin de streaming réussi
+            logger.debug(
+                f"Streaming terminé avec succès pour {self.name}",
+                extra={
+                    "agent_name": self.name,
+                    "total_chunks": chunk_count,
+                    "elapsed_time": asyncio.get_event_loop().time() - start_time
+                }
+            )
+                
         except asyncio.TimeoutError:
             logger.warning(
                 f"Streaming timeout pour l'agent {self.name}",
@@ -292,6 +327,17 @@ class AgentRuntime:
                     "agent_name": self.name,
                     "timeout": timeout
                 }
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Erreur lors du streaming pour l'agent {self.name}: {e}",
+                extra={
+                    "agent_name": self.name,
+                    "error": str(e),
+                    "chunks_received": chunk_count if 'chunk_count' in locals() else 0
+                },
+                exc_info=True
             )
             raise
 
@@ -318,14 +364,17 @@ class AgentRuntime:
         sig = getattr(self, '_cached_signature', inspect.signature(fn))
         
         if "context" in sig.parameters:
-            async for ev in fn(message, context=context):
-                yield ev
+            async with fn(message, context=context) as result:
+                async for text in result.stream_text():
+                    yield text
         elif "messages" in sig.parameters:
-            async for ev in fn(context.messages):
-                yield ev
+            async with fn(context.messages) as result:
+                async for text in result.stream_text():
+                    yield text
         else:
-            async for ev in fn(message):
-                yield ev
+            async with fn(message) as result:
+                async for text in result.stream_text():
+                    yield text
 
     # -------------------------------------------------
     # Normalisation avancée des événements
@@ -335,9 +384,50 @@ class AgentRuntime:
         
         current_time = time.time()
         
-        # Texte progressif avec gestion de la ponctuation
-        if event.is_output_text():
-            content = event.delta
+        # Gestion des événements pydantic-ai (objets avec méthodes is_*)
+        if hasattr(event, 'is_output_text'):
+            # Texte progressif avec gestion de la ponctuation
+            if event.is_output_text():
+                content = event.delta
+                
+                # Optimisation pour RPi4 : éviter les chunks trop petits
+                if len(content.strip()) < 3 and content.strip() not in ".!?;:,":
+                    return None  # Skip chunks trop petits
+                
+                return StreamEvent(
+                    agent=self.name,
+                    state=AgentState.STREAMING,
+                    type=AgentMessageType.TEXT,
+                    content=content,
+                    timestamp=current_time
+                )
+
+            # Appel de tool avec validation
+            elif event.is_tool_call():
+                return StreamEvent(
+                    agent=self.name,
+                    state=AgentState.TOOL_CALLING,
+                    type=AgentMessageType.TOOL_CALL,
+                    payload={
+                        "tool": event.tool_name,
+                        "args": event.args,
+                    },
+                    timestamp=current_time
+                )
+
+            # Résultat de tool
+            elif event.is_tool_result():
+                return StreamEvent(
+                    agent=self.name,
+                    state=AgentState.ACTING,
+                    type=AgentMessageType.TOOL_RESULT,
+                    payload=event.result,
+                    timestamp=current_time
+                )
+        
+        # Gestion des chaînes de texte brutes (stream_text())
+        elif isinstance(event, str):
+            content = event
             
             # Optimisation pour RPi4 : éviter les chunks trop petits
             if len(content.strip()) < 3 and content.strip() not in ".!?;:,":
@@ -348,29 +438,6 @@ class AgentRuntime:
                 state=AgentState.STREAMING,
                 type=AgentMessageType.TEXT,
                 content=content,
-                timestamp=current_time
-            )
-
-        # Appel de tool avec validation
-        elif event.is_tool_call():
-            return StreamEvent(
-                agent=self.name,
-                state=AgentState.TOOL_CALLING,
-                type=AgentMessageType.TOOL_CALL,
-                payload={
-                    "tool": event.tool_name,
-                    "args": event.args,
-                },
-                timestamp=current_time
-            )
-
-        # Résultat de tool
-        elif event.is_tool_result():
-            return StreamEvent(
-                agent=self.name,
-                state=AgentState.ACTING,
-                type=AgentMessageType.TOOL_RESULT,
-                payload=event.result,
                 timestamp=current_time
             )
 
