@@ -18,6 +18,91 @@ def snake_to_camel(s: str) -> str:
     return parts[0] + ''.join(word.capitalize() for word in parts[1:])
 
 
+def proper_case_artist_name(name: str) -> str:
+    """
+    Convert artist name to proper title case.
+    Handles special cases like 'AC/DC', 'DJ', 'MC', etc.
+    
+    Examples:
+        'philippe timsit' -> 'Philippe Timsit'
+        'ac/dc' -> 'AC/DC'
+        'dj shadow' -> 'DJ Shadow'
+    """
+    if not name:
+        return name
+    
+    # Strip whitespace
+    name = name.strip()
+    
+    # Special cases that should be uppercase
+    special_cases = {
+        'ac/dc': 'AC/DC',
+        'ac-dc': 'AC-DC',
+        'dj': 'DJ',
+        'mc': 'MC',
+        'r&b': 'R&B',
+        'rnb': 'RnB',
+        'r&b': 'R&B',
+        'uk': 'UK',
+        'usa': 'USA',
+        'us': 'US',
+        'u.s.a': 'U.S.A',
+        'u.s': 'U.S',
+        'ii': 'II',
+        'iii': 'III',
+        'iv': 'IV',
+        'vi': 'VI',
+        'vii': 'VII',
+        'viii': 'VIII',
+        'ix': 'IX',
+        'x': 'X',
+    }
+    
+    # Check for exact match in special cases (case-insensitive)
+    name_lower = name.lower()
+    if name_lower in special_cases:
+        return special_cases[name_lower]
+    
+    # Split by spaces and process each word
+    words = name.split()
+    result_words = []
+    
+    for word in words:
+        word_lower = word.lower()
+        
+        # Check if word is a special case
+        if word_lower in special_cases:
+            result_words.append(special_cases[word_lower])
+        # Check for words with slashes (like AC/DC)
+        elif '/' in word:
+            parts = word.split('/')
+            # Check if any part is a special case
+            processed_parts = []
+            for part in parts:
+                part_lower = part.lower()
+                if part_lower in special_cases:
+                    processed_parts.append(special_cases[part_lower])
+                else:
+                    processed_parts.append(part.capitalize())
+            result_words.append('/'.join(processed_parts))
+        # Check for words with hyphens
+        elif '-' in word and len(word) > 2:
+            parts = word.split('-')
+            processed_parts = []
+            for part in parts:
+                part_lower = part.lower()
+                if part_lower in special_cases:
+                    processed_parts.append(special_cases[part_lower])
+                else:
+                    processed_parts.append(part.capitalize())
+            result_words.append('-'.join(processed_parts))
+        else:
+            # Regular word - capitalize first letter
+            result_words.append(word.capitalize())
+    
+    return ' '.join(result_words)
+
+
 def convert_dict_keys_to_camel(data):
     """Recursively convert dict keys from snake_case to camelCase."""
     if isinstance(data, dict):
@@ -225,10 +310,10 @@ async def create_or_get_genre(client: httpx.AsyncClient, genre_name: str) -> Opt
         if genre_name.lower() in genre_cache:
             return genre_cache[genre_name.lower()]
 
-        # Rechercher le genre par nom
+        # Rechercher le genre par nom (exact match pour éviter les race conditions)
         response = await client.get(
             f"{api_url}/api/genres/search/",
-            params={"name": genre_name},
+            params={"name": genre_name, "exact_match": "true"},
             timeout=10
         )
 
@@ -385,8 +470,15 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
         # Nettoyer les données d'artistes - supprimer les champs non supportés par le schéma
         cleaned_artists_data = []
         for artist in artists_data:
+            # Apply proper case to artist name
+            original_name = artist.get('name')
+            proper_name = proper_case_artist_name(original_name) if original_name else original_name
+            
+            if original_name and original_name != proper_name:
+                logger.info(f"[ARTIST_CASE] Normalisation du nom d'artiste: '{original_name}' -> '{proper_name}'")
+            
             cleaned_artist = {
-                'name': artist.get('name'),
+                'name': proper_name,
                 'musicbrainzArtistid': artist.get('musicbrainz_artistid') or artist.get('musicbrainzArtistid')
             }
             # Supprimer les clés None et les champs non supportés

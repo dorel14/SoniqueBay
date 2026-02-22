@@ -111,8 +111,9 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - REDIS_URL=redis://redis:6379/0
-            - AGENT_MODEL=phi3:3.8b-mini-4k-instruct-q4_K_M
-            - OLLAMA_BASE_URL=http://ollama:11434
+            - LLM_PROVIDER=koboldcpp #ollama
+            - KOBOLDCPP_BASE_URL=http://localhost:11434
+            - AGENT_MODEL=Qwen/Qwen3-4B-Instruct:Q3_K_M
             - HEALTHCHECK_PORT=8001
             - PLATFORM=${PLATFORM:-windows}
             - MUSIC_PATH=/music

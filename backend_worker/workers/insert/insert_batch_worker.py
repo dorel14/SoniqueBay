@@ -73,14 +73,14 @@ async def enqueue_enrichment_tasks_for_artists(client: httpx.AsyncClient, artist
             try:
                 logger.debug(f"[ENRICHMENT] Vérification cover pour artiste {artist_id}")
                 # Vérifier si l'artiste a déjà une cover
+                # L'endpoint /api/covers/artist/{id} retourne des données binaires (image), pas du JSON
                 response = await client.get(f"{library_api_url}/api/covers/artist/{artist_id}")
                 logger.debug(f"[ENRICHMENT] Réponse API covers pour artiste {artist_id}: {response.status_code}")
 
+                # Si status 200, l'image existe (données binaires), donc on skip l'enrichissement
                 if response.status_code == 200:
-                    cover_data = response.json()
-                    if cover_data:
-                        logger.debug(f"[ENRICHMENT] Artiste {artist_id} a déjà une cover, skip")
-                        continue
+                    logger.debug(f"[ENRICHMENT] Artiste {artist_id} a déjà une cover (image trouvée), skip")
+                    continue
 
                 logger.info(f"[ENRICHMENT] Artiste {artist_id} n'a pas de cover, enqueue tâche")
 
@@ -159,14 +159,14 @@ async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_i
             try:
                 logger.debug(f"[ENRICHMENT] Vérification cover pour album {album_id}")
                 # Vérifier si l'album a déjà une cover
+                # L'endpoint /api/covers/album/{id} retourne des données binaires (image), pas du JSON
                 response = await client.get(f"{library_api_url}/api/covers/album/{album_id}")
                 logger.debug(f"[ENRICHMENT] Réponse API covers pour album {album_id}: {response.status_code}")
 
+                # Si status 200, l'image existe (données binaires), donc on skip l'enrichissement
                 if response.status_code == 200:
-                    cover_data = response.json()
-                    if cover_data:
-                        logger.debug(f"[ENRICHMENT] Album {album_id} a déjà une cover, skip")
-                        continue
+                    logger.debug(f"[ENRICHMENT] Album {album_id} a déjà une cover (image trouvée), skip")
+                    continue
 
                 # Récupérer les infos de l'album pour avoir le MBID
                 album_response = await client.get(f"{library_api_url}/api/albums/{album_id}")
@@ -261,7 +261,7 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
         if track_path:
             query = """
             query GetTrackMusicBrainzIDs($filePath: String!) {
-                tracks(where: {filePath: {equals: $filePath}}) {
+                tracks(where: {file_path: $filePath}) {
                     musicbrainzId
                     musicbrainzAlbumid
                     musicbrainzArtistid
@@ -337,11 +337,20 @@ async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
     """
     artist_name = track.get('artist_name') or track.get('artist')
     
-    # Essayer d'abord avec le nom d'artiste
+    # Essayer d'abord avec le nom d'artiste (recherche exacte)
     if artist_name and artist_name in artist_map:
         artist_id = artist_map[artist_name]['id']
-        logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom -> ID {artist_id}")
+        logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom exact -> ID {artist_id}")
         return artist_id
+    
+    # Essayer avec le nom d'artiste en minuscules (recherche insensible à la casse)
+    if artist_name:
+        artist_name_lower = artist_name.lower()
+        for key, data in artist_map.items():
+            if isinstance(key, str) and key.lower() == artist_name_lower:
+                artist_id = data['id']
+                logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom (case-insensitive) -> ID {artist_id}")
+                return artist_id
     
     # Essayer avec musicbrainz_artistid ou musicbrainz_albumartistid
     mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
@@ -352,7 +361,7 @@ async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
                 logger.debug(f"[RESOLVE_ARTIST] Artiste MBID {mb_artist_id} résolu via MBID -> ID {data['id']}")
                 return data['id']
     
-    logger.warning(f"[RESOLVE_ARTIST] Impossible de résoudre l'artiste pour la track '{track.get('title', 'unknown')}'")
+    logger.warning(f"[RESOLVE_ARTIST] Impossible de résoudre l'artiste pour la track '{track.get('title', 'unknown')}' (nom recherché: '{artist_name}')")
     return None
 
 
@@ -521,7 +530,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                         # Requête spécifique pour cette track - utiliser le champ correct 'path'
                         query = """
                         query GetTrackByPath($filePath: String!) {
-                            tracks(where: {filePath: {equals: $filePath}}) {
+                            tracks(where: {file_path: $filePath}) {
                                 id
                                 path
                                 bpm
@@ -723,8 +732,24 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     for album in albums_data:
                         resolved_album = dict(album)
                         album_artist_name = album.get('album_artist_name')
-                        if album_artist_name and album_artist_name in artist_map:
-                            resolved_album['album_artist_id'] = artist_map[album_artist_name]['id']
+                        
+                        # Recherche insensible à la casse de l'artiste
+                        album_artist_id = None
+                        if album_artist_name:
+                            # Essayer d'abord la correspondance exacte
+                            if album_artist_name in artist_map:
+                                album_artist_id = artist_map[album_artist_name]['id']
+                            else:
+                                # Recherche insensible à la casse
+                                album_artist_lower = album_artist_name.lower()
+                                for key, data in artist_map.items():
+                                    if isinstance(key, str) and key.lower() == album_artist_lower:
+                                        album_artist_id = data['id']
+                                        logger.debug(f"[INSERT] Artiste album '{album_artist_name}' trouvé via case-insensitive -> ID {album_artist_id}")
+                                        break
+                        
+                        if album_artist_id:
+                            resolved_album['album_artist_id'] = album_artist_id
                         else:
                             logger.warning(f"Artiste '{album_artist_name}' non trouvé pour album '{album.get('title')}', tentative de création")
                             # Essayer de créer l'artiste si pas trouvé
@@ -786,16 +811,44 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                 if tracks_data:
                     logger.info(f"[INSERT] Traitement de {len(tracks_data)} tracks via entity_manager")
 
+                    # S'assurer qu'un artiste par défaut existe dans artist_map
+                    default_artist_name = 'Unknown Artist'
+                    if default_artist_name not in artist_map:
+                        logger.warning(f"[INSERT] Artiste par défaut '{default_artist_name}' non trouvé, création...")
+                        default_artist_data = [{'name': default_artist_name}]
+                        temp_artist_map = await create_or_get_artists_batch(client, default_artist_data)
+                        if temp_artist_map:
+                            artist_map[default_artist_name] = list(temp_artist_map.values())[0]
+                            inserted_counts['artists'] += 1
+                            logger.info(f"[INSERT] Artiste par défaut créé avec ID {artist_map[default_artist_name]['id']}")
+                        else:
+                            logger.error("[INSERT] Impossible de créer l'artiste par défaut, certaines tracks pourraient échouer")
+
                     # Résoudre les références artiste/album pour les tracks
                     resolved_tracks_data = []
+                    skipped_tracks = []
                     for track in tracks_data:
                         # Résoudre track_artist_id d'abord
                         track_artist_id = await resolve_track_artist_id(track, artist_map)
+                        
+                        # Si pas d'artiste résolu, utiliser l'artiste par défaut
+                        if not track_artist_id and default_artist_name in artist_map:
+                            track_artist_id = artist_map[default_artist_name]['id']
+                            logger.warning(f"[INSERT] Track '{track.get('title', 'unknown')}' sans artiste, utilisation de l'artiste par défaut (ID: {track_artist_id})")
+                        
+                        # Vérifier que track_artist_id est valide (requis par GraphQL)
+                        if not track_artist_id:
+                            logger.error(f"[INSERT] Track '{track.get('title', 'unknown')}' ignorée - impossible de résoudre track_artist_id même avec fallback")
+                            skipped_tracks.append(track.get('title', 'unknown'))
+                            continue
+                        
                         resolved_track = await resolve_album_for_track(track, artist_map, album_map, client)
-                        # Ajouter track_artist_id résolu
-                        if track_artist_id:
-                            resolved_track['track_artist_id'] = track_artist_id
+                        # Ajouter track_artist_id résolu (toujours présent maintenant)
+                        resolved_track['track_artist_id'] = track_artist_id
                         resolved_tracks_data.append(resolved_track)
+                    
+                    if skipped_tracks:
+                        logger.warning(f"[INSERT] {len(skipped_tracks)} tracks ignorées: {skipped_tracks}")
 
                     # Vérifier les IDs MusicBrainz avant l'insertion des tracks
                     await verify_musicbrainz_ids_in_tracks(client, resolved_tracks_data)
