@@ -1,8 +1,7 @@
-
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import os
-DEFAULT_MODEL = os.getenv("AGENT_MODEL", "phi3:mini")
+DEFAULT_MODEL = os.getenv("AGENT_MODEL", "Qwen/Qwen3-4B-Instruct:Q3_K_M")
 class AgentCreate(BaseModel):
     name: str
     model: str = DEFAULT_MODEL
