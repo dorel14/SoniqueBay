@@ -6,7 +6,7 @@ Fournit une interface commune pour les différents fournisseurs de LLM.
 Auteur: SoniqueBay Team
 """
 import os
-import requests
+import httpx
 from typing import Optional, Dict, Any, List
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -53,7 +53,7 @@ class LLMService:
         # Essayer KoboldCPP
         try:
             kobold_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
-            response = requests.get(f"{kobold_url}/v1/models", timeout=2)
+            response = httpx.get(f"{kobold_url}/v1/models", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'koboldcpp'
                 self.base_url = kobold_url
@@ -65,7 +65,7 @@ class LLMService:
         # Essayer Ollama
         try:
             ollama_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
-            response = requests.get(f"{ollama_url}/api/tags", timeout=2)
+            response = httpx.get(f"{ollama_url}/api/tags", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'ollama'
                 self.base_url = ollama_url
@@ -129,7 +129,7 @@ class LLMService:
         """
         try:
             if self.provider_type == 'koboldcpp':
-                response = requests.get(f"{self.base_url}/v1/models", timeout=5)
+                response = httpx.get(f"{self.base_url}/v1/models", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     # Format compatible avec Ollama
@@ -151,7 +151,7 @@ class LLMService:
                     return {"models": models}
             else:
                 # Ollama par défaut
-                response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+                response = httpx.get(f"{self.base_url}/api/tags", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     return {"models": data.get("models", [])}
@@ -199,21 +199,25 @@ class LLMService:
                     "stream": stream
                 }
                 
-                response = requests.post(url, json=payload, headers=headers, timeout=60, stream=stream)
-                response.raise_for_status()
-                
-                if stream:
-                    return response  # Retourne l'objet response pour streaming
-                else:
-                    data = response.json()
-                    return {
-                        "content": data["choices"][0]["message"]["content"],
-                        "model": data.get("model", model_name),
-                        "usage": data.get("usage", {})
-                    }
+                async with httpx.AsyncClient(timeout=60) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+                    response.raise_for_status()
+                    
+                    if stream:
+                        return response  # Retourne l'objet response pour streaming
+                    else:
+                        data = response.json()
+                        return {
+                            "content": data["choices"][0]["message"]["content"],
+                            "model": data.get("model", model_name),
+                            "usage": data.get("usage", {})
+                        }
             else:
                 # Ollama - utiliser l'API native
                 url = f"{self.base_url}/api/chat"
+                headers = {
+                    "Content-Type": "application/json"
+                }
                 payload = {
                     "model": model_name,
                     "messages": messages,
@@ -224,18 +228,19 @@ class LLMService:
                     }
                 }
                 
-                response = requests.post(url, json=payload, timeout=60, stream=stream)
-                response.raise_for_status()
-                
-                if stream:
-                    return response
-                else:
-                    data = response.json()
-                    return {
-                        "content": data["message"]["content"],
-                        "model": data.get("model", model_name),
-                        "usage": {}
-                    }
+                async with httpx.AsyncClient(timeout=60) as client:
+                    response = await client.post(url, json=payload, headers=headers)
+                    response.raise_for_status()
+                    
+                    if stream:
+                        return response
+                    else:
+                        data = response.json()
+                        return {
+                            "content": data["message"]["content"],
+                            "model": data.get("model", model_name),
+                            "usage": {}
+                        }
                     
         except Exception as e:
             logger.error(f"[LLM] Erreur génération réponse: {e}")
@@ -250,9 +255,9 @@ class LLMService:
         """
         try:
             if self.provider_type == 'koboldcpp':
-                response = requests.get(f"{self.base_url}/v1/models", timeout=5)
+                response = httpx.get(f"{self.base_url}/v1/models", timeout=5)
             else:
-                response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+                response = httpx.get(f"{self.base_url}/api/tags", timeout=5)
             
             if response.status_code == 200:
                 return {
