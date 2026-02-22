@@ -39,11 +39,37 @@ class Orchestrator:
             "agent_selections": {}
         }
 
-        # Chargement des agents
-        self.agents = self.loader.load_enabled_agents()
+        # Les agents sont chargés via `await self.init()` (méthode async obligatoire)
+        # Ne pas appeler load_enabled_agents() ici : c'est une coroutine async
+        self.agents: Dict[str, Any] = {}
+
+    # ---------------------------------------------------------
+    # Initialisation asynchrone (doit être appelée après __init__)
+    # ---------------------------------------------------------
+    async def init(self) -> None:
+        """
+        Initialisation asynchrone de l'orchestrateur.
+        Doit être appelée avec `await orchestrator.init()` après l'instanciation.
+        Charge les agents depuis la base de données et valide la présence de l'agent orchestrateur.
+        """
+        self.agents = await self.loader.load_enabled_agents()
 
         if "orchestrator" not in self.agents:
-            raise RuntimeError("Agent 'orchestrator' manquant")
+            logger.error(
+                "Agent 'orchestrator' manquant dans la base de données ou désactivé",
+                extra={"available_agents": list(self.agents.keys())}
+            )
+            raise RuntimeError(
+                "Agent 'orchestrator' manquant — vérifiez que l'agent est activé en base de données."
+            )
+
+        logger.info(
+            "Orchestrateur initialisé avec succès",
+            extra={
+                "agents_loaded": list(self.agents.keys()),
+                "total_agents": len(self.agents)
+            }
+        )
 
     # ---------------------------------------------------------
     # Appel standard (non streaming) avec monitoring
