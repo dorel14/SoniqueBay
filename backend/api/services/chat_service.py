@@ -269,31 +269,22 @@ Sois concis, amical et utile. Réponds en français."""
             
             # Générer la réponse en streaming via le service LLM
             llm_service = await get_llm_service()
-            response = await llm_service.generate_chat_response(
+            stream_iterator = await llm_service.generate_chat_response(
                 messages=messages,
                 temperature=0.7,
                 max_tokens=1024,
                 stream=True
             )
             
-            # Traiter le stream de réponse
+            # Traiter le stream de réponse de manière asynchrone non-bloquante
             chunks = []
-            if hasattr(response, 'iter_lines'):
-                # Streaming via KoboldCPP/Ollama
-                for line in response.iter_lines():
-                    if line:
-                        try:
-                            import json
-                            data = json.loads(line.decode('utf-8').replace('data: ', ''))
-                            if 'choices' in data and len(data['choices']) > 0:
-                                delta = data['choices'][0].get('delta', {})
-                                content = delta.get('content', '')
-                                if content:
-                                    chunks.append(content)
-                        except:
-                            pass
-            else:
-                # Fallback: diviser la réponse complète en chunks
+            try:
+                async for chunk in stream_iterator:
+                    if chunk:
+                        chunks.append(chunk)
+            except Exception as e:
+                logger.error(f"[CHAT] Erreur lors du streaming: {e}")
+                # Fallback: utiliser la méthode non-streaming
                 full_response = await ChatService._generate_ai_response(user_message, db)
                 words = full_response.split()
                 current_chunk = ""

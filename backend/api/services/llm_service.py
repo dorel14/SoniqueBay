@@ -191,6 +191,107 @@ class LLMService:
         
         return {"models": []}
 
+    async def _stream_chat_response(
+        self,
+        messages: List[Dict[str, str]],
+        model_name: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 1024
+    ):
+        """
+        Génère une réponse de chat en streaming via l'API LLM.
+        Yields les chunks de texte au fur et à mesure de leur génération.
+        
+        Args:
+            messages: Liste de messages au format OpenAI
+            model_name: Nom du modèle à utiliser
+            temperature: Température de génération
+            max_tokens: Nombre maximum de tokens
+            
+        Yields:
+            Chunks de texte (str) au fur et à mesure
+        """
+        import json
+        model_name = model_name or self.default_model
+        
+        try:
+            if self.provider_type == 'koboldcpp':
+                # Utiliser l'API OpenAI de KoboldCPP avec streaming
+                url = f"{self.base_url}/v1/chat/completions"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer not-needed"
+                }
+                payload = {
+                    "model": model_name,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True
+                }
+                
+                async with httpx.AsyncClient(timeout=60) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as response:
+                        response.raise_for_status()
+                        
+                        # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
+                        async for line in response.aiter_lines():
+                            if line and line.startswith('data: '):
+                                try:
+                                    data_str = line[6:]  # Enlever 'data: '
+                                    if data_str == '[DONE]':
+                                        break
+                                    data = json.loads(data_str)
+                                    if 'choices' in data and len(data['choices']) > 0:
+                                        delta = data['choices'][0].get('delta', {})
+                                        content = delta.get('content', '')
+                                        if content:
+                                            yield content
+                                except json.JSONDecodeError:
+                                    continue
+                                except (KeyError, AttributeError):
+                                    continue
+            else:
+                # Ollama - utiliser l'API native avec streaming
+                url = f"{self.base_url}/api/chat"
+                headers = {
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": model_name,
+                    "messages": messages,
+                    "stream": True,
+                    "options": {
+                        "temperature": temperature,
+                        "num_predict": max_tokens
+                    }
+                }
+                
+                async with httpx.AsyncClient(timeout=60) as client:
+                    async with client.stream("POST", url, json=payload, headers=headers) as response:
+                        response.raise_for_status()
+                        
+                        # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
+                        async for line in response.aiter_lines():
+                            if line:
+                                try:
+                                    data = json.loads(line)
+                                    if 'message' in data:
+                                        content = data['message'].get('content', '')
+                                        if content:
+                                            yield content
+                                    # Ollama envoie aussi un champ 'done' à la fin
+                                    if data.get('done', False):
+                                        break
+                                except json.JSONDecodeError:
+                                    continue
+                                except (KeyError, AttributeError):
+                                    continue
+                    
+        except Exception as e:
+            logger.error(f"[LLM] Erreur streaming réponse: {e}")
+            raise
+
     async def generate_chat_response(
         self,
         messages: List[Dict[str, str]],
@@ -198,7 +299,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         stream: bool = False
-    ) -> Dict[str, Any]:
+    ):
         """
         Génère une réponse de chat via l'API LLM.
         
@@ -207,13 +308,24 @@ class LLMService:
             model_name: Nom du modèle à utiliser
             temperature: Température de génération
             max_tokens: Nombre maximum de tokens
-            stream: Si True, retourne un stream
+            stream: Si True, retourne un async iterator pour le streaming
             
         Returns:
-            Réponse du modèle ou stream
+            Dict avec la réponse complète si stream=False,
+            AsyncIterator yieldant des chunks de texte si stream=True
         """
         model_name = model_name or self.default_model
         
+        if stream:
+            # Retourner l'async iterator pour le streaming
+            return self._stream_chat_response(
+                messages=messages,
+                model_name=model_name,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+        
+        # Mode non-streaming : récupérer la réponse complète
         try:
             if self.provider_type == 'koboldcpp':
                 # Utiliser l'API OpenAI de KoboldCPP
@@ -227,22 +339,19 @@ class LLMService:
                     "messages": messages,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
-                    "stream": stream
+                    "stream": False
                 }
                 
                 async with httpx.AsyncClient(timeout=60) as client:
                     response = await client.post(url, json=payload, headers=headers)
                     response.raise_for_status()
                     
-                    if stream:
-                        return response  # Retourne l'objet response pour streaming
-                    else:
-                        data = response.json()
-                        return {
-                            "content": data["choices"][0]["message"]["content"],
-                            "model": data.get("model", model_name),
-                            "usage": data.get("usage", {})
-                        }
+                    data = response.json()
+                    return {
+                        "content": data["choices"][0]["message"]["content"],
+                        "model": data.get("model", model_name),
+                        "usage": data.get("usage", {})
+                    }
             else:
                 # Ollama - utiliser l'API native
                 url = f"{self.base_url}/api/chat"
@@ -252,7 +361,7 @@ class LLMService:
                 payload = {
                     "model": model_name,
                     "messages": messages,
-                    "stream": stream,
+                    "stream": False,
                     "options": {
                         "temperature": temperature,
                         "num_predict": max_tokens
@@ -263,15 +372,12 @@ class LLMService:
                     response = await client.post(url, json=payload, headers=headers)
                     response.raise_for_status()
                     
-                    if stream:
-                        return response
-                    else:
-                        data = response.json()
-                        return {
-                            "content": data["message"]["content"],
-                            "model": data.get("model", model_name),
-                            "usage": {}
-                        }
+                    data = response.json()
+                    return {
+                        "content": data["message"]["content"],
+                        "model": data.get("model", model_name),
+                        "usage": {}
+                    }
                     
         except Exception as e:
             logger.error(f"[LLM] Erreur génération réponse: {e}")
