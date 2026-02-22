@@ -4,7 +4,14 @@ Service d'embeddings local basé sur sentence-transformers.
 
 Rôle:
     Génère des embeddings sémantiques pour les tracks musicales
-    en utilisant le modèle ``all-MiniLM-L6-v2`` de sentence-transformers.
+    en utilisant le modèle ``all-mpnet-base-v2`` de sentence-transformers.
+    Ce modèle produit des vecteurs de 768 dimensions compatibles avec
+    la base de données pgvector (Vector(768)).
+
+    Choix du modèle:
+        - all-mpnet-base-v2 : 768 dimensions, CPU-friendly, standard HuggingFace
+        - all-MiniLM-L6-v2 : 384 dimensions seulement (incompatible avec le schéma DB)
+        - nomic-embed-text  : modèle Ollama, non disponible nativement via sentence-transformers
 
 Dépendances:
     - backend_worker.utils.logging: logger
@@ -36,20 +43,26 @@ class OllamaEmbeddingService:
     """
     Service d'embeddings utilisant sentence-transformers.
 
-    Le modèle **all-MiniLM-L6-v2** est chargé localement via
+    Le modèle **all-mpnet-base-v2** est chargé localement via
     la librairie `sentence-transformers` et produit des vecteurs
-    de 384 dimensions. L'interface reste asynchrone pour
-    faciliter le remplacement dans le reste de l'application.
+    de 768 dimensions compatibles avec le schéma pgvector (Vector(768)).
+
+    Pourquoi all-mpnet-base-v2 ?
+        - Produit exactement 768 dimensions (compatible Vector(768) en DB)
+        - Disponible nativement via sentence-transformers sans configuration spéciale
+        - Optimisé CPU, adapté Raspberry Pi 4
+        - Meilleure qualité sémantique que all-MiniLM-L6-v2
 
     Exemple:
         >>> service = OllamaEmbeddingService()
         >>> embedding = await service.get_embedding("Rock song with heavy guitars")
         >>> len(embedding)
-        384
+        768
     """
 
-    MODEL_NAME = "all-MiniLM-L6-v2"
-    EMBEDDING_DIMENSION = 384
+    # TODO: Sur RPi4, surveiller la mémoire lors du chargement du modèle (~420MB)
+    MODEL_NAME = "all-mpnet-base-v2"
+    EMBEDDING_DIMENSION = 768
     LIBRARY_API_URL = "http://api:8001"
 
     def __init__(self, library_api_url: str = None) -> None:
@@ -75,11 +88,11 @@ class OllamaEmbeddingService:
             text: Texte à vectoriser
 
         Returns:
-            Vecteur de {} dimensions
+            Vecteur de 768 dimensions
 
         Raises:
             OllamaEmbeddingError: Si la génération échoue
-        """.format(self.EMBEDDING_DIMENSION)
+        """
         try:
             emb = await asyncio.to_thread(self.model.encode, text)
             # encoder renvoie un numpy array ou liste; forcer liste

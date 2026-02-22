@@ -5,6 +5,16 @@ import os
 from frontend.pages.components.artists_cards import artist_component
 from frontend.utils.logging import logger
 
+
+def is_client_connected() -> bool:
+    """Check if the current client is still connected."""
+    try:
+        client = ui.context.client
+        return client is not None and hasattr(client, 'has_socket_connection') and client.has_socket_connection
+    except Exception:
+        return False
+
+
 async def get_artists_count_async():
     """Version async de get_artists_count pour éviter le blocage de la boucle."""
     api_url = os.getenv('API_URL', 'http://api:8001')
@@ -34,7 +44,10 @@ async def main():
             ui.label('Pas d\'artistes dans la base de données')
     except Exception as e:
         logger.error(f"DEBUG main: Erreur dans main(): {e}")
-        ui.notify(f"Erreur lors du chargement: {e}", color='negative')
+        if is_client_connected():
+            ui.notify(f"Erreur lors du chargement: {e}", color='negative')
 
-    ui.link('Go to other page', '/other')
-    ui.link('artist detail', '/artist_details?id=97')
+    # Only create links if client is still connected
+    if is_client_connected():
+        ui.link('Go to other page', '/other')
+        ui.link('artist detail', '/artist_details?id=97')

@@ -15,6 +15,15 @@ API_URL = os.getenv('API_URL', 'http://api:8001')
 PUBLIC_API_URL = os.getenv('PUBLIC_API_URL', 'http://localhost:8001')
 
 
+def is_client_connected() -> bool:
+    """Check if the current client is still connected."""
+    try:
+        client = ui.context.client
+        return client is not None and hasattr(client, 'has_socket_connection') and client.has_socket_connection
+    except Exception:
+        return False
+
+
 async def get_page_from_url() -> int:
     client = ui.context.client
     logger.info(f"DEBUG get_page_from_url: client_id={client.id if client else 'None'}, has_socket={client.has_socket_connection if client else 'N/A'}")
@@ -128,63 +137,102 @@ async def artist_component():
             
             logger.info(f"DEBUG: Calculated skip={skip} for page={page}, page_size={state.artists_page_size}")
             
-            spinner.visible = True
-            artists_column.clear()
+            # Check client connection before UI updates
+            if not is_client_connected():
+                logger.warning(f"DEBUG: Client disconnected before starting render for page {page}")
+                return
+            
+            try:
+                spinner.visible = True
+                artists_column.clear()
+            except Exception as e:
+                logger.warning(f"DEBUG: Client disconnected during UI update (spinner/clear): {e}")
+                return
             
             artists_data = await get_artists(skip, state.artists_page_size)
             artists_list = artists_data
             
             logger.info(f"DEBUG: Rendering {len(artists_list)} artists for page={page}")
             
-            with artists_column:
-                with ui.grid(columns='repeat(auto-fill, minmax(200px, 1fr))').classes('gap-4 p-4 w-full justify-center'):
-                    for artist in artists_list:
-                        with ui.card().tight().classes(
-                            'sb-card cursor-pointer hover:scale-105 transition-all duration-200 '
-                            'w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
-                        ).on('click', lambda e, a=artist['id']: on_artist_click(a) ):
-
-                            artist_id = artist['id']
-                            if artist_id in state.covers_cache:
-                                logger.info(f"Cover trouvée dans le cache pour l'artiste {artist_id}")
-                                ui.image(state.covers_cache[artist_id])\
-                                    .classes('aspect-[4/3] w-full object-cover')\
-                                    .props('loading=lazy')
-                            else:
-                                covers= artist.get('covers')
-                                logger.info(f"Données de cover pour l'artiste {artist_id}: {covers}")
-                                if covers and covers[0].get('url'):
-                                    # Utiliser PUBLIC_API_URL pour les URLs accessibles par le navigateur
-                                    cover_url = f"{PUBLIC_API_URL}/api/covers/artist/{artist_id}"
-                                    logger.info(f"Cover trouvée pour l'artiste {artist_id}: {cover_url}")
-                                    state.covers_cache[artist_id] = cover_url
-                                    ui.image(cover_url)\
-                                                .classes('aspect-[4/3] w-full object-cover')\
-                                                .props('loading=lazy')
-                                else:
-                                        logger.warning(f"cover_data est vide pour l'artiste {artist_id}")
-                                        ui.image(sonique_bay_logo)\
-                                            .classes('aspect-[4/3] w-full object-cover')\
-                                            .props('loading=lazy')\
-                                            .tooltip("Aucun cover disponible")
-                            with ui.card_section().classes(
-                                'sb-card flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'):
-                                label = ui.label(artist['name']).classes(
-                                    'text-sm text-white font-semibold w-full mb-2 line-clamp-1 overflow-hidden text-ellipsis break-words leading-tight'
-                                )
-                                ui.tooltip(artist['name']).props('anchor="bottom middle" self="top middle" transition-show="fade" transition-hide="fade"').classes(
-                                    'bg-gray-800 text-white text-xs p-2 rounded-lg shadow-md max-w-[220px]').bind_text_from(label)
-                                with ui.row().classes('left-0 gap-3 w-full'):
-                                    ui.icon('play_circle_outline').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
-                                    ui.icon('o_favorite_border').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
+            # Check client connection after async operation
+            if not is_client_connected():
+                logger.warning(f"DEBUG: Client disconnected after fetching artists for page {page}")
+                return
             
-            spinner.visible = False
-            ui.run_javascript(f'window.history.replaceState(null, "", "?page={state.artists_page}")')
-            pagination_section.refresh()
-            state.last_rendered_page = page
+            try:
+                with artists_column:
+                    with ui.grid(columns='repeat(auto-fill, minmax(200px, 1fr))').classes('gap-4 p-4 w-full justify-center'):
+                        for artist in artists_list:
+                            # Check client connection periodically during rendering
+                            if not is_client_connected():
+                                logger.warning(f"DEBUG: Client disconnected during artist card rendering")
+                                break
+                            
+                            with ui.card().tight().classes(
+                                'sb-card cursor-pointer hover:scale-105 transition-all duration-200 '
+                                'w-[200px] h-[260px] flex flex-col overflow-hidden shadow-md rounded-xl'
+                            ).on('click', lambda e, a=artist['id']: on_artist_click(a) ):
+
+                                artist_id = artist['id']
+                                if artist_id in state.covers_cache:
+                                    logger.info(f"Cover trouvée dans le cache pour l'artiste {artist_id}")
+                                    ui.image(state.covers_cache[artist_id])\
+                                        .classes('aspect-[4/3] w-full object-cover')\
+                                        .props('loading=lazy')
+                                else:
+                                    covers= artist.get('covers')
+                                    logger.info(f"Données de cover pour l'artiste {artist_id}: {covers}")
+                                    if covers and covers[0].get('url'):
+                                        # Utiliser PUBLIC_API_URL pour les URLs accessibles par le navigateur
+                                        cover_url = f"{PUBLIC_API_URL}/api/covers/artist/{artist_id}"
+                                        logger.info(f"Cover trouvée pour l'artiste {artist_id}: {cover_url}")
+                                        state.covers_cache[artist_id] = cover_url
+                                        ui.image(cover_url)\
+                                                    .classes('aspect-[4/3] w-full object-cover')\
+                                                    .props('loading=lazy')
+                                    else:
+                                            logger.warning(f"cover_data est vide pour l'artiste {artist_id}")
+                                            ui.image(sonique_bay_logo)\
+                                                .classes('aspect-[4/3] w-full object-cover')\
+                                                .props('loading=lazy')\
+                                                .tooltip("Aucun cover disponible")
+                                with ui.card_section().classes(
+                                    'sb-card flex flex-col items-center justify-between h-[90px] p-2 bg-gray-50 dark:bg-gray-800 text-center'):
+                                    label = ui.label(artist['name']).classes(
+                                        'text-sm text-white font-semibold w-full mb-2 line-clamp-1 overflow-hidden text-ellipsis break-words leading-tight'
+                                    )
+                                    ui.tooltip(artist['name']).props('anchor="bottom middle" self="top middle" transition-show="fade" transition-hide="fade"').classes(
+                                        'bg-gray-800 text-white text-xs p-2 rounded-lg shadow-md max-w-[220px]').bind_text_from(label)
+                                    with ui.row().classes('left-0 gap-3 w-full'):
+                                        ui.icon('play_circle_outline').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
+                                        ui.icon('o_favorite_border').classes('text-xl cursor-pointer text-gray-500 hover:text-bg-gray-900')
+                
+                spinner.visible = False
+                
+                # Check client connection before JavaScript call
+                if is_client_connected():
+                    try:
+                        ui.run_javascript(f'window.history.replaceState(null, "", "?page={state.artists_page}")')
+                    except Exception as e:
+                        logger.warning(f"DEBUG: Failed to update URL history (client likely disconnected): {e}")
+                
+                # Check client connection before pagination refresh
+                if is_client_connected():
+                    try:
+                        pagination_section.refresh()
+                    except Exception as e:
+                        logger.warning(f"DEBUG: Failed to refresh pagination (client likely disconnected): {e}")
+                
+                state.last_rendered_page = page
+            except Exception as e:
+                logger.warning(f"DEBUG: Client disconnected during artist view rendering: {e}")
+                return
         
         async def go_to_page(n: int):
             logger.info(f"DEBUG: go_to_page called with n={n}")
+            if not is_client_connected():
+                logger.warning(f"DEBUG: Client disconnected, skipping go_to_page({n})")
+                return
             await artist_view(n)
         
         @ui.refreshable
@@ -210,10 +258,17 @@ async def artist_component():
         
         async def update_artists_page_size_action(value: int, column, pagination_func):
             logger.info(f"DEBUG: update_artists_page_size_action appelé avec value={value}")
+            if not is_client_connected():
+                logger.warning(f"DEBUG: Client disconnected, skipping update_artists_page_size_action")
+                return
             update_artists_page_size(value)
             state.last_rendered_page = None
             await artist_view(state.artists_page)
-            pagination_func.refresh()
+            if is_client_connected():
+                try:
+                    pagination_func.refresh()
+                except Exception as e:
+                    logger.warning(f"DEBUG: Failed to refresh pagination after page size change: {e}")
         
         # Initialisation de la pagination
         pagination_section()
@@ -221,4 +276,9 @@ async def artist_component():
         # Lancer la page initiale depuis l'URL ou page 1 par défaut
         initial_page = await get_page_from_url()
         logger.info(f"artist_component: initial_page={initial_page}")
-        await artist_view(initial_page)
+        
+        # Check client connection before rendering initial page
+        if is_client_connected():
+            await artist_view(initial_page)
+        else:
+            logger.warning(f"DEBUG: Client disconnected before initial page render")

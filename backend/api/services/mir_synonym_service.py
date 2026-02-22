@@ -446,10 +446,10 @@ class MIRSynonymService:
         self, text: str
     ) -> Optional[list[float]]:
         """
-        Génère un embedding via Ollama (placeholder).
+        Génère un embedding via le backend_worker.
 
-        Note: Dans une implémentation complète, cela appellerait Ollama
-        pour générer l'embedding sémantique.
+        Cette méthode appelle l'API du backend_worker pour générer
+        l'embedding sémantique en utilisant le modèle nomic-embed-text.
 
         Args:
             text: Texte à vectoriser
@@ -458,17 +458,43 @@ class MIRSynonymService:
             Vecteur d'embedding ou None si échec
         """
         try:
-            # Placeholder: génération d'un vecteur factice pour le développement
-            # À remplacer par un appel Ollama en production
-            import numpy as np
+            import httpx
+            import os
 
-            # Générer un vecteur aléatoire de 768 dimensions
-            # NOTE: Remplacer par: await ollama_client.embed(text)
-            embedding = np.random.randn(768).tolist()
+            # URL du backend_worker (port 8003 par défaut)
+            worker_url = os.getenv(
+                'BACKEND_WORKER_URL',
+                'http://backend_worker:8003'
+            )
 
-            logger.debug(f"[MIR_SYNONYM] Embedding généré ({len(embedding)} dim)")
-            return embedding
+            # Appeler l'API d'embedding du worker
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{worker_url}/api/vectorization/embed",
+                    json={"text": text}
+                )
 
+                if response.status_code == 200:
+                    data = response.json()
+                    embedding = data.get("embedding")
+                    model = data.get("model", "unknown")
+                    dimensions = data.get("dimensions", 0)
+
+                    logger.debug(
+                        f"[MIR_SYNONYM] Embedding généré via worker "
+                        f"({dimensions} dim, modèle: {model})"
+                    )
+                    return embedding
+                else:
+                    logger.error(
+                        f"[MIR_SYNONYM] Erreur worker API: {response.status_code} - "
+                        f"{response.text}"
+                    )
+                    return None
+
+        except httpx.TimeoutException:
+            logger.error("[MIR_SYNONYM] Timeout lors de l'appel au worker")
+            return None
         except Exception as e:
             logger.error(f"[MIR_SYNONYM] Erreur génération embedding: {e}")
             return None
