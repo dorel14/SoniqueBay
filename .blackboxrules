@@ -58,6 +58,8 @@ Quand Blackbox génère/modifie du code pour ce repo :
 - Règle #7 : les tests doivent intégrés dans le dossier test
 - Règle #8 : les plans et TODO doivent être créés dans le dossier docs/plans 
 - Règle #9 : Chaque corrections fait l'objet d'un commit selon le format 'Conventional Commits'
+- Règle #10 : le développement se faisant sous windows ,  interdiction d'utiliser des commandes linux ,  uniquement powershell 
+
 
 ------------------------------------------------------------
 CONSIGNES POUR LES APPELS LLM (KoboldCpp)

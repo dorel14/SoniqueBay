@@ -167,6 +167,8 @@ services:
             - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
+            - PYTHONUNBUFFERED=1
+            - PYTHONDONTWRITEBYTECODE=1
         depends_on:
             api-service:
                 condition: service_healthy
