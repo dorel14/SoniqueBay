@@ -1,10 +1,10 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, Boolean
+from sqlalchemy import String, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
-from datetime import datetime, timezone
-from backend.api.utils.database import Base
+from backend.api.utils.database import Base, TimestampMixin
 
-class Setting(Base):
+
+class Setting(TimestampMixin, Base):
     __tablename__ = 'settings'
     __table_args__ = {'extend_existing': True}
 
@@ -13,5 +13,3 @@ class Setting(Base):
     value: Mapped[str] = mapped_column(String, nullable=True)  # Valeur cryptée
     is_encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
     description: Mapped[str] = mapped_column(String, nullable=True)
-    date_added: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
-    date_modified: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -19,6 +19,7 @@ data/
 *.sqlite3
 *.log*
 *.db
+*.gguf*
 codeflash*
 search_indexes/
 search_index/
@@ -32,6 +33,7 @@ _old/
 ollama/*.pub*
 ollama/models/
 .kilocode/*
+llm-service/models/
 
 # Database files
 *.db
@@ -56,3 +58,4 @@ celerybeat-schedule.db
 
 # Logs
 tests/backend/logs.log
+.opencode
