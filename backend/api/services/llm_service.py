@@ -39,6 +39,9 @@ class LLMService:
         self.base_url = os.getenv('LLM_BASE_URL', None)
         self.default_model = os.getenv('AGENT_MODEL', 'Qwen/Qwen3-4B-Instruct:Q3_K_M')
         self._initialized = False
+        # TODO(dev): En Docker, KOBOLDCPP_BASE_URL doit pointer vers le service Docker
+        # (ex: http://llm-service:5001) et non vers localhost.
+        # En développement local, http://localhost:11434 est correct.
         
         # Auto-détection du fournisseur si nécessaire (sauf en mode lazy)
         if self.provider_type == 'auto' and not lazy_init:
@@ -50,7 +53,9 @@ class LLMService:
             if self.provider_type == 'ollama':
                 self.base_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
             elif self.provider_type == 'koboldcpp':
-                self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
+                # Défaut Docker : http://llm-service:5001 (nom du service Docker Compose)
+                # Défaut local  : http://localhost:11434
+                self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://llm-service:5001')
         
         if self._initialized:
             logger.info(f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}")
@@ -71,19 +76,29 @@ class LLMService:
             if self.provider_type == 'ollama':
                 self.base_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
             elif self.provider_type == 'koboldcpp':
-                self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
+                # Défaut Docker : http://llm-service:5001 (nom du service Docker Compose)
+                # Défaut local  : http://localhost:11434
+                self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://llm-service:5001')
         
         self._initialized = True
-        logger.info(f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}")
+        logger.info(
+            f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}. "
+            "Si une erreur de connexion survient, vérifiez que KOBOLDCPP_BASE_URL "
+            "pointe vers le bon service (ex: http://llm-service:5001 en Docker)."
+        )
 
     def _auto_detect_provider(self):
         """
         Auto-détecte le fournisseur LLM disponible.
         Essaie d'abord KoboldCPP, puis Ollama.
+
+        Note: En contexte Docker, les URLs doivent utiliser les noms de services
+        (ex: http://llm-service:5001) et non localhost.
         """
         # Essayer KoboldCPP
+        # Défaut Docker : http://llm-service:5001
+        kobold_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://llm-service:5001')
         try:
-            kobold_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
             response = httpx.get(f"{kobold_url}/v1/models", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'koboldcpp'
@@ -91,8 +106,11 @@ class LLMService:
                 logger.info(f"[LLM] KoboldCPP détecté à {kobold_url}")
                 return
         except Exception as e:
-            logger.debug(f"[LLM] KoboldCPP non détecté: {e}")
-        
+            logger.debug(
+                f"[LLM] KoboldCPP non détecté à {kobold_url}: {e}. "
+                "Vérifiez que KOBOLDCPP_BASE_URL est correct (Docker: http://llm-service:5001)."
+            )
+
         # Essayer Ollama
         try:
             ollama_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
@@ -104,11 +122,16 @@ class LLMService:
                 return
         except Exception as e:
             logger.debug(f"[LLM] Ollama non détecté: {e}")
-        
+
         # Fallback sur KoboldCPP (par défaut pour l'utilisateur)
-        logger.warning("[LLM] Aucun fournisseur LLM détecté, fallback sur KoboldCPP")
+        logger.warning(
+            "[LLM] Aucun fournisseur LLM détecté automatiquement. "
+            "Fallback sur KoboldCPP. "
+            "Assurez-vous que KOBOLDCPP_BASE_URL est défini correctement "
+            "(Docker: http://llm-service:5001, local: http://localhost:11434)."
+        )
         self.provider_type = 'koboldcpp'
-        self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
+        self.base_url = kobold_url
 
     def get_model(
         self,
@@ -132,23 +155,22 @@ class LLMService:
         model_name = model_name or self.default_model
         
         if self.provider_type == 'koboldcpp':
-            # KoboldCPP utilise l'API OpenAI
+            # KoboldCPP utilise l'API OpenAI-compatible
+            # En Docker : base_url = http://llm-service:5001/v1
+            # En local  : base_url = http://localhost:11434/v1
             provider = OpenAIProvider(
                 api_key="not-needed",  # KoboldCPP n'utilise pas d'API key
                 base_url=f"{self.base_url}/v1"  # Endpoint OpenAI compatible
             )
-            logger.debug(f"[LLM] Utilisation de KoboldCPP avec {model_name}")
+            logger.debug(f"[LLM] Utilisation de KoboldCPP avec modèle={model_name} url={self.base_url}/v1")
         else:
             # Ollama par défaut
             provider = OllamaProvider(base_url=self.base_url)
-            logger.debug(f"[LLM] Utilisation d'Ollama avec {model_name}")
+            logger.debug(f"[LLM] Utilisation d'Ollama avec modèle={model_name} url={self.base_url}")
         
         return OpenAIChatModel(
             model_name=model_name,
-            provider=provider,
-            max_context_length=num_ctx,
-            temperature=temperature,
-            top_p=top_p
+            provider=provider
         )
 
     def get_model_list(self) -> Dict[str, Any]:

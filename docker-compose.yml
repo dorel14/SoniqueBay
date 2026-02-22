@@ -112,7 +112,7 @@ services:
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - REDIS_URL=redis://redis:6379/0
             - LLM_PROVIDER=koboldcpp #ollama
-            - KOBOLDCPP_BASE_URL=http://localhost:11434
+            - KOBOLDCPP_BASE_URL=http://llm-service:5001
             - AGENT_MODEL=Qwen/Qwen3-4B-Instruct:Q3_K_M
             - HEALTHCHECK_PORT=8001
             - PLATFORM=${PLATFORM:-windows}
@@ -126,6 +126,8 @@ services:
                 condition: service_started
             db:
                 condition: service_healthy
+            llm-service:
+                condition: service_started
         networks:
             default:
                 aliases:
@@ -297,6 +299,17 @@ services:
             - ./llm-service/models:/workspace
         ports:
             - "11434:5001"
+        networks:
+            default:
+                aliases:
+                    - llm-service
+        healthcheck:
+            # KoboldCpp expose /api/v1/info sur le port 5001
+            test: ["CMD-SHELL", "curl -sf http://localhost:5001/api/v1/info || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 120s
 
     celery-insights:
         image: ghcr.io/danyi1212/celery-insights:latest
