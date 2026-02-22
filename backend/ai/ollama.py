@@ -4,10 +4,10 @@ Module Ollama - Fournit l'accès aux modèles LLM via le service unifié.
 Supporte Ollama et KoboldCPP.
 """
 import os
-from backend.api.services.llm_service import LLMService
+from backend.api.services.llm_service import get_llm_service_sync
 
-# Initialiser le service LLM une seule fois
-llm_service = LLMService()
+# Initialiser le service LLM avec lazy initialization
+llm_service = get_llm_service_sync()
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")  # docker-compose
 DEFAULT_OLLAMA_MODEL = os.getenv("AGENT_MODEL", "Qwen/Qwen3-4B-Instruct:Q3_K_M")
