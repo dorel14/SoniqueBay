@@ -17,23 +17,40 @@ class GenreService:
         self.session = db
 
     async def search_genres(
-        self, name: Optional[str] = None, skip: int = 0, limit: Optional[int] = None
+        self, name: Optional[str] = None, skip: int = 0, limit: Optional[int] = None,
+        exact_match: bool = False
     ) -> List[dict]:
         if name:
-            sql = text("""
-                SELECT id, name, date_added, date_modified
-                FROM genres
-                WHERE LOWER(name) LIKE :name_pattern
-                LIMIT :limit OFFSET :skip
-            """)
-            result = await self.session.execute(
-                sql,
-                {
-                    "name_pattern": f"%{name.lower()}%",
-                    "limit": limit if limit is not None else 1000,
-                    "skip": skip,
-                },
-            )
+            if exact_match:
+                sql = text("""
+                    SELECT id, name, date_added, date_modified
+                    FROM genres
+                    WHERE LOWER(name) = :name_pattern
+                    LIMIT :limit OFFSET :skip
+                """)
+                result = await self.session.execute(
+                    sql,
+                    {
+                        "name_pattern": name.lower(),
+                        "limit": limit if limit is not None else 1000,
+                        "skip": skip,
+                    },
+                )
+            else:
+                sql = text("""
+                    SELECT id, name, date_added, date_modified
+                    FROM genres
+                    WHERE LOWER(name) LIKE :name_pattern
+                    LIMIT :limit OFFSET :skip
+                """)
+                result = await self.session.execute(
+                    sql,
+                    {
+                        "name_pattern": f"%{name.lower()}%",
+                        "limit": limit if limit is not None else 1000,
+                        "skip": skip,
+                    },
+                )
         else:
             sql = text(
                 "SELECT id, name, date_added, date_modified FROM genres LIMIT :limit OFFSET :skip"

@@ -22,7 +22,7 @@ from backend.api.utils.locked_session import LockedSession
 from alembic.config import Config
 from alembic import command
 from fastapi_cache import FastAPICache
-from fastapi_cache.backends.redis import RedisBackend
+from backend.api.utils.redis_cache_backend import ResilientRedisBackend
 
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
@@ -69,11 +69,16 @@ async def lifespan(app: FastAPI):
     logger.info("Démarrage de l'API unifiée SoniqueBay...")
     await SettingsService().initialize_default_settings()
 
-    # Initialiser le cache Redis
+    # Initialiser le cache Redis avec backend résilient
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
     redis_client = redis.from_url(redis_url)
-    FastAPICache.init(RedisBackend(redis_client), prefix="fastapi-cache")
-    logger.info(f"Cache Redis initialisé avec URL: {redis_url}")
+    resilient_backend = ResilientRedisBackend(
+        redis=redis_client,
+        max_retries=3,
+        retry_delay=1.0
+    )
+    FastAPICache.init(resilient_backend, prefix="fastapi-cache")
+    logger.info(f"Cache Redis résilient initialisé avec URL: {redis_url} (max_retries=3, retry_delay=1.0s)")
 
     # Exécuter les migrations Alembic automatiquement de manière bloquante
     try:
