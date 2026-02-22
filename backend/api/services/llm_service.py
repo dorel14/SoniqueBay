@@ -7,11 +7,17 @@ Auteur: SoniqueBay Team
 """
 import os
 import httpx
+import asyncio
 from typing import Optional, Dict, Any, List
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.ollama import OllamaProvider
 from backend.api.utils.logging import logger
+
+
+# Singleton instance storage
+_llm_service_instance: Optional['LLMService'] = None
+_llm_service_lock = asyncio.Lock()
 
 
 class LLMService:
@@ -20,19 +26,43 @@ class LLMService:
     Fournit une interface commune pour les différents fournisseurs de LLM.
     """
 
-    def __init__(self, provider_type: str = None):
+    def __init__(self, provider_type: str = None, lazy_init: bool = False):
         """
         Initialise le service LLM avec le fournisseur spécifié.
         
         Args:
             provider_type: Type de fournisseur ('ollama', 'koboldcpp', ou None pour auto-détection)
+            lazy_init: Si True, diffère la détection du fournisseur à la première utilisation
         """
         # Configuration par défaut
         self.provider_type = provider_type or os.getenv('LLM_PROVIDER', 'auto')
         self.base_url = os.getenv('LLM_BASE_URL', None)
         self.default_model = os.getenv('AGENT_MODEL', 'Qwen/Qwen3-4B-Instruct:Q3_K_M')
+        self._initialized = False
         
-        # Auto-détection du fournisseur si nécessaire
+        # Auto-détection du fournisseur si nécessaire (sauf en mode lazy)
+        if self.provider_type == 'auto' and not lazy_init:
+            self._auto_detect_provider()
+            self._initialized = True
+        
+        # Configuration des URLs par défaut selon le fournisseur (si déjà connu)
+        if not self.base_url and self.provider_type != 'auto':
+            if self.provider_type == 'ollama':
+                self.base_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
+            elif self.provider_type == 'koboldcpp':
+                self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
+        
+        if self._initialized:
+            logger.info(f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}")
+
+    def initialize(self):
+        """
+        Détecte explicitement le fournisseur et configure le service.
+        À appeler avant la première utilisation si lazy_init=True.
+        """
+        if self._initialized:
+            return
+        
         if self.provider_type == 'auto':
             self._auto_detect_provider()
         
@@ -43,6 +73,7 @@ class LLMService:
             elif self.provider_type == 'koboldcpp':
                 self.base_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://localhost:11434')
         
+        self._initialized = True
         logger.info(f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}")
 
     def _auto_detect_provider(self):
@@ -282,5 +313,48 @@ class LLMService:
             }
 
 
-# Instance globale du service LLM
-llm_service = LLMService()
+async def get_llm_service() -> LLMService:
+    """
+    Récupère l'instance singleton du service LLM avec lazy initialization.
+    
+    Cette fonction garantit que:
+    1. L'import du module ne déclenche pas d'appels HTTP bloquants
+    2. La détection du fournisseur est faite au premier appel
+    3. L'instance est réutilisée pour les appels suivants (thread-safe)
+    
+    Returns:
+        LLMService: Instance initialisée du service LLM
+    """
+    global _llm_service_instance
+    
+    if _llm_service_instance is None:
+        async with _llm_service_lock:
+            # Double-check pattern pour éviter les race conditions
+            if _llm_service_instance is None:
+                _llm_service_instance = LLMService(lazy_init=True)
+                _llm_service_instance.initialize()
+    
+    return _llm_service_instance
+
+
+def get_llm_service_sync() -> LLMService:
+    """
+    Version synchrone pour les contextes non-async (ex: imports au niveau module).
+    Crée une instance avec lazy_init=True sans l'initialiser.
+    L'initialisation sera faite lors du premier appel effectif.
+    
+    Returns:
+        LLMService: Instance du service LLM (non initialisée jusqu'au premier usage)
+    """
+    global _llm_service_instance
+    
+    if _llm_service_instance is None:
+        _llm_service_instance = LLMService(lazy_init=True)
+        # Note: L'initialisation est différée. Pour un usage immédiat, appeler initialize()
+    
+    return _llm_service_instance
+
+
+# Pour compatibilité ascendante - sera supprimé après migration complète
+# Déprécié: Utiliser get_llm_service() ou get_llm_service_sync() à la place
+llm_service = get_llm_service_sync()
