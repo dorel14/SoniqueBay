@@ -1,5 +1,5 @@
 import os
-from backend.api.services.llm_service import LLMService
+from backend.api.services.llm_service import get_llm_service_sync
 
 
 class OllamaService:
@@ -11,8 +11,8 @@ class OllamaService:
     def __init__(self, url: str = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')):
         self.model_list = []
         self.url = url
-        # Utilise le service LLM unifié avec auto-détection
-        self.llm_service = LLMService()
+        # Utilise le service LLM unifié avec lazy initialization
+        self.llm_service = get_llm_service_sync()
 
     def get_model_list(self):
         """

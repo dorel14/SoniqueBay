@@ -21,6 +21,8 @@ class AgentMessageType(str, Enum):
     TOOL_RESULT = "tool_result"
     CLARIFICATION = "clarification"
     REFUSAL = "refusal"
+    FINAL = "final"
+    ERROR = "error"
 
 
 class AgentState(str, Enum):
@@ -30,6 +32,7 @@ class AgentState(str, Enum):
     CLARIFYING = "clarifying"
     DONE = "done"
     REFUSED = "refused"
+    ERROR = "error"
 
 
 class AgentToolCall(BaseModel):
