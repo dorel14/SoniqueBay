@@ -4,7 +4,9 @@ Router pour l'API de vectorisation - Communication HTTP avec recommender_api
 
 from fastapi import APIRouter, HTTPException, status
 from typing import Dict, Any, List
+
 from backend_worker.utils.logging import logger
+from backend_worker.api.schemas import EmbeddingRequest, EmbeddingResponse
 
 router = APIRouter(prefix="/api/vectorization", tags=["vectorization"])
 
@@ -150,12 +152,14 @@ async def get_vectorization_status():
         status_info = {
             "worker_status": "active",
             "queue_status": "operational",
-            "embedding_model": "all-MiniLM-L6-v2",
+            "embedding_model": "all-mpnet-base-v2",
+            "embedding_dimensions": 768,
             "supported_operations": [
                 "batch_vectorization",
                 "single_vectorization",
                 "vectorizer_training",
-                "similarity_search"
+                "similarity_search",
+                "text_embedding"
             ]
         }
 
@@ -164,3 +168,54 @@ async def get_vectorization_status():
     except Exception as e:
         logger.error(f"[VECTOR_API] Erreur récupération statut: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+
+
+@router.post("/embed", response_model=EmbeddingResponse)
+async def generate_embedding(request: EmbeddingRequest):
+    """
+    Génère un embedding sémantique pour un texte donné.
+
+    Utilise le modèle all-mpnet-base-v2 via sentence-transformers
+    pour générer des vecteurs de 768 dimensions compatibles pgvector.
+
+    Args:
+        request: Requête contenant le texte à vectoriser
+
+    Returns:
+        EmbeddingResponse avec le vecteur généré
+
+    Raises:
+        HTTPException: Si la génération échoue
+    """
+    try:
+        from backend_worker.services.ollama_embedding_service import (
+            OllamaEmbeddingService,
+            OllamaEmbeddingError
+        )
+
+        logger.info(f"[VECTOR_API] Génération embedding pour texte: {request.text[:50]}...")
+
+        # Utiliser le service d'embeddings
+        service = OllamaEmbeddingService()
+        embedding = await service.get_embedding(request.text)
+
+        logger.info(f"[VECTOR_API] Embedding généré: {len(embedding)} dimensions")
+
+        return EmbeddingResponse(
+            embedding=embedding,
+            model=OllamaEmbeddingService.MODEL_NAME,
+            dimensions=len(embedding)
+        )
+
+    except OllamaEmbeddingError as e:
+        logger.error(f"[VECTOR_API] Erreur génération embedding: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Service d'embeddings indisponible: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"[VECTOR_API] Erreur inattendue: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur interne: {str(e)}"
+        )

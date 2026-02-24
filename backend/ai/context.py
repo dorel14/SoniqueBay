@@ -14,3 +14,11 @@ class ConversationContext:
             "agent": agent,
             "content": msg
         })
+
+    def export(self):
+        """Exporte le contexte de conversation pour utilisation par les agents."""
+        return {
+            "messages": self.messages,
+            "last_intent": self.last_intent,
+            "mood": self.mood
+        }

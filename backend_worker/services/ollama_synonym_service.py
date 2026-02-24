@@ -6,7 +6,7 @@ Rôle:
     Génère des termes de recherche, tags liés et contextes d'usage
     pour les tags musicaux (genres, moods) en utilisant le modèle
     défini dans le conteneur `llm-service` (par défaut llama3.2:1b).
-    Utilise également un service d'embeddings local (all-MiniLM-L6-v2).
+    Utilise également un service d'embeddings local (all-mpnet-base-v2, 768D).
 
 Dépendances:
     - backend_worker.utils.logging: logger
@@ -46,13 +46,13 @@ class OllamaSynonymService:
     Exemple:
         >>> service = OllamaSynonymService()
         >>> result = await service.generate_synonyms("Rock", "genre")
-        >>> result["search_terms"]
+        >> result["search_terms"]
         ['rock', 'rock music', 'rock and roll', ...]
     """
 
     # Modèles
     TEXT_MODEL = "llama3.2:1b"  # Modèle léger pour RPi4
-    EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+    EMBEDDING_MODEL = "all-mpnet-base-v2"  # 768 dimensions via sentence-transformers (compatible pgvector)
 
     # Configuration
     # ancien nom conservé pour compatibilité environnementale
@@ -172,7 +172,7 @@ Format JSON uniquement, pas de markdown.
             text: Texte à vectoriser
 
         Returns:
-            Vecteur de 384 dimensions
+            Vecteur de 768 dimensions
 
         Raises:
             OllamaEmbeddingError: Si la génération échoue

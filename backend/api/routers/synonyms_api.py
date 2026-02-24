@@ -45,55 +45,6 @@ router = APIRouter(prefix="/api/synonyms", tags=["Synonyms"])
 
 
 @router.get(
-    "/{tag_type}/{tag_value}",
-    response_model=SynonymResponse,
-    summary="Récupérer les synonyms d'un tag",
-    description="Retourne les synonyms dynamiques pour un tag spécifique.",
-)
-async def get_synonyms(
-    tag_type: str,
-    tag_value: str,
-    db: AsyncSession = Depends(get_async_session),
-) -> SynonymResponse:
-    """
-    Récupère les synonyms pour un tag (genre ou mood).
-
-    Args:
-        tag_type: Type de tag ('genre' ou 'mood')
-        tag_value: Valeur du tag
-        db: Session de base de données
-
-    Returns:
-        Les synonyms associés au tag
-
-    Raises:
-        HTTPException: Si le tag n'est pas trouvé
-    """
-    try:
-        logger.info(f"[SYNONYMS] GET {tag_type}/{tag_value}")
-
-        service = MIRSynonymService(db)
-        synonym = await service.get_synonyms(tag_type, tag_value)
-
-        if not synonym:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Aucun synonym trouvé pour {tag_type}:{tag_value}",
-            )
-
-        return SynonymResponse(**synonym)
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"[SYNONYMS] Erreur GET {tag_type}/{tag_value}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erreur lors de la récupération des synonyms: {str(e)}",
-        )
-
-
-@router.get(
     "/search",
     response_model=SearchResponse,
     summary="Rechercher des synonyms",
@@ -166,6 +117,55 @@ async def search_synonyms(
         raise HTTPException(
             status_code=500,
             detail=f"Erreur lors de la recherche: {str(e)}",
+        )
+
+
+@router.get(
+    "/{tag_type}/{tag_value}",
+    response_model=SynonymResponse,
+    summary="Récupérer les synonyms d'un tag",
+    description="Retourne les synonyms dynamiques pour un tag spécifique.",
+)
+async def get_synonyms(
+    tag_type: str,
+    tag_value: str,
+    db: AsyncSession = Depends(get_async_session),
+) -> SynonymResponse:
+    """
+    Récupère les synonyms pour un tag (genre ou mood).
+
+    Args:
+        tag_type: Type de tag ('genre' ou 'mood')
+        tag_value: Valeur du tag
+        db: Session de base de données
+
+    Returns:
+        Les synonyms associés au tag
+
+    Raises:
+        HTTPException: Si le tag n'est pas trouvé
+    """
+    try:
+        logger.info(f"[SYNONYMS] GET {tag_type}/{tag_value}")
+
+        service = MIRSynonymService(db)
+        synonym = await service.get_synonyms(tag_type, tag_value)
+
+        if not synonym:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Aucun synonym trouvé pour {tag_type}:{tag_value}",
+            )
+
+        return SynonymResponse(**synonym)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[SYNONYMS] Erreur GET {tag_type}/{tag_value}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération des synonyms: {str(e)}",
         )
 
 
