@@ -117,9 +117,7 @@ class TrackService:
             track_artist_id=data.track_artist_id,
             album_id=data.album_id,
             genre=data.genre,
-            bpm=data.bpm,
-            key=data.key,
-            scale=data.scale,
+            # Note: bpm, key, scale, danceability, mood_*, etc. sont dans TrackAudioFeatures
             duration=data.duration,
             track_number=data.track_number,
             disc_number=data.disc_number,
@@ -127,11 +125,37 @@ class TrackService:
             year=data.year,
             featured_artists=data.featured_artists,
             file_type=data.file_type,
-            bitrate=data.bitrate
+            bitrate=data.bitrate,
         )
         self.session.add(track)
         await self.session.commit()
         await self.session.refresh(track)
+
+        # Créer les caractéristiques audio dans TrackAudioFeatures si des données sont fournies
+        _audio_fields = [
+            'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
+            'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
+            'camelot_key', 'genre_main',
+        ]
+        if any(getattr(data, f, None) is not None for f in _audio_fields):
+            await self.audio_features_service.create_or_update(
+                track_id=track.id,
+                bpm=getattr(data, 'bpm', None),
+                key=getattr(data, 'key', None),
+                scale=getattr(data, 'scale', None),
+                danceability=getattr(data, 'danceability', None),
+                mood_happy=getattr(data, 'mood_happy', None),
+                mood_aggressive=getattr(data, 'mood_aggressive', None),
+                mood_party=getattr(data, 'mood_party', None),
+                mood_relaxed=getattr(data, 'mood_relaxed', None),
+                instrumental=getattr(data, 'instrumental', None),
+                acoustic=getattr(data, 'acoustic', None),
+                tonal=getattr(data, 'tonal', None),
+                camelot_key=getattr(data, 'camelot_key', None),
+                genre_main=getattr(data, 'genre_main', None),
+                analysis_source='tags',
+            )
+
         return track
 
     async def create_or_update_tracks_batch(self, tracks_data: List[TrackCreate]):
@@ -268,16 +292,14 @@ class TrackService:
                     logger.warning(f"[TRACK_BATCH] Track déjà existante ignorée: {data.title} (ID: {existing.id})")
                     continue
                     
-                # Créer la nouvelle track
+                # Créer la nouvelle track (sans les champs audio → TrackAudioFeatures)
                 track = TrackModel(
                     title=data.title,
                     path=data.path,
                     track_artist_id=data.track_artist_id,
                     album_id=data.album_id,
                     genre=data.genre,
-                    bpm=data.bpm,
-                    key=data.key,
-                    scale=data.scale,
+                    # Note: bpm, key, scale, danceability, mood_*, etc. → TrackAudioFeatures
                     duration=data.duration,
                     track_number=data.track_number,
                     disc_number=data.disc_number,
@@ -286,18 +308,8 @@ class TrackService:
                     featured_artists=data.featured_artists,
                     file_type=data.file_type,
                     bitrate=data.bitrate,
-                    file_mtime=data.file_mtime,
-                    file_size=data.file_size,
-                    # Caractéristiques audio
-                    danceability=data.danceability,
-                    mood_happy=data.mood_happy,
-                    mood_aggressive=data.mood_aggressive,
-                    mood_party=data.mood_party,
-                    mood_relaxed=data.mood_relaxed,
-                    instrumental=data.instrumental,
-                    acoustic=data.acoustic,
-                    tonal=data.tonal,
-                    camelot_key=data.camelot_key
+                    file_mtime=getattr(data, 'file_mtime', None),
+                    file_size=getattr(data, 'file_size', None),
                 )
                 tracks_to_insert.append(track)
                 
@@ -364,7 +376,45 @@ class TrackService:
             # Refresh pour récupérer les IDs générés
             for track in tracks_to_insert:
                 await self.session.refresh(track)
-            
+
+            # Créer les caractéristiques audio (TrackAudioFeatures) pour chaque track
+            _audio_fields = [
+                'bpm', 'key', 'scale', 'danceability', 'mood_happy', 'mood_aggressive',
+                'mood_party', 'mood_relaxed', 'instrumental', 'acoustic', 'tonal',
+                'camelot_key', 'genre_main',
+            ]
+            for i, track in enumerate(tracks_to_insert):
+                # Récupérer les données source correspondantes (en tenant compte du dédoublonnage)
+                # tracks_to_insert peut être plus court que tracks_data si des doublons ont été ignorés
+                # On utilise l'index seulement si disponible, sinon on skip
+                if i < len(tracks_data):
+                    af_data = tracks_data[i]
+                    if any(getattr(af_data, f, None) is not None for f in _audio_fields):
+                        try:
+                            await self.audio_features_service.create_or_update(
+                                track_id=track.id,
+                                bpm=getattr(af_data, 'bpm', None),
+                                key=getattr(af_data, 'key', None),
+                                scale=getattr(af_data, 'scale', None),
+                                danceability=getattr(af_data, 'danceability', None),
+                                mood_happy=getattr(af_data, 'mood_happy', None),
+                                mood_aggressive=getattr(af_data, 'mood_aggressive', None),
+                                mood_party=getattr(af_data, 'mood_party', None),
+                                mood_relaxed=getattr(af_data, 'mood_relaxed', None),
+                                instrumental=getattr(af_data, 'instrumental', None),
+                                acoustic=getattr(af_data, 'acoustic', None),
+                                tonal=getattr(af_data, 'tonal', None),
+                                camelot_key=getattr(af_data, 'camelot_key', None),
+                                genre_main=getattr(af_data, 'genre_main', None),
+                                analysis_source='tags',
+                            )
+                        except Exception as af_err:
+                            # TODO: surveiller les erreurs audio features en production
+                            logger.warning(
+                                f"[TRACK_BATCH] Impossible de créer TrackAudioFeatures "
+                                f"pour track_id={track.id}: {af_err}"
+                            )
+
             # Gérer les tags mood et genre pour les tracks créés
             for i, track in enumerate(tracks_to_insert):
                 data = tracks_data[i]
