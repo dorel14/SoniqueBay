@@ -20,9 +20,23 @@ class TrackBase(BaseModel):
     bitrate: Optional[int] = Field(None, description="Bitrate en kbps")
     featured_artists: Optional[str] = Field(None, description="Artistes en featuring")
     
-    # Note: Les caractéristiques audio (bpm, key, mood, etc.) ont été migrées
-    # vers TrackAudioFeatures. Utilisez l'endpoint /api/tracks/audio-features pour les gérer.
-    
+    # Caractéristiques audio (transmises à TrackAudioFeatures lors de la création/mise à jour).
+    # Ces champs ne sont PAS stockés dans la table `tracks` mais dans `track_audio_features`.
+    # Ils sont acceptés ici pour simplifier l'API d'ingestion (scan worker → API).
+    bpm: Optional[float] = Field(None, description="Tempo en BPM")
+    key: Optional[str] = Field(None, description="Tonalité musicale (C, C#, D, etc.)")
+    scale: Optional[str] = Field(None, description="Mode (major/minor)")
+    danceability: Optional[float] = Field(None, description="Score de dansabilité (0-1)")
+    mood_happy: Optional[float] = Field(None, description="Score mood happy (0-1)")
+    mood_aggressive: Optional[float] = Field(None, description="Score mood aggressive (0-1)")
+    mood_party: Optional[float] = Field(None, description="Score mood party (0-1)")
+    mood_relaxed: Optional[float] = Field(None, description="Score mood relaxed (0-1)")
+    instrumental: Optional[float] = Field(None, description="Score instrumental (0-1)")
+    acoustic: Optional[float] = Field(None, description="Score acoustic (0-1)")
+    tonal: Optional[float] = Field(None, description="Score tonal (0-1)")
+    camelot_key: Optional[str] = Field(None, description="Clé Camelot pour DJ (ex: 8B)")
+    genre_main: Optional[str] = Field(None, description="Genre principal détecté par analyse audio")
+
     # Tags as lists of strings for input
     genre_tags: Optional[List[str]] = None
     mood_tags: Optional[List[str]] = None

@@ -360,7 +360,7 @@ async def create_or_get_genre_tag(client: httpx.AsyncClient, tag_name: str) -> O
 
         # Rechercher le tag par nom
         response = await client.get(
-            f"{api_url}/api/genre-tags/",
+            f"{api_url}/api/tags/genre-tags/",
             timeout=10
         )
 
@@ -375,7 +375,7 @@ async def create_or_get_genre_tag(client: httpx.AsyncClient, tag_name: str) -> O
         # Créer le tag s'il n'existe pas
         create_data = {"name": tag_name}
         response = await client.post(
-            f"{api_url}/api/genre-tags/",
+            f"{api_url}/api/tags/genre-tags/",
             json=create_data,
             timeout=10
         )
@@ -407,7 +407,7 @@ async def create_or_get_mood_tag(client: httpx.AsyncClient, tag_name: str) -> Op
 
         # Rechercher le tag par nom
         response = await client.get(
-            f"{api_url}/api/mood-tags/",
+            f"{api_url}/api/tags/mood-tags/",
             timeout=10
         )
 
@@ -422,7 +422,7 @@ async def create_or_get_mood_tag(client: httpx.AsyncClient, tag_name: str) -> Op
         # Créer le tag s'il n'existe pas
         create_data = {"name": tag_name}
         response = await client.post(
-            f"{api_url}/api/mood-tags/",
+            f"{api_url}/api/tags/mood-tags/",
             json=create_data,
             timeout=10
         )
@@ -500,39 +500,45 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
             else:
                 artists_to_fetch.append(artist)
 
-        # Construire la mutation GraphQL seulement pour les artistes non cachés
-        if artists_to_fetch:
-            mutation = """
-            mutation CreateArtists($artists: [ArtistCreateInput!]!) {
-                createArtists(data: $artists) {
-                    id
-                    name
-                    musicbrainzArtistid
+        # Traiter les artistes un par un avec upsert pour éviter les doublons
+        for artist in artists_to_fetch:
+            try:
+                mutation = """
+                mutation UpsertArtist($name: String!, $musicbrainzArtistid: String) {
+                    upsertArtist(data: {name: $name, musicbrainzArtistid: $musicbrainzArtistid}) {
+                        id
+                        name
+                        musicbrainzArtistid
+                    }
                 }
-            }
-            """
+                """
 
-            # Convertir les clés snake_case en camelCase pour GraphQL
-            converted_artists_data = convert_dict_keys_to_camel(artists_to_fetch)
-            variables = {"artists": converted_artists_data}
-            logger.debug(f"GraphQL variables for CreateArtists: {variables}")
+                variables = {
+                    "name": artist['name'],
+                    "musicbrainzArtistid": artist.get('musicbrainzArtistid')
+                }
+                logger.debug(f"GraphQL variables for UpsertArtist: {variables}")
 
-            # Exécuter la requête GraphQL
-            result = await execute_graphql_query(client, mutation, variables)
+                # Exécuter la requête GraphQL
+                result = await execute_graphql_query(client, mutation, variables)
 
-            if "createArtists" in result:
-                artists = result["createArtists"]
-                # Créer un dictionnaire pour un accès facile par nom ou mbid
-                for artist in artists:
-                    key = (artist.get('musicbrainzArtistid') or artist['name'].lower())
-                    artist_map[key] = artist
+                if "upsertArtist" in result:
+                    artist_result = result["upsertArtist"]
+                    key = (artist_result.get('musicbrainzArtistid') or artist_result['name'].lower())
+                    artist_map[key] = artist_result
                     # Mettre en cache pour les futures requêtes
-                    cache_key = f"artist:{artist['name'].lower()}"
-                    cache_service.set("lastfm", cache_key, artist, ttl=3600)
-                logger.info(f"{len(artists)} artistes traités avec succès en batch via GraphQL")
-            else:
-                logger.error(f"Réponse GraphQL inattendue: {result}")
-                return {}
+                    cache_key = f"artist:{artist_result['name'].lower()}"
+                    cache_service.set("lastfm", cache_key, artist_result, ttl=3600)
+                    logger.debug(f"Artiste traité avec succès via upsert: {artist_result['name']}")
+                else:
+                    logger.error(f"Réponse GraphQL inattendue pour upsertArtist: {result}")
+
+            except Exception as e:
+                logger.error(f"Erreur lors du upsert de l'artiste {artist.get('name')}: {str(e)}")
+                continue
+
+        if artist_map:
+            logger.info(f"{len(artist_map)} artistes traités avec succès via upsertArtist")
 
         # Combiner les résultats du cache et de l'API
         final_artist_map = {}
