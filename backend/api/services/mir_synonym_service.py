@@ -14,10 +14,13 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
+import asyncio
 import hashlib
 import json
+import os
 from typing import Any, Optional
 
+import httpx
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -458,9 +461,6 @@ class MIRSynonymService:
             Vecteur d'embedding ou None si échec
         """
         try:
-            import httpx
-            import os
-
             # URL du backend_worker (port 8003 par défaut)
             worker_url = os.getenv(
                 'BACKEND_WORKER_URL',
@@ -627,8 +627,6 @@ class MIRSynonymService:
         Returns:
             Tuple (résultats FTS, résultats vectoriels)
         """
-        import asyncio
-
         fts_task = self._fts_search(query, tag_type, limit * 2)
         vector_task = self._vector_search(embedding, tag_type, limit * 2)
 

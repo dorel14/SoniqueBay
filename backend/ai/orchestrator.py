@@ -175,14 +175,59 @@ class Orchestrator:
             
             intent_res = await asyncio.wait_for(
                 orch.run(message),
-                timeout=timeout
+                timeout=30.0  # Augmenté à 30s pour les modèles plus lents
             )
             
-            return {
-                "intent": intent_res.get("intent"),
-                "agent": intent_res.get("agent"),
-                "confidence": intent_res.get("confidence", 0.0)
-            }
+            # Gérer le résultat comme un objet AgentRunResult (pydantic-ai)
+            # ou comme un dictionnaire selon le type retourné
+            if hasattr(intent_res, 'output'):
+                # C'est un AgentRunResult, extraire l'output
+                output = intent_res.output
+                if isinstance(output, dict):
+                    return {
+                        "intent": output.get("intent"),
+                        "agent": output.get("agent"),
+                        "confidence": output.get("confidence", 0.0)
+                    }
+                elif isinstance(output, str):
+                    # L'output est une chaîne, essayer de parser comme JSON
+                    try:
+                        import json
+                        parsed = json.loads(output)
+                        return {
+                            "intent": parsed.get("intent"),
+                            "agent": parsed.get("agent"),
+                            "confidence": parsed.get("confidence", 0.0)
+                        }
+                    except json.JSONDecodeError:
+                        # Fallback: utiliser la chaîne comme intent
+                        return {
+                            "intent": "general",
+                            "agent": "smalltalk_agent",
+                            "confidence": 0.5
+                        }
+                else:
+                    # Fallback pour tout autre type
+                    return {
+                        "intent": "general",
+                        "agent": "smalltalk_agent",
+                        "confidence": 0.5
+                    }
+            elif isinstance(intent_res, dict):
+                # C'est déjà un dictionnaire
+                return {
+                    "intent": intent_res.get("intent"),
+                    "agent": intent_res.get("agent"),
+                    "confidence": intent_res.get("confidence", 0.0)
+                }
+            else:
+                # Fallback pour tout autre type
+                logger.warning(f"Type de résultat inattendu: {type(intent_res)}")
+                return {
+                    "intent": "general",
+                    "agent": "smalltalk_agent",
+                    "confidence": 0.5
+                }
             
         except asyncio.TimeoutError:
             logger.warning(
