@@ -113,7 +113,7 @@ services:
             - REDIS_URL=redis://redis:6379/0
             - LLM_PROVIDER=koboldcpp #ollama
             - KOBOLDCPP_BASE_URL=http://llm-service:5001
-            - AGENT_MODEL=Qwen/Qwen3-4B-Instruct:Q3_K_M
+            - AGENT_MODEL=koboldcpp/qwen2.5-3b-instruct-q4_k_m
             - HEALTHCHECK_PORT=8001
             - PLATFORM=${PLATFORM:-windows}
             - MUSIC_PATH=/music

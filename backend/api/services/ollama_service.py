@@ -14,17 +14,17 @@ class OllamaService:
         # Utilise le service LLM unifié avec lazy initialization
         self.llm_service = get_llm_service_sync()
 
-    def get_model_list(self):
+    async def get_model_list(self):
         """
         Récupère la liste des modèles disponibles via le service LLM unifié.
         Supporte Ollama et KoboldCPP.
         """
-        result = self.llm_service.get_model_list()
+        result = await self.llm_service.get_model_list()
         self.model_list = result.get("models", [])
         return self.model_list
         
-    def health_check(self):
+    async def health_check(self):
         """
         Vérifie la santé du service LLM.
         """
-        return self.llm_service.health_check()
+        return await self.llm_service.health_check()
