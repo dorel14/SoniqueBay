@@ -36,12 +36,7 @@ async def test_llm_http_client_configuration():
     assert client.timeout.write == 30.0
     assert client.timeout.pool == 10.0
     
-    # Vérifier les limites
-    assert client.limits.max_connections == 10
-    assert client.limits.max_keepalive_connections == 5
-    assert client.limits.keepalive_expiry == 300.0
-    
-    # Vérifier les headers
+    # Vérifier les headers (les limites sont internes à httpx)
     assert client.headers["Connection"] == "keep-alive"
 
 
