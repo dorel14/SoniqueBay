@@ -93,7 +93,7 @@ class TestAgentModelValidation:
         # Agent sans ROLE
         agent_no_role = AgentModel(
             name="test",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="",
             task="Faire quelque chose",
             enabled=True
@@ -101,7 +101,7 @@ class TestAgentModelValidation:
         
         report = await validate_agent_configuration(agent_no_role)
         assert not report["is_valid"]
-        assert any("ROLE" in issue for issue in report["issues"])
+        assert any("role" in issue for issue in report["issues"])
         
         # Agent sans TASK
         agent_no_task = AgentModel(
@@ -114,7 +114,7 @@ class TestAgentModelValidation:
         
         report = await validate_agent_configuration(agent_no_task)
         assert not report["is_valid"]
-        assert any("TASK" in issue for issue in report["issues"])
+        assert any("task" in issue for issue in report["issues"])
     
     @pytest.mark.asyncio
     async def test_valid_agent_model_passes_validation(self):
@@ -126,7 +126,7 @@ class TestAgentModelValidation:
         
         valid_agent = AgentModel(
             name="test_agent",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="Assistant",
             task="Aider l'utilisateur",
             temperature=0.7,
@@ -139,8 +139,8 @@ class TestAgentModelValidation:
         report = await validate_agent_configuration(valid_agent)
         # Note: La validation du modèle LLM peut échouer si Ollama n'est pas disponible
         # mais les champs RTCROS devraient être valides
-        assert not any("ROLE" in issue for issue in report["issues"])
-        assert not any("TASK" in issue for issue in report["issues"])
+        assert not any("role" in issue for issue in report["issues"])
+        assert not any("task" in issue for issue in report["issues"])
 
 
 class TestCodeQuality:
@@ -195,7 +195,7 @@ class TestAgentIntegration:
         
         agent_model = AgentModel(
             name="integration_test_agent",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="Test assistant",
             task="Tester la création d'agents",
             temperature=0.7,

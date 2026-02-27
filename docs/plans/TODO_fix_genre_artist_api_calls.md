@@ -9,7 +9,7 @@ Ajouter des logs détaillés dans `backend_worker/workers/metadata/enrichment_wo
 - [x] Ajouter des logs informatifs avant chaque appel API de recherche d'artiste
 - [x] Ajouter des logs pour indiquer la raison de l'appel (genre suspect détecté)
 - [x] Ajouter des logs après l'appel API pour indiquer le résultat
-- [ ] Tester et vérifier que les logs apparaissent correctement
+- [x] Tester et vérifier que les logs apparaissent correctement
 
 ## Fichier concerné
 - `backend_worker/workers/metadata/enrichment_worker.py`

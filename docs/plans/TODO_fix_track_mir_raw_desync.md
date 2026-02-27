@@ -36,7 +36,7 @@ colonnes différents de ceux définis dans le modèle SQLAlchemy `TrackMIRRaw`.
 - [x] 3. `backend/api/graphql/queries/track_mir_queries.py` — Corriger `_mir_raw_to_type`
 - [x] 4. `backend/api/graphql/mutations/track_mir_mutations.py` — Corriger `create_track_mir_raw`
 - [x] 5. `tests/unit/test_track_mir_raw_model.py` — Nouveau test unitaire (21/21 ✅)
-- [ ] 6. Commit conventionnel
+- [x] 6. Commit conventionnel (`f5d5f1a`)
 
 ## Fichiers impactés
 - `alembic/versions/fix_track_mir_raw_schema.py` (nouveau)
