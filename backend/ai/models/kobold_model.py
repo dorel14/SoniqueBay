@@ -25,6 +25,7 @@ from typing import Any, AsyncIterator, List, Optional
 
 import httpx
 
+from backend.api.services.llm_http_client import get_llm_http_client
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -219,26 +220,12 @@ class KoboldNativeModel(Model):
             "AGENT_MODEL", "kobold-local"
         )
 
-        # Client HTTPX optimisé pour Docker et les LLM (réponses potentiellement longues)
-        # TODO(dev): Ajuster connect_timeout si KoboldCPP est lent à démarrer (RPi4)
-        # TODO(dev): read=None signifie pas de timeout de lecture — surveiller la mémoire
-        self._client = httpx.AsyncClient(
-            base_url=self._base_url,
-            timeout=httpx.Timeout(
-                connect=5.0,
-                read=None,    # Pas de timeout de lecture (réponses LLM longues)
-                write=30.0,
-                pool=10.0,
-            ),
-            limits=httpx.Limits(
-                max_connections=10,            # Limité pour RPi4
-                max_keepalive_connections=5,
-            ),
-            headers={"Connection": "keep-alive"},
-        )
+        # Le client HTTP est maintenant géré par llm_http_client (singleton partagé)
+        # pour maintenir une connexion persistante avec keep-alive
 
         logger.info(
-            f"[KoboldNative] Modèle initialisé: {self._model_name} @ {self._base_url}"
+            f"[KoboldNative] Modèle initialisé: {self._model_name} @ {self._base_url} "
+            f"(utilise le client HTTP partagé avec keep-alive)"
         )
 
     async def request(
@@ -269,8 +256,9 @@ class KoboldNativeModel(Model):
             f"[KoboldNative] Requête non-streaming: {len(prompt)} chars de prompt"
         )
 
+        client = get_llm_http_client()
         try:
-            response = await self._client.post("/api/v1/generate", json=payload)
+            response = await client.post(f"{self._base_url}/api/v1/generate", json=payload)
             response.raise_for_status()
             data = response.json()
 
@@ -346,10 +334,11 @@ class KoboldNativeModel(Model):
             f"[KoboldNative] Requête streaming: {len(prompt)} chars de prompt"
         )
 
+        client = get_llm_http_client()
         try:
-            async with self._client.stream(
+            async with client.stream(
                 "POST",
-                "/api/extra/generate/stream",
+                f"{self._base_url}/api/extra/generate/stream",
                 json=payload,
             ) as response:
                 response.raise_for_status()
@@ -560,7 +549,8 @@ class KoboldNativeModel(Model):
         """
         Ferme le client HTTPX proprement.
 
-        À appeler lors de l'arrêt de l'application pour libérer les connexions.
+        Note: Le client est maintenant partagé via llm_http_client.
+        Cette méthode est conservée pour compatibilité mais ne ferme plus
+        le client (qui est géré globalement).
         """
-        await self._client.aclose()
-        logger.debug("[KoboldNative] Client HTTPX fermé")
+        logger.debug("[KoboldNative] aclose() appelé (client partagé, pas de fermeture)")
