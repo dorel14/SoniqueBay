@@ -127,7 +127,7 @@ async def build_agent(agent_model: AgentModel) -> Agent:
             model=ollama_model,
             system_prompt=system_prompt,
             tools=tools,
-            max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
+            retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
         )
         
         logger.info(
@@ -196,7 +196,7 @@ async def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dic
         model=parent_agent.model,  # Hérite du modèle du parent
         system_prompt=child_prompt,
         tools=child_tools,
-        max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
+        retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
     )
     
     logger.info(
