@@ -577,15 +577,36 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
         # Nettoyer les données d'albums - supprimer les champs non supportés par le schéma
         cleaned_albums_data = []
         for album in albums_data:
+            # Vérifier que le titre est présent
+            title = album.get('title')
+            if not title:
+                logger.warning(f"[ALBUM] Album sans titre ignoré: {album}")
+                continue
+            
+            # Vérifier que album_artist_id est présent (champ requis)
+            album_artist_id = album.get('album_artist_id')
+            if not album_artist_id:
+                logger.warning(f"[ALBUM] Album '{title}' sans album_artist_id - tentative de récupération depuis les données")
+                # Essayer de récupérer depuis d'autres champs possibles
+                album_artist_id = album.get('albumArtistId') or album.get('artist_id')
+                if not album_artist_id:
+                    logger.error(f"[ALBUM] Album '{title}' ignoré - impossible de déterminer album_artist_id")
+                    continue
+            
             cleaned_album = {
-                'title': album.get('title'),
-                'album_artist_id': album.get('album_artist_id'),  # Champ requis
+                'title': title,
+                'album_artist_id': album_artist_id,  # Champ requis
                 'release_year': album.get('release_year'),
                 'musicbrainz_albumid': album.get('musicbrainz_albumid') or album.get('musicbrainzAlbumid')
             }
             # Supprimer les clés None et les champs non supportés
             cleaned_album = {k: v for k, v in cleaned_album.items() if v is not None}
             cleaned_albums_data.append(cleaned_album)
+            logger.debug(f"[ALBUM] Album nettoyé: {cleaned_album}")
+
+        if not cleaned_albums_data:
+            logger.warning("[ALBUM] Aucun album valide à traiter après nettoyage")
+            return {}
 
         # Vérifier le cache avant les appels API
         from backend_worker.services.cache_service import cache_service
@@ -599,9 +620,12 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
             cached = cache_service.get("lastfm", cache_key)
             if cached:
                 cached_albums[cache_key] = cached
-                logger.debug(f"[CACHE] Album trouvé en cache: {album['title']}")
+                logger.debug(f"[CACHE] Album trouvé en cache: {album['title']} (clé: {cache_key})")
             else:
                 albums_to_fetch.append(album)
+                logger.debug(f"[CACHE] Album non trouvé en cache, ajouté à la liste de fetch: {album['title']} (artist_id: {album.get('album_artist_id')})")
+
+        logger.info(f"[ALBUM] {len(cached_albums)} albums en cache, {len(albums_to_fetch)} albums à créer/récupérer")
 
         # Construire la mutation GraphQL seulement pour les albums non cachés
         if albums_to_fetch:
@@ -619,40 +643,82 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
 
             # Convertir les clés snake_case en camelCase pour GraphQL
             converted_albums_data = convert_dict_keys_to_camel(albums_to_fetch)
+            logger.debug(f"[ALBUM] Données converties pour GraphQL: {converted_albums_data}")
+
             variables = {"albums": converted_albums_data}
 
             # Exécuter la requête GraphQL
-            result = await execute_graphql_query(client, mutation, variables)
+            try:
+                result = await execute_graphql_query(client, mutation, variables)
+                logger.debug(f"[ALBUM] Résultat GraphQL: {result}")
+            except Exception as e:
+                logger.error(f"[ALBUM] Erreur GraphQL lors de la création des albums: {e}")
+                # Continuer avec les albums du cache si disponibles
+                result = {}
 
             if "createAlbums" in result:
                 albums = result["createAlbums"]
-                # Clé: (titre, artist_id) ou mbid
+                # Clé: (titre, artist_id) ou mbid - UTILISER LES MÊMES CLÉS QUE DANS final_album_map
                 for album in albums:
-                    key = (album.get('musicbrainzAlbumid') or (album['title'].lower(), album['albumArtistId']))
+                    # La réponse GraphQL retourne albumArtistId (camelCase)
+                    album_artist_id_from_response = album.get('albumArtistId')
+                    title = album.get('title', '').lower()
+                    
+                    # Créer la clé de la même manière que dans final_album_map
+                    if album.get('musicbrainzAlbumid'):
+                        key = album.get('musicbrainzAlbumid')
+                    else:
+                        key = (title, album_artist_id_from_response)
+                    
                     album_map[key] = album
                     # Mettre en cache pour les futures requêtes
-                    cache_key = f"album:{album['title'].lower()}:{album['albumArtistId']}"
+                    cache_key = f"album:{title}:{album_artist_id_from_response}"
                     cache_service.set("lastfm", cache_key, album, ttl=3600)
+                    logger.debug(f"[ALBUM] Album ajouté au map: clé={key}, id={album.get('id')}")
+                
                 logger.info(f"{len(albums)} albums traités avec succès en batch via GraphQL")
             else:
-                logger.error(f"Réponse GraphQL inattendue: {result}")
-                return {}
+                logger.error(f"[ALBUM] Réponse GraphQL inattendue ou erreur: {result}")
+                # Ne pas retourner vide, continuer avec le cache
+                if not cached_albums:
+                    logger.error("[ALBUM] Aucun album en cache et échec de création - retour vide")
+                    return {}
+                logger.warning("[ALBUM] Utilisation des albums en cache uniquement")
 
         # Combiner les résultats du cache et de l'API
         final_album_map = {}
         for album in cleaned_albums_data:
-            key = (album.get('musicbrainz_albumid') or (album['title'].lower(), album['album_artist_id']))
-            cache_key = f"album:{album['title'].lower()}:{album.get('album_artist_id', 'unknown')}"
+            # Créer la clé de la même manière que dans album_map
+            mbid = album.get('musicbrainz_albumid')
+            title_lower = album['title'].lower()
+            artist_id = album.get('album_artist_id')
+            
+            if mbid:
+                key = mbid
+            else:
+                key = (title_lower, artist_id)
+            
+            cache_key = f"album:{title_lower}:{artist_id}"
+            
+            logger.debug(f"[ALBUM] Recherche album dans les résultats: titre='{album['title']}', key={key}, cache_key={cache_key}")
+            
             if cache_key in cached_albums:
                 final_album_map[key] = cached_albums[cache_key]
+                logger.debug(f"[ALBUM] Album trouvé dans le cache: {key} -> {cached_albums[cache_key].get('id')}")
             elif key in album_map:
                 final_album_map[key] = album_map[key]
+                logger.debug(f"[ALBUM] Album trouvé dans album_map: {key} -> {album_map[key].get('id')}")
+            else:
+                logger.warning(f"[ALBUM] Album NON TROUVÉ dans les résultats: titre='{album['title']}', key={key}")
 
+        logger.info(f"[ALBUM] Final album map contient {len(final_album_map)} albums sur {len(cleaned_albums_data)} attendus")
         publish_library_update()  # Publier la mise à jour de la bibliothèque
         return final_album_map
 
     except Exception as e:
         logger.error(f"Exception lors du traitement en batch des albums: {str(e)}")
+        import traceback
+        logger.error(f"[ALBUM] Traceback: {traceback.format_exc()}")
         return {}
 
 def clean_track_data(file: Dict) -> Dict:
