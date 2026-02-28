@@ -376,6 +376,7 @@ class KoboldNativeModel(Model):
 
         Les marqueurs suivants sont échappés :
             - <|im_start|> → \<|im_start|>
+            - <|im_end|> → \<|im_end|>
             - </s> → \</s>
 
         Args:
@@ -394,6 +395,7 @@ class KoboldNativeModel(Model):
         # Échapper les marqueurs ChatML en les préfixant d'un backslash
         # Cela empêche le LLM de les interpréter comme des instructions structurelles
         sanitized = content.replace("<|im_start|>", "\\<|im_start|>")
+        sanitized = sanitized.replace("<|im_end|>", "\\<|im_end|>")
         sanitized = sanitized.replace("</s>", "\\</s>")
 
         return sanitized
@@ -433,8 +435,9 @@ class KoboldNativeModel(Model):
 
                 if part_kind == "system-prompt":
                     content = getattr(part, "content", "")
-                    # SECURITY: Le contenu système est contrôlé par l'application,
-                    # pas besoin de sanitisation (évite de casser les prompts système)
+                    # SECURITY: Even if system content is application-controlled,
+                    # it's safer to sanitize it if it includes data from the database.
+                    content = self._sanitize_chatml_markers(content)
                     parts.append(f"<|im_start|>system\n{content}</s>")
 
                 elif part_kind == "user-prompt":
