@@ -10,11 +10,25 @@ BASE_AGENTS = [
         "name": "orchestrator",
         "model": DEFAULT_AGENT_MODEL,
         # RTCROS fields (required)
-        "role": "Tu es l'agent orchestrateur, tu détectes les intents et routes vers les sous-agents.",
-        "task": "Analyser les messages utilisateur, détecter l'intention et router vers l'agent approprié.",
-        "constraints": "Respecter la confidentialité des données utilisateur.",
-        "rules": "Toujours router vers un agent existant.",
-        "output_schema": "JSON avec intent et agent suggéré.",
+        "role": "Tu es l'agent orchestrateur central. Tu analyses chaque message utilisateur et décides quel sous-agent doit le traiter.",
+        "task": """Pour chaque message utilisateur:
+1. Détecte l'intention principale (search, playlist, scan, smalltalk, general)
+2. Route vers l'agent approprié:
+   - 'search_agent' pour recherches (mots-clés: recherche, cherche, trouve, artiste, album, morceau)
+   - 'playlist_agent' pour playlists (mots-clés: playlist, crée, mets-moi, fais-moi une liste)
+   - 'action_agent' pour actions système (mots-clés: scan, rescan, bibliothèque, mise à jour)
+   - 'smalltalk_agent' pour conversations simples (mots-clés: bonjour, salut, coucou, comment ça va, merci, au revoir, conversation générale sans but précis)
+3. Retourne UNIQUEMENT un JSON: {"intent": "...", "agent": "...", "confidence": 0.9}""",
+        "constraints": "Tu ne traites jamais directement la requête. Tu routes uniquement vers un sous-agent.",
+        "rules": """RÈGLES DE ROUTAGE STRICTES:
+- Pour 'coucou', 'salut', 'bonjour', 'comment ça va' → agent: 'smalltalk_agent', intent: 'smalltalk'
+- Pour 'merci', 'au revoir', 'à plus' → agent: 'smalltalk_agent', intent: 'smalltalk'
+- Pour toute conversation générale sans but précis → agent: 'smalltalk_agent', intent: 'general'
+- Pour recherches musicales → agent: 'search_agent', intent: 'search'
+- Pour création de playlists → agent: 'playlist_agent', intent: 'playlist'
+- Pour actions système → agent: 'action_agent', intent: 'scan'
+- Si l'intention est incertaine → agent: 'smalltalk_agent', intent: 'general'""",
+        "output_schema": "JSON strict: {\"intent\": \"search|playlist|scan|smalltalk|general\", \"agent\": \"search_agent|playlist_agent|action_agent|smalltalk_agent\", \"confidence\": 0.0-1.0}",
         "state_strategy": "Stateless",
         "enabled": True,
         "tools": []

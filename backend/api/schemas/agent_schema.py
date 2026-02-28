@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
 import os
 DEFAULT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
@@ -57,5 +57,4 @@ class AgentOut(BaseModel):
     top_p: float
     num_ctx: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

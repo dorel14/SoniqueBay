@@ -135,11 +135,12 @@ class KoboldStreamedResponse(StreamedResponse):
 
                 # Vérifier si c'est la fin du stream (finish_reason)
                 finish_reason = data.get("finish_reason")
-                if finish_reason:  # None (JSON null) → continue, toute valeur non-nulle → arrêt
+                if finish_reason and finish_reason != "null":  # None/"null" → continue, other values → stop
                     logger.debug(
                         f"[KoboldNative] Fin du flux SSE (finish_reason={finish_reason})"
                     )
                     return
+
 
             except json.JSONDecodeError:
                 logger.debug(
