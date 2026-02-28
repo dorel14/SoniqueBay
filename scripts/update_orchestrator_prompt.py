@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Script pour mettre à jour le prompt de l'orchestrator dans la base de données.
 À exécuter après modification de seed_agents.py pour appliquer les changements.
@@ -5,6 +6,7 @@ Script pour mettre à jour le prompt de l'orchestrator dans la base de données.
 import asyncio
 import os
 import sys
+from contextlib import asynccontextmanager
 
 # Ajouter le répertoire parent au path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -63,5 +65,4 @@ async def update_orchestrator():
 
 
 if __name__ == "__main__":
-    from contextlib import asynccontextmanager
     asyncio.run(update_orchestrator())

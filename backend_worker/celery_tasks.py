@@ -556,7 +556,7 @@ def calculate_vector_batch(self, track_ids: list[int]):
 # === TÂCHES DE COVERS ===
 # Import des vraies tâches de covers depuis covers_tasks.py
 
-@celery.task(name="covers.extract_embedded", queue="deferred", bind=True)
+@celery.task(name="covers.extract_embedded", queue="deferred_covers", bind=True)
 def extract_embedded_covers(self, file_paths: list[str]):
     """
     Extrait les covers intégrées pour un lot de fichiers.
@@ -589,7 +589,7 @@ def extract_embedded_covers(self, file_paths: list[str]):
 
 
 # === TÂCHES D'ENRICHISSEMENT ===
-@celery.task(name="metadata.enrich_batch", queue="deferred", bind=True)
+@celery.task(name="metadata.enrich_batch", queue="deferred_enrichment", bind=True)
 def enrich_tracks_batch_task(self, track_ids: list[int]):
     """
     Tâche d'enrichissement par lot des tracks.
