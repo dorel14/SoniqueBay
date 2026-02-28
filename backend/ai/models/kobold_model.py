@@ -18,7 +18,6 @@ Configuration locale :
 """
 import json
 import os
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, AsyncIterator, List, Optional
