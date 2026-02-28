@@ -128,7 +128,6 @@ async def build_agent(agent_model: AgentModel) -> Agent:
             system_prompt=system_prompt,
             tools=tools,
             retries=5,  # Augmenté pour tolérance aux erreurs de validation
-            output_type=str,  # Type de sortie par défaut
         )
         
         logger.info(
@@ -198,7 +197,6 @@ async def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dic
         system_prompt=child_prompt,
         tools=child_tools,
         retries=5,  # Augmenté pour tolérance aux erreurs de validation
-        output_type=str,  # Type de sortie par défaut
     )
     
     logger.info(
@@ -299,7 +297,6 @@ Pas besoin de formatage spécial, juste une réponse textuelle simple."""
         system_prompt=effective_prompt,
         tools=[],  # Pas de tools pour du chat simple
         retries=5,
-        output_type=str,  # Type de sortie par défaut
     )
     
     logger.info(f"Agent de chat simple créé: {name} avec modèle {model_name}")
