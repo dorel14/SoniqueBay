@@ -48,12 +48,12 @@ class AppContext(BaseContext):
 
 async def get_context():
     """Context passed to all GraphQL functions. Give database access"""
-    # Use async for to properly manage the async generator lifecycle
-    async for session in get_async_session():
+    # Use async with to properly manage the async generator lifecycle
+    async with asynccontextmanager(get_async_session)() as session:
         lock = asyncio.Lock()
         loaders = CatalogLoaders(session)
         yield AppContext(settings=settings, _session=session, loaders=loaders, lock=lock)
-        # Session will be properly closed by the generator's cleanup
+        # Session will be properly closed by the context manager
 
 # Créer le router GraphQL standard (cache géré par FastAPICache)
 graphql_app = GraphQLRouter(
@@ -118,9 +118,8 @@ async def lifespan(app: FastAPI):
     # Insérer les agents par défaut dans la BDD
     try:
         logger.info("Insertion des agents par défaut dans la BDD...")
-        async for async_session in get_async_session():
+        async with asynccontextmanager(get_async_session)() as async_session:
             await seed_default_agents(async_session)
-            break  # Sortir après la première itération
         logger.info("Agents par défaut insérés avec succès.")
     except Exception as e:
         logger.error(f"Erreur lors de l'insertion des agents par défaut: {str(e)}")
