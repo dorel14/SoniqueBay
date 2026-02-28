@@ -3,7 +3,7 @@ from sqlalchemy import Column, Integer, String, Text, JSON, Boolean,Float
 from backend.api.utils.database import Base, TimestampMixin
 import os
 
-DEFAULT_MODEL = os.getenv("AGENT_MODEL", "Qwen/Qwen3-4B-Instruct:Q3_K_M")
+DEFAULT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
 
 class AgentModel(Base, TimestampMixin):
     __tablename__ = "ai_agents"

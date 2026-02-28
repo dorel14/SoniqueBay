@@ -290,13 +290,13 @@ class AgentRuntime:
             # Appel avec timeout sur le premier élément (initialisation)
             stream_gen = self._call_agent_stream(self.agent.run_stream, message, context)
             # Utiliser wait_for sur l'itération avec timeout entre chaque chunk
-            start_time = asyncio.get_event_loop().time()
+            start_time = asyncio.get_running_loop().time()
             chunk_count = 0
             
             async for event in stream_gen:
                 chunk_count += 1
                 # Vérifier le timeout global
-                current_time = asyncio.get_event_loop().time()
+                current_time = asyncio.get_running_loop().time()
                 if current_time - start_time > timeout:
                     logger.warning(
                         f"Streaming timeout global atteint pour l'agent {self.name}",
@@ -316,7 +316,7 @@ class AgentRuntime:
                 extra={
                     "agent_name": self.name,
                     "total_chunks": chunk_count,
-                    "elapsed_time": asyncio.get_event_loop().time() - start_time
+                    "elapsed_time": asyncio.get_running_loop().time() - start_time
                 }
             )
                 
@@ -390,9 +390,8 @@ class AgentRuntime:
             if event.is_output_text():
                 content = event.delta
                 
-                # Optimisation pour RPi4 : éviter les chunks trop petits
-                if len(content.strip()) < 3 and content.strip() not in ".!?;:,":
-                    return None  # Skip chunks trop petits
+                # Note: Laisser le StreamingBuffer gérer l'agrégation des chunks
+                # Ne pas filtrer ici pour éviter la perte de données (ex: "I ", "am ", "a ")
                 
                 return StreamEvent(
                     agent=self.name,
@@ -429,9 +428,8 @@ class AgentRuntime:
         elif isinstance(event, str):
             content = event
             
-            # Optimisation pour RPi4 : éviter les chunks trop petits
-            if len(content.strip()) < 3 and content.strip() not in ".!?;:,":
-                return None  # Skip chunks trop petits
+            # Note: Laisser le StreamingBuffer gérer l'agrégation des chunks
+            # Ne pas filtrer ici pour éviter la perte de données (ex: "I ", "am ", "a ")
             
             return StreamEvent(
                 agent=self.name,

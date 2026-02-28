@@ -53,7 +53,7 @@ def build_rtcros_prompt(agent_model: AgentModel) -> str:
     return "\n\n".join(parts)
 
 
-def build_agent(agent_model: AgentModel) -> Agent:
+async def build_agent(agent_model: AgentModel) -> Agent:
     """
     Construit un agent PydanticAI à partir d'un modèle AgentModel.
     
@@ -104,7 +104,7 @@ def build_agent(agent_model: AgentModel) -> Agent:
     # Configuration du modèle LLM avec paramètres RTCROS
     # Note: temperature et top_p sont gérés au niveau des requêtes API, pas dans le constructeur
     try:
-        ollama_model = get_ollama_model(
+        ollama_model = await get_ollama_model(
             model_name=agent_model.model,
             num_ctx=agent_model.num_ctx
         )
@@ -126,7 +126,8 @@ def build_agent(agent_model: AgentModel) -> Agent:
             name=agent_model.name,
             model=ollama_model,
             system_prompt=system_prompt,
-            tools=tools
+            tools=tools,
+            max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
         )
         
         logger.info(
@@ -155,7 +156,7 @@ def build_agent(agent_model: AgentModel) -> Agent:
         raise ValueError(f"Impossible de créer l'agent: {e}")
 
 
-def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str, AgentModel]) -> Agent:
+async def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str, AgentModel]) -> Agent:
     """
     Construit un agent en héritant des capacités d'un agent parent.
     
@@ -167,7 +168,7 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
         Agent: Agent PydanticAI avec héritage
     """
     if not agent_model.base_agent:
-        return build_agent(agent_model)
+        return await build_agent(agent_model)
     
     # Récupération de l'agent parent
     parent_model = base_agents.get(agent_model.base_agent)
@@ -180,10 +181,10 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
                 "available_base_agents": list(base_agents.keys())
             }
         )
-        return build_agent(agent_model)
+        return await build_agent(agent_model)
     
     # Construction de l'agent parent
-    parent_agent = build_agent(parent_model)
+    parent_agent = await build_agent(parent_model)
     
     # Construction de l'agent enfant avec spécialisation
     child_prompt = _build_specialized_prompt(agent_model, parent_model)
@@ -194,7 +195,8 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
         name=agent_model.name,
         model=parent_agent.model,  # Hérite du modèle du parent
         system_prompt=child_prompt,
-        tools=child_tools
+        tools=child_tools,
+        max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
     )
     
     logger.info(
@@ -256,7 +258,7 @@ def _merge_tools(child_model: AgentModel, parent_model: AgentModel) -> List[Any]
     return merged_tools
 
 
-def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
+async def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
     """
     Valide la configuration d'un agent et retourne un rapport de validation.
     
@@ -294,7 +296,7 @@ def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
     try:
         # Test de création du modèle (sans l'instancier complètement)
         from backend.ai.ollama import get_ollama_model
-        get_ollama_model(
+        await get_ollama_model(
             model_name=agent_model.model,
             num_ctx=agent_model.num_ctx
         )
