@@ -4,7 +4,7 @@ from backend.api.models.agent_model import AgentModel
 from backend.api.utils.logging import logger
 import os
 
-DEFAULT_AGENT_MODEL = os.getenv("AGENT_MODEL", "Qwen/Qwen3-4B-Instruct:Q3_K_M")
+DEFAULT_AGENT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
 BASE_AGENTS = [
     {
         "name": "orchestrator",

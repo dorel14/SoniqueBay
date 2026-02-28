@@ -17,7 +17,36 @@ from backend.api.utils.logging import logger
 
 # Singleton instance storage
 _llm_service_instance: Optional['LLMService'] = None
-_llm_service_lock = asyncio.Lock()
+_llm_service_lock: Optional[asyncio.Lock] = None
+
+
+def _get_llm_lock() -> asyncio.Lock:
+    """
+    Lazy initialization de l'asyncio.Lock pour éviter les erreurs liées
+    à la création du lock au moment de l'import du module.
+    
+    En Python 3.10+, créer un asyncio.Lock() au niveau du module
+    (au moment de l'import) peut générer des warnings ou erreurs
+    car le lock est lié à l'event loop existant à ce moment-là.
+    
+    Returns:
+        asyncio.Lock: Instance du lock (lazy-initialized)
+    """
+    global _llm_service_lock
+    if _llm_service_lock is None:
+        # Vérifier si un event loop est en cours
+        try:
+            loop = asyncio.get_running_loop()
+            # Créer le lock dans le contexte de l'event loop courant
+            _llm_service_lock = asyncio.Lock()
+            logger.debug("[LLM] asyncio.Lock créé avec event loop actif")
+        except RuntimeError as e:
+            # Pas d'event loop en cours - utiliser un lock factice ou
+            # créer le lock plus tard lors du premier appel async
+            logger.warning(f"[LLM] Pas d'event loop actif à l'initialisation du lock: {e}")
+            # On crée quand même le lock - il sera fonctionnel quand usedans un context async
+            _llm_service_lock = asyncio.Lock()
+    return _llm_service_lock
 
 
 class LLMService:
@@ -43,6 +72,11 @@ class LLMService:
         # (ex: http://llm-service:5001) et non vers localhost.
         # En développement local, http://localhost:11434 est correct.
         
+        # Client HTTP persistant pour le connection pooling
+        # Timeout par défaut de 120s pour les requêtes longues (streaming)
+        self._client = httpx.AsyncClient(timeout=120.0)
+        logger.debug("[LLM] httpx.AsyncClient persistant initialisé")
+        
         # Auto-détection du fournisseur si nécessaire (sauf en mode lazy)
         if self.provider_type == 'auto' and not lazy_init:
             self._auto_detect_provider()
@@ -60,7 +94,7 @@ class LLMService:
         if self._initialized:
             logger.info(f"[LLM] Service initialisé avec {self.provider_type} à {self.base_url}")
 
-    def initialize(self):
+    async def initialize(self):
         """
         Détecte explicitement le fournisseur et configure le service.
         À appeler avant la première utilisation si lazy_init=True.
@@ -69,7 +103,7 @@ class LLMService:
             return
         
         if self.provider_type == 'auto':
-            self._auto_detect_provider()
+            await self._auto_detect_provider()
         
         # Configuration des URLs par défaut selon le fournisseur
         if not self.base_url:
@@ -87,7 +121,7 @@ class LLMService:
             "pointe vers le bon service (ex: http://llm-service:5001 en Docker)."
         )
 
-    def _auto_detect_provider(self):
+    async def _auto_detect_provider(self):
         """
         Auto-détecte le fournisseur LLM disponible.
         Essaie d'abord KoboldCPP, puis Ollama.
@@ -99,7 +133,7 @@ class LLMService:
         # Défaut Docker : http://llm-service:5001
         kobold_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://llm-service:5001')
         try:
-            response = httpx.get(f"{kobold_url}/v1/models", timeout=2)
+            response = await self._client.get(f"{kobold_url}/v1/models", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'koboldcpp'
                 self.base_url = kobold_url
@@ -114,7 +148,7 @@ class LLMService:
         # Essayer Ollama
         try:
             ollama_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
-            response = httpx.get(f"{ollama_url}/api/tags", timeout=2)
+            response = await self._client.get(f"{ollama_url}/api/tags", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'ollama'
                 self.base_url = ollama_url
@@ -173,7 +207,7 @@ class LLMService:
             provider=provider
         )
 
-    def get_model_list(self) -> Dict[str, Any]:
+    async def get_model_list(self) -> Dict[str, Any]:
         """
         Récupère la liste des modèles disponibles.
         
@@ -182,7 +216,7 @@ class LLMService:
         """
         try:
             if self.provider_type == 'koboldcpp':
-                response = httpx.get(f"{self.base_url}/v1/models", timeout=5)
+                response = await self._client.get(f"{self.base_url}/v1/models", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     # Format compatible avec Ollama
@@ -204,7 +238,7 @@ class LLMService:
                     return {"models": models}
             else:
                 # Ollama par défaut
-                response = httpx.get(f"{self.base_url}/api/tags", timeout=5)
+                response = await self._client.get(f"{self.base_url}/api/tags", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     return {"models": data.get("models", [])}
@@ -254,43 +288,42 @@ class LLMService:
                     "stream": True
                 }
                 
-                # Timeout augmenté à 120s pour les réponses longues
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    async with client.stream("POST", url, json=payload, headers=headers) as response:
-                        response.raise_for_status()
-                        
-                        logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
-                        
-                        # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
-                        async for line in response.aiter_lines():
-                            if not line:
+                # Utiliser le client persistant pour le connection pooling
+                async with self._client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    
+                    logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
+                    
+                    # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                            
+                        # Gestion des lignes de données SSE
+                        if line.startswith('data: '):
+                            data_str = line[6:]  # Enlever 'data: '
+                            
+                            # Détection de la fin du stream SSE
+                            if data_str.strip() == '[DONE]':
+                                logger.debug("[LLM] Fin du stream SSE détectée ([DONE])")
+                                break
+                            
+                            try:
+                                data = json.loads(data_str)
+                                if 'choices' in data and len(data['choices']) > 0:
+                                    delta = data['choices'][0].get('delta', {})
+                                    content = delta.get('content', '')
+                                    if content:
+                                        yield content
+                            except json.JSONDecodeError:
+                                # Ligne non-JSON, ignorer silencieusement
                                 continue
-                                
-                            # Gestion des lignes de données SSE
-                            if line.startswith('data: '):
-                                data_str = line[6:]  # Enlever 'data: '
-                                
-                                # Détection de la fin du stream SSE
-                                if data_str.strip() == '[DONE]':
-                                    logger.debug("[LLM] Fin du stream SSE détectée ([DONE])")
-                                    break
-                                
-                                try:
-                                    data = json.loads(data_str)
-                                    if 'choices' in data and len(data['choices']) > 0:
-                                        delta = data['choices'][0].get('delta', {})
-                                        content = delta.get('content', '')
-                                        if content:
-                                            yield content
-                                except json.JSONDecodeError:
-                                    # Ligne non-JSON, ignorer silencieusement
-                                    continue
-                                except (KeyError, AttributeError):
-                                    continue
-                            elif line.startswith(':'):
-                                # Commentaire SSE (heartbeat), ignorer
+                            except (KeyError, AttributeError):
                                 continue
-                                
+                        elif line.startswith(':'):
+                            # Commentaire SSE (heartbeat), ignorer
+                            continue
+                            
                 logger.debug("[LLM] Streaming SSE terminé proprement")
                 
             else:
@@ -309,33 +342,32 @@ class LLMService:
                     }
                 }
                 
-                # Timeout augmenté à 120s pour les réponses longues
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    async with client.stream("POST", url, json=payload, headers=headers) as response:
-                        response.raise_for_status()
-                        
-                        logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
-                        
-                        # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
-                        async for line in response.aiter_lines():
-                            if not line:
-                                continue
-                                
-                            try:
-                                data = json.loads(line)
-                                if 'message' in data:
-                                    content = data['message'].get('content', '')
-                                    if content:
-                                        yield content
-                                # Ollama envoie aussi un champ 'done' à la fin
-                                if data.get('done', False):
-                                    logger.debug("[LLM] Fin du stream Ollama détectée (done=true)")
-                                    break
-                            except json.JSONDecodeError:
-                                continue
-                            except (KeyError, AttributeError):
-                                continue
-                                
+                # Utiliser le client persistant pour le connection pooling
+                async with self._client.stream("POST", url, json=payload, headers=headers) as response:
+                    response.raise_for_status()
+                    
+                    logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
+                    
+                    # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                            
+                        try:
+                            data = json.loads(line)
+                            if 'message' in data:
+                                content = data['message'].get('content', '')
+                                if content:
+                                    yield content
+                            # Ollama envoie aussi un champ 'done' à la fin
+                            if data.get('done', False):
+                                logger.debug("[LLM] Fin du stream Ollama détectée (done=true)")
+                                break
+                        except json.JSONDecodeError:
+                            continue
+                        except (KeyError, AttributeError):
+                            continue
+                            
                 logger.debug("[LLM] Streaming Ollama terminé proprement")
                     
         except Exception as e:
@@ -392,16 +424,15 @@ class LLMService:
                     "stream": False
                 }
                 
-                async with httpx.AsyncClient(timeout=60) as client:
-                    response = await client.post(url, json=payload, headers=headers)
-                    response.raise_for_status()
-                    
-                    data = response.json()
-                    return {
-                        "content": data["choices"][0]["message"]["content"],
-                        "model": data.get("model", model_name),
-                        "usage": data.get("usage", {})
-                    }
+                response = await self._client.post(url, json=payload, headers=headers, timeout=60)
+                response.raise_for_status()
+                
+                data = response.json()
+                return {
+                    "content": data["choices"][0]["message"]["content"],
+                    "model": data.get("model", model_name),
+                    "usage": data.get("usage", {})
+                }
             else:
                 # Ollama - utiliser l'API native
                 url = f"{self.base_url}/api/chat"
@@ -418,40 +449,43 @@ class LLMService:
                     }
                 }
                 
-                async with httpx.AsyncClient(timeout=60) as client:
-                    response = await client.post(url, json=payload, headers=headers)
-                    response.raise_for_status()
-                    
-                    data = response.json()
-                    return {
-                        "content": data["message"]["content"],
-                        "model": data.get("model", model_name),
-                        "usage": {}
-                    }
+                response = await self._client.post(url, json=payload, headers=headers, timeout=60)
+                response.raise_for_status()
+                
+                data = response.json()
+                return {
+                    "content": data["message"]["content"],
+                    "model": data.get("model", model_name),
+                    "usage": {}
+                }
                     
         except Exception as e:
             logger.error(f"[LLM] Erreur génération réponse: {e}")
             raise
 
-    def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> Dict[str, Any]:
         """
         Vérifie la santé du service LLM.
         
         Returns:
             Dict avec le statut de santé
         """
+        import time
+        start_time = time.time()
         try:
             if self.provider_type == 'koboldcpp':
-                response = httpx.get(f"{self.base_url}/v1/models", timeout=5)
+                response = await self._client.get(f"{self.base_url}/v1/models", timeout=5)
             else:
-                response = httpx.get(f"{self.base_url}/api/tags", timeout=5)
+                response = await self._client.get(f"{self.base_url}/api/tags", timeout=5)
+            
+            elapsed_ms = (time.time() - start_time) * 1000
             
             if response.status_code == 200:
                 return {
                     "status": "healthy",
                     "provider": self.provider_type,
                     "base_url": self.base_url,
-                    "response_time_ms": response.elapsed.total_seconds() * 1000
+                    "response_time_ms": elapsed_ms
                 }
             else:
                 return {
@@ -483,12 +517,15 @@ async def get_llm_service() -> LLMService:
     """
     global _llm_service_instance
     
+    # Utiliser le lock lazy-initialisé
+    lock = _get_llm_lock()
+    
     if _llm_service_instance is None:
-        async with _llm_service_lock:
+        async with lock:
             # Double-check pattern pour éviter les race conditions
             if _llm_service_instance is None:
                 _llm_service_instance = LLMService(lazy_init=True)
-                _llm_service_instance.initialize()
+                await _llm_service_instance.initialize()
     
     return _llm_service_instance
 

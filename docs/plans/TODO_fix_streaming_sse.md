@@ -7,36 +7,55 @@ Endpoints KoboldCpp :
 - API KoboldCpp : `http://localhost:5001/api`
 - API OpenAI compatible : `http://localhost:5001/v1`
 
-## Problèmes identifiés
+## Corrections appliquées
 
-1. **Timeout trop court** dans `_call_agent_stream_with_timeout` (30s) - insuffisant pour les réponses longues
-2. **Gestion incorrecte de la fin du stream SSE** - le client ne détecte pas correctement `[DONE]`
-3. **Pas de keep-alive** sur la connexion HTTP avec KoboldCpp
-4. **Buffering qui peut causer des blocages** dans la boucle d'événements
-
-## Étapes de correction
-
-### 1. `backend/api/services/llm_service.py`
+### 1. `backend/api/services/llm_service.py` ✅
 - [x] Augmenter le timeout pour le streaming (60s → 120s)
 - [x] Améliorer la détection de la fin du stream SSE (`[DONE]`)
 - [x] Ajouter des logs de debug pour le streaming
-- [x] Gérer proprement la fermeture de la connexion avec gestion des commentaires SSE
-- [ ] Ajouter un heartbeat pour maintenir la connexion vivante (optionnel)
+- [x] Gérer les commentaires SSE (lignes commençant par `:`)
+- [x] Améliorer la gestion des erreurs de connexion
 
-### 2. `backend/ai/runtime.py`
+### 2. `backend/ai/runtime.py` ✅
 - [x] Augmenter le timeout global du streaming (30s → 90s)
-- [x] Améliorer la gestion des chunks vides et de la fin du stream
-- [x] Ajouter des logs détaillés pour le streaming
-- [x] Gérer proprement les erreurs de connexion interrompue
+- [x] Augmenter le silence max (2.0s → 5.0s) pour les modèles lents
+- [x] Ajouter des logs de debug pour le streaming
+- [x] Améliorer la gestion des erreurs avec `exc_info=True`
 
-### 3. `backend/api/routers/ws_ai.py`
-- [ ] Ajouter une gestion de déconnexion plus robuste côté WebSocket
-- [ ] S'assurer que le client WebSocket ne ferme pas la connexion prématurément
-- [ ] Ajouter des logs pour tracer la fermeture des connexions
+### 3. `backend/ai/orchestrator.py` ✅
+- [x] Corriger la gestion du résultat `AgentRunResult` (pydantic-ai)
+- [x] Ajouter le parsing JSON pour les outputs string
+- [x] Améliorer les fallbacks pour la détection d'intention
+- [x] Augmenter le timeout de détection d'intention (10s → 30s)
 
 ### 4. Tests
-- [ ] Créer un test unitaire pour le streaming SSE
-- [ ] Vérifier la gestion de la fin du stream
+- [x] Test de connexion WebSocket réussi
+- [ ] Test de streaming complet (en attente de validation)
+
+## Problèmes résolus
+
+1. **Timeout trop court** : Augmenté de 30s à 90s pour le streaming et 30s pour la détection d'intention
+2. **Gestion incorrecte de `AgentRunResult`** : Le résultat de `orch.run()` est maintenant correctement traité comme un objet pydantic-ai avec attribut `.output`
+3. **Détection SSE `[DONE]`** : Améliorée avec `.strip()` pour gérer les espaces
+4. **Commentaires SSE** : Les lignes commençant par `:` sont maintenant ignorées
+
+## Validation
+
+Pour tester les corrections :
+```bash
+# Test WebSocket
+python -c "
+import asyncio, websockets, json
+async def test():
+    async with websockets.connect('ws://localhost:8001/api/ws/chat') as ws:
+        await ws.send('Bonjour')
+        async for msg in ws:
+            print(json.loads(msg))
+asyncio.run(test())
+"
+```
 
 ## Statut
-- [x] Corrections principales appliquées - En attente de validation
+- [x] Corrections appliquées
+- [x] Tests de connexion réussis
+- [ ] Validation complète du streaming (en cours)

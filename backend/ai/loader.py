@@ -96,7 +96,7 @@ class AgentLoader:
         # Construction des agents de base
         for name, model in base_agents.items():
             try:
-                agent = build_agent(model)
+                agent = await build_agent(model)
                 all_agents[name] = agent
                 self._agent_cache[name] = agent
             except Exception as e:
@@ -112,7 +112,7 @@ class AgentLoader:
         # Construction des agents enfants avec héritage
         for name, model in child_agents.items():
             try:
-                agent = build_agent_with_inheritance(model, base_agents)
+                agent = await build_agent_with_inheritance(model, base_agents)
                 all_agents[name] = agent
                 self._agent_cache[name] = agent
             except Exception as e:
@@ -160,10 +160,10 @@ class AgentLoader:
             if agent_model.base_agent:
                 # Agent avec héritage
                 base_agents = await self._load_base_agents()
-                agent = build_agent_with_inheritance(agent_model, base_agents)
+                agent = await build_agent_with_inheritance(agent_model, base_agents)
             else:
                 # Agent de base
-                agent = build_agent(agent_model)
+                agent = await build_agent(agent_model)
             
             # Mise en cache
             self._agent_cache[agent_name] = agent
@@ -204,7 +204,7 @@ class AgentLoader:
         for agent_model in result.scalars():
             validation_report["total_agents"] += 1
             
-            report = validate_agent_configuration(agent_model)
+            report = await validate_agent_configuration(agent_model)
             validation_report["details"][agent_model.name] = report
             
             if report["is_valid"]:

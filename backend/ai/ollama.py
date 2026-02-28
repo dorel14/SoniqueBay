@@ -57,7 +57,7 @@ def get_kobold_model(
     )
 
 
-def get_ollama_model(
+async def get_ollama_model(
     model_name: str = None,
     num_ctx: int = 4096,
     temperature: float = 0.7,
@@ -84,7 +84,7 @@ def get_ollama_model(
     """
     # S'assurer que le service est initialisé avant de lire provider_type
     if not llm_service._initialized:
-        llm_service.initialize()
+        await llm_service.initialize()
 
     if llm_service.provider_type == "koboldcpp":
         logger.debug(
