@@ -111,7 +111,7 @@ class TestFormatMessages:
 
         assert "<|im_start|>system" in result
         assert "Tu es un assistant musical." in result
-        assert "<|im_end|>" in result
+        assert "</s>" in result
 
     def test_user_prompt_formatting(self):
         """Vérifie le formatage d'un message utilisateur."""
@@ -120,7 +120,7 @@ class TestFormatMessages:
 
         assert "<|im_start|>user" in result
         assert "Quelle est la meilleure chanson ?" in result
-        assert "<|im_end|>" in result
+        assert "</s>" in result
 
     def test_assistant_text_formatting(self):
         """Vérifie le formatage d'une réponse assistant (historique)."""
@@ -264,11 +264,14 @@ class TestKoboldNativeModelRequest:
         mock_response.json.return_value = mock_response_data
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(
-            self.model._client, "post", new_callable=AsyncMock
-        ) as mock_post:
-            mock_post.return_value = mock_response
+        # Create mock client with post method
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
 
+        with patch(
+            "backend.ai.models.kobold_model.get_llm_http_client",
+            return_value=mock_client,
+        ):
             result = await self.model.request(
                 messages=[make_model_message("user-prompt", "Bonjour")],
                 model_settings=None,
@@ -284,11 +287,14 @@ class TestKoboldNativeModelRequest:
     @pytest.mark.asyncio
     async def test_request_connect_error_raises(self):
         """Vérifie que ConnectError est propagée avec un log d'erreur."""
-        with patch.object(
-            self.model._client, "post", new_callable=AsyncMock
-        ) as mock_post:
-            mock_post.side_effect = httpx.ConnectError("Connection refused")
+        # Create mock client that raises ConnectError
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
 
+        with patch(
+            "backend.ai.models.kobold_model.get_llm_http_client",
+            return_value=mock_client,
+        ):
             with pytest.raises(httpx.ConnectError):
                 await self.model.request(
                     messages=[make_model_message("user-prompt", "Test")],
@@ -303,11 +309,14 @@ class TestKoboldNativeModelRequest:
         mock_response.json.return_value = {"unexpected": "format"}
         mock_response.raise_for_status = MagicMock()
 
-        with patch.object(
-            self.model._client, "post", new_callable=AsyncMock
-        ) as mock_post:
-            mock_post.return_value = mock_response
+        # Create mock client with post method
+        mock_client = MagicMock()
+        mock_client.post = AsyncMock(return_value=mock_response)
 
+        with patch(
+            "backend.ai.models.kobold_model.get_llm_http_client",
+            return_value=mock_client,
+        ):
             with pytest.raises(ValueError, match="Format de réponse KoboldCPP inattendu"):
                 await self.model.request(
                     messages=[make_model_message("user-prompt", "Test")],
@@ -394,6 +403,67 @@ class TestKoboldStreamedResponse:
 
         # Token1 et Token2 yielded, Token3 non
         assert len(events) == 2
+
+    @pytest.mark.asyncio
+    async def test_continues_on_string_null_finish_reason(self):
+        """Vérifie que le streaming continue quand finish_reason est la chaîne 'null'."""
+        # Régression fix: certains versions de KoboldCPP retournent "null" (string) au lieu de null (JSON)
+        sse_lines = [
+            'data: {"token": "Token1", "finish_reason": "null"}',
+            'data: {"token": "Token2", "finish_reason": "null"}',
+            'data: {"token": "Token3", "finish_reason": "stop"}',
+        ]
+        mock_response = self._make_mock_response(sse_lines)
+        streamed = self._make_streamed(mock_response)
+
+        events = []
+        async for event in streamed:
+            events.append(event)
+
+        # Tous les tokens doivent être yielded car "null" (string) ne doit pas arrêter le stream
+        assert len(events) == 3
+
+    @pytest.mark.asyncio
+    async def test_continues_on_json_null_finish_reason(self):
+        """Vérifie que le streaming continue quand finish_reason est JSON null."""
+        sse_lines = [
+            'data: {"token": "Token1", "finish_reason": null}',
+            'data: {"token": "Token2", "finish_reason": null}',
+            'data: {"token": "Token3", "finish_reason": "stop"}',
+        ]
+        mock_response = self._make_mock_response(sse_lines)
+        streamed = self._make_streamed(mock_response)
+
+        events = []
+        async for event in streamed:
+            events.append(event)
+
+        # Tous les tokens doivent être yielded car null (JSON) ne doit pas arrêter le stream
+        assert len(events) == 3
+
+    @pytest.mark.asyncio
+    async def test_stops_on_various_real_finish_reasons(self):
+        """Vérifie que le streaming s'arrête sur différentes valeurs réelles de finish_reason."""
+        test_cases = [
+            ("stop", "Arrêt normal"),
+            ("length", "Limite de longueur atteinte"),
+            ("eos_token", "Token de fin détecté"),
+        ]
+
+        for finish_reason, description in test_cases:
+            sse_lines = [
+                f'data: {{"token": "Hello", "finish_reason": "{finish_reason}"}}',
+                f'data: {{"token": "Should not appear", "finish_reason": null}}',
+            ]
+            mock_response = self._make_mock_response(sse_lines)
+            streamed = self._make_streamed(mock_response)
+
+            events = []
+            async for event in streamed:
+                events.append(event)
+
+            # Seul le premier token doit être yielded, le stream doit s'arrêter
+            assert len(events) == 1, f"Échec pour {description} ({finish_reason})"
 
     @pytest.mark.asyncio
     async def test_ignores_invalid_json_lines(self):
