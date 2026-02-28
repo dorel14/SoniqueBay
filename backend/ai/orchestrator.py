@@ -175,7 +175,7 @@ class Orchestrator:
             
             intent_res = await asyncio.wait_for(
                 orch.run(message),
-                timeout=30.0  # Augmenté à 30s pour les modèles plus lents
+                timeout=60.0  # Augmenté à 60s pour les modèles plus lents
             )
             
             # Gérer le résultat comme un objet AgentRunResult (pydantic-ai)

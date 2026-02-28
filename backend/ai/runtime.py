@@ -169,7 +169,7 @@ class AgentRuntime:
         max_silence = 5.0  # Augmenté à 5s pour éviter les interruptions prématurées
         
         # Timeout augmenté à 90s pour les réponses longues
-        async for event in self._call_agent_stream_with_timeout(message, context, timeout=90):
+        async for event in self._call_agent_stream_with_timeout(message, context, timeout=180):
             normalized = self._normalize_stream_event(event)
             
             if normalized is None:
@@ -282,7 +282,7 @@ class AgentRuntime:
         self,
         message: str,
         context,
-        timeout: float = 90.0
+        timeout: float = 180.0
     ):
         """Appel stream avec timeout global augmenté pour les réponses longues."""
         

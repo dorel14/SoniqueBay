@@ -427,7 +427,7 @@ class LLMService:
                 }
                 
                 client = get_llm_http_client()
-                response = await client.post(url, json=payload, headers=headers, timeout=60)
+                response = await client.post(url, json=payload, headers=headers, timeout=180)
                 response.raise_for_status()
                 
                 data = response.json()
@@ -453,7 +453,7 @@ class LLMService:
                 }
                 
                 client = get_llm_http_client()
-                response = await client.post(url, json=payload, headers=headers, timeout=60)
+                response = await client.post(url, json=payload, headers=headers, timeout=180)
                 response.raise_for_status()
                 
                 data = response.json()
