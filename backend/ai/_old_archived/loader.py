@@ -21,6 +21,7 @@ class AgentLoader:
                 name=row.name,
                 model=f"ollama:{row.model}",
                 system_prompt=row.system_prompt,
+                output_type=str,
                 tools=tools
             )
 
