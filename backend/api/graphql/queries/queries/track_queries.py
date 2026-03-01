@@ -71,7 +71,7 @@ class TrackQueries:
                 'album_id': where.album_id,
                 'genre': where.genre,
                 'year': where.year,
-                'file_path': where.file_path,
+                'filePath': where.filePath,
             })
 
         cached_data = graphql_cache.get("tracks_v2", **cache_params)
@@ -94,8 +94,8 @@ class TrackQueries:
                 tracks = [t for t in tracks if t.genre and where.genre.lower() in t.genre.lower()]
             if where.year:
                 tracks = [t for t in tracks if t.year == where.year]
-            if where.file_path:
-                tracks = [t for t in tracks if t.path == where.file_path]
+            if where.filePath:
+                tracks = [t for t in tracks if t.path == where.filePath]
 
             # Apply pagination
             tracks = tracks[skip:skip + limit] if limit else tracks[skip:]
