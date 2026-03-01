@@ -59,6 +59,152 @@ services:
             retries: 5
 
 
+    # === SUPABASE - PostgreSQL avec extensions ===
+    supabase-db:
+        image: supabase/postgres:15.1.0.117
+        container_name: soniquebay-supabase-db
+        restart: unless-stopped
+        networks:
+            default:
+                aliases:
+                    - supabase-db
+        ports:
+            - "54322:5432"
+        env_file:
+            - .env
+        environment:
+            - POSTGRES_USER=${SUPABASE_DB_USER:-supabase}
+            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+            - POSTGRES_DB=${SUPABASE_DB_NAME:-postgres}
+            - JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+        volumes:
+            - supabase-data:/var/lib/postgresql/data
+            - ./supabase/db_init/init_supabase.sql:/docker-entrypoint-initdb.d/init.sql:ro
+        healthcheck:
+            test: ["CMD", "pg_isready", "-U", "${SUPABASE_DB_USER:-supabase}", "-d", "${SUPABASE_DB_NAME:-postgres}"]
+            interval: 30s
+            timeout: 5s
+            retries: 5
+            start_period: 60s
+
+    # === SUPABASE - Realtime ===
+    supabase-realtime:
+        image: supabase/realtime:v2.25.66
+        container_name: soniquebay-supabase-realtime
+        restart: unless-stopped
+        depends_on:
+            supabase-db:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - supabase-realtime
+        ports:
+            - "54323:4000"
+        environment:
+            - DB_HOST=supabase-db
+            - DB_PORT=5432
+            - DB_USER=${SUPABASE_DB_USER:-supabase}
+            - DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+            - DB_NAME=${SUPABASE_DB_NAME:-postgres}
+            - DB_SSL=false
+            - JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+            - SECRET_KEY_BASE=${SUPABASE_SECRET_KEY_BASE:-your-super-secret-key-base-with-at-least-64-characters-long}
+            - PORT=4000
+            - FLY_ALLOC_ID=123e4567-e89b-12d3-a456-426614174000
+            - FLY_APP_NAME=realtime
+            - FLY_REGION=local
+            - ERL_AFLAGS=-proto_dist inet_tcp
+            - ENABLE_TAILSCALE=false
+            - DNS_NODES=''
+            - MAX_CONNECTIONS=100
+            - MAX_SUBSCRIBERS=1000
+            - MAX_EVENTS_PER_SECOND=1000
+
+    # === SUPABASE - Auth (GoTrue) ===
+    supabase-auth:
+        image: supabase/gotrue:v2.145.0
+        container_name: soniquebay-supabase-auth
+        restart: unless-stopped
+        depends_on:
+            supabase-db:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - supabase-auth
+        ports:
+            - "54324:9999"
+        environment:
+            - GOTRUE_API_HOST=0.0.0.0
+            - GOTRUE_API_PORT=9999
+            - GOTRUE_DB_DRIVER=postgres
+            - GOTRUE_DB_DATABASE_URL=postgres://${SUPABASE_DB_USER:-supabase}:${SUPABASE_DB_PASSWORD:-supabase}@supabase-db:5432/${SUPABASE_DB_NAME:-postgres}?sslmode=disable
+            - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}
+            - GOTRUE_URI_ALLOW_LIST=${SUPABASE_REDIRECT_URLS:-http://localhost:3000/**}
+            - GOTRUE_DISABLE_SIGNUP=false
+            - GOTRUE_JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+            - GOTRUE_JWT_EXP=3600
+            - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+            - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
+            - GOTRUE_MAILER_AUTOCONFIRM=true
+            - GOTRUE_SMTP_ADMIN_EMAIL=admin@soniquebay.local
+            - GOTRUE_SMTP_HOST=mail.soniquebay.local
+            - GOTRUE_SMTP_PORT=25
+            - GOTRUE_SMTP_USER=
+            - GOTRUE_SMTP_PASS=
+            - GOTRUE_SMTP_MAX_FREQUENCY=1s
+            - GOTRUE_EXTERNAL_PHONE_ENABLED=false
+            - GOTRUE_SMS_AUTOCONFIRM=false
+            - GOTRUE_LOG_LEVEL=info
+
+    # === SUPABASE - Dashboard (Studio) ===
+    supabase-dashboard:
+        image: supabase/studio:20240701-5c1e046
+        container_name: soniquebay-supabase-dashboard
+        restart: unless-stopped
+        depends_on:
+            supabase-db:
+                condition: service_healthy
+            supabase-auth:
+                condition: service_started
+        networks:
+            default:
+                aliases:
+                    - supabase-dashboard
+        ports:
+            - "54325:3000"
+        environment:
+            - STUDIO_PG_META_URL=http://supabase-meta:8080
+            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+            - DEFAULT_ORGANIZATION=SoniqueBay
+            - DEFAULT_PROJECT=SoniqueBay
+            - OPENAI_API_KEY=
+            - SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}
+            - SUPABASE_PUBLIC_URL=${SUPABASE_PUBLIC_URL:-http://localhost:54321}
+            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test}
+            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkwMDAwMDAwMH0.test}
+
+    # === SUPABASE - Meta (pour Dashboard) ===
+    supabase-meta:
+        image: supabase/postgres-meta:v0.80.0
+        container_name: soniquebay-supabase-meta
+        restart: unless-stopped
+        depends_on:
+            supabase-db:
+                condition: service_healthy
+        networks:
+            default:
+                aliases:
+                    - supabase-meta
+        environment:
+            - PG_META_PORT=8080
+            - PG_META_DB_HOST=supabase-db
+            - PG_META_DB_PORT=5432
+            - PG_META_DB_NAME=${SUPABASE_DB_NAME:-postgres}
+            - PG_META_DB_USER=${SUPABASE_DB_USER:-supabase}
+            - PG_META_DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+
     # === REDIS (broker + backend) ===
     redis:
         image: redis:7
@@ -118,12 +264,19 @@ services:
             - MUSIC_PATH=/music
             - NAS_USER=${NAS_USER:-""}
             - NAS_PASS=${NAS_PASS:-""}
+            # === SUPABASE CONFIGURATION ===
+            - SUPABASE_URL=${SUPABASE_URL:-http://supabase-db:5432}
+            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test}
+            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkwMDAwMDAwMH0.test}
+            - USE_SUPABASE=${USE_SUPABASE:-false}
         depends_on:
             redis:
                 condition: service_healthy
             timesync:
                 condition: service_started
             db:
+                condition: service_healthy
+            supabase-db:
                 condition: service_healthy
         networks:
             default:
@@ -166,8 +319,15 @@ services:
             - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
+            # === SUPABASE CONFIGURATION ===
+            - SUPABASE_URL=${SUPABASE_URL:-http://localhost:54321}
+            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test}
+            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkwMDAwMDAwMH0.test}
+            - USE_SUPABASE=${USE_SUPABASE:-false}
         depends_on:
             api-service:
+                condition: service_healthy
+            supabase-db:
                 condition: service_healthy
         networks:
             default:
@@ -321,6 +481,12 @@ volumes:
         driver_opts:
             type: none
             device: ${PWD}/data/redis_data
+            o: bind
+    supabase-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/supabase_data
             o: bind
     api-data:
         driver: local
