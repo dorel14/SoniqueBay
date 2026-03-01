@@ -160,7 +160,7 @@ services:
 
     # === SUPABASE - Dashboard (Studio) ===
     supabase-dashboard:
-        image: supabase/studio:20240701-5c1e046
+        image: supabase/studio:20250120-8e4a174
         container_name: soniquebay-supabase-dashboard
         restart: unless-stopped
         depends_on:
