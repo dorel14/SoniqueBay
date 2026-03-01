@@ -261,7 +261,7 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
         if track_path:
             query = """
             query GetTrackMusicBrainzIDs($filePath: String!) {
-                tracks(where: {file_path: $filePath}) {
+                tracks(where: {filePath: $filePath}) {
                     musicbrainzId
                     musicbrainzAlbumid
                     musicbrainzArtistid
@@ -574,10 +574,10 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                         logger.info("[VERIFY] 🔍 Utilisation du champ 'path' pour la vérification")
                         logger.info(f"[VERIFY] 🔍 Track '{track_path}' - vérification avec champ 'path'")
 
-                        # Requête spécifique pour cette track - utiliser le champ correct 'path'
+                        # Requête spécifique pour cette track - utiliser le champ correct 'filePath'
                         query = """
                         query GetTrackByPath($filePath: String!) {
-                            tracks(where: {file_path: $filePath}) {
+                            tracks(where: {filePath: $filePath}) {
                                 id
                                 path
                                 bpm
