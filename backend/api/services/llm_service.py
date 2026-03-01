@@ -6,13 +6,13 @@ Fournit une interface commune pour les différents fournisseurs de LLM.
 Auteur: SoniqueBay Team
 """
 import os
-import httpx
 import asyncio
 from typing import Optional, Dict, Any, List
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 from pydantic_ai.providers.ollama import OllamaProvider
 from backend.api.utils.logging import logger
+from backend.api.services.llm_http_client import get_llm_http_client
 
 
 # Singleton instance storage
@@ -72,10 +72,8 @@ class LLMService:
         # (ex: http://llm-service:5001) et non vers localhost.
         # En développement local, http://localhost:11434 est correct.
         
-        # Client HTTP persistant pour le connection pooling
-        # Timeout par défaut de 120s pour les requêtes longues (streaming)
-        self._client = httpx.AsyncClient(timeout=120.0)
-        logger.debug("[LLM] httpx.AsyncClient persistant initialisé")
+        # Le client HTTP est maintenant géré par llm_http_client (singleton partagé)
+        # pour maintenir une connexion persistante avec keep-alive
         
         # Auto-détection du fournisseur si nécessaire (sauf en mode lazy)
         if self.provider_type == 'auto' and not lazy_init:
@@ -132,8 +130,9 @@ class LLMService:
         # Essayer KoboldCPP
         # Défaut Docker : http://llm-service:5001
         kobold_url = os.getenv('KOBOLDCPP_BASE_URL', 'http://llm-service:5001')
+        client = get_llm_http_client()
         try:
-            response = await self._client.get(f"{kobold_url}/v1/models", timeout=2)
+            response = await client.get(f"{kobold_url}/v1/models", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'koboldcpp'
                 self.base_url = kobold_url
@@ -148,7 +147,7 @@ class LLMService:
         # Essayer Ollama
         try:
             ollama_url = os.getenv('OLLAMA_BASE_URL', 'http://ollama:11434')
-            response = await self._client.get(f"{ollama_url}/api/tags", timeout=2)
+            response = await client.get(f"{ollama_url}/api/tags", timeout=2)
             if response.status_code == 200:
                 self.provider_type = 'ollama'
                 self.base_url = ollama_url
@@ -214,9 +213,10 @@ class LLMService:
         Returns:
             Dict contenant la liste des modèles
         """
+        client = get_llm_http_client()
         try:
             if self.provider_type == 'koboldcpp':
-                response = await self._client.get(f"{self.base_url}/v1/models", timeout=5)
+                response = await client.get(f"{self.base_url}/v1/models", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     # Format compatible avec Ollama
@@ -238,7 +238,7 @@ class LLMService:
                     return {"models": models}
             else:
                 # Ollama par défaut
-                response = await self._client.get(f"{self.base_url}/api/tags", timeout=5)
+                response = await client.get(f"{self.base_url}/api/tags", timeout=5)
                 if response.status_code == 200:
                     data = response.json()
                     return {"models": data.get("models", [])}
@@ -288,8 +288,9 @@ class LLMService:
                     "stream": True
                 }
                 
-                # Utiliser le client persistant pour le connection pooling
-                async with self._client.stream("POST", url, json=payload, headers=headers) as response:
+                # Utiliser le client partagé avec keep-alive
+                client = get_llm_http_client()
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
                     logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
@@ -342,8 +343,9 @@ class LLMService:
                     }
                 }
                 
-                # Utiliser le client persistant pour le connection pooling
-                async with self._client.stream("POST", url, json=payload, headers=headers) as response:
+                # Utiliser le client partagé avec keep-alive
+                client = get_llm_http_client()
+                async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
                     logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
@@ -424,7 +426,8 @@ class LLMService:
                     "stream": False
                 }
                 
-                response = await self._client.post(url, json=payload, headers=headers, timeout=60)
+                client = get_llm_http_client()
+                response = await client.post(url, json=payload, headers=headers, timeout=180)
                 response.raise_for_status()
                 
                 data = response.json()
@@ -449,7 +452,8 @@ class LLMService:
                     }
                 }
                 
-                response = await self._client.post(url, json=payload, headers=headers, timeout=60)
+                client = get_llm_http_client()
+                response = await client.post(url, json=payload, headers=headers, timeout=180)
                 response.raise_for_status()
                 
                 data = response.json()
@@ -472,11 +476,12 @@ class LLMService:
         """
         import time
         start_time = time.time()
+        client = get_llm_http_client()
         try:
             if self.provider_type == 'koboldcpp':
-                response = await self._client.get(f"{self.base_url}/v1/models", timeout=5)
+                response = await client.get(f"{self.base_url}/v1/models", timeout=5)
             else:
-                response = await self._client.get(f"{self.base_url}/api/tags", timeout=5)
+                response = await client.get(f"{self.base_url}/api/tags", timeout=5)
             
             elapsed_ms = (time.time() - start_time) * 1000
             

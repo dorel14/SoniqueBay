@@ -261,7 +261,7 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
         if track_path:
             query = """
             query GetTrackMusicBrainzIDs($filePath: String!) {
-                tracks(where: {file_path: $filePath}) {
+                tracks(where: {filePath: $filePath}) {
                     musicbrainzId
                     musicbrainzAlbumid
                     musicbrainzArtistid
@@ -296,29 +296,76 @@ async def resolve_album_for_track(track: Dict, artist_map: Dict, album_map: Dict
     mb_album_id = track.get('musicbrainz_albumid')
     mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
 
+    # DIAGNOSTIC: Log des données disponibles
+    logger.debug(f"[RESOLVE_ALBUM] Track: '{track.get('title')}', Album: '{album_title}', Artist: '{artist_name}'")
+    logger.debug(f"[RESOLVE_ALBUM] MB Album ID: {mb_album_id}, MB Artist ID: {mb_artist_id}")
+    logger.debug(f"[RESOLVE_ALBUM] Album map keys count: {len(album_map)}, Artist map keys count: {len(artist_map)}")
+
     if mb_album_id:
         # Clé basée sur MusicBrainz ID
         album_key = mb_album_id
-        logger.info(f"[DIAGNOSTIC ALBUM] Utilisation de MusicBrainz Album ID pour la résolution: {album_key}")
+        logger.info(f"[RESOLVE_ALBUM] Utilisation de MusicBrainz Album ID pour la résolution: {album_key}")
     else:
         # Clé basée sur titre + ID artiste
         normalized_album_title = album_title.strip().lower() if album_title else None
         if normalized_album_title and artist_name:
-            # Résoudre l'artiste d'abord
+            # Résoudre l'artiste d'abord - chercher avec gestion de casse
+            artist_id = None
+            artist_key_found = None
+            
+            # Essayer d'abord la correspondance exacte
             if artist_name in artist_map:
                 artist_id = artist_map[artist_name]['id']
-                album_key = (normalized_album_title, artist_id)
+                artist_key_found = artist_name
             else:
-                logger.error(f"[DIAGNOSTIC ALBUM] Artiste '{artist_name}' non trouvé pour l'album '{album_title}'")
+                # Recherche insensible à la casse
+                artist_name_lower = artist_name.lower()
+                for key, data in artist_map.items():
+                    if isinstance(key, str) and key.lower() == artist_name_lower:
+                        artist_id = data['id']
+                        artist_key_found = key
+                        logger.debug(f"[RESOLVE_ALBUM] Artiste trouvé via case-insensitive: '{artist_name}' -> '{key}' (ID: {artist_id})")
+                        break
+            
+            if artist_id:
+                album_key = (normalized_album_title, artist_id)
+                logger.debug(f"[RESOLVE_ALBUM] Artiste '{artist_name}' résolu via '{artist_key_found}' -> ID {artist_id}")
+            else:
+                logger.error(f"[RESOLVE_ALBUM] Artiste '{artist_name}' non trouvé dans artist_map. Keys disponibles: {list(artist_map.keys())[:10]}...")
                 album_key = None
         else:
+            logger.warning(f"[RESOLVE_ALBUM] Données insuffisantes pour créer la clé d'album: title='{album_title}', artist='{artist_name}'")
             album_key = None
 
-    if album_key and album_key in album_map:
-        resolved_track['album_id'] = album_map[album_key]['id']
-        logger.info(f"[DIAGNOSTIC ALBUM] Album résolu avec succès pour la track: {album_key} -> ID {album_map[album_key]['id']}")
+    # Recherche de l'album avec la clé
+    if album_key:
+        logger.debug(f"[RESOLVE_ALBUM] Recherche album avec clé: {album_key}")
+        logger.debug(f"[RESOLVE_ALBUM] Type de clé: {type(album_key)}, Album map keys types: {[type(k) for k in list(album_map.keys())[:5]]}")
+        
+        if album_key in album_map:
+            resolved_track['album_id'] = album_map[album_key]['id']
+            logger.info(f"[RESOLVE_ALBUM] ✅ Album résolu avec succès: '{album_title}' -> ID {album_map[album_key]['id']} (clé: {album_key})")
+        else:
+            # Essayer de trouver l'album par titre uniquement si la clé complète échoue
+            logger.warning(f"[RESOLVE_ALBUM] Album non trouvé avec clé complète: {album_key}")
+            
+            # Recherche alternative par titre seul (sans artist_id)
+            found_alternative = False
+            if not mb_album_id and normalized_album_title:
+                for key, album_data in album_map.items():
+                    if isinstance(key, tuple) and len(key) >= 1:
+                        if key[0] == normalized_album_title:
+                            resolved_track['album_id'] = album_data['id']
+                            logger.info(f"[RESOLVE_ALBUM] ✅ Album trouvé via recherche alternative (titre seul): '{album_title}' -> ID {album_data['id']}")
+                            found_alternative = True
+                            break
+            
+            if not found_alternative:
+                logger.error(f"[RESOLVE_ALBUM] ❌ Album non résolu pour '{album_title}'. Clé recherchée: {album_key}")
+                logger.error(f"[RESOLVE_ALBUM] Album map keys (sample): {list(album_map.keys())[:10]}...")
+                resolved_track['album_id'] = None
     else:
-        logger.error(f"[DIAGNOSTIC ALBUM] Album non résolu pour la track. Clé: {album_key}, Album map keys: {list(album_map.keys())}")
+        logger.error(f"[RESOLVE_ALBUM] ❌ Impossible de créer une clé d'album pour '{album_title}'")
         resolved_track['album_id'] = None
 
     return resolved_track
@@ -527,10 +574,10 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                         logger.info("[VERIFY] 🔍 Utilisation du champ 'path' pour la vérification")
                         logger.info(f"[VERIFY] 🔍 Track '{track_path}' - vérification avec champ 'path'")
 
-                        # Requête spécifique pour cette track - utiliser le champ correct 'path'
+                        # Requête spécifique pour cette track - utiliser le champ correct 'filePath'
                         query = """
                         query GetTrackByPath($filePath: String!) {
-                            tracks(where: {file_path: $filePath}) {
+                            tracks(where: {filePath: $filePath}) {
                                 id
                                 path
                                 bpm
@@ -726,32 +773,45 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                 # Étape 2: Traitement des albums via entity_manager
                 if albums_data:
                     logger.info(f"[INSERT] Traitement de {len(albums_data)} albums via entity_manager")
+                    
+                    # DIAGNOSTIC: Log des albums avant résolution
+                    logger.info(f"[INSERT] Albums à traiter (sample): {albums_data[:3]}")
 
                     # Résoudre album_artist_id pour chaque album
                     resolved_albums_data = []
+                    albums_skipped = []
                     for album in albums_data:
                         resolved_album = dict(album)
                         album_artist_name = album.get('album_artist_name')
+                        album_title = album.get('title', 'Unknown')
+                        
+                        logger.debug(f"[INSERT] Résolution album '{album_title}' avec artist_name='{album_artist_name}'")
                         
                         # Recherche insensible à la casse de l'artiste
                         album_artist_id = None
+                        artist_key_used = None
+                        
                         if album_artist_name:
                             # Essayer d'abord la correspondance exacte
                             if album_artist_name in artist_map:
                                 album_artist_id = artist_map[album_artist_name]['id']
+                                artist_key_used = album_artist_name
+                                logger.debug(f"[INSERT] Artiste album '{album_artist_name}' trouvé (exact) -> ID {album_artist_id}")
                             else:
                                 # Recherche insensible à la casse
                                 album_artist_lower = album_artist_name.lower()
                                 for key, data in artist_map.items():
                                     if isinstance(key, str) and key.lower() == album_artist_lower:
                                         album_artist_id = data['id']
-                                        logger.debug(f"[INSERT] Artiste album '{album_artist_name}' trouvé via case-insensitive -> ID {album_artist_id}")
+                                        artist_key_used = key
+                                        logger.debug(f"[INSERT] Artiste album '{album_artist_name}' trouvé (case-insensitive via '{key}') -> ID {album_artist_id}")
                                         break
                         
                         if album_artist_id:
                             resolved_album['album_artist_id'] = album_artist_id
+                            logger.info(f"[INSERT] ✅ Album '{album_title}' résolu avec artist_id={album_artist_id} (via '{artist_key_used}')")
                         else:
-                            logger.warning(f"Artiste '{album_artist_name}' non trouvé pour album '{album.get('title')}', tentative de création")
+                            logger.warning(f"[INSERT] ⚠️ Artiste '{album_artist_name}' non trouvé pour album '{album_title}', tentative de création")
                             # Essayer de créer l'artiste si pas trouvé
                             if album_artist_name:
                                 single_artist_data = [{'name': album_artist_name}]
@@ -762,47 +822,41 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                                     # Ajouter au artist_map principal
                                     artist_map[album_artist_name] = list(temp_artist_map.values())[0]
                                     inserted_counts['artists'] += 1
+                                    logger.info(f"[INSERT] ✅ Artiste '{album_artist_name}' créé à la volée -> ID {artist_id}")
                                 else:
-                                    logger.error(f"Impossible de créer l'artiste '{album_artist_name}' pour l'album '{album.get('title')}', utilisation d'artiste par défaut")
-                                    # Créer un artiste par défaut plutôt que d'ignorer l'album
-                                    default_artist_name = 'Unknown Artist'
-                                    if default_artist_name not in artist_map:
-                                        default_artist_data = [{'name': default_artist_name}]
-                                        temp_artist_map = await create_or_get_artists_batch(client, default_artist_data)
-                                        if temp_artist_map:
-                                            artist_map[default_artist_name] = list(temp_artist_map.values())[0]
-                                            inserted_counts['artists'] += 1
-                                        else:
-                                            logger.error("Impossible de créer l'artiste par défaut")
-                                            continue  # Passer cet album
-
-                                    resolved_album['album_artist_id'] = artist_map[default_artist_name]['id']
+                                    logger.error(f"[INSERT] ❌ Impossible de créer l'artiste '{album_artist_name}' pour l'album '{album_title}'")
+                                    albums_skipped.append(album_title)
+                                    continue  # Passer cet album - on ne peut pas créer d'album sans artiste
                             else:
-                                logger.warning(f"Album '{album.get('title')}' sans artiste associé, utilisation d'artiste par défaut")
-                                # Créer un artiste par défaut
-                                default_artist_name = 'Unknown Artist'
-                                if default_artist_name not in artist_map:
-                                    default_artist_data = [{'name': default_artist_name}]
-                                    temp_artist_map = await create_or_get_artists_batch(client, default_artist_data)
-                                    if temp_artist_map:
-                                        artist_map[default_artist_name] = list(temp_artist_map.values())[0]
-                                        inserted_counts['artists'] += 1
-                                    else:
-                                        logger.error("Impossible de créer l'artiste par défaut")
-                                        continue  # Passer cet album
-
-                                resolved_album['album_artist_id'] = artist_map[default_artist_name]['id']
+                                logger.error(f"[INSERT] ❌ Album '{album_title}' sans nom d'artiste, impossible de créer")
+                                albums_skipped.append(album_title)
+                                continue  # Passer cet album
 
                         resolved_albums_data.append(resolved_album)
+                        logger.debug(f"[INSERT] Album résolu ajouté: {resolved_album}")
+
+                    if albums_skipped:
+                        logger.warning(f"[INSERT] {len(albums_skipped)} albums ignorés faute d'artiste: {albums_skipped[:10]}")
+
+                    # DIAGNOSTIC: Log des albums résolus avant envoi
+                    logger.info(f"[INSERT] {len(resolved_albums_data)} albums prêts pour création (sur {len(albums_data)} initiaux)")
+                    if resolved_albums_data:
+                        logger.debug(f"[INSERT] Sample albums résolus: {resolved_albums_data[:3]}")
 
                     album_map = await create_or_get_albums_batch(client, resolved_albums_data)
                     inserted_counts['albums'] = len(album_map)
-                    logger.info(f"[INSERT] Albums traités: {len(album_map)}")
+                    logger.info(f"[INSERT] Albums traités: {len(album_map)} (attendus: {len(resolved_albums_data)})")
+                    
+                    # DIAGNOSTIC: Vérifier si tous les albums ont été créés
+                    if len(album_map) < len(resolved_albums_data):
+                        logger.error(f"[INSERT] ⚠️ DISCRÉPANCE: {len(resolved_albums_data)} albums attendus mais {len(album_map)} retournés")
+                        logger.error(f"[INSERT] Albums manquants potentiels - vérifier les logs entity_manager")
 
                     # Déclencher callback pour traitement des covers d'albums
                     if album_map:
                         album_ids = [album.get('id') for album in album_map.values() if album.get('id')]
                         if album_ids:
+                            logger.info(f"[INSERT] Déclenchement callbacks pour {len(album_ids)} albums")
                             await on_albums_inserted_callback(album_ids)
                             # Enqueue tâches d'enrichissement pour les albums sans covers
                             await enqueue_enrichment_tasks_for_albums(client, album_ids, library_api_url)
@@ -827,28 +881,49 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     # Résoudre les références artiste/album pour les tracks
                     resolved_tracks_data = []
                     skipped_tracks = []
+                    
+                    # DIAGNOSTIC: Log de l'album_map avant résolution des tracks
+                    logger.info(f"[INSERT] Résolution des albums pour {len(tracks_data)} tracks")
+                    logger.debug(f"[INSERT] Album map keys disponibles: {list(album_map.keys())[:10]}...")
+                    
                     for track in tracks_data:
+                        track_title = track.get('title', 'unknown')
+                        
                         # Résoudre track_artist_id d'abord
                         track_artist_id = await resolve_track_artist_id(track, artist_map)
                         
                         # Si pas d'artiste résolu, utiliser l'artiste par défaut
                         if not track_artist_id and default_artist_name in artist_map:
                             track_artist_id = artist_map[default_artist_name]['id']
-                            logger.warning(f"[INSERT] Track '{track.get('title', 'unknown')}' sans artiste, utilisation de l'artiste par défaut (ID: {track_artist_id})")
+                            logger.warning(f"[INSERT] Track '{track_title}' sans artiste, utilisation de l'artiste par défaut (ID: {track_artist_id})")
                         
                         # Vérifier que track_artist_id est valide (requis par GraphQL)
                         if not track_artist_id:
-                            logger.error(f"[INSERT] Track '{track.get('title', 'unknown')}' ignorée - impossible de résoudre track_artist_id même avec fallback")
-                            skipped_tracks.append(track.get('title', 'unknown'))
+                            logger.error(f"[INSERT] Track '{track_title}' ignorée - impossible de résoudre track_artist_id même avec fallback")
+                            skipped_tracks.append(track_title)
                             continue
                         
+                        # Résoudre l'album pour cette track
                         resolved_track = await resolve_album_for_track(track, artist_map, album_map, client)
+                        
                         # Ajouter track_artist_id résolu (toujours présent maintenant)
                         resolved_track['track_artist_id'] = track_artist_id
                         resolved_tracks_data.append(resolved_track)
+                        
+                        # Log du résultat de résolution d'album
+                        album_id_resolved = resolved_track.get('album_id')
+                        if album_id_resolved:
+                            logger.debug(f"[INSERT] ✅ Track '{track_title}' -> album_id={album_id_resolved}")
+                        else:
+                            logger.warning(f"[INSERT] ⚠️ Track '{track_title}' sans album_id (album='{track.get('album')}')")
                     
                     if skipped_tracks:
-                        logger.warning(f"[INSERT] {len(skipped_tracks)} tracks ignorées: {skipped_tracks}")
+                        logger.warning(f"[INSERT] {len(skipped_tracks)} tracks ignorées: {skipped_tracks[:10]}")
+                    
+                    # DIAGNOSTIC: Statistiques de résolution d'albums
+                    tracks_with_album = sum(1 for t in resolved_tracks_data if t.get('album_id'))
+                    tracks_without_album = len(resolved_tracks_data) - tracks_with_album
+                    logger.info(f"[INSERT] Statistiques album resolution: {tracks_with_album} avec album, {tracks_without_album} sans album")
 
                     # Vérifier les IDs MusicBrainz avant l'insertion des tracks
                     await verify_musicbrainz_ids_in_tracks(client, resolved_tracks_data)

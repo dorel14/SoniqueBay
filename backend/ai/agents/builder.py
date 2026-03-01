@@ -120,14 +120,14 @@ async def build_agent(agent_model: AgentModel) -> Agent:
         )
         raise ValueError(f"Impossible de configurer le modèle LLM: {e}")
     
-    # Création de l'agent
+    # Création de l'agent avec configuration permissive pour conversations rapides
     try:
         agent = Agent(
             name=agent_model.name,
             model=ollama_model,
             system_prompt=system_prompt,
             tools=tools,
-            max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
+            retries=5,  # Augmenté pour tolérance aux erreurs de validation
         )
         
         logger.info(
@@ -190,13 +190,13 @@ async def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dic
     child_prompt = _build_specialized_prompt(agent_model, parent_model)
     child_tools = _merge_tools(agent_model, parent_model)
     
-    # Création de l'agent spécialisé
+    # Création de l'agent spécialisé avec configuration permissive
     specialized_agent = Agent(
         name=agent_model.name,
         model=parent_agent.model,  # Hérite du modèle du parent
         system_prompt=child_prompt,
         tools=child_tools,
-        max_result_retries=3  # Augmenté pour éviter les erreurs de validation avec KoboldCPP
+        retries=5,  # Augmenté pour tolérance aux erreurs de validation
     )
     
     logger.info(
@@ -256,6 +256,51 @@ def _merge_tools(child_model: AgentModel, parent_model: AgentModel) -> List[Any]
     merged_tools.extend(child_tools)
     
     return merged_tools
+
+
+async def build_simple_chat_agent(
+    name: str = "chat",
+    model_name: str = "Qwen/Qwen3-4B-Instruct:Q3_K_M",
+    system_prompt: str = None,
+) -> Agent:
+    """
+    Construit un agent de chat simple sans validation stricte.
+    
+    Cet agent est optimisé pour des conversations rapides et simples
+    (ex: dire "coucou", répondre à des questions basiques).
+    Pas de tools, pas de schéma de sortie strict - juste du texte libre.
+    
+    Args:
+        name: Nom de l'agent
+        model_name: Nom du modèle LLM
+        system_prompt: Prompt système personnalisé (optionnel)
+        
+    Returns:
+        Agent: Agent PydanticAI configuré pour du chat libre
+    """
+    from backend.ai.ollama import get_ollama_model
+    
+    # Prompt par défaut pour un assistant conversationnel simple
+    default_prompt = """Tu es un assistant conversationnel amical et concis.
+Réponds de manière naturelle et directe aux messages de l'utilisateur.
+Pas besoin de formatage spécial, juste une réponse textuelle simple."""
+    
+    effective_prompt = system_prompt or default_prompt
+    
+    # Récupérer le modèle
+    ollama_model = await get_ollama_model(model_name=model_name)
+    
+    # Créer l'agent sans tools et avec validation minimale
+    agent = Agent(
+        name=name,
+        model=ollama_model,
+        system_prompt=effective_prompt,
+        tools=[],  # Pas de tools pour du chat simple
+        retries=5,
+    )
+    
+    logger.info(f"Agent de chat simple créé: {name} avec modèle {model_name}")
+    return agent
 
 
 async def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:

@@ -2,7 +2,7 @@
 Tests complets pour la correction de l'erreur pydantic_ai "Exceeded maximum retries".
 
 Ce module teste :
-1. La présence du paramètre max_result_retries dans le code source
+1. La présence du paramètre retries dans le code source
 2. La validation des modèles d'agents
 3. La configuration des retries
 
@@ -17,11 +17,11 @@ from pathlib import Path
 
 
 class TestMaxResultRetriesConfiguration:
-    """Tests pour vérifier que max_result_retries est configuré correctement."""
+    """Tests pour vérifier que retries est configuré correctement."""
     
-    def test_build_agent_contains_max_result_retries(self):
+    def test_build_agent_contains_retries(self):
         """
-        Test que la fonction build_agent contient max_result_retries=3.
+        Test que la fonction build_agent contient retries=3.
         
         Vérifie que la correction est présente dans le code source.
         """
@@ -30,31 +30,31 @@ class TestMaxResultRetriesConfiguration:
         
         content = builder_path.read_text(encoding='utf-8')
         
-        # Vérifier que max_result_retries=3 est présent dans build_agent
-        assert "max_result_retries=3" in content, \
-            "Le paramètre max_result_retries=3 doit être présent dans build_agent"
+        # Vérifier que retries=3 est présent dans build_agent
+        assert "retries=3" in content, \
+            "Le paramètre retries=3 doit être présent dans build_agent"
         
         # Vérifier qu'il y a un commentaire explicatif
         assert "retry" in content.lower() or "validation" in content.lower(), \
             "Un commentaire expliquant le paramètre devrait être présent"
     
-    def test_build_agent_with_inheritance_contains_max_result_retries(self):
+    def test_build_agent_with_inheritance_contains_retries(self):
         """
-        Test que la fonction build_agent_with_inheritance contient aussi max_result_retries=3.
+        Test que la fonction build_agent_with_inheritance contient aussi retries=3.
         
         Vérifie que la correction est appliquée aussi pour l'héritage.
         """
         builder_path = Path("backend/ai/agents/builder.py")
         content = builder_path.read_text(encoding='utf-8')
         
-        # Compter les occurrences de max_result_retries=3 (devrait être au moins 2)
-        count = content.count("max_result_retries=3")
+        # Compter les occurrences de retries=3 (devrait être au moins 2)
+        count = content.count("retries=3")
         assert count >= 2, \
-            f"max_result_retries=3 devrait apparaître au moins 2 fois (build_agent + build_agent_with_inheritance), trouvé {count} fois"
+            f"retries=3 devrait apparaître au moins 2 fois (build_agent + build_agent_with_inheritance), trouvé {count} fois"
     
-    def test_max_result_retries_value_is_reasonable(self):
+    def test_retries_value_is_reasonable(self):
         """
-        Test que la valeur de max_result_retries est raisonnable.
+        Test que la valeur de retries est raisonnable.
         
         La valeur de 3 est un compromis entre :
         - Robustesse (plus de chances de succès)
@@ -64,11 +64,11 @@ class TestMaxResultRetriesConfiguration:
         builder_path = Path("backend/ai/agents/builder.py")
         content = builder_path.read_text(encoding='utf-8')
         
-        # Extraire la valeur numérique après max_result_retries=
+        # Extraire la valeur numérique après retries=
         import re
-        matches = re.findall(r'max_result_retries=(\d+)', content)
+        matches = re.findall(r'retries=(\d+)', content)
         
-        assert len(matches) > 0, "max_result_retries doit être défini"
+        assert len(matches) > 0, "retries doit être défini"
         
         for value_str in matches:
             value = int(value_str)
@@ -80,7 +80,8 @@ class TestMaxResultRetriesConfiguration:
 class TestAgentModelValidation:
     """Tests pour la validation des modèles d'agents."""
     
-    def test_agent_model_requires_role_and_task(self):
+    @pytest.mark.asyncio
+    async def test_agent_model_requires_role_and_task(self):
         """
         Test que la validation échoue si ROLE ou TASK sont manquants.
         
@@ -92,15 +93,15 @@ class TestAgentModelValidation:
         # Agent sans ROLE
         agent_no_role = AgentModel(
             name="test",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="",
             task="Faire quelque chose",
             enabled=True
         )
         
-        report = validate_agent_configuration(agent_no_role)
+        report = await validate_agent_configuration(agent_no_role)
         assert not report["is_valid"]
-        assert any("ROLE" in issue for issue in report["issues"])
+        assert any("role" in issue for issue in report["issues"])
         
         # Agent sans TASK
         agent_no_task = AgentModel(
@@ -111,11 +112,12 @@ class TestAgentModelValidation:
             enabled=True
         )
         
-        report = validate_agent_configuration(agent_no_task)
+        report = await validate_agent_configuration(agent_no_task)
         assert not report["is_valid"]
-        assert any("TASK" in issue for issue in report["issues"])
+        assert any("task" in issue for issue in report["issues"])
     
-    def test_valid_agent_model_passes_validation(self):
+    @pytest.mark.asyncio
+    async def test_valid_agent_model_passes_validation(self):
         """
         Test qu'un modèle d'agent valide passe la validation.
         """
@@ -124,7 +126,7 @@ class TestAgentModelValidation:
         
         valid_agent = AgentModel(
             name="test_agent",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="Assistant",
             task="Aider l'utilisateur",
             temperature=0.7,
@@ -134,11 +136,11 @@ class TestAgentModelValidation:
             enabled=True
         )
         
-        report = validate_agent_configuration(valid_agent)
+        report = await validate_agent_configuration(valid_agent)
         # Note: La validation du modèle LLM peut échouer si Ollama n'est pas disponible
         # mais les champs RTCROS devraient être valides
-        assert not any("ROLE" in issue for issue in report["issues"])
-        assert not any("TASK" in issue for issue in report["issues"])
+        assert not any("role" in issue for issue in report["issues"])
+        assert not any("task" in issue for issue in report["issues"])
 
 
 class TestCodeQuality:
@@ -164,16 +166,16 @@ class TestCodeQuality:
         builder_path = Path("backend/ai/agents/builder.py")
         content = builder_path.read_text(encoding='utf-8')
         
-        # Vérifier qu'il n'y a pas de valeurs absurdes pour max_result_retries
+        # Vérifier qu'il n'y a pas de valeurs absurdes pour retries
         import re
-        matches = re.findall(r'max_result_retries=(\d+)', content)
+        matches = re.findall(r'retries=(\d+)', content)
         
         for value_str in matches:
             value = int(value_str)
             # Valeurs absurdes à éviter
-            assert value != 0, "max_result_retries=0 désactiverait les retries"
-            assert value != 1, "max_result_retries=1 est la valeur par défaut problématique"
-            assert value < 10, "max_result_retries >= 10 serait excessif"
+            assert value != 0, "retries=0 désactiverait les retries"
+            assert value != 1, "retries=1 est la valeur par défaut problématique"
+            assert value < 10, "retries >= 10 serait excessif"
 
 
 # Tests d'intégration (nécessitent un environnement LLM fonctionnel)
@@ -193,7 +195,7 @@ class TestAgentIntegration:
         
         agent_model = AgentModel(
             name="integration_test_agent",
-            model="qwen2.5-3b-instruct-q4_k_m",
+            model="koboldcpp/qwen2.5-3b-instruct-q4_k_m",
             role="Test assistant",
             task="Tester la création d'agents",
             temperature=0.7,

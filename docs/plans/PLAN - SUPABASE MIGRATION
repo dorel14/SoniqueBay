@@ -1,0 +1,273 @@
+# Plan de migration vers Supabase
+Projet : SoniqueBay (FastAPI + NiceGUI + Celery)
+
+---
+
+## Objectifs
+
+- Remplacer le CRUD FastAPI par Supabase
+- Centraliser données, auth et realtime
+- Garder FastAPI pour logique métier et IA
+- Permettre mémoire persistante pour agents IA
+- Préparer vector search et embeddings
+
+---
+
+## Architecture actuelle
+
+NiceGUI
+  -> FastAPI
+  -> SQLAlchemy
+  -> PostgreSQL
+
+---
+
+## Architecture cible
+
+NiceGUI
+  -> Supabase Client
+  -> Supabase (PostgreSQL + Realtime + Auth)
+
+FastAPI
+  -> Supabase
+
+Celery Workers
+  -> Supabase
+
+LLM Container
+  -> FastAPI / Workers
+
+Supabase devient la source unique de vérité.
+
+---
+
+## Phase 0 - Audit
+
+Lister tous les endpoints FastAPI.
+
+Classifier :
+
+CRUD simple -> Supabase
+Lecture catalogue -> Supabase
+IA -> FastAPI
+Streaming -> FastAPI
+Websocket critique -> FastAPI
+
+---
+
+## Phase 1 - Installation Supabase
+
+Initialisation :
+
+Doit se faire via les conteneurs dockers necessaires uniquement et des script bash + sql 
+Il faut installer la base + realtime + dashboard
+tu peux récupérer une partie de ce quie est fait pour la db actuelle pour la création de la base et des users 
+ 
+
+---
+
+## Phase 2 - Migration base
+
+Exporter schema :
+
+pg_dump -s mydb > schema.sql
+
+Importer :
+
+psql -h localhost -p 54322 -U postgres -d postgres < schema.sql
+
+---
+
+## Phase 3 - Extensions
+
+create extension if not exists vector;
+create extension if not exists pg_trgm;
+create extension if not exists uuid-ossp;
+
+---
+
+## Phase 4 - RLS
+
+alter table tracks enable row level security;
+
+create policy "public read"
+on tracks
+for select
+using (true);
+
+---
+
+## Phase 5 - Migration CRUD
+
+Avant :
+
+GET /albums
+POST /tracks
+
+Après :
+
+supabase.table("albums").select("*").execute()
+
+Actions :
+
+- remplacer appel frontend
+- supprimer endpoint FastAPI
+- tester
+
+---
+
+## Phase 6 - Frontend NiceGUI
+
+Installer client :
+
+pip install supabase
+
+Connexion :
+
+from supabase import create_client
+
+supabase = create_client(URL, KEY)
+
+Lecture :
+
+albums = supabase.table("albums").select("*").execute()
+
+---
+
+## Phase 7 - FastAPI devient service métier
+
+FastAPI conserve :
+
+- recommandations IA
+- agents pydanticAI
+- websocket audio
+- streaming
+- téléchargement
+- intégrations externes
+
+Flux :
+
+Supabase -> FastAPI -> Supabase
+
+---
+
+## Phase 8 - Jobs Celery
+
+Table jobs :
+
+create table jobs (
+  id uuid primary key,
+  type text,
+  payload jsonb,
+  status text default 'pending'
+);
+
+Worker :
+
+select job pending
+update running
+execute
+update done
+
+---
+
+## Phase 9 - Realtime
+
+Supabase realtime remplace certains websocket.
+
+Cas :
+
+- playlist update
+- bibliothèque
+- chat
+- monitoring jobs
+
+---
+
+## Phase 10 - Embeddings
+
+alter table tracks
+add column embedding vector(384);
+
+Recherche :
+
+select *
+from tracks
+order by embedding <-> query_vector
+limit 20;
+
+Embeddings générés par worker IA.
+
+---
+
+## Phase 11 - Chat IA mémoire
+
+Tables :
+
+chat_sessions
+chat_messages
+
+Chaque message stocké avec embedding.
+
+Agents IA relisent contexte via recherche vectorielle.
+
+Voir si'l n'existe pas déjà des tables autour de ceci exemple conversation_model
+---
+
+## Phase 12 - Storage
+
+
+
+- covers
+- avatars
+- images artistes
+
+garder filesystem local pour Raspberry Pi.
+
+---
+
+## Phase 13 - Auth
+
+Supabase Auth :
+
+- utilisateurs
+- JWT
+- sessions
+
+NiceGUI stocke token.
+FastAPI valide JWT.
+
+---
+
+## Phase 14 - Nettoyage
+
+Supprimer :
+
+- CRUD FastAPI
+- endpoints SQL directs
+
+Garder :
+
+- logique métier
+- IA
+- websocket critique
+
+---
+
+## Ordre recommandé
+
+1 Installer Supabase
+2 Migrer lecture
+3 Migrer CRUD
+4 Activer realtime
+5 Migrer auth
+6 Ajouter embeddings
+
+---
+
+## Critère de réussite
+
+Frontend parle directement à Supabase.
+FastAPI sans CRUD massif.
+Supabase = source unique.
+Workers indépendants.

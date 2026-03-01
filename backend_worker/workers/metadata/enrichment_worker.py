@@ -119,56 +119,66 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                 if normalized and normalized in valid_genres:
                     return normalized
 
-                # Si ce n'est pas un genre valide, vérifier si c'est un nom d'artiste connu
-                # On va comparer avec les artistes de la base de données via un appel API
-                try:
-                    import httpx
-                    import os
-                    import asyncio
-
-                    # Configuration de l'URL de l'API
-                    library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
-
-                    # Utilisation du service de cache pour éviter les appels API répétés
-                    from backend_worker.services.cache_service import cache_service
-
-                    async def check_artist_in_api_cached():
-                        # Générer une clé de cache unique
-                        cache_key = f"artist_search:{cleaned.lower()}"
-
-                        # Fonction pour appeler l'API
-                        async def call_artist_api():
-                            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                                response = await client.get(f"{library_api_url}/api/artists/search?name={cleaned}")
-                                return response
-
-                        # Appel avec cache et circuit breaker
-                        result = await cache_service.call_with_cache_and_circuit_breaker(
-                            cache_name="artist_search",
-                            key=cache_key,
-                            func=call_artist_api
-                        )
-
-                        return result
-
-                    # Exécuter la fonction asynchrone de manière synchrone
+                    # Si ce n'est pas un genre valide, vérifier si c'est un nom d'artiste connu
+                    # On va comparer avec les artistes de la base de données via un appel API
                     try:
-                        # Créer un nouvel événement loop pour éviter les conflits
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                        result = loop.run_until_complete(check_artist_in_api_cached())
+                        import httpx
+                        import os
+                        import asyncio
+
+                        # Configuration de l'URL de l'API
+                        library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
+
+                        # LOG: Indiquer qu'on va faire un appel API pour vérifier si c'est un artiste
+                        logger.info(f"[GENRE_CHECK] Genre suspect '{single_genre}' non trouvé dans la bibliothèque. Appel API /api/artists/search?name={cleaned} pour vérifier si c'est un artiste")
+
+                        # Utilisation du service de cache pour éviter les appels API répétés
+                        from backend_worker.services.cache_service import cache_service
+
+                        async def check_artist_in_api_cached():
+                            # Générer une clé de cache unique
+                            cache_key = f"artist_search:{cleaned.lower()}"
+
+                            # Fonction pour appeler l'API
+                            async def call_artist_api():
+                                logger.info(f"[GENRE_CHECK] Appel API: GET {library_api_url}/api/artists/search?name={cleaned}")
+                                async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                                    response = await client.get(f"{library_api_url}/api/artists/search?name={cleaned}")
+                                    logger.info(f"[GENRE_CHECK] Réponse API pour '{cleaned}': status={response.status_code}")
+                                    return response
+
+                            # Appel avec cache et circuit breaker
+                            result = await cache_service.call_with_cache_and_circuit_breaker(
+                                cache_name="artist_search",
+                                key=cache_key,
+                                func=call_artist_api
+                            )
+
+                            return result
+
+                        # Exécuter la fonction asynchrone de manière synchrone
+                        try:
+                            # Créer un nouvel événement loop pour éviter les conflits
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            result = loop.run_until_complete(check_artist_in_api_cached())
+                        except Exception as e:
+                            logger.error(f"[GENRE_CHECK] Erreur lors de l'exécution asynchrone pour '{single_genre}': {str(e)}")
+                            result = None
+
+                        if result and hasattr(result, 'status_code') and result.status_code == 200:
+                            artists_data = result.json()
+                            if artists_data and len(artists_data) > 0:
+                                logger.warning(f"[GENRE_CHECK] Genre invalide détecté (nom d'artiste dans BDD): '{single_genre}' dans {file_path} - Artiste trouvé: {artists_data[0].get('name', 'N/A')}")
+                                return None
+                            else:
+                                logger.info(f"[GENRE_CHECK] Aucun artiste trouvé pour '{single_genre}' - ce n'est pas un artiste connu")
+                        else:
+                            logger.warning(f"[GENRE_CHECK] Échec de la vérification API pour '{single_genre}': status={getattr(result, 'status_code', 'N/A')}")
+
                     except Exception as e:
-                        logger.error(f"Erreur lors de l'exécution asynchrone: {str(e)}")
-                        result = None
+                        logger.error(f"[GENRE_CHECK] Erreur lors de la vérification de l'artiste via API pour '{single_genre}': {str(e)}")
 
-                    if result and hasattr(result, 'status_code') and result.status_code == 200:
-                        artists_data = result.json()
-                        if artists_data and len(artists_data) > 0:
-                            logger.warning(f"Genre invalide détecté (nom d'artiste dans BDD): '{single_genre}' dans {file_path}")
-                            return None
-
-                except Exception as e:
-                    logger.error(f"Erreur lors de la vérification de l'artiste via API: {str(e)}")
                     # En cas d'erreur, on utilise une liste de fallback
                     known_artists = {
                         'christina aguilera', 'madonna', 'beyoncé', 'lady gaga', 'britney spears',
