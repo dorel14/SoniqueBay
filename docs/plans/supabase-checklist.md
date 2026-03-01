@@ -176,7 +176,7 @@
 | 5.3 | Créer `frontend/services/supabase/__init__.py` | ⬜ | | |
 | 5.4 | Créer `frontend/services/supabase/auth_service.py` | ⬜ | | |
 | 5.5 | Créer `frontend/services/supabase/realtime_service.py` | ⬜ | | |
-| 5.6 | Créer `frontend/services/supabase/track_service.py` | ⬜ | | |
+| 5.8 | Créer `frontend/services/supabase/album_service.py` | ⬜ | | |
 | 5.7 | Créer `frontend/services/supabase/artist_service.py` | ⬜ | | |
 | 5.8 | Créer `frontend/services/supabase/album_service.py` | ⬜ | | |
 | 5.9 | Créer `frontend/services/supabase/search_service.py` | ⬜ | | |
