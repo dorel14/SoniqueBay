@@ -3,9 +3,9 @@ Base Repository - Classe de base pour tous les repositories.
 Fournit les opérations CRUD standard en utilisant DatabaseAdapter.
 """
 
+import logging
 from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
 from backend.api.utils.db_adapter import DatabaseAdapter, get_adapter
-from backend.api.utils.logging import logger
 
 T = TypeVar('T', bound=Dict[str, Any])
 
@@ -32,7 +32,7 @@ class BaseRepository(Generic[T]):
         """
         self.table_name = table_name
         self.adapter = get_adapter(table_name)
-        self.logger = logger.bind(repository=table_name)
+        self.logger = logging.getLogger(f"{__name__}.{table_name}")
         
         self.logger.debug(f"Repository '{table_name}' initialisé")
     
