@@ -1,5 +1,7 @@
 """Tâches Celery centralisées pour le backend worker."""
 
+import os
+
 from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 
@@ -298,6 +300,12 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 
         total_time = time.time() - start_time
         logger.info(f"[BATCH] Batching terminé: {len(artists_data)} artistes, {len(albums_data)} albums, {len(tracks_data)} pistes en {total_time:.2f}s")
+        
+        # DIAGNOSTIC: Log des albums détectés
+        if albums_data:
+            logger.info(f"[BATCH] Albums détectés (sample): {albums_data[:5]}")
+            for album in albums_data[:5]:
+                logger.info(f"[BATCH]   - Album: '{album.get('title')}', artist_name: '{album.get('album_artist_name')}', year: {album.get('release_year')}")
 
         # Préparer le résultat pour l'insertion
         insertion_data = {
@@ -331,14 +339,17 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 
 
 # === TÂCHES DE VECTORISATION ===
+# Utilisation de sentence-transformers (plus léger que Ollama/Koboldcpp)
+EMBEDDING_MODEL = 'all-MiniLM-L6-v2'  # Modèle léger et efficace pour Raspberry Pi
+
 @celery.task(name="vectorization.calculate", queue="vectorization", bind=True)
 def calculate_vector(self, track_id: int, metadata: dict = None):
     """
-    Calcule le vecteur d'une track via le service d'embeddings local.
+    Calcule le vecteur d'une track via sentence-transformers.
     
     Pipeline:
         1. Récupère les données de la track via l'API
-        2. Génère l'embedding avec OllamaEmbeddingService (local)
+        2. Génère l'embedding avec sentence-transformers (local, léger)
         3. Stocke le vecteur via l'API backend
     
     Args:
@@ -348,7 +359,6 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
     Returns:
         Résultat du calcul avec statut et métadonnées
     """
-    import asyncio
     import time
     
     start_time = time.time()
@@ -357,53 +367,74 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
     logger.info(f"[VECTOR] Démarrage calcul vecteur: track_id={track_id}")
     
     try:
-        # Import du service de vectorisation Ollama
-        from backend_worker.services.vectorization_service import (
-            OptimizedVectorizationService,
-            VectorizationError
-        )
+        # Import de sentence-transformers
+        from sentence_transformers import SentenceTransformer
+        import httpx
+        import numpy as np
         
-        # Instanciation du service
-        service = OptimizedVectorizationService()
+        # Chargement du modèle (lazy loading - chargé une seule fois)
+        model = SentenceTransformer(EMBEDDING_MODEL)
         
-        # Fonction async pour vectoriser et stocker
-        async def run_vectorization():
-            nonlocal service
-            
-            # Vectoriser et stocker
-            result = await service.vectorize_and_store(track_id, metadata)
-            return result
+        # Récupérer les métadonnées de la track via l'API si non fournies
+        track_metadata = metadata or {}
+        if not track_metadata:
+            api_url = os.getenv("API_URL", "http://api:8001")
+            try:
+                with httpx.Client(timeout=30) as client:
+                    response = client.get(f"{api_url}/api/tracks/{track_id}")
+                    if response.status_code == 200:
+                        track_metadata = response.json()
+            except Exception as e:
+                logger.warning(f"[VECTOR] Impossible de récupérer les métadonnées: {e}")
         
-        # Exécution de la fonction async
-        result = asyncio.run(run_vectorization())
+        # Construire le texte à vectoriser à partir des métadonnées
+        text_parts = []
+        if track_metadata.get('title'):
+            text_parts.append(track_metadata['title'])
+        if track_metadata.get('artist'):
+            text_parts.append(track_metadata['artist'])
+        if track_metadata.get('album'):
+            text_parts.append(track_metadata['album'])
+        if track_metadata.get('genre'):
+            text_parts.append(track_metadata['genre'])
         
-        # Ajouter les métadonnées de la tâche
-        result['task_id'] = task_id
-        result['calculation_time'] = time.time() - start_time
-        result['embedding_model'] = 'nomic-embed-text'
+        text_to_embed = " - ".join(text_parts) if text_parts else f"track_{track_id}"
+        
+        # Générer l'embedding
+        embedding = model.encode(text_to_embed, convert_to_numpy=True)
+        
+        # Convertir en liste pour sérialisation JSON
+        embedding_list = embedding.tolist()
+        
+        # Stocker le vecteur via l'API
+        api_url = os.getenv("API_URL", "http://api:8001")
+        with httpx.Client(timeout=30) as client:
+            response = client.post(
+                f"{api_url}/api/tracks/{track_id}/vector",
+                json={"vector": embedding_list, "model": EMBEDDING_MODEL}
+            )
+            if response.status_code not in (200, 201):
+                raise Exception(f"Erreur stockage vecteur: {response.status_code}")
+        
+        calculation_time = time.time() - start_time
         
         logger.info(
-            f"[VECTOR] Résultat: status={result['status']}, "
-            f"track_id={track_id}, time={result['calculation_time']:.2f}s"
+            f"[VECTOR] Vecteur calculé et stocké: track_id={track_id}, "
+            f"dimensions={len(embedding_list)}, time={calculation_time:.2f}s"
         )
-        return result
         
-    except VectorizationError as ve:
-        error_time = time.time() - start_time
-        logger.error(f"[VECTOR] Erreur vectorisation: {str(ve)}")
         return {
             'task_id': task_id,
             'track_id': track_id,
-            'status': 'error',
-            'message': str(ve),
-            'error_type': 'VectorizationError',
-            'calculation_time': error_time,
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
+            'status': 'success',
+            'embedding_model': EMBEDDING_MODEL,
+            'dimensions': len(embedding_list),
+            'calculation_time': calculation_time
         }
         
     except Exception as e:
         error_time = time.time() - start_time
-        logger.error(f"[VECTOR] Erreur inattendue: {str(e)}")
+        logger.error(f"[VECTOR] Erreur vectorisation: {str(e)}")
         import traceback
         logger.error(f"[VECTOR] Traceback: {traceback.format_exc()}")
         return {
@@ -413,14 +444,14 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             'message': str(e),
             'error_type': type(e).__name__,
             'calculation_time': error_time,
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
+            'embedding_model': EMBEDDING_MODEL
         }
 
 
 @celery.task(name="vectorization.batch", queue="vectorization", bind=True)
 def calculate_vector_batch(self, track_ids: list[int]):
     """
-    Calcule les vecteurs d'un batch de tracks via le service local.
+    Calcule les vecteurs d'un batch de tracks via sentence-transformers.
     
     Args:
         track_ids: Liste des IDs de tracks
@@ -428,7 +459,6 @@ def calculate_vector_batch(self, track_ids: list[int]):
     Returns:
         Résultat du calcul batch
     """
-    import asyncio
     import time
     
     start_time = time.time()
@@ -436,27 +466,80 @@ def calculate_vector_batch(self, track_ids: list[int]):
     
     logger.info(f"[VECTOR] Démarrage batch: {len(track_ids)} tracks")
     
+    successful = 0
+    failed = 0
+    errors = []
+    
     try:
-        from backend_worker.services.vectorization_service import (
-            OptimizedVectorizationService
-        )
+        from sentence_transformers import SentenceTransformer
+        import httpx
+        import numpy as np
         
-        service = OptimizedVectorizationService()
+        # Chargement du modèle (une seule fois pour tout le batch)
+        model = SentenceTransformer(EMBEDDING_MODEL)
+        api_url = os.getenv("API_URL", "http://api:8001")
         
-        async def run_batch():
-            return await service.vectorize_and_store_batch(track_ids)
+        with httpx.Client(timeout=30) as client:
+            for track_id in track_ids:
+                try:
+                    # Récupérer les métadonnées
+                    response = client.get(f"{api_url}/api/tracks/{track_id}")
+                    if response.status_code != 200:
+                        failed += 1
+                        errors.append(f"Track {track_id}: non trouvé")
+                        continue
+                    
+                    track_metadata = response.json()
+                    
+                    # Construire le texte à vectoriser
+                    text_parts = []
+                    if track_metadata.get('title'):
+                        text_parts.append(track_metadata['title'])
+                    if track_metadata.get('artist'):
+                        text_parts.append(track_metadata['artist'])
+                    if track_metadata.get('album'):
+                        text_parts.append(track_metadata['album'])
+                    if track_metadata.get('genre'):
+                        text_parts.append(track_metadata['genre'])
+                    
+                    text_to_embed = " - ".join(text_parts) if text_parts else f"track_{track_id}"
+                    
+                    # Générer l'embedding
+                    embedding = model.encode(text_to_embed, convert_to_numpy=True)
+                    embedding_list = embedding.tolist()
+                    
+                    # Stocker le vecteur
+                    store_response = client.post(
+                        f"{api_url}/api/tracks/{track_id}/vector",
+                        json={"vector": embedding_list, "model": EMBEDDING_MODEL}
+                    )
+                    
+                    if store_response.status_code in (200, 201):
+                        successful += 1
+                    else:
+                        failed += 1
+                        errors.append(f"Track {track_id}: erreur stockage {store_response.status_code}")
+                        
+                except Exception as e:
+                    failed += 1
+                    errors.append(f"Track {track_id}: {str(e)}")
         
-        result = asyncio.run(run_batch())
-        
-        result['task_id'] = task_id
-        result['calculation_time'] = time.time() - start_time
-        result['embedding_model'] = 'nomic-embed-text'
+        calculation_time = time.time() - start_time
         
         logger.info(
-            f"[VECTOR] Batch terminé: {result['successful']} succès, "
-            f"{result['failed']} échecs en {result['calculation_time']:.2f}s"
+            f"[VECTOR] Batch terminé: {successful} succès, "
+            f"{failed} échecs en {calculation_time:.2f}s"
         )
-        return result
+        
+        return {
+            'task_id': task_id,
+            'status': 'success' if failed == 0 else 'partial',
+            'successful': successful,
+            'failed': failed,
+            'errors': errors[:10],  # Limiter le nombre d'erreurs retournées
+            'calculation_time': calculation_time,
+            'embedding_model': EMBEDDING_MODEL
+        }
         
     except Exception as e:
         error_time = time.time() - start_time
@@ -466,14 +549,14 @@ def calculate_vector_batch(self, track_ids: list[int]):
             'status': 'error',
             'message': str(e),
             'calculation_time': error_time,
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
+            'embedding_model': EMBEDDING_MODEL
         }
 
 
 # === TÂCHES DE COVERS ===
 # Import des vraies tâches de covers depuis covers_tasks.py
 
-@celery.task(name="covers.extract_embedded", queue="deferred", bind=True)
+@celery.task(name="covers.extract_embedded", queue="deferred_covers", bind=True)
 def extract_embedded_covers(self, file_paths: list[str]):
     """
     Extrait les covers intégrées pour un lot de fichiers.
@@ -506,7 +589,7 @@ def extract_embedded_covers(self, file_paths: list[str]):
 
 
 # === TÂCHES D'ENRICHISSEMENT ===
-@celery.task(name="metadata.enrich_batch", queue="deferred", bind=True)
+@celery.task(name="metadata.enrich_batch", queue="deferred_enrichment", bind=True)
 def enrich_tracks_batch_task(self, track_ids: list[int]):
     """
     Tâche d'enrichissement par lot des tracks.

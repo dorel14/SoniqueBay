@@ -1,0 +1,3 @@
+{
+  "query": "mutation { createTracks(data: [{title: \"Test BPM Track\", path: \"/music/test_bpm_fix.mp3\", trackArtistId: 1, albumId: null, bpm: 128.5, key: \"Am\", scale: \"minor\", danceability: 0.75, moodHappy: 0.6, moodAggressive: 0.1, moodParty: 0.5, moodRelaxed: 0.7, instrumental: 0.05, acoustic: 0.3, tonal: 0.9, camelotKey: \"8A\", genreMain: \"Electronic\"}]) { id title path musicbrainzId } }"
+}

@@ -2,6 +2,15 @@ from nicegui import ui
 
 
 def audioplayer_component():
+    # L'élément audio est créé à l'intérieur de la fonction pour éviter les conflits de routage
+    # Il sera alimenté par un flux streaming depuis l'API
+    audio = ui.audio(src='').classes('hidden')  # src vide initialement, sera mis à jour via streaming API
+    
+    def toggle_play():
+        # Logique pour alterner entre play() et pause()
+        # TODO: Implémenter la logique de lecture/pause avec le flux API
+        pass
+
     with ui.row().classes('absolute bottom-0 inset-x-0 items-center justify-between no-wrap backdrop-blur-lg border-t border-white/15 p-4'):
             
             # --- ZONE GAUCHE : Infos Média ---
@@ -37,9 +46,3 @@ def audioplayer_component():
                 ui.icon('volume_up').classes('text-gray-400')
                 ui.slider(min=0, max=1, step=0.01, value=0.7).classes('w-24') \
                    .props('dense selection-color=white')
-
-    # L'élément audio est présent mais INVISIBLE (pas de props 'controls')
-    audio = ui.audio(src='votre_musique.mp3').classes('hidden')
-    def toggle_play():
-        # Logique pour alterner entre play() et pause()
-        pass
