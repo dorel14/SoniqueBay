@@ -59,12 +59,10 @@ Websocket critique -> FastAPI
 
 Initialisation :
 
-npx supabase init
-npx supabase start
-
-Dashboard :
-
-http://localhost:54323
+Doit se faire via les conteneurs dockers necessaires uniquement et des script bash + sql 
+Il faut installer la base + realtime + dashboard
+tu peux récupérer une partie de ce quie est fait pour la db actuelle pour la création de la base et des users 
+ 
 
 ---
 
@@ -213,6 +211,7 @@ Chaque message stocké avec embedding.
 
 Agents IA relisent contexte via recherche vectorielle.
 
+Voir si'l n'existe pas déjà des tables autour de ceci exemple conversation_model
 ---
 
 ## Phase 12 - Storage
