@@ -12,13 +12,16 @@ Author: SoniqueBay Team
 """
 
 from collections import defaultdict
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from backend.api.models import Album, Track
+
+if TYPE_CHECKING:
+    from backend.api.schemas.albums_schema import AlbumCreate
 
 
 class AlbumService:
@@ -335,6 +338,44 @@ class AlbumService:
             await self.db.refresh(album)
 
         return albums
+
+    async def create_albums_batch(self, albums_data: List["AlbumCreate"]) -> List[dict]:
+        """
+        Crée ou récupère plusieurs albums en batch (get_or_create).
+        
+        Cette méthode est utilisée par l'API GraphQL et REST pour créer
+        des albums en batch en évitant les doublons.
+        
+        Args:
+            albums_data: Liste d'objets AlbumCreate (Pydantic)
+            
+        Returns:
+            List[dict]: Liste des albums créés ou récupérés avec leurs données
+        """
+        from backend.api.schemas.albums_schema import AlbumCreate
+        
+        results = []
+        
+        for album_create in albums_data:
+            # Utiliser get_or_create_album pour éviter les doublons
+            album = await self.get_or_create_album(
+                title=album_create.title,
+                artist_id=album_create.album_artist_id,
+                release_year=album_create.release_year,
+                cover_url=None,  # Pas de cover_url dans AlbumCreate
+            )
+            
+            # Construire le dict résultat au format attendu par GraphQL
+            album_dict = {
+                "id": album.id,
+                "title": album.title,
+                "album_artist_id": album.album_artist_id,
+                "release_year": album.release_year,
+                "musicbrainz_albumid": getattr(album, 'musicbrainz_albumid', None),
+            }
+            results.append(album_dict)
+        
+        return results
 
     async def get_albums_with_stats(
         self, skip: int = 0, limit: int = 100
