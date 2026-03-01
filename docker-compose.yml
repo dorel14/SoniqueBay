@@ -138,7 +138,7 @@ services:
         environment:
             - GOTRUE_API_HOST=0.0.0.0
             - GOTRUE_API_PORT=9999
-            - GOTRUE_API_EXTERNAL_URL=${SUPABASE_API_EXTERNAL_URL:-http://localhost:54324}
+            - API_EXTERNAL_URL=${SUPABASE_API_EXTERNAL_URL:-http://localhost:54324}
             - GOTRUE_DB_DRIVER=postgres
             - GOTRUE_DB_DATABASE_URL=postgres://${SUPABASE_DB_USER:-supabase}:${SUPABASE_DB_PASSWORD:-supabase}@supabase-db:5432/${SUPABASE_DB_NAME:-postgres}?sslmode=disable
             - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}

@@ -1,5 +1,5 @@
--- Initialisation Supabase pour SoniqueBay
--- Extensions nécessaires et configuration initiale
+-- Initialisation Supabase pour SoniqueBay - Version simplifiée
+-- Les schémas auth et les tables auth sont gérés par l'image Supabase Postgres
 
 -- Activer les extensions essentielles
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -7,14 +7,10 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "vector";
 
--- Créer le schéma auth si non existant (pour GoTrue)
-CREATE SCHEMA IF NOT EXISTS auth;
-
--- Créer le schéma realtime si non existant
+-- Créer le schéma realtime si non existant (pour le service Realtime)
 CREATE SCHEMA IF NOT EXISTS realtime;
 
 -- Configuration pour Realtime
--- Activer la publication pour realtime sur toutes les tables
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -29,7 +25,6 @@ BEGIN
     EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', table_name);
 EXCEPTION
     WHEN duplicate_object THEN
-        -- Table déjà dans la publication, ignorer
         NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -54,18 +49,8 @@ BEGIN
     END IF;
 END $$;
 
--- Accorder les privilèges de base
+-- Accorder les privilèges de base sur le schéma public
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
-GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;
-
--- Note : Les tables seront créées par les migrations SQLAlchemy/Alembic existantes
--- ou par les scripts de migration dédiés
-
--- Configuration pour les recherches textuelles (à activer sur les tables concernées)
--- Exemple : CREATE INDEX idx_tracks_search ON tracks USING gin(to_tsvector('french', title || ' ' || artist));
-
--- Commentaire : Les politiques RLS (Row Level Security) seront configurées
--- dans les scripts de migration spécifiques à chaque table
 
 -- Fonction utilitaire pour la mise à jour automatique de updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -75,5 +60,3 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
-
--- Note : Les triggers seront créés sur chaque table lors de la migration

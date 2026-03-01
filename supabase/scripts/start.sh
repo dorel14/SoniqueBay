@@ -12,8 +12,16 @@ if ! command -v docker-compose &> /dev/null; then
     exit 1
 fi
 
-# Démarrer uniquement les services Supabase
-docker-compose up -d supabase-db supabase-realtime supabase-auth supabase-meta supabase-dashboard
+# Étape 1: Démarrer supabase-db en premier (avec entrypoint automatique pour auth)
+echo "📦 Démarrage de supabase-db..."
+docker-compose up -d supabase-db
+
+echo "⏳ Attente de l'initialisation de la base de données (schéma auth créé automatiquement)..."
+sleep 20
+
+# Étape 2: Démarrer les autres services Supabase
+echo "📦 Démarrage des autres services Supabase..."
+docker-compose up -d supabase-realtime supabase-auth supabase-meta supabase-dashboard
 
 echo "⏳ Attente du démarrage complet..."
 sleep 10
