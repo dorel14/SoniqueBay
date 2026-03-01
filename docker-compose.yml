@@ -158,33 +158,6 @@ services:
             - GOTRUE_SMS_AUTOCONFIRM=false
             - GOTRUE_LOG_LEVEL=info
 
-    # === SUPABASE - Dashboard (Studio) ===
-    supabase-dashboard:
-        image: supabase/studio:20250120-8e4a174
-        container_name: soniquebay-supabase-dashboard
-        restart: unless-stopped
-        depends_on:
-            supabase-db:
-                condition: service_healthy
-            supabase-auth:
-                condition: service_started
-        networks:
-            default:
-                aliases:
-                    - supabase-dashboard
-        ports:
-            - "54325:3000"
-        environment:
-            - STUDIO_PG_META_URL=http://supabase-meta:8080
-            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
-            - DEFAULT_ORGANIZATION=SoniqueBay
-            - DEFAULT_PROJECT=SoniqueBay
-            - OPENAI_API_KEY=
-            - SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}
-            - SUPABASE_PUBLIC_URL=${SUPABASE_PUBLIC_URL:-http://localhost:54321}
-            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test}
-            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkwMDAwMDAwMH0.test}
-
     # === SUPABASE - Meta (pour Dashboard) ===
     supabase-meta:
         image: supabase/postgres-meta:v0.80.0
@@ -204,6 +177,30 @@ services:
             - PG_META_DB_NAME=${SUPABASE_DB_NAME:-postgres}
             - PG_META_DB_USER=${SUPABASE_DB_USER:-supabase}
             - PG_META_DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+
+    # === SUPABASE - Dashboard (Studio) ===
+    supabase-dashboard:
+        image: supabase/studio:latest
+        container_name: soniquebay-supabase-dashboard
+        restart: unless-stopped
+        depends_on:
+            supabase-db:
+                condition: service_healthy
+            supabase-meta:
+                condition: service_started
+        networks:
+            default:
+                aliases:
+                    - supabase-dashboard
+        ports:
+            - "54325:3000"
+        environment:
+            - STUDIO_PG_META_URL=http://supabase-meta:8080
+            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
+            - SUPABASE_URL=http://supabase-db:5432
+            - SUPABASE_PUBLIC_URL=http://localhost:54321
+            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test}
+            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTkwMDAwMDAwMH0.test}
 
     # === REDIS (broker + backend) ===
     redis:

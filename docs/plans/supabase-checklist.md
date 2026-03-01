@@ -29,18 +29,21 @@
 | 2.1 | Ajouter service `supabase-db` dans docker-compose.yml | ✅ | 2025-01-20 | Service créé avec healthcheck |
 | 2.2 | Ajouter service `supabase-realtime` dans docker-compose.yml | ✅ | 2025-01-20 | WebSocket temps réel |
 | 2.3 | Ajouter service `supabase-auth` dans docker-compose.yml | ✅ | 2025-01-20 | GoTrue auth |
-| 2.4 | Créer `supabase/db_init/init_supabase.sql` (extensions) | ✅ | 2025-01-20 | uuid-ossp, pg_trgm, pgcrypto, vector |
-| 2.5 | Créer `scripts/migrate_schema_to_supabase.py` | ⬜ | | |
-| 2.6 | Créer `backend/api/utils/supabase_client.py` | ⬜ | | |
-| 2.7 | Créer `frontend/utils/supabase_client.py` | ⬜ | | |
-| 2.8 | Créer `.env.supabase.example` | ✅ | 2025-01-20 | Variables d'environnement documentées |
-| 2.9 | Créer `supabase/Dockerfile` | ✅ | 2025-01-20 | Image personnalisée |
-| 2.10 | Créer `supabase/scripts/start.sh, stop.sh, logs.sh` | ✅ | 2025-01-20 | Scripts de gestion shell |
-| 2.11 | Créer `supabase/README.md` | ✅ | 2025-01-20 | Documentation structure |
-| 2.12 | Tester démarrage services Supabase | ⬜ | | |
-| 2.13 | Tester connexion client Supabase | ⬜ | | |
-| 2.14 | Migrer schéma SQLAlchemy → Supabase | ⬜ | | |
-| 2.15 | Commit "feat: add supabase infrastructure" | ⬜ | | |
+| 2.4 | Ajouter service `supabase-dashboard` dans docker-compose.yml | ✅ | 2025-01-20 | Studio UI ajouté |
+| 2.5 | Créer `supabase/db_init/init_supabase.sql` (extensions) | ✅ | 2025-01-20 | uuid-ossp, pg_trgm, pgcrypto, vector |
+| 2.6 | Créer `scripts/migrate_schema_to_supabase.py` | ⬜ | | |
+| 2.7 | Créer `backend/api/utils/supabase_client.py` | ✅ | 2025-01-20 | Client backend créé |
+| 2.8 | Créer `frontend/utils/supabase_client.py` | ✅ | 2025-01-20 | Client frontend créé |
+| 2.9 | Créer `.env.supabase.example` | ✅ | 2025-01-20 | Variables d'environnement documentées |
+| 2.10 | Créer `supabase/Dockerfile` | ✅ | 2025-01-20 | Image personnalisée |
+| 2.11 | Créer `supabase/scripts/start.sh, stop.sh, logs.sh` | ✅ | 2025-01-20 | Scripts de gestion shell |
+| 2.12 | Créer `supabase/scripts/test-services.sh` | ✅ | 2025-01-20 | Script de test |
+| 2.13 | Créer `supabase/README.md` | ✅ | 2025-01-20 | Documentation structure |
+| 2.14 | Tester démarrage services Supabase | ⬜ | | |
+| 2.15 | Tester connexion client Supabase | ⬜ | | |
+| 2.16 | Migrer schéma SQLAlchemy → Supabase | ⬜ | | |
+| 2.17 | Commit "feat: add supabase infrastructure" | ⬜ | | |
+
 
 **Validation Phase 2** : 🔄 **EN COURS**  
 **Critères** : Services démarrés, connexion OK, schéma migré
@@ -231,7 +234,6 @@
 | 8.1 | Activer Supabase 10% (feature flag) | ⬜ | | |
 | 8.2 | Monitorer 24h | ⬜ | | |
 | 8.3 | Activer Supabase 50% | ⬜ | | |
-| 8.4 | Monitorer 24h | ⬜ | | |
 | 8.5 | Activer Supabase 100% | ⬜ | | |
 | 8.6 | Monitorer 1 semaine | ⬜ | | |
 | 8.7 | Supprimer SQLAlchemy (quand stable) | ⬜ | | |
@@ -262,6 +264,8 @@
 | 2025-01-20 | Création branche | Branche créée, Phase 1 complétée | BlackboxAI |
 | 2025-01-20 | Structure dossier | Dossier `supabase/` créé comme `db_folder/` | BlackboxAI |
 | 2025-01-20 | Scripts shell | Scripts en bash (pas PowerShell) pour compatibilité Linux | BlackboxAI |
+| 2025-01-20 | Dashboard ajouté | Service supabase-dashboard ajouté avec image latest | BlackboxAI |
+| 2025-01-20 | Clients créés | Backend et frontend clients Supabase créés | BlackboxAI |
 
 ---
 
