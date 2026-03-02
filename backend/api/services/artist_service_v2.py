@@ -195,6 +195,90 @@ class ArtistServiceV2:
             artist = await self._legacy_service.read_artist_with_relations(artist_id)
             return self._artist_to_dict(artist, include_albums=True, include_tracks=True) if artist else None
     
+    # ==================== Opérations CRUD (Phase 4.3) ====================
+    
+    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Crée un nouvel artiste.
+        
+        Args:
+            data: Données de l'artiste
+            
+        Returns:
+            Artiste créé
+        """
+        if self.use_supabase:
+            return await self.repository.create(data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.artists_schema import ArtistCreate
+            artist_create = ArtistCreate(**data)
+            artist = await self._legacy_service.create_artist(artist_create)
+            return self._artist_to_dict(artist)
+    
+    async def update(self, artist_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Met à jour un artiste existant.
+        
+        Args:
+            artist_id: ID de l'artiste
+            data: Données à mettre à jour
+            
+        Returns:
+            Artiste mis à jour ou None si non trouvé
+        """
+        if self.use_supabase:
+            return await self.repository.update(artist_id, data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.artists_schema import ArtistUpdate
+            artist_update = ArtistUpdate(**data)
+            artist = await self._legacy_service.update_artist(artist_id, artist_update)
+            return self._artist_to_dict(artist) if artist else None
+    
+    async def delete(self, artist_id: int) -> bool:
+        """
+        Supprime un artiste.
+        
+        Args:
+            artist_id: ID de l'artiste
+            
+        Returns:
+            True si supprimé, False sinon
+        """
+        if self.use_supabase:
+            return await self.repository.delete(artist_id)
+        else:
+            # Fallback SQLAlchemy
+            return await self._legacy_service.delete_artist(artist_id)
+    
+    async def create_batch(self, artists_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Crée plusieurs artistes en batch.
+        
+        Args:
+            artists_data: Liste des données d'artistes
+            
+        Returns:
+            Liste des artistes créés
+        """
+        if self.use_supabase:
+            # Créer les artistes un par un (Supabase ne supporte pas le batch natif)
+            created = []
+            for data in artists_data:
+                result = await self.repository.create(data)
+                created.append(result)
+            return created
+        else:
+            # Fallback SQLAlchemy - créer un par un
+            from backend.api.schemas.artists_schema import ArtistCreate
+            created = []
+            for data in artists_data:
+                artist_create = ArtistCreate(**data)
+                artist = await self._legacy_service.create_artist(artist_create)
+                created.append(self._artist_to_dict(artist))
+            return created
+    
     # ==================== Méthodes utilitaires ====================
     
     def _artist_to_dict(

@@ -175,6 +175,90 @@ class AlbumServiceV2:
             album = await self._legacy_service.read_album_with_tracks(album_id)
             return self._album_to_dict(album, include_tracks=True) if album else None
     
+    # ==================== Opérations CRUD (Phase 4.3) ====================
+    
+    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Crée un nouvel album.
+        
+        Args:
+            data: Données de l'album
+            
+        Returns:
+            Album créé
+        """
+        if self.use_supabase:
+            return await self.repository.create(data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.albums_schema import AlbumCreate
+            album_create = AlbumCreate(**data)
+            album = await self._legacy_service.create_album(album_create)
+            return self._album_to_dict(album)
+    
+    async def update(self, album_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Met à jour un album existant.
+        
+        Args:
+            album_id: ID de l'album
+            data: Données à mettre à jour
+            
+        Returns:
+            Album mis à jour ou None si non trouvé
+        """
+        if self.use_supabase:
+            return await self.repository.update(album_id, data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.albums_schema import AlbumUpdate
+            album_update = AlbumUpdate(**data)
+            album = await self._legacy_service.update_album(album_id, album_update)
+            return self._album_to_dict(album) if album else None
+    
+    async def delete(self, album_id: int) -> bool:
+        """
+        Supprime un album.
+        
+        Args:
+            album_id: ID de l'album
+            
+        Returns:
+            True si supprimé, False sinon
+        """
+        if self.use_supabase:
+            return await self.repository.delete(album_id)
+        else:
+            # Fallback SQLAlchemy
+            return await self._legacy_service.delete_album(album_id)
+    
+    async def create_batch(self, albums_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Crée plusieurs albums en batch.
+        
+        Args:
+            albums_data: Liste des données d'albums
+            
+        Returns:
+            Liste des albums créés
+        """
+        if self.use_supabase:
+            # Créer les albums un par un (Supabase ne supporte pas le batch natif)
+            created = []
+            for data in albums_data:
+                result = await self.repository.create(data)
+                created.append(result)
+            return created
+        else:
+            # Fallback SQLAlchemy - créer un par un
+            from backend.api.schemas.albums_schema import AlbumCreate
+            created = []
+            for data in albums_data:
+                album_create = AlbumCreate(**data)
+                album = await self._legacy_service.create_album(album_create)
+                created.append(self._album_to_dict(album))
+            return created
+    
     # ==================== Méthodes utilitaires ====================
     
     def _album_to_dict(self, album, include_tracks: bool = False) -> Dict[str, Any]:
