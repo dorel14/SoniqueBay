@@ -193,6 +193,26 @@
 
 ---
 
+## Phase 9 : Audit Final & Optimisation ⬜
+
+| # | Tâche | Statut | Date | Notes |
+|---|-------|--------|------|-------|
+| 9.1 | Scanner code mort (unused imports, functions) | ⬜ | | Utiliser `vulture` ou `pylint` |
+| 9.2 | Identifier services V1 obsolètes | ⬜ | | Comparer V1 vs V2, marquer deprecated |
+| 9.3 | Supprimer repositories SQLAlchemy inutilisés | ⬜ | | Après validation V2 stable |
+| 9.4 | Supprimer modèles SQLAlchemy orphelins | ⬜ | | Vérifier usage dans tous les modules |
+| 9.5 | Nettoyer endpoints API legacy | ⬜ | | Routes remplacées par Supabase |
+| 9.6 | Optimiser imports (supprimer circular) | ⬜ | | `isort` + revue manuelle |
+| 9.7 | Vérifier couverture tests (objectif >90%) | ⬜ | | `pytest --cov` |
+| 9.8 | Audit performance (N+1 queries) | ⬜ | | `sqlalchemy-easy-profile` ou logs |
+| 9.9 | Documenter API breaking changes | ⬜ | | `docs/migration/breaking-changes.md` |
+| 9.10 | Commit "refactor: final audit - remove dead code" | ⬜ | | |
+
+**Validation Phase 9** : ⬜  
+**Critères** : Code propre, aucun code mort, couverture >90%
+
+---
+
 ## Suivi des Problèmes
 
 | ID | Description | Phase | Statut | Solution |
@@ -218,6 +238,7 @@
 | 2025-01-20 | Phase 4.3 complète | CRUD complet + tests E2E pour tous les services | BlackboxAI |
 | 2025-01-20 | Ajustement Phase 6 | Workers Celery utilisent SQLAlchemy async direct vers Supabase pour bulk ops | BlackboxAI |
 | 2025-01-20 | Rôle Backend | Backend concentré sur logique métier pure, agents IA, recherche, recommandation | BlackboxAI |
+| 2025-01-20 | Phase 9 ajoutée | Audit final pour éliminer code mort et optimiser | BlackboxAI |
 
 ---
 
@@ -236,8 +257,9 @@
 | 6. Workers | 0% | ⬜ Non démarré |
 | 7. Tests | 80% | ✅ **En cours** |
 | 8. Basculement | 0% | ⬜ Non démarré |
+| 9. Audit Final | 0% | ⬜ Non démarré |
 
-**Progression totale** : 55%  
+**Progression totale** : 50%  
 **Architecture cible ajustée** :
 
 ```
@@ -273,3 +295,9 @@
 
 **Dernière mise à jour** : 2025-01-20  
 **Prochaine revue** : Phase 4.4 - Services métier avancés
+
+**Note importante** : La Phase 9 (Audit Final) garantira qu'aucun code inutile n'est conservé :
+- Services V1 supprimés après validation V2
+- Code mort éliminé via outils d'analyse statique
+- Dépendances nettoyées
+- Documentation à jour
