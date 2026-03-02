@@ -1,6 +1,6 @@
 from logging.config import fileConfig
 import os
-from backend.api.utils.logging import logger
+from backend_worker.utils.logging import logger
 
 # Forcer l'encodage UTF-8 pour psycopg2 avant l'import
 os.environ["PGCLIENTENCODING"] = "UTF8"
