@@ -2,7 +2,7 @@ from __future__ import annotations
 from sqlalchemy import Integer, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 
 
 class genre_links(TimestampMixin, Base):

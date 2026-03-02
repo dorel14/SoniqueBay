@@ -8,7 +8,7 @@ SQLAlchemy models for artist vector embeddings and GMM clustering.
 from __future__ import annotations
 from sqlalchemy import String, Integer, Float, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 
 
 class ArtistEmbedding(Base, TimestampMixin):

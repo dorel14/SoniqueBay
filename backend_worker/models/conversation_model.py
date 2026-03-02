@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from sqlalchemy import String, JSON, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.api.utils.database import Base
+from backend_worker.models.base import Base
 from backend.api.utils.database import TimestampMixin
 
 class ConversationModel(Base, TimestampMixin):

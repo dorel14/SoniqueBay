@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.api.utils.database import Base
+from backend_worker.models.base import Base
 
 
 class MIRSynonym(Base):

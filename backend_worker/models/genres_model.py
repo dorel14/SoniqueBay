@@ -1,7 +1,7 @@
 from __future__ import annotations
 from sqlalchemy import Column, String, Integer, DateTime, Table, ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 from datetime import datetime, timezone
 
 # Tables d'association

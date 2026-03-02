@@ -97,6 +97,10 @@ COPY --link ./backend_worker /app/backend_worker
 COPY --link ./backend /app/backend
 COPY --link ./backend_worker/api_app.py /app/backend_worker/api_app.py
 
+# Copier alembic.ini et les migrations
+COPY --link ./alembic.ini /app/alembic.ini
+COPY --link ./backend_worker/alembic /app/backend_worker/alembic
+
 WORKDIR /app
 
 # Add docker-compose-wait tool

@@ -165,8 +165,11 @@
 | 6.7 | Copier modèles vers `backend_worker/models/` | ✅ | 2025-01-20 | Indépendance conteneur workers |
 | 6.8 | Déplacer `alembic/` vers `backend_worker/alembic/` | ✅ | 2025-01-20 | Migrations co-localisées |
 | 6.9 | Mettre à jour imports (backend.api.models → local) | ✅ | 2025-01-20 | `supabase_sqlalchemy.py`, `__init__.py` |
+| 6.10 | Ajouter migrations Alembic au démarrage worker | ✅ | 2025-01-20 | `entrypoint.sh` exécute `alembic upgrade head` |
+| 6.11 | Mettre à jour Dockerfile pour copier alembic | ✅ | 2025-01-20 | `alembic.ini` et `backend_worker/alembic/` copiés |
 
-**Validation Phase 6** : ✅ **COMPLÉTÉE**  
+**Validation Phase 6** : ✅ **COMPLÉTÉE**
+
 **Critères** : Workers connectés directement à Supabase via SQLAlchemy async pour performances optimales
 
 ---
@@ -280,6 +283,7 @@
 | 2025-01-20 | Phase 5.2 complète | Frontend CRUD migration avec services unifiés | BlackboxAI |
 | 2025-01-20 | Phase 6 complète | Workers Celery SQLAlchemy direct à Supabase | BlackboxAI |
 | 2025-01-20 | Phase 6.7-6.9 | Modèles copiés dans workers, alembic déplacé | BlackboxAI |
+| 2025-01-20 | Phase 6.10-6.11 | Migrations Alembic au démarrage worker, Dockerfile mis à jour | BlackboxAI |
 
 ---
 

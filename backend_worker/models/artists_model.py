@@ -4,14 +4,14 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
 from pgvector.sqlalchemy import Vector
-from backend.api.models.covers_model import Cover
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.covers_model import Cover
+from backend_worker.models.base import Base, TimestampMixin
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.api.models.albums_model import Album
     from backend.api.models.tracks_model import Track
     from backend.api.models.artist_similar_model import ArtistSimilar
-    from backend.api.models.covers_model import Cover
+    from backend_worker.models.covers_model import Cover
 
 class Artist(Base, TimestampMixin):
     __tablename__ = 'artists'

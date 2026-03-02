@@ -10,7 +10,7 @@ from sqlalchemy import String, Text, ForeignKey, Index, Float, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY, VECTOR
 
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

@@ -3,20 +3,21 @@ from sqlalchemy import String, Integer, ForeignKey, Float, Index
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from backend.api.utils.database import Base, TimestampMixin
-from backend.api.models.covers_model import Cover
-from backend.api.models.tags_model import GenreTag, MoodTag
+from backend_worker.models.base import Base, TimestampMixin
+from backend_worker.models.covers_model import Cover
+from backend_worker.models.tags_model import GenreTag, MoodTag
 
 # Imports pour les relations vers les nouvelles tables
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from backend.api.models.track_audio_features_model import TrackAudioFeatures
-    from backend.api.models.track_embeddings_model import TrackEmbeddings
-    from backend.api.models.track_metadata_model import TrackMetadata
-    from backend.api.models.track_mir_raw_model import TrackMIRRaw
-    from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
-    from backend.api.models.track_mir_scores_model import TrackMIRScores
-    from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+    from backend_worker.models.track_audio_features_model import TrackAudioFeatures
+    from backend_worker.models.track_embeddings_model import TrackEmbeddings
+    from backend_worker.models.track_metadata_model import TrackMetadata
+    from backend_worker.models.track_mir_raw_model import TrackMIRRaw
+    from backend_worker.models.track_mir_normalized_model import TrackMIRNormalized
+    from backend_worker.models.track_mir_scores_model import TrackMIRScores
+    from backend_worker.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+
 
 
 class Track(Base, TimestampMixin):

@@ -25,7 +25,7 @@ from sqlalchemy import String, Integer, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from backend.api.models.tracks_model import Track

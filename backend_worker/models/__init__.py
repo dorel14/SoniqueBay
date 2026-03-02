@@ -11,7 +11,8 @@ from backend_worker.models.covers_model import Cover, EntityCoverType
 from backend_worker.models.genres_model import Genre, artist_genres, album_genres
 from backend_worker.models.artists_model import Artist
 from backend_worker.models.albums_model import Album
-from backend_worker.models.tracks_model import Track, GenreTag, MoodTag, track_genre_tags, track_mood_tags
+from backend_worker.models.tracks_model import Track
+from backend_worker.models.tags_model import GenreTag, MoodTag, track_genre_tags, track_mood_tags
 from backend_worker.models.settings_model import Setting
 from backend_worker.models.scan_sessions_model import ScanSession
 from backend_worker.models.artist_embeddings_model import ArtistEmbedding, GMMModel

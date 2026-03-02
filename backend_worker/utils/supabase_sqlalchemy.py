@@ -148,6 +148,7 @@ def import_models():
             Track, Album, Artist,
             TrackMIRRaw, TrackMIRNormalized, TrackMIRScores, TrackMIRSyntheticTags,
             TrackEmbeddings,
+            GenreTag, MoodTag,
         )
         
         logger.info("[SupabaseSQLAlchemy] Modèles importés avec succès")
@@ -160,6 +161,8 @@ def import_models():
             'TrackMIRScores': TrackMIRScores,
             'TrackMIRSyntheticTags': TrackMIRSyntheticTags,
             'TrackEmbeddings': TrackEmbeddings,
+            'GenreTag': GenreTag,
+            'MoodTag': MoodTag,
         }
     except ImportError as e:
         logger.warning(f"[SupabaseSQLAlchemy] Impossible d'importer les modèles: {e}")

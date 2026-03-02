@@ -2,7 +2,7 @@ from __future__ import annotations
 from sqlalchemy import String, Integer, DateTime, func, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.api.utils.database import Base
+from backend_worker.models.base import Base
 import uuid
 
 class ScanSession(Base):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from sqlalchemy import Column, Integer, String, Table, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from backend.api.utils.database import Base
+from backend_worker.models.base import Base
 
 # Tables de liaison
 track_genre_tags = Table(

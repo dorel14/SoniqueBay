@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, Integer, DateTime, ForeignKey, Index, Text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from backend.api.utils.database import Base, TimestampMixin
+from backend_worker.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from backend.api.models.tracks_model import Track

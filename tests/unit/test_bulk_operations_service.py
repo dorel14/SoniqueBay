@@ -3,8 +3,13 @@ Tests unitaires pour le service d'opérations bulk.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock, call
+from unittest.mock import patch, MagicMock, AsyncMock, call, MagicMock
 import asyncio
+import sys
+
+# Create proper mock for Base with metadata
+mock_base = MagicMock()
+mock_base.metadata = MagicMock()
 
 # Patch SQLAlchemy avant import
 with patch.dict('sys.modules', {
@@ -12,9 +17,33 @@ with patch.dict('sys.modules', {
     'sqlalchemy.ext': MagicMock(),
     'sqlalchemy.ext.asyncio': MagicMock(),
     'sqlalchemy.orm': MagicMock(),
+    'sqlalchemy.orm.decl_api': MagicMock(),
     'sqlalchemy.dialects': MagicMock(),
     'sqlalchemy.dialects.postgresql': MagicMock(),
+    'backend_worker.models.base': MagicMock(Base=mock_base),
 }):
+    # Mock all model modules to avoid import issues
+    sys.modules['backend_worker.models'] = MagicMock()
+    sys.modules['backend_worker.models.covers_model'] = MagicMock()
+    sys.modules['backend_worker.models.genres_model'] = MagicMock()
+    sys.modules['backend_worker.models.artists_model'] = MagicMock()
+    sys.modules['backend_worker.models.albums_model'] = MagicMock()
+    sys.modules['backend_worker.models.tracks_model'] = MagicMock()
+    sys.modules['backend_worker.models.track_embeddings_model'] = MagicMock()
+    sys.modules['backend_worker.models.track_mir_scores_model'] = MagicMock()
+    sys.modules['backend_worker.models.track_mir_raw_model'] = MagicMock()
+    sys.modules['backend_worker.models.track_mir_normalized_model'] = MagicMock()
+    sys.modules['backend_worker.models.track_mir_synthetic_tags_model'] = MagicMock()
+    sys.modules['backend_worker.models.chat_models'] = MagicMock()
+    sys.modules['backend_worker.models.user_model'] = MagicMock()
+    sys.modules['backend_worker.models.conversation_model'] = MagicMock()
+    sys.modules['backend_worker.models.settings_model'] = MagicMock()
+    sys.modules['backend_worker.models.scan_sessions_model'] = MagicMock()
+    sys.modules['backend_worker.models.artist_embeddings_model'] = MagicMock()
+    sys.modules['backend_worker.models.artist_similar_model'] = MagicMock()
+    sys.modules['backend_worker.models.agent_model'] = MagicMock()
+    sys.modules['backend_worker.models.agent_score_model'] = MagicMock()
+    
     from backend_worker.services.bulk_operations_service import (
         BulkOperationsService,
         get_bulk_operations_service,

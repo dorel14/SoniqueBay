@@ -3,7 +3,7 @@ from sqlalchemy import String, Integer, DateTime, Enum, func, UniqueConstraint, 
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
-from backend.api.utils.database import Base
+from backend_worker.models.base import Base
 
 class EntityCoverType(str, enum.Enum):
     TRACK = "track"
