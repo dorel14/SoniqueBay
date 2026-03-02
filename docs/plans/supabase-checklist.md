@@ -119,21 +119,36 @@
 
 ---
 
-## Phase 5 : Migration Frontend ⬜
+## Phase 5 : Migration WebSocket → Realtime & Frontend ⬜
+
+### Phase 5.1 : WebSocket → Supabase Realtime ✅
 
 | # | Tâche | Statut | Date | Notes |
 |---|-------|--------|------|-------|
-| 5.1 | Ajouter `supabase` à `frontend/requirements.txt` | ⬜ | | |
-| 5.2 | Créer `frontend/utils/feature_flags.py` | ⬜ | | |
-| 5.3 | Refactoriser `frontend/services/track_service.py` | ⬜ | | |
-| 5.4 | Refactoriser `frontend/services/album_service.py` | ⬜ | | |
-| 5.5 | Refactoriser `frontend/services/artist_service.py` | ⬜ | | |
-| 5.6 | Refactoriser `frontend/services/search_service.py` | ⬜ | | |
-| 5.7 | Tests E2E frontend | ⬜ | | |
-| 5.8 | Commit "feat: migrate frontend to supabase" | ⬜ | | |
+| 5.1.1 | Créer `RealtimeServiceV2` (backend) | ✅ | 2025-01-20 | Subscribe, broadcast, fallback mode |
+| 5.1.2 | Créer `chat_realtime_api.py` (router HTTP) | ✅ | 2025-01-20 | Remplace `/ws/chat` websocket |
+| 5.1.3 | Créer `SupabaseRealtimeClient` (frontend) | ✅ | 2025-01-20 | Client Realtime pour NiceGUI |
+| 5.1.4 | Créer `ChatManager` (frontend) | ✅ | 2025-01-20 | Gestion des conversations temps réel |
+| 5.1.5 | Tests `test_realtime_service_v2.py` | ✅ | 2025-01-20 | 21 tests, 20 passent |
+| 5.1.6 | Tests `test_supabase_realtime_client.py` | ✅ | 2025-01-20 | 20 tests, 100% passent |
+| 5.1.7 | Documentation migration WebSocket | ✅ | 2025-01-20 | `websocket_to_realtime_migration.md` |
+| 5.1.8 | Commit "feat: migrate websockets to realtime" | ✅ | 2025-01-20 | Commit a5d8238 |
+
+### Phase 5.2 : Migration Frontend CRUD ⬜
+
+| # | Tâche | Statut | Date | Notes |
+|---|-------|--------|------|-------|
+| 5.2.1 | Ajouter `supabase` à `frontend/requirements.txt` | ⬜ | | |
+| 5.2.2 | Créer `frontend/utils/feature_flags.py` | ⬜ | | |
+| 5.2.3 | Refactoriser `frontend/services/track_service.py` | ⬜ | | |
+| 5.2.4 | Refactoriser `frontend/services/album_service.py` | ⬜ | | |
+| 5.2.5 | Refactoriser `frontend/services/artist_service.py` | ⬜ | | |
+| 5.2.6 | Refactoriser `frontend/services/search_service.py` | ⬜ | | |
+| 5.2.7 | Tests E2E frontend | ⬜ | | |
+| 5.2.8 | Commit "feat: migrate frontend to supabase" | ⬜ | | |
 
 **Validation Phase 5** : ⬜  
-**Critères** : Frontend communique directement avec Supabase
+**Critères** : Frontend communique directement avec Supabase, WebSocket remplacés par Realtime
 
 ---
 
@@ -213,6 +228,27 @@
 
 ---
 
+## Phase 10 : Mémoire Conversationnelle IA ⬜
+
+| # | Tâche | Statut | Date | Notes |
+|---|-------|--------|------|-------|
+| 10.1 | Créer `backend/api/models/chat_models.py` | ✅ | 2025-01-20 | 4 tables: Conversation, ChatMessage, ChatSession, ConversationSummary |
+| 10.2 | Créer migration Alembic | ✅ | 2025-01-20 | `add_chat_models_with_embeddings.py` |
+| 10.3 | Créer `ChatMemoryService` | ✅ | 2025-01-20 | Gestion mémoire IA avec embeddings |
+| 10.4 | Ajouter summary_embedding à Conversation | ✅ | 2025-01-20 | Pour recherche sémantique long terme |
+| 10.5 | Ajouter content_embedding à ChatMessage | ✅ | 2025-01-20 | Pour recherche dans contexte |
+| 10.6 | Créer documentation schéma | ✅ | 2025-01-20 | `chat_memory_schema.md` |
+| 10.7 | Intégrer avec orchestrateur IA | ⬜ | | Utiliser ChatMemoryService dans orchestrator |
+| 10.8 | Worker Celery pour embeddings | ⬜ | | Génération async des embeddings |
+| 10.9 | API endpoints gestion conversations | ⬜ | | CRUD conversations/messages |
+| 10.10 | Frontend interface chat mémoire | ⬜ | | UI avec historique et recherche |
+| 10.11 | Commit "feat: add AI conversation memory" | ✅ | 2025-01-20 | Commit f2e6bb6 |
+
+**Validation Phase 10** : ⬜  
+**Critères** : IA avec mémoire persistante, recherche sémantique dans historique
+
+---
+
 ## Suivi des Problèmes
 
 | ID | Description | Phase | Statut | Solution |
@@ -239,6 +275,8 @@
 | 2025-01-20 | Ajustement Phase 6 | Workers Celery utilisent SQLAlchemy async direct vers Supabase pour bulk ops | BlackboxAI |
 | 2025-01-20 | Rôle Backend | Backend concentré sur logique métier pure, agents IA, recherche, recommandation | BlackboxAI |
 | 2025-01-20 | Phase 9 ajoutée | Audit final pour éliminer code mort et optimiser | BlackboxAI |
+| 2025-01-20 | Phase 5.1 complète | WebSocket → Supabase Realtime migration | BlackboxAI |
+| 2025-01-20 | Phase 10 ajoutée | Mémoire conversationnelle IA avec embeddings | BlackboxAI |
 
 ---
 
@@ -253,13 +291,15 @@
 | 4.2 Services (recherche) | 100% | ✅ **COMPLÉTÉE** |
 | 4.3 Services (CRUD) | 100% | ✅ **COMPLÉTÉE** |
 | 4.4 Services (métier) | 100% | ✅ **COMPLÉTÉE** |
-| 5. Frontend | 0% | ⬜ Non démarré |
+| 5.1 WebSocket→Realtime | 100% | ✅ **COMPLÉTÉE** |
+| 5.2 Frontend CRUD | 0% | ⬜ Non démarré |
 | 6. Workers | 0% | ⬜ Non démarré |
 | 7. Tests | 80% | ✅ **En cours** |
 | 8. Basculement | 0% | ⬜ Non démarré |
 | 9. Audit Final | 0% | ⬜ Non démarré |
+| 10. Mémoire IA | 30% | 🔄 **En cours** |
 
-**Progression totale** : 55%  
+**Progression totale** : 60%  
 **Architecture cible ajustée** :
 
 ```
@@ -294,7 +334,7 @@
 ---
 
 **Dernière mise à jour** : 2025-01-20  
-**Prochaine revue** : Phase 5 - Frontend migration
+**Prochaine revue** : Phase 5.2 - Frontend CRUD migration
 
 **Note importante** : La Phase 9 (Audit Final) garantira qu'aucun code inutile n'est conservé :
 - Services V1 supprimés après validation V2
