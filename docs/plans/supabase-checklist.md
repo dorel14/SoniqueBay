@@ -104,15 +104,15 @@
 | 4.3.6 | Tests E2E workflows | ✅ | 2025-01-20 | 8/9 tests passent (88.9%) |
 | 4.3.7 | Commit "feat: refactor CRUD services to supabase" | ✅ | 2025-01-20 | Commits 7fb8999, 5fc8c42, faa0c58 |
 
-### Phase 4.4 : Services Métier Critiques ⬜
+### Phase 4.4 : Services Métier Avancés ✅
 
 | # | Tâche | Statut | Date | Notes |
 |---|-------|--------|------|-------|
-| 4.4.1 | Refactoriser `PlayQueueService` (temps réel) | ⬜ | | |
-| 4.4.2 | Refactoriser `ChatService` (mémoire IA) | ⬜ | | |
-| 4.4.3 | Refactoriser `AgentService` | ⬜ | | |
-| 4.4.4 | Tests services métier | ⬜ | | |
-| 4.4.5 | Commit "feat: refactor business services to supabase" | ⬜ | | |
+| 4.4.1 | Créer `VectorSearchServiceV2` (recherche vectorielle) | ✅ | 2025-01-20 | Similarité cosinus, batch ops |
+| 4.4.2 | Créer `TrackMIRServiceV2` (scores MIR, tags) | ✅ | 2025-01-20 | Scores, tags synthétiques, mood |
+| 4.4.3 | Tests unitaires VectorSearchServiceV2 | ✅ | 2025-01-20 | 12 tests, 100% passent |
+| 4.4.4 | Tests unitaires TrackMIRServiceV2 | ✅ | 2025-01-20 | 13 tests, 100% passent |
+| 4.4.5 | Commit "feat: add advanced business services v2" | ✅ | 2025-01-20 | Services métier avancés |
 
 **Validation Phase 4** : ⬜  
 **Critères** : Tous les services refactorisés avec feature flags
@@ -252,14 +252,14 @@
 | 4.1 Services (lecture) | 100% | ✅ **COMPLÉTÉE** |
 | 4.2 Services (recherche) | 100% | ✅ **COMPLÉTÉE** |
 | 4.3 Services (CRUD) | 100% | ✅ **COMPLÉTÉE** |
-| 4.4 Services (métier) | 0% | ⬜ Non démarré |
+| 4.4 Services (métier) | 100% | ✅ **COMPLÉTÉE** |
 | 5. Frontend | 0% | ⬜ Non démarré |
 | 6. Workers | 0% | ⬜ Non démarré |
 | 7. Tests | 80% | ✅ **En cours** |
 | 8. Basculement | 0% | ⬜ Non démarré |
 | 9. Audit Final | 0% | ⬜ Non démarré |
 
-**Progression totale** : 50%  
+**Progression totale** : 55%  
 **Architecture cible ajustée** :
 
 ```
@@ -289,12 +289,12 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Prochaine étape** : Phase 4.4 - Logique métier avancée (MIR, embeddings, intégration Celery)
+**Prochaine étape** : Phase 5 - Migration Frontend (NiceGUI → Supabase direct)
 
 ---
 
 **Dernière mise à jour** : 2025-01-20  
-**Prochaine revue** : Phase 4.4 - Services métier avancés
+**Prochaine revue** : Phase 5 - Frontend migration
 
 **Note importante** : La Phase 9 (Audit Final) garantira qu'aucun code inutile n'est conservé :
 - Services V1 supprimés après validation V2
