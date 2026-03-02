@@ -1,6 +1,7 @@
 from logging.config import fileConfig
 import os
 from backend.api.utils.logging import logger
+
 # Forcer l'encodage UTF-8 pour psycopg2 avant l'import
 os.environ["PGCLIENTENCODING"] = "UTF8"
 
@@ -8,13 +9,22 @@ from sqlalchemy import create_engine
 from sqlalchemy import pool
 
 from alembic import context
-from backend.api.utils.database import get_database_url_raw, Base
-import backend.api.models  # noqa: F401
+
+# Import depuis les modèles locaux (pas de dépendance au conteneur backend)
+from backend_worker.models.base import Base
+from backend_worker.utils.supabase_sqlalchemy import get_supabase_database_url
+
+# Import tous les modèles pour autogenerate
+from backend_worker.models import *  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-db_url = get_database_url_raw()
-logger.info(f"Database URL: {db_url}")
+
+# Utiliser l'URL de Supabase
+db_url = get_supabase_database_url()
+logger.info(f"[Alembic] Database URL: {db_url.replace(os.getenv('SUPABASE_DB_PASSWORD', ''), '***')}")
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -22,8 +32,6 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
@@ -62,21 +70,6 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # Utiliser les paramètres de connexion séparés pour éviter les problèmes
-    # d'encodage avec les caractères spéciaux dans les passwords
-    import os
-    from urllib.parse import quote_plus
-    
-    user = os.getenv('POSTGRES_USER', 'postgres')
-    password = os.getenv('POSTGRES_PASSWORD', '')
-    host = os.getenv('POSTGRES_HOST', 'db')
-    port = os.getenv('POSTGRES_PORT', '5432')
-    db_name = os.getenv('POSTGRES_DB', 'musicdb')
-    
-    # URL encodage des paramètres sensibles pour éviter les erreurs d'encodage
-    encoded_password = quote_plus(password)
-    db_url = f"postgresql://{user}:{encoded_password}@{host}:{port}/{db_name}"
-    
     connect_args = {
         "options": "-c client_encoding=UTF8"
     }
