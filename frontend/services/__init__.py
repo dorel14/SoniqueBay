@@ -18,6 +18,10 @@ from frontend.services.track_service_v2 import TrackServiceV2, get_track_service
 from frontend.services.album_service_v2 import AlbumServiceV2, get_album_service_v2
 from frontend.services.artist_service_v2 import ArtistServiceV2, get_artist_service_v2
 from frontend.services.search_service_v2 import SearchServiceV2, get_search_service_v2
+from frontend.services.graphql_replacement_service import (
+    GraphQLReplacementService,
+    get_graphql_replacement_service
+)
 
 
 class UnifiedTrackService:
@@ -191,6 +195,10 @@ __all__ = [
     'AlbumServiceV2',
     'ArtistServiceV2',
     'SearchServiceV2',
+    
+    # GraphQL Replacement
+    'get_graphql_replacement_service',
+    'GraphQLReplacementService',
     
     # Services Legacy (HTTP)
     'TrackService',
