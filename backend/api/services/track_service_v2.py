@@ -150,12 +150,94 @@ class TrackServiceV2:
             Nombre de pistes
         """
         if self.use_supabase:
-            return await self.repository.count(filters)
+            return await self.repository.count()
         else:
             # Fallback SQLAlchemy
             return await self._legacy_service.get_tracks_count()
     
+    # ==================== Opérations CRUD (Phase 4.3) ====================
+    
+    async def create(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Crée une nouvelle piste.
+        
+        Args:
+            data: Données de la piste
+            
+        Returns:
+            Piste créée
+        """
+        if self.use_supabase:
+            return await self.repository.create(data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.tracks_schema import TrackCreate
+            track_create = TrackCreate(**data)
+            track = await self._legacy_service.create_track(track_create)
+            return self._track_to_dict(track)
+    
+    async def update(self, track_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Met à jour une piste existante.
+        
+        Args:
+            track_id: ID de la piste
+            data: Données à mettre à jour
+            
+        Returns:
+            Piste mise à jour ou None si non trouvée
+        """
+        if self.use_supabase:
+            return await self.repository.update(track_id, data)
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.tracks_schema import TrackUpdate
+            track_update = TrackUpdate(**data)
+            track = await self._legacy_service.update_track(track_id, track_update)
+            return self._track_to_dict(track) if track else None
+    
+    async def delete(self, track_id: int) -> bool:
+        """
+        Supprime une piste.
+        
+        Args:
+            track_id: ID de la piste
+            
+        Returns:
+            True si supprimée, False sinon
+        """
+        if self.use_supabase:
+            return await self.repository.delete(track_id)
+        else:
+            # Fallback SQLAlchemy
+            return await self._legacy_service.delete_track(track_id)
+    
+    async def create_batch(self, tracks_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Crée plusieurs pistes en batch.
+        
+        Args:
+            tracks_data: Liste des données de pistes
+            
+        Returns:
+            Liste des pistes créées
+        """
+        if self.use_supabase:
+            # Créer les pistes une par une (Supabase ne supporte pas le batch natif)
+            created = []
+            for data in tracks_data:
+                result = await self.repository.create(data)
+                created.append(result)
+            return created
+        else:
+            # Fallback SQLAlchemy
+            from backend.api.schemas.tracks_schema import TrackCreate
+            tracks_create = [TrackCreate(**data) for data in tracks_data]
+            tracks = await self._legacy_service.create_or_update_tracks_batch(tracks_create)
+            return [self._track_to_dict(t) for t in tracks]
+    
     # ==================== Méthodes utilitaires ====================
+
     
     def _track_to_dict(self, track) -> Dict[str, Any]:
         """
