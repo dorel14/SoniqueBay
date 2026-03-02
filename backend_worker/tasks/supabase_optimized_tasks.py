@@ -7,6 +7,7 @@ Ces tâches remplacent les anciennes tâches en utilisant :
 - Pas d'appels API HTTP (trop lents pour ETL)
 """
 
+import asyncio
 from typing import List, Dict, Any
 from celery import shared_task
 from celery.exceptions import MaxRetriesExceededError
@@ -35,32 +36,37 @@ def bulk_insert_tracks_task(self, tracks_data: List[Dict[str, Any]], batch_size:
     Returns:
         Dict avec nombre d'insertions et IDs
     """
+    async def _execute():
+        try:
+            logger.info(f"[BulkTask] Démarrage insertion de {len(tracks_data)} pistes")
+            
+            # Test connexion
+            if not await test_connection():
+                raise ConnectionError("Impossible de se connecter à Supabase")
+            
+            # Service de bulk operations
+            bulk_service = get_bulk_operations_service()
+            
+            # Exécution bulk insert avec upsert
+            inserted_ids = await bulk_service.bulk_insert_tracks(tracks_data, batch_size)
+            
+            result = {
+                "status": "success",
+                "total_processed": len(tracks_data),
+                "inserted_or_updated": len(inserted_ids),
+                "sample_ids": inserted_ids[:5] if inserted_ids else [],
+            }
+            
+            logger.info(f"[BulkTask] Succès: {result['inserted_or_updated']} pistes insérées/mises à jour")
+            return result
+            
+        except Exception as exc:
+            logger.error(f"[BulkTask] Erreur: {exc}")
+            raise exc
+    
     try:
-        logger.info(f"[BulkTask] Démarrage insertion de {len(tracks_data)} pistes")
-        
-        # Test connexion
-        if not test_connection():
-            raise ConnectionError("Impossible de se connecter à Supabase")
-        
-        # Service de bulk operations
-        bulk_service = get_bulk_operations_service()
-        
-        # Exécution bulk insert avec upsert
-        inserted_ids = bulk_service.bulk_insert_tracks(tracks_data, batch_size)
-        
-        result = {
-            "status": "success",
-            "total_processed": len(tracks_data),
-            "inserted_or_updated": len(inserted_ids),
-            "sample_ids": inserted_ids[:5] if inserted_ids else [],
-        }
-        
-        logger.info(f"[BulkTask] Succès: {result['inserted_or_updated']} pistes insérées/mises à jour")
-        return result
-        
+        return asyncio.run(_execute())
     except Exception as exc:
-        logger.error(f"[BulkTask] Erreur: {exc}")
-        
         if self.request.retries < self.max_retries:
             logger.info(f"[BulkTask] Retry {self.request.retries + 1}/{self.max_retries}")
             raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
@@ -87,18 +93,20 @@ def bulk_insert_albums_task(self, albums_data: List[Dict[str, Any]], batch_size:
     Returns:
         Dict avec résultat de l'opération
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Démarrage insertion de {len(albums_data)} albums")
         
         bulk_service = get_bulk_operations_service()
-        inserted_ids = bulk_service.bulk_insert_albums(albums_data, batch_size)
+        inserted_ids = await bulk_service.bulk_insert_albums(albums_data, batch_size)
         
         return {
             "status": "success",
             "total_processed": len(albums_data),
             "inserted_or_updated": len(inserted_ids),
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur albums: {exc}")
         raise self.retry(exc=exc)
@@ -122,18 +130,20 @@ def bulk_insert_artists_task(self, artists_data: List[Dict[str, Any]], batch_siz
     Returns:
         Dict avec résultat de l'opération
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Démarrage insertion de {len(artists_data)} artistes")
         
         bulk_service = get_bulk_operations_service()
-        inserted_ids = bulk_service.bulk_insert_artists(artists_data, batch_size)
+        inserted_ids = await bulk_service.bulk_insert_artists(artists_data, batch_size)
         
         return {
             "status": "success",
             "total_processed": len(artists_data),
             "inserted_or_updated": len(inserted_ids),
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur artistes: {exc}")
         raise self.retry(exc=exc)
@@ -157,11 +167,11 @@ def bulk_insert_embeddings_task(self, embeddings_data: List[Dict[str, Any]], bat
     Returns:
         Dict avec nombre d'embeddings insérés
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Démarrage insertion de {len(embeddings_data)} embeddings")
         
         bulk_service = get_bulk_operations_service()
-        total_inserted = bulk_service.bulk_insert_embeddings(embeddings_data, batch_size)
+        total_inserted = await bulk_service.bulk_insert_embeddings(embeddings_data, batch_size)
         
         return {
             "status": "success",
@@ -169,7 +179,9 @@ def bulk_insert_embeddings_task(self, embeddings_data: List[Dict[str, Any]], bat
             "inserted": total_inserted,
             "skipped": len(embeddings_data) - total_inserted,  # Doublons
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur embeddings: {exc}")
         raise self.retry(exc=exc)
@@ -193,18 +205,20 @@ def bulk_insert_mir_scores_task(self, scores_data: List[Dict[str, Any]], batch_s
     Returns:
         Dict avec nombre de scores insérés/mis à jour
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Démarrage insertion de {len(scores_data)} scores MIR")
         
         bulk_service = get_bulk_operations_service()
-        total_inserted = bulk_service.bulk_insert_mir_scores(scores_data, batch_size)
+        total_inserted = await bulk_service.bulk_insert_mir_scores(scores_data, batch_size)
         
         return {
             "status": "success",
             "total_processed": len(scores_data),
             "inserted_or_updated": total_inserted,
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur MIR scores: {exc}")
         raise self.retry(exc=exc)
@@ -227,17 +241,19 @@ def update_tracks_metadata_task(self, updates: List[Dict[str, Any]]):
     Returns:
         Dict avec nombre de mises à jour
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Démarrage mise à jour de {len(updates)} pistes")
         
         bulk_service = get_bulk_operations_service()
-        total_updated = bulk_service.update_track_metadata(updates)
+        total_updated = await bulk_service.update_track_metadata(updates)
         
         return {
             "status": "success",
             "total_updated": total_updated,
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur update metadata: {exc}")
         raise self.retry(exc=exc)
@@ -261,18 +277,20 @@ def cleanup_orphaned_records_task(self, table_name: str, condition: Dict[str, An
     Returns:
         Dict avec nombre de suppressions
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Nettoyage orphelins dans {table_name}")
         
         bulk_service = get_bulk_operations_service()
-        deleted_count = bulk_service.delete_orphaned_records(table_name, condition)
+        deleted_count = await bulk_service.delete_orphaned_records(table_name, condition)
         
         return {
             "status": "success",
             "table": table_name,
             "deleted_count": deleted_count,
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur cleanup: {exc}")
         raise self.retry(exc=exc)
@@ -297,7 +315,7 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
     Returns:
         Dict avec résumé des opérations
     """
-    try:
+    async def _execute():
         logger.info(f"[BulkTask] Traitement batch de scan")
         
         bulk_service = get_bulk_operations_service()
@@ -310,7 +328,7 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
         # 1. Insérer les artistes d'abord (pour les FK)
         artists_data = batch_data.get('artists', [])
         if artists_data:
-            artist_ids = bulk_service.bulk_insert_artists(artists_data)
+            artist_ids = await bulk_service.bulk_insert_artists(artists_data)
             results["artists"] = {
                 "processed": len(artists_data),
                 "inserted": len(artist_ids),
@@ -320,7 +338,7 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
         # 2. Insérer les albums (dépendent des artistes)
         albums_data = batch_data.get('albums', [])
         if albums_data:
-            album_ids = bulk_service.bulk_insert_albums(albums_data)
+            album_ids = await bulk_service.bulk_insert_albums(albums_data)
             results["albums"] = {
                 "processed": len(albums_data),
                 "inserted": len(album_ids),
@@ -330,7 +348,7 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
         # 3. Insérer les pistes (dépendent des albums et artistes)
         tracks_data = batch_data.get('tracks', [])
         if tracks_data:
-            track_ids = bulk_service.bulk_insert_tracks(tracks_data)
+            track_ids = await bulk_service.bulk_insert_tracks(tracks_data)
             results["tracks"] = {
                 "processed": len(tracks_data),
                 "inserted": len(track_ids),
@@ -341,7 +359,9 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
             "status": "success",
             "results": results,
         }
-        
+    
+    try:
+        return asyncio.run(_execute())
     except Exception as exc:
         logger.error(f"[BulkTask] Erreur scan batch: {exc}")
         raise self.retry(exc=exc)

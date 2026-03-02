@@ -10,13 +10,12 @@ from typing import AsyncGenerator, Optional
 from urllib.parse import quote_plus
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
-from sqlalchemy import MetaData, text
+from sqlalchemy import text
 
 from backend_worker.utils.logging import logger
 
-# Base pour les modèles SQLAlchemy (partagée avec backend)
-Base = declarative_base()
+# Import Base depuis les modèles locaux
+from backend_worker.models.base import Base
 
 # Singletons
 _engine = None
@@ -136,34 +135,34 @@ async def close_engine():
         logger.info("[SupabaseSQLAlchemy] Engine fermé")
 
 
-# Import des modèles existants depuis backend
-# Note: Les modèles sont réutilisés tels quels car ils pointent vers la même DB
-def import_backend_models():
+# Import des modèles locaux (pas de dépendance au conteneur backend)
+def import_models():
     """
-    Importe les modèles SQLAlchemy du backend.
+    Importe les modèles SQLAlchemy locaux.
     
     Returns:
-        Module des modèles
+        Dict des modèles disponibles
     """
     try:
-        from backend.api.models import tracks_model, albums_model, artists_model
-        from backend.api.models import track_mir_raw_model, track_mir_normalized_model
-        from backend.api.models import track_mir_scores_model, track_mir_synthetic_tags_model
-        from backend.api.models import track_embeddings_model
+        from backend_worker.models import (
+            Track, Album, Artist,
+            TrackMIRRaw, TrackMIRNormalized, TrackMIRScores, TrackMIRSyntheticTags,
+            TrackEmbeddings,
+        )
         
-        logger.info("[SupabaseSQLAlchemy] Modèles backend importés avec succès")
+        logger.info("[SupabaseSQLAlchemy] Modèles importés avec succès")
         return {
-            'Track': tracks_model.Track,
-            'Album': albums_model.Album,
-            'Artist': artists_model.Artist,
-            'TrackMIRRaw': track_mir_raw_model.TrackMIRRaw,
-            'TrackMIRNormalized': track_mir_normalized_model.TrackMIRNormalized,
-            'TrackMIRScores': track_mir_scores_model.TrackMIRScores,
-            'TrackMIRSyntheticTags': track_mir_synthetic_tags_model.TrackMIRSyntheticTags,
-            'TrackEmbeddings': track_embeddings_model.TrackEmbeddings,
+            'Track': Track,
+            'Album': Album,
+            'Artist': Artist,
+            'TrackMIRRaw': TrackMIRRaw,
+            'TrackMIRNormalized': TrackMIRNormalized,
+            'TrackMIRScores': TrackMIRScores,
+            'TrackMIRSyntheticTags': TrackMIRSyntheticTags,
+            'TrackEmbeddings': TrackEmbeddings,
         }
     except ImportError as e:
-        logger.warning(f"[SupabaseSQLAlchemy] Impossible d'importer les modèles backend: {e}")
+        logger.warning(f"[SupabaseSQLAlchemy] Impossible d'importer les modèles: {e}")
         return {}
 
 
@@ -174,6 +173,6 @@ __all__ = [
     'get_supabase_database_url',
     'test_connection',
     'close_engine',
-    'import_backend_models',
+    'import_models',
     'Base',
 ]
