@@ -1,4 +1,10 @@
-"""Tâches Celery centralisées pour le backend worker."""
+"""Tâches Celery centralisées pour le backend worker.
+
+Ce module regroupe toutes les tâches Celery du worker SoniqueBay.
+
+Auteur: SoniqueBay Team
+Version: 1.0.0
+"""
 
 import os
 
@@ -6,17 +12,21 @@ from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 
 
+# Modèle léger et efficace pour Raspberry Pi
+EMBEDDING_MODEL = 'all-MiniLM-L6-v2'
+
+
 # === TÂCHES DE SCAN ===
 @celery.task(name="scan.discovery", queue="scan", bind=True)
 def discovery(self, directory: str, progress_callback=None):
     """Découverte de fichiers musicaux et lancement de la pipeline complète.
-    
-    Pipeline : discovery → extract_metadata → batch_entities → insert_batch
-    
+
+    Pipeline : discovery -> extract_metadata -> batch_entities -> insert_batch
+
     Args:
         directory: Répertoire à scanner
         progress_callback: Fonction de callback pour la progression
-        
+
     Returns:
         Résultat de la découverte et lancement de la pipeline
     """
@@ -24,16 +34,13 @@ def discovery(self, directory: str, progress_callback=None):
         from pathlib import Path
         import time
         from backend_worker.utils.pubsub import publish_event
-        
+
         start_time = time.time()
         task_id = self.request.id
 
         logger.info(f"[SCAN] Démarrage discovery: {directory}")
 
-        # Extensions musicales supportées
         music_extensions = {'.mp3', '.flac', '.m4a', '.ogg', '.wav'}
-
-        # Découverte des fichiers
         discovered_files = []
         base_path = Path(directory)
 
@@ -51,7 +58,6 @@ def discovery(self, directory: str, progress_callback=None):
         total_files = len(discovered_files)
         logger.info(f"[SCAN] Discovery terminée: {total_files} fichiers trouvés")
 
-        # Publier la progression
         if progress_callback:
             progress_callback({
                 "current": total_files,
@@ -61,7 +67,6 @@ def discovery(self, directory: str, progress_callback=None):
                 "files_discovered": total_files
             })
 
-        # Publier progression pour SSE
         publish_event("progress", {
             "type": "progress",
             "task_id": task_id,
@@ -72,21 +77,16 @@ def discovery(self, directory: str, progress_callback=None):
             "files_discovered": total_files
         }, channel="progress")
 
-        # Si des fichiers ont été trouvés, lancer la pipeline complète
+        batches = []
         if discovered_files:
             logger.info(f"[SCAN] Lancement de la pipeline d'extraction pour {total_files} fichiers")
-            
-            # Diviser en batches pour l'extraction (50 fichiers par batch)
             batch_size = 50
             batches = [discovered_files[i:i + batch_size] for i in range(0, len(discovered_files), batch_size)]
-            
             logger.info(f"[SCAN] Création de {len(batches)} batches d'extraction")
-            
-            # Envoyer chaque batch vers l'extraction
+
             for i, batch_files in enumerate(batches):
                 batch_id = f"batch_{i+1}_{len(batches)}"
                 logger.info(f"[SCAN] Envoi batch {i+1}/{len(batches)}: {len(batch_files)} fichiers")
-                
                 celery.send_task(
                     'metadata.extract_batch',
                     args=[batch_files, batch_id],
@@ -99,7 +99,7 @@ def discovery(self, directory: str, progress_callback=None):
             "files_discovered": total_files,
             "file_paths": discovered_files,
             "discovery_time": time.time() - start_time,
-            "batches_created": len(batches) if discovered_files else 0,
+            "batches_created": len(batches),
             "success": True
         }
 
@@ -107,38 +107,34 @@ def discovery(self, directory: str, progress_callback=None):
         return result
 
     except Exception as e:
-        error_time = time.time() - start_time
-        logger.error(f"[SCAN] Erreur discovery après {error_time:.2f}s: {str(e)}")
-
-        error_result = {
+        import time
+        logger.error(f"[SCAN] Erreur discovery: {str(e)}")
+        return {
             "error": str(e),
             "directory": directory,
-            "duration": error_time,
             "success": False
         }
-        return error_result
 
 
 # === TÂCHES DE MÉTADONNÉES ===
 @celery.task(name="metadata.extract_batch", queue="extract", bind=True)
-def extract_metadata_batch(self, file_paths: list[str], batch_id: str = None):
-    """
-    Extrait les métadonnées de fichiers en parallèle avec ThreadPoolExecutor.
+def extract_metadata_batch(self, file_paths: list, batch_id: str = None):
+    """Extrait les métadonnées de fichiers en parallèle avec ThreadPoolExecutor.
 
-    Optimisée pour Raspberry Pi : max_workers=2, timeout=60s, batches=25.
+    Optimisée pour Raspberry Pi : max_workers=2, timeout=60s.
 
     Args:
         file_paths: Liste des chemins de fichiers à traiter
         batch_id: ID optionnel du batch pour tracking
 
     Returns:
-        Liste des métadonnées extraites
+        Résultat de l'extraction
     """
     try:
         from concurrent.futures import ThreadPoolExecutor
         from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
-        
         import time
+
         start_time = time.time()
         task_id = self.request.id
 
@@ -147,35 +143,30 @@ def extract_metadata_batch(self, file_paths: list[str], batch_id: str = None):
         if batch_id:
             logger.info(f"[METADATA] Batch ID: {batch_id}")
 
-        # Configuration ThreadPoolExecutor optimisée pour Raspberry Pi
-        max_workers = 2  # Fixé à 2 pour Raspberry Pi (4 cœurs max)
-
-        # Extraction massive avec ThreadPoolExecutor
+        max_workers = 2  # Fixé à 2 pour Raspberry Pi
         extracted_metadata = []
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Soumettre tous les fichiers en parallèle
             future_to_path = {
                 executor.submit(extract_single_file_metadata, file_path): file_path
                 for file_path in file_paths
             }
-
-            # Collecter les résultats au fur et à mesure
             for future in future_to_path:
                 try:
-                    metadata = future.result(timeout=60)  # 1 minute timeout par fichier (Raspberry Pi)
+                    metadata = future.result(timeout=60)
                     if metadata:
                         extracted_metadata.append(metadata)
                 except Exception as e:
                     logger.error(f"[METADATA] Erreur traitement fichier: {e}")
 
-        # Métriques de performance
         total_time = time.time() - start_time
         files_per_second = len(extracted_metadata) / total_time if total_time > 0 else 0
 
-        logger.info(f"[METADATA] Extraction terminée: {len(extracted_metadata)}/{len(file_paths)} fichiers en {total_time:.2f}s")
+        logger.info(
+            f"[METADATA] Extraction terminée: {len(extracted_metadata)}/{len(file_paths)} "
+            f"fichiers en {total_time:.2f}s"
+        )
 
-        # Envoyer vers le batching si on a des résultats
         if extracted_metadata:
             celery.send_task(
                 'batch.process_entities',
@@ -203,9 +194,8 @@ def extract_metadata_batch(self, file_paths: list[str], batch_id: str = None):
 
 # === TÂCHES DE BATCH ===
 @celery.task(name="batch.process_entities", queue="batch", bind=True)
-def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
-    """
-    Regroupe les métadonnées par artistes et albums pour insertion optimisée.
+def batch_entities(self, metadata_list: list, batch_id: str = None):
+    """Regroupe les métadonnées par artistes et albums pour insertion optimisée.
 
     Args:
         metadata_list: Liste des métadonnées à traiter
@@ -217,8 +207,8 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
     try:
         from collections import defaultdict
         from pathlib import Path
-        
         import time
+
         start_time = time.time()
         task_id = self.request.id
 
@@ -234,12 +224,10 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
                 'success': True
             }
 
-        # Regroupement intelligent des données
         artists_by_name = {}
         albums_by_key = {}
         tracks_by_artist = defaultdict(list)
 
-        # Regrouper par artistes
         for metadata in metadata_list:
             artist_name = metadata.get('artist', 'Unknown')
             if not artist_name or artist_name.lower() == 'unknown':
@@ -262,7 +250,6 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
             artists_by_name[normalized_artist]['tracks_count'] += 1
             tracks_by_artist[normalized_artist].append(metadata)
 
-        # Regrouper par albums
         for artist_name, tracks in tracks_by_artist.items():
             artist_info = artists_by_name[artist_name]
 
@@ -270,10 +257,7 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
                 album_name = track.get('album', 'Unknown')
                 if not album_name or album_name.lower() == 'unknown':
                     path_obj = Path(track.get('path', ''))
-                    if len(path_obj.parts) >= 1:
-                        album_name = path_obj.parts[-1]
-                    else:
-                        album_name = 'Unknown Album'
+                    album_name = path_obj.parts[-1] if len(path_obj.parts) >= 1 else 'Unknown Album'
 
                 album_key = (album_name.strip().lower(), artist_name)
 
@@ -288,26 +272,23 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
                 albums_by_key[album_key]['tracks_count'] += 1
                 artist_info['albums_count'] += 1
 
-        # Préparation des données
         artists_data = list(artists_by_name.values())
         albums_data = list(albums_by_key.values())
         tracks_data = metadata_list.copy()
 
-        # Nettoyer les tracks
         for track in tracks_data:
             track.pop('tracks_count', None)
             track.pop('albums_count', None)
 
         total_time = time.time() - start_time
-        logger.info(f"[BATCH] Batching terminé: {len(artists_data)} artistes, {len(albums_data)} albums, {len(tracks_data)} pistes en {total_time:.2f}s")
-        
-        # DIAGNOSTIC: Log des albums détectés
+        logger.info(
+            f"[BATCH] Batching terminé: {len(artists_data)} artistes, "
+            f"{len(albums_data)} albums, {len(tracks_data)} pistes en {total_time:.2f}s"
+        )
+
         if albums_data:
             logger.info(f"[BATCH] Albums détectés (sample): {albums_data[:5]}")
-            for album in albums_data[:5]:
-                logger.info(f"[BATCH]   - Album: '{album.get('title')}', artist_name: '{album.get('album_artist_name')}', year: {album.get('release_year')}")
 
-        # Préparer le résultat pour l'insertion
         insertion_data = {
             'task_id': task_id,
             'batch_id': batch_id,
@@ -319,7 +300,6 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
             'success': True
         }
 
-        # Envoyer vers l'insertion directe via API uniquement
         celery.send_task(
             'insert.direct_batch',
             args=[insertion_data],
@@ -339,95 +319,37 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
 
 
 # === TÂCHES DE VECTORISATION ===
-# Utilisation de sentence-transformers (plus léger que Ollama/Koboldcpp)
-EMBEDDING_MODEL = 'all-MiniLM-L6-v2'  # Modèle léger et efficace pour Raspberry Pi
+# Utilisation de sentence-transformers (plus léger que Ollama/Koboldcpp pour Raspberry Pi)
 
 @celery.task(name="vectorization.calculate", queue="vectorization", bind=True)
 def calculate_vector(self, track_id: int, metadata: dict = None):
-    """
-<<<<<<< HEAD
-    Calcule le vecteur d'une track via le service d'embeddings local.
-    
+    """Calcule le vecteur d'une track via sentence-transformers.
+
     Pipeline:
-        1. Récupère les données de la track via l'API
-        2. Génère l'embedding avec OllamaEmbeddingService (local)
-=======
-    Calcule le vecteur d'une track via sentence-transformers.
-    
-    Pipeline:
-        1. Récupère les données de la track via l'API
-        2. Génère l'embedding avec sentence-transformers (local, léger)
->>>>>>> origin/master
+        1. Recupere les donnees de la track via l'API
+        2. Genere l'embedding avec sentence-transformers (local, leger)
         3. Stocke le vecteur via l'API backend
-    
+
     Args:
         track_id: ID de la track
-        metadata: Métadonnées optionnelles de la track
-        
+        metadata: Metadonnees optionnelles de la track
+
     Returns:
-        Résultat du calcul avec statut et métadonnées
+        Resultat du calcul avec statut et metadonnees
     """
     import time
-    
+
     start_time = time.time()
     task_id = self.request.id
-    
+
     logger.info(f"[VECTOR] Démarrage calcul vecteur: track_id={track_id}")
-    
+
     try:
-<<<<<<< HEAD
-        # Import du service de vectorisation Ollama
-        from backend_worker.services.vectorization_service import (
-            OptimizedVectorizationService,
-            VectorizationError
-        )
-        
-        # Instanciation du service
-        service = OptimizedVectorizationService()
-        
-        # Fonction async pour vectoriser et stocker
-        async def run_vectorization():
-            nonlocal service
-            
-            # Vectoriser et stocker
-            result = await service.vectorize_and_store(track_id, metadata)
-            return result
-        
-        # Exécution de la fonction async
-        result = asyncio.run(run_vectorization())
-        
-        # Ajouter les métadonnées de la tâche
-        result['task_id'] = task_id
-        result['calculation_time'] = time.time() - start_time
-        result['embedding_model'] = 'nomic-embed-text'
-        
-        logger.info(
-            f"[VECTOR] Résultat: status={result['status']}, "
-            f"track_id={track_id}, time={result['calculation_time']:.2f}s"
-        )
-        return result
-        
-    except VectorizationError as ve:
-        error_time = time.time() - start_time
-        logger.error(f"[VECTOR] Erreur vectorisation: {str(ve)}")
-        return {
-            'task_id': task_id,
-            'track_id': track_id,
-            'status': 'error',
-            'message': str(ve),
-            'error_type': 'VectorizationError',
-            'calculation_time': error_time,
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
-=======
-        # Import de sentence-transformers
         from sentence_transformers import SentenceTransformer
         import httpx
-        import numpy as np
-        
-        # Chargement du modèle (lazy loading - chargé une seule fois)
+
         model = SentenceTransformer(EMBEDDING_MODEL)
-        
-        # Récupérer les métadonnées de la track via l'API si non fournies
+
         track_metadata = metadata or {}
         if not track_metadata:
             api_url = os.getenv("API_URL", "http://api:8001")
@@ -438,8 +360,7 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
                         track_metadata = response.json()
             except Exception as e:
                 logger.warning(f"[VECTOR] Impossible de récupérer les métadonnées: {e}")
-        
-        # Construire le texte à vectoriser à partir des métadonnées
+
         text_parts = []
         if track_metadata.get('title'):
             text_parts.append(track_metadata['title'])
@@ -449,16 +370,12 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             text_parts.append(track_metadata['album'])
         if track_metadata.get('genre'):
             text_parts.append(track_metadata['genre'])
-        
+
         text_to_embed = " - ".join(text_parts) if text_parts else f"track_{track_id}"
-        
-        # Générer l'embedding
+
         embedding = model.encode(text_to_embed, convert_to_numpy=True)
-        
-        # Convertir en liste pour sérialisation JSON
         embedding_list = embedding.tolist()
-        
-        # Stocker le vecteur via l'API
+
         api_url = os.getenv("API_URL", "http://api:8001")
         with httpx.Client(timeout=30) as client:
             response = client.post(
@@ -467,14 +384,14 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             )
             if response.status_code not in (200, 201):
                 raise Exception(f"Erreur stockage vecteur: {response.status_code}")
-        
+
         calculation_time = time.time() - start_time
-        
+
         logger.info(
             f"[VECTOR] Vecteur calculé et stocké: track_id={track_id}, "
             f"dimensions={len(embedding_list)}, time={calculation_time:.2f}s"
         )
-        
+
         return {
             'task_id': task_id,
             'track_id': track_id,
@@ -482,9 +399,8 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             'embedding_model': EMBEDDING_MODEL,
             'dimensions': len(embedding_list),
             'calculation_time': calculation_time
->>>>>>> origin/master
         }
-        
+
     except Exception as e:
         error_time = time.time() - start_time
         logger.error(f"[VECTOR] Erreur vectorisation: {str(e)}")
@@ -497,89 +413,49 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
             'message': str(e),
             'error_type': type(e).__name__,
             'calculation_time': error_time,
-<<<<<<< HEAD
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
-=======
             'embedding_model': EMBEDDING_MODEL
->>>>>>> origin/master
         }
 
 
 @celery.task(name="vectorization.batch", queue="vectorization", bind=True)
-def calculate_vector_batch(self, track_ids: list[int]):
-    """
-<<<<<<< HEAD
-    Calcule les vecteurs d'un batch de tracks via le service local.
-=======
-    Calcule les vecteurs d'un batch de tracks via sentence-transformers.
->>>>>>> origin/master
-    
+def calculate_vector_batch(self, track_ids: list):
+    """Calcule les vecteurs d'un batch de tracks via sentence-transformers.
+
     Args:
         track_ids: Liste des IDs de tracks
-        
+
     Returns:
         Résultat du calcul batch
     """
-<<<<<<< HEAD
-    import asyncio
-=======
->>>>>>> origin/master
     import time
-    
+
     start_time = time.time()
     task_id = self.request.id
-    
+
     logger.info(f"[VECTOR] Démarrage batch: {len(track_ids)} tracks")
-    
-<<<<<<< HEAD
-    try:
-        from backend_worker.services.vectorization_service import (
-            OptimizedVectorizationService
-        )
-        
-        service = OptimizedVectorizationService()
-        
-        async def run_batch():
-            return await service.vectorize_and_store_batch(track_ids)
-        
-        result = asyncio.run(run_batch())
-        
-        result['task_id'] = task_id
-        result['calculation_time'] = time.time() - start_time
-        result['embedding_model'] = 'nomic-embed-text'
-        
-        logger.info(
-            f"[VECTOR] Batch terminé: {result['successful']} succès, "
-            f"{result['failed']} échecs en {result['calculation_time']:.2f}s"
-        )
-        return result
-=======
+
     successful = 0
     failed = 0
     errors = []
-    
+
     try:
         from sentence_transformers import SentenceTransformer
         import httpx
-        import numpy as np
-        
-        # Chargement du modèle (une seule fois pour tout le batch)
+
         model = SentenceTransformer(EMBEDDING_MODEL)
         api_url = os.getenv("API_URL", "http://api:8001")
-        
+
         with httpx.Client(timeout=30) as client:
             for track_id in track_ids:
                 try:
-                    # Récupérer les métadonnées
                     response = client.get(f"{api_url}/api/tracks/{track_id}")
                     if response.status_code != 200:
                         failed += 1
                         errors.append(f"Track {track_id}: non trouvé")
                         continue
-                    
+
                     track_metadata = response.json()
-                    
-                    # Construire le texte à vectoriser
+
                     text_parts = []
                     if track_metadata.get('title'):
                         text_parts.append(track_metadata['title'])
@@ -589,47 +465,44 @@ def calculate_vector_batch(self, track_ids: list[int]):
                         text_parts.append(track_metadata['album'])
                     if track_metadata.get('genre'):
                         text_parts.append(track_metadata['genre'])
-                    
+
                     text_to_embed = " - ".join(text_parts) if text_parts else f"track_{track_id}"
-                    
-                    # Générer l'embedding
+
                     embedding = model.encode(text_to_embed, convert_to_numpy=True)
                     embedding_list = embedding.tolist()
-                    
-                    # Stocker le vecteur
+
                     store_response = client.post(
                         f"{api_url}/api/tracks/{track_id}/vector",
                         json={"vector": embedding_list, "model": EMBEDDING_MODEL}
                     )
-                    
+
                     if store_response.status_code in (200, 201):
                         successful += 1
                     else:
                         failed += 1
                         errors.append(f"Track {track_id}: erreur stockage {store_response.status_code}")
-                        
+
                 except Exception as e:
                     failed += 1
                     errors.append(f"Track {track_id}: {str(e)}")
-        
+
         calculation_time = time.time() - start_time
-        
+
         logger.info(
             f"[VECTOR] Batch terminé: {successful} succès, "
             f"{failed} échecs en {calculation_time:.2f}s"
         )
-        
+
         return {
             'task_id': task_id,
             'status': 'success' if failed == 0 else 'partial',
             'successful': successful,
             'failed': failed,
-            'errors': errors[:10],  # Limiter le nombre d'erreurs retournées
+            'errors': errors[:10],
             'calculation_time': calculation_time,
             'embedding_model': EMBEDDING_MODEL
         }
->>>>>>> origin/master
-        
+
     except Exception as e:
         error_time = time.time() - start_time
         logger.error(f"[VECTOR] Erreur batch: {str(e)}")
@@ -638,21 +511,15 @@ def calculate_vector_batch(self, track_ids: list[int]):
             'status': 'error',
             'message': str(e),
             'calculation_time': error_time,
-<<<<<<< HEAD
-            'embedding_model': OllamaEmbeddingService.MODEL_NAME
-=======
             'embedding_model': EMBEDDING_MODEL
->>>>>>> origin/master
         }
 
 
 # === TÂCHES DE COVERS ===
-# Import des vraies tâches de covers depuis covers_tasks.py
 
 @celery.task(name="covers.extract_embedded", queue="deferred_covers", bind=True)
-def extract_embedded_covers(self, file_paths: list[str]):
-    """
-    Extrait les covers intégrées pour un lot de fichiers.
+def extract_embedded_covers(self, file_paths: list):
+    """Extrait les covers intégrées pour un lot de fichiers.
 
     Args:
         file_paths: Liste des chemins de fichiers
@@ -667,7 +534,6 @@ def extract_embedded_covers(self, file_paths: list[str]):
 
         logger.info(f"[COVERS] Démarrage extraction embedded: {len(file_paths)} fichiers")
 
-        # Pour l'instant, simple placeholder
         return {
             'task_id': task_id,
             'files_processed': 0,
@@ -682,10 +548,10 @@ def extract_embedded_covers(self, file_paths: list[str]):
 
 
 # === TÂCHES D'ENRICHISSEMENT ===
+
 @celery.task(name="metadata.enrich_batch", queue="deferred_enrichment", bind=True)
-def enrich_tracks_batch_task(self, track_ids: list[int]):
-    """
-    Tâche d'enrichissement par lot des tracks.
+def enrich_tracks_batch_task(self, track_ids: list):
+    """Tâche d'enrichissement par lot des tracks.
 
     Args:
         track_ids: Liste des IDs de tracks à enrichir
@@ -696,7 +562,6 @@ def enrich_tracks_batch_task(self, track_ids: list[int]):
     try:
         logger.info(f"[METADATA] Démarrage enrichissement batch: {len(track_ids)} tracks")
 
-        # Pour l'instant, simple placeholder
         return {
             "total_tracks": len(track_ids),
             "processed": len(track_ids),
@@ -714,86 +579,72 @@ def enrich_tracks_batch_task(self, track_ids: list[int]):
 
 @celery.task(name="gmm.cluster_all_artists", bind=True)
 def cluster_all_artists(self, force_refresh: bool = False) -> dict:
-    """
-    Déclenche le clustering GMM de tous les artistes.
-    
+    """Déclenche le clustering GMM de tous les artistes.
+
     Args:
         force_refresh: Si True, force le recalcul même si récent
-        
+
     Returns:
         Dict avec statistiques de clustering
     """
-    from backend_worker.services.artist_clustering_service import (
-        ArtistClusteringService
-    )
-    
+    from backend_worker.services.artist_clustering_service import ArtistClusteringService
+    import asyncio
+
     async def _cluster() -> dict:
         async with ArtistClusteringService() as service:
             return await service.cluster_all_artists(force_refresh=force_refresh)
-    
-    import asyncio
+
     return asyncio.run(_cluster())
 
 
 @celery.task(name="gmm.cluster_artist", bind=True)
 def cluster_artist(self, artist_id: int) -> dict:
-    """
-    Cluster un artiste spécifique.
-    
+    """Cluster un artiste spécifique.
+
     Args:
         artist_id: ID de l'artiste
-        
+
     Returns:
         Dict avec infos de cluster
     """
-    from backend_worker.services.artist_clustering_service import (
-        ArtistClusteringService
-    )
-    
+    from backend_worker.services.artist_clustering_service import ArtistClusteringService
+    import asyncio
+
     async def _cluster() -> dict:
         async with ArtistClusteringService() as service:
             return await service.cluster_artist(artist_id)
-    
-    import asyncio
+
     return asyncio.run(_cluster())
 
 
 @celery.task(name="gmm.refresh_stale_clusters", bind=True)
 def refresh_stale_clusters(self, max_age_hours: int = 24) -> dict:
-    """
-    Rafraîchit les clusters trop anciens.
-    
+    """Rafraîchit les clusters trop anciens.
+
     Args:
         max_age_hours: Âge maximum en heures avant rafraîchissement
-        
+
     Returns:
         Dict avec nombre de clusters rafraîchis
     """
-    from backend_worker.services.artist_clustering_service import (
-        ArtistClusteringService
-    )
-    
+    from backend_worker.services.artist_clustering_service import ArtistClusteringService
+    import asyncio
+
     async def _refresh() -> dict:
         async with ArtistClusteringService() as service:
             count = await service.refresh_stale_clusters(max_age_hours)
             return {"refreshed_count": count}
-    
-    import asyncio
+
     return asyncio.run(_refresh())
 
 
 @celery.task(name="gmm.cleanup_old_clusters", bind=True)
 def cleanup_old_clusters(self) -> dict:
-    """
-    Nettoie les anciens clusters orphelins.
-    
+    """Nettoie les anciens clusters orphelins.
+
     Returns:
         Dict avec nombre de clusters nettoyés
     """
     logger.info("[GMM] Cleanup des anciens clusters")
-    # Implémentation simplifiée - peut être étendue
-<<<<<<< HEAD
+    # TODO: Implémenter le nettoyage réel des clusters orphelins
     return {"cleaned_count": 0}
-=======
-    return {"cleaned_count": 0}
->>>>>>> origin/master

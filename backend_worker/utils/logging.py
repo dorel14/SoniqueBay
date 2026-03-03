@@ -1,150 +1,228 @@
 # -*- coding: utf-8 -*-
-import os
+"""Module de configuration du logging pour le backend worker SoniqueBay.
+
+Utilise un QueueHandler/QueueListener basé sur queue.Queue (thread-safe)
+au lieu de multiprocessing.Queue pour éviter les EOFError lors du démarrage
+des workers Celery dans un contexte multiprocessing.
+
+Architecture:
+- queue.Queue (thread-safe) remplace multiprocessing.Queue
+- SafeQueueListener gère les EOFError et BrokenPipeError proprement
+- configure_worker_logging() à appeler dans chaque processus worker Celery
+
+Auteur: SoniqueBay Team
+Version: 1.0.0
+"""
+
 import logging
+import os
 import pathlib
+import queue
 import stat
 import sys
 from datetime import datetime
-from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
-import multiprocessing
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 
-# Créer une queue pour la communication inter-processus
-log_queue = multiprocessing.Queue(-1)
-
+# === CONFIGURATION DES CHEMINS ===
 date_format = "%Y%m%d"
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
-# Utiliser un chemin relatif pour les logs dans le répertoire de l'application
 logdir = os.path.join(parentdir, 'logs')
-logfiles = os.path.join(logdir, 'soniquebay - '+ datetime.today().strftime(date_format) +'.log')
+logfiles = os.path.join(logdir, 'soniquebay - ' + datetime.today().strftime(date_format) + '.log')
+
+# === CRÉATION DU RÉPERTOIRE DE LOGS ===
+pathlib.Path(logdir).mkdir(parents=True, exist_ok=True)
+try:
+    os.chmod(logdir, 0o755)
+except Exception:
+    pass  # Ignorer les erreurs de permissions (ex: Docker)
+
+# Créer le fichier de log s'il n'existe pas
+if not os.path.exists(logfiles):
+    try:
+        with open(logfiles, 'a', encoding='utf-8') as f:
+            pass
+        os.chmod(
+            logfiles,
+            stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
+        )
+    except Exception:
+        pass  # Ignorer les erreurs de création
 
 
+# === FORMATEUR SÉCURISÉ ===
 class SafeFormatter(logging.Formatter):
-    def format(self, record):
-        # Nettoie le message pour remplacer les caractères invalides
+    """Formateur qui gère les caractères non-UTF8 dans les messages de log."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Formate le record en nettoyant les caractères invalides."""
         if isinstance(record.msg, str):
             record.msg = record.msg.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
         return super().format(record)
 
 
-pathlib.Path(logdir).mkdir(parents=True, exist_ok=True)
-# Définir les permissions du répertoire de logs (777 = rwxrwxrwx)
-try:
-    os.chmod(logdir, 0o755)  # équivalent à 0o777
-    print(f"Permissions du répertoire {logdir} modifiées avec succès")
-except Exception as e:
-    print(f"Impossible de modifier les permissions du répertoire {logdir}: {e}")
-
-# Créer le fichier de log s'il n'existe pas et définir ses permissions
-if not os.path.exists(logfiles):
-    try:
-        # Créer un fichier vide
-        with open(logfiles, 'a', encoding='utf-8') as f:
-            pass
-        # Définir les permissions du fichier (666 = rw-rw-rw-)
-        os.chmod(logfiles, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # équivalent à 0o666
-        print(f"Fichier {logfiles} créé avec les permissions appropriées")
-    except Exception as e:
-        print(f"Impossible de créer ou de modifier les permissions du fichier {logfiles}: {e}")
-
-# création de l'objet logger qui va nous servir à écrire dans les logs
-logger = logging.getLogger()
-# on met le niveau du logger à DEBUG, comme ça il écrit tout
-log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-logger.setLevel(getattr(logging, log_level))
-
-
-# création d'un formateur qui va ajouter le temps, le niveau
-# de chaque message quand on écrira un message dans le log
-safe_formatter = SafeFormatter('%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s')
-
-# Création des handlers pour le QueueListener
-file_handler = RotatingFileHandler(filename=logfiles,
-                                    mode='a',
-                                    maxBytes=1000000,
-                                    backupCount=5,
-                                    encoding='utf-8',)
-file_handler.setLevel(getattr(logging, log_level))
-file_handler.setFormatter(safe_formatter)
-
-# Handler console avec encodage utf-8
+# === HANDLER CONSOLE UTF-8 ===
 class Utf8StreamHandler(logging.StreamHandler):
+    """Handler console qui force l'encodage UTF-8."""
+
     def __init__(self, stream=None):
         if stream is None:
             stream = sys.stdout
         # Force le stream en utf-8 si possible
         if hasattr(stream, "encoding") and stream.encoding and stream.encoding.lower() != "utf-8":
-            stream = open(stream.fileno(), mode='w', encoding='utf-8', buffering=1)
+            try:
+                stream = open(stream.fileno(), mode='w', encoding='utf-8', buffering=1)
+            except Exception:
+                pass  # Garder le stream original si impossible
         super().__init__(stream)
 
+
+# === QUEUE LISTENER ROBUSTE ===
+class SafeQueueListener(QueueListener):
+    """QueueListener qui gère proprement les EOFError et BrokenPipeError.
+
+    Ces erreurs surviennent quand les processus enfants Celery se terminent
+    et que la queue de logging est fermée avant que le listener ait fini.
+    """
+
+    def dequeue(self, block: bool) -> logging.LogRecord:
+        """Récupère un record depuis la queue avec gestion des erreurs."""
+        try:
+            return self.queue.get(block)
+        except (EOFError, OSError, BrokenPipeError):
+            # La queue a été fermée - retourner None pour arrêter proprement
+            raise queue.Empty
+
+    def _monitor(self):
+        """Thread de monitoring avec gestion robuste des erreurs."""
+        try:
+            super()._monitor()
+        except (EOFError, OSError, BrokenPipeError):
+            # Erreur normale lors de l'arrêt du processus - ignorer silencieusement
+            pass
+        except Exception as e:
+            # Erreur inattendue - logger sur stderr pour ne pas perdre l'info
+            try:
+                sys.stderr.write(f"[SafeQueueListener] Erreur inattendue dans _monitor: {e}\n")
+            except Exception:
+                pass
+
+
+# === INITIALISATION DU LOGGING ===
+log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+_log_level_int = getattr(logging, log_level, logging.INFO)
+
+safe_formatter = SafeFormatter(
+    '%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s'
+)
+
+# Handler fichier rotatif
+file_handler = RotatingFileHandler(
+    filename=logfiles,
+    mode='a',
+    maxBytes=1_000_000,
+    backupCount=5,
+    encoding='utf-8',
+)
+file_handler.setLevel(_log_level_int)
+file_handler.setFormatter(safe_formatter)
+
+# Handler console UTF-8
 stream_handler = Utf8StreamHandler()
-stream_handler.setLevel(getattr(logging, log_level))
+stream_handler.setLevel(_log_level_int)
 stream_handler.setFormatter(safe_formatter)
 
-# Configurer le QueueListener avec les handlers
-listener = QueueListener(log_queue, file_handler, stream_handler)
+# === QUEUE THREAD-SAFE (remplace multiprocessing.Queue) ===
+# IMPORTANT: On utilise queue.Queue (thread-safe) et NON multiprocessing.Queue
+# multiprocessing.Queue cause des EOFError dans les workers Celery car la queue
+# n'est pas correctement héritée par les processus enfants.
+log_queue: queue.Queue = queue.Queue(-1)
+
+# Démarrage du QueueListener avec le listener robuste
+listener = SafeQueueListener(log_queue, file_handler, stream_handler, respect_handler_level=True)
 listener.start()
 
-# Configurer le logger principal pour utiliser un QueueHandler
+# Configuration du logger racine avec QueueHandler
+logger = logging.getLogger()
+logger.setLevel(_log_level_int)
+
+# Supprimer les handlers existants pour éviter les doublons
+for _handler in logger.handlers[:]:
+    logger.removeHandler(_handler)
+
 queue_handler = QueueHandler(log_queue)
 logger.addHandler(queue_handler)
 
-# Fonction pour configurer le logging dans les processus enfants
-def configure_worker_logging():
+
+# === FONCTIONS UTILITAIRES ===
+
+def configure_worker_logging() -> logging.Logger:
+    """Configure le logging pour les processus workers Celery.
+
+    Cette fonction doit être appelée au démarrage de chaque processus worker.
+    Elle reconfigure le logger pour utiliser la queue partagée thread-safe.
+
+    Returns:
+        Logger configuré pour le worker
     """
-    Configure logging for worker processes.
-    This should be called at the start of each worker process.
-    """
+    worker_logger = logging.getLogger()
+
     # Supprimer tous les handlers existants
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    
+    for handler in worker_logger.handlers[:]:
+        worker_logger.removeHandler(handler)
+
     # Ajouter un QueueHandler qui envoie les logs à la queue partagée
     handler = QueueHandler(log_queue)
-    logger.addHandler(handler)
-    logger.setLevel(getattr(logging, log_level))
-    return logger
+    worker_logger.addHandler(handler)
+    worker_logger.setLevel(_log_level_int)
 
-# Fonction pour nettoyer les ressources de logging à la fin du programme
-def cleanup_logging():
-    """
-    Clean up logging resources properly.
-    This should be called at application shutdown.
+    return worker_logger
+
+
+def cleanup_logging() -> None:
+    """Nettoie les ressources de logging à la fin du programme.
+
+    Doit être appelée lors de l'arrêt du worker pour éviter les fuites
+    de ressources et les erreurs de fermeture de queue.
     """
     global listener
+
+    # Arrêter le listener proprement
     try:
-        if hasattr(listener, 'stop'):
+        if listener is not None and hasattr(listener, 'stop'):
             listener.stop()
-    except OSError:
-        pass  # Ignore errors if the listener is already stopped
-    
+    except (OSError, EOFError, BrokenPipeError):
+        pass  # Ignorer les erreurs si déjà arrêté
+
+    # Supprimer les handlers du logger
     try:
         for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-    except OSError:
-        pass  # Ignore errors if handlers are already removed
-    
+            try:
+                logger.removeHandler(handler)
+                handler.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # Vider et fermer la queue
     try:
-        if hasattr(log_queue, 'close'):
-            log_queue.close()
-    except OSError:
-        pass  # Ignore errors if the queue is already closed
-    
-    try:
-        if hasattr(log_queue, 'join_thread'):
-            log_queue.join_thread()
-    except OSError:
-        pass  # Ignore errors if the queue thread is already joined
+        # Vider la queue pour éviter les blocages
+        while not log_queue.empty():
+            try:
+                log_queue.get_nowait()
+            except queue.Empty:
+                break
+    except Exception:
+        pass
 
 
-# Fonction compatible avec l'ancien API pour obtenir un logger
 def get_logger(name: str) -> logging.Logger:
-    """
-    Retourne un logger pour le nom donné.
-    
+    """Retourne un logger pour le nom donné.
+
     Args:
         name: Nom du logger (généralement __name__)
-    
+
     Returns:
         Logger configuré
     """
