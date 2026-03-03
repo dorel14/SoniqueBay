@@ -41,6 +41,19 @@ async def api_list_agents():
     rows = await list_agents()
     return [AgentOut.from_orm(r) for r in rows]
 
+@router.get("/ai/tools")
+def list_tools():
+    return [
+        {
+            "name": t.name,
+            "description": t.description,
+            "expose": t.expose,
+            "signature": str(t.signature)
+        }
+        for t in ToolRegistry.values()
+    ]
+
+
 @router.get("/{name}", response_model=AgentOut)
 async def api_get_agent(name: str):
     obj = await get_agent_by_name(name)
@@ -61,18 +74,6 @@ async def api_delete_agent(name: str):
     if not ok:
         raise HTTPException(404, "Not found")
     return {"status": "deleted"}
-
-@router.get("/ai/tools")
-def list_tools():
-    return [
-        {
-            "name": t.name,
-            "description": t.description,
-            "expose": t.expose,
-            "signature": str(t.signature)
-        }
-        for t in ToolRegistry.values()
-    ]
 
 
 # Agent Score Endpoints
