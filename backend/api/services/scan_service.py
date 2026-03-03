@@ -160,7 +160,7 @@ class ScanService:
             # Configuration Celery
             logger.debug("[SCAN] Configuration Celery - Broker: [REDACTED]")  # URL masquee pour securite
             backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
-            logger.info(f"[SCAN] Backend: {backend_url}")
+            logger.debug("[SCAN] Backend: [REDACTED]")  # URL masquee pour securite
             celery_app.broker_connection().ensure_connection(max_retries=1)
             inspect = celery_app.control.inspect()
             active_workers = inspect.ping()
