@@ -86,15 +86,6 @@ async def api_create_agent_score(payload: AgentScoreCreate):
     return AgentScore.from_orm(obj)
 
 
-@router.get("/scores/{agent_name}/{intent}", response_model=AgentScore)
-async def api_get_agent_score(agent_name: str, intent: str):
-    """Récupère un score d'agent spécifique."""
-    obj = await get_agent_score(agent_name, intent)
-    if not obj:
-        raise HTTPException(404, "Score not found")
-    return AgentScore.from_orm(obj)
-
-
 @router.get("/scores", response_model=AgentScoreListResponse)
 async def api_list_agent_scores(
     agent_name: Optional[str] = Query(None, description="Filtrer par nom d'agent"),
@@ -105,6 +96,27 @@ async def api_list_agent_scores(
     """Liste les scores d'agents avec pagination."""
     scores, total = await list_agent_scores(agent_name, intent, limit, offset)
     return AgentScoreListResponse(count=total, results=[AgentScore.from_orm(s) for s in scores])
+
+
+@router.get("/scores/metrics", response_model=AgentScoreListResponse)
+async def api_get_agent_scores_with_metrics(
+    agent_name: Optional[str] = Query(None, description="Filtrer par nom d'agent"),
+    intent: Optional[str] = Query(None, description="Filtrer par intention"),
+    limit: int = Query(100, ge=1, le=1000, description="Limite de résultats"),
+    offset: int = Query(0, ge=0, description="Décalage pour pagination"),
+):
+    """Récupère les scores avec métriques calculées (taux de succès, etc.)."""
+    scores, total = await get_agent_scores_with_metrics(agent_name, intent, limit, offset)
+    return AgentScoreListResponse(count=total, results=scores)
+
+
+@router.get("/scores/{agent_name}/{intent}", response_model=AgentScore)
+async def api_get_agent_score(agent_name: str, intent: str):
+    """Récupère un score d'agent spécifique."""
+    obj = await get_agent_score(agent_name, intent)
+    if not obj:
+        raise HTTPException(404, "Score not found")
+    return AgentScore.from_orm(obj)
 
 
 @router.put("/scores/{agent_name}/{intent}", response_model=AgentScore)
@@ -136,15 +148,3 @@ async def api_delete_agent_score(agent_name: str, intent: str):
     if not ok:
         raise HTTPException(404, "Score not found")
     return {"status": "deleted"}
-
-
-@router.get("/scores/metrics", response_model=AgentScoreListResponse)
-async def api_get_agent_scores_with_metrics(
-    agent_name: Optional[str] = Query(None, description="Filtrer par nom d'agent"),
-    intent: Optional[str] = Query(None, description="Filtrer par intention"),
-    limit: int = Query(100, ge=1, le=1000, description="Limite de résultats"),
-    offset: int = Query(0, ge=0, description="Décalage pour pagination"),
-):
-    """Récupère les scores avec métriques calculées (taux de succès, etc.)."""
-    scores, total = await get_agent_scores_with_metrics(agent_name, intent, limit, offset)
-    return AgentScoreListResponse(count=total, results=scores)
