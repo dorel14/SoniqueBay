@@ -77,7 +77,7 @@ services:
             - POSTGRES_USER=${SUPABASE_DB_USER:-supabase}
             - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
             - POSTGRES_DB=${SUPABASE_DB_NAME:-postgres}
-            - JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+            - JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
         volumes:
             - supabase-data:/var/lib/postgresql/data
             - ./supabase/db_init/init_supabase.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -109,8 +109,8 @@ services:
             - DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
             - DB_NAME=${SUPABASE_DB_NAME:-postgres}
             - DB_SSL=false
-            - JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
-            - SECRET_KEY_BASE=${SUPABASE_SECRET_KEY_BASE:-your-super-secret-key-base-with-at-least-64-characters-long}
+            - JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
+            - SECRET_KEY_BASE=${SUPABASE_SECRET_KEY_BASE:?SUPABASE_SECRET_KEY_BASE must be set in .env (min 64 chars)}
             - PORT=4000
             - FLY_ALLOC_ID=123e4567-e89b-12d3-a456-426614174000
             - FLY_APP_NAME=realtime
@@ -145,7 +145,7 @@ services:
             - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}
             - GOTRUE_URI_ALLOW_LIST=${SUPABASE_REDIRECT_URLS:-http://localhost:3000/**}
             - GOTRUE_DISABLE_SIGNUP=false
-            - GOTRUE_JWT_SECRET=${SUPABASE_JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+            - GOTRUE_JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
             - GOTRUE_JWT_EXP=3600
             - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
             - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
