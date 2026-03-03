@@ -335,14 +335,22 @@ class TestAudioFeaturesEdgeCases:
         """Test le comportement quand Librosa n'est pas installé."""
         service = AudioFeaturesService()
         
-        with patch('builtins.__import__', side_effect=ImportError("No module named 'librosa'")):
-            # Créer un fichier temporaire
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                f.write(b"dummy")
-                temp_path = f.name
-            
-            try:
+        # Créer un fichier temporaire
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+            f.write(b"dummy")
+            temp_path = f.name
+        
+        try:
+            # Patcher l'import de librosa au niveau du module pour simuler son absence
+            with patch.dict('sys.modules', {'librosa': None}):
+                # Forcer le rechargement pour que l'import échoue
+                import sys
+                # Supprimer librosa des modules importés si présent
+                if 'librosa' in sys.modules:
+                    del sys.modules['librosa']
+                
+                # Le service gère l'ImportError et retourne None
                 features = service._extract_with_librosa(temp_path)
                 assert features is None
-            finally:
-                os.unlink(temp_path)
+        finally:
+            os.unlink(temp_path)
