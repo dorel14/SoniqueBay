@@ -206,23 +206,16 @@ async def handle_trailing_slashes(request: Request, call_next):
                 if route_path_no_slash == request_path_no_api:
                     logger.debug(f"[MIDDLEWARE] Route trouvée: {route.path}")
                     
-                    # Vérifier si la route accepte les paramètres de requête
-                    # Si la route a des paramètres, ne pas rediriger
-                    if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
-                        # Route avec dépendances (a des paramètres)
-                        # Ne pas rediriger pour éviter de perdre les paramètres
-                        logger.debug("[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
-                        pass
+                    # CORRECTION : Ne rediriger que si la route définie a un slash final
+                    # Note : Les paramètres de requête sont conservés lors d'une redirection 307
+                    if route.path.endswith('/'):
+                        logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
+                        from fastapi.responses import RedirectResponse
+                        return RedirectResponse(url=new_url, status_code=307)
                     else:
-                        # CORRECTION : Ne rediriger que si la route définie a un slash final
-                        if route.path.endswith('/'):
-                            logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
-                            from fastapi.responses import RedirectResponse
-                            return RedirectResponse(url=new_url, status_code=307)
-                        else:
-                            # La route existe sans slash, et on est sans slash. Pas de redirection.
-                            logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
-                            pass
+                        # La route existe sans slash, et on est sans slash. Pas de redirection.
+                        logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                        pass
 
     return await call_next(request)
 
