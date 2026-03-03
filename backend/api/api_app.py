@@ -139,13 +139,14 @@ async def lifespan(app: FastAPI):
     pass
 
 # Créer l'application FastAPI
+# Note: reload=True est un argument uvicorn (CLI), pas un paramètre FastAPI.
+# Configurer le hot-reload via la commande uvicorn : uvicorn ... --reload
 app = FastAPI(title="SoniqueBay API Unifiée",
             redirect_slashes=False,
             version="1.0.0",
             docs_url="/api/docs",
             openapi_url="/api/openapi.json",
-            lifespan=lifespan,
-            reload=True)
+            lifespan=lifespan)
 
 # Configuration CORS avec allow_all_origins pour permettre les connexions WebSocket sans Origin
 app.add_middleware(
