@@ -17,12 +17,20 @@ typer==0.23.1
 sentence-transformers>=2.2.0
 scikit-learn>=1.7.2
 
-# Base de données
+# Base de données et ORM
+sqlalchemy>=2.0.0
+alembic>=1.11.0
 pgvector>=0.2.4  # PostgreSQL vector extension
+# Drivers PostgreSQL
+psycopg2-binary>=2.9.6
+asyncpg>=0.30.0
 
 # HTTP et WebSocket
 httpx>=0.24.0
 websockets>=11.0.3
+
+# Supabase
+supabase>=2.0.0
 
 # Stockage et Index de recherche
 tinydb>=4.8.0

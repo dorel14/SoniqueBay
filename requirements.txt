@@ -25,6 +25,9 @@ setuptools>=67.7.2  # Nécessaire pour installer des paquets avec des dépendanc
 httpx>=0.24.0
 websockets>=11.0.3
 
+# Supabase
+supabase>=2.0.0
+
 
 
 # Caching
