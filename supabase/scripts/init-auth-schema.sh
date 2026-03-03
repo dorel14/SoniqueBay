@@ -13,7 +13,7 @@ done
 echo "✅ supabase-db est prêt"
 
 echo "🔧 Création du schéma auth..."
-docker exec -i soniquebay-supabase-db env PGPASSWORD=supabase psql -h localhost -p 5432 -U supabase -d postgres -c "
+docker exec -i soniquebay-supabase-db env PGPASSWORD="${SUPABASE_DB_PASSWORD:-supabase}" psql -h localhost -p 5432 -U supabase -d postgres -c "
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO supabase;
 "
