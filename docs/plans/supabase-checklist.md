@@ -178,11 +178,11 @@
 
 | # | Tâche | Statut | Date | Notes |
 |---|-------|--------|------|-------|
-| 7.1 | Créer `tests/unit/test_supabase_repositories.py` | ⬜ | | |
-| 7.2 | Créer `tests/integration/test_supabase_integration.py` | ⬜ | | |
+| 7.1 | Créer `tests/unit/test_supabase_repositories.py` | ✅ | 2026-03-03 | Tests services V2 créés |
+| 7.2 | Créer `tests/integration/test_supabase_integration.py` | ✅ | 2026-03-03 | Tests E2E supabase_services |
 | 7.3 | Créer `tests/e2e/test_supabase_scenarios.py` | ⬜ | | |
-| 7.4 | Exécuter tests unitaires | ⬜ | | |
-| 7.5 | Exécuter tests intégration | ⬜ | | |
+| 7.4 | Exécuter tests unitaires | ✅ | 2026-03-03 | 18/23 tests audio_features passent |
+| 7.5 | Exécuter tests intégration | ✅ | 2026-03-03 | 8/9 E2E tests passent (88.9%) |
 | 7.6 | Exécuter tests E2E | ⬜ | | |
 | 7.7 | Commit "test: add supabase test suite" | ⬜ | | |
 
@@ -256,7 +256,7 @@
 
 | ID | Description | Phase | Statut | Solution |
 |----|-------------|-------|--------|----------|
-| | | | | |
+| MERGE-001 | Conflits de fusion master → feature/supabase-migration | Phase 4.3 | ✅ Résolu | Résolution manuelle des conflits dans track_mir_queries.py, track_mir_mutations.py, artist_mutations.py |
 
 ---
 
@@ -284,6 +284,8 @@
 | 2025-01-20 | Phase 6 complète | Workers Celery SQLAlchemy direct à Supabase | BlackboxAI |
 | 2025-01-20 | Phase 6.7-6.9 | Modèles copiés dans workers, alembic déplacé | BlackboxAI |
 | 2025-01-20 | Phase 6.10-6.11 | Migrations Alembic au démarrage worker, Dockerfile mis à jour | BlackboxAI |
+| 2026-03-03 | Résolution conflits | Merge master → feature/supabase-migration, conflits GraphQL résolus | BlackboxAI |
+| 2026-03-03 | Tests audio_features | 18/23 tests passent après merge, commit eafa6ff | BlackboxAI |
 
 ---
 
@@ -340,8 +342,8 @@
 
 ---
 
-**Dernière mise à jour** : 2025-01-20  
-**Prochaine revue** : Phase 7 - Tests & Validation
+**Dernière mise à jour** : 2026-03-03  
+**Prochaine revue** : Phase 7 - Tests & Validation complète
 
 **Note importante** : La Phase 9 (Audit Final) garantira qu'aucun code inutile n'est conservé :
 - Services V1 supprimés après validation V2
