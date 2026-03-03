@@ -229,34 +229,48 @@ def _build_specialized_prompt(child_model: AgentModel, parent_model: AgentModel)
 
 
 def _merge_tools(child_model: AgentModel, parent_model: AgentModel) -> List[Any]:
-    """Fusionne les tools de l'enfant avec ceux du parent."""
-    # Tools du parent
-    parent_tools = []
+    """Fusionne les tools de l'enfant avec ceux du parent.
+
+    Les tools enfants remplacent les tools parents portant le même nom enregistré.
+    La correspondance se fait via le nom enregistré dans ToolRegistry (pas via
+    tool.__name__ qui peut différer du nom d'enregistrement).
+    """
+    # Tools du parent — on mémorise le nom enregistré par identité de fonction
+    parent_tools: List[Any] = []
+    parent_registered_names: Dict[int, str] = {}  # id(func) -> registered_name
+
     for tool_name in parent_model.tools or []:
         tool_metadata = ToolRegistry.get(tool_name)
         if tool_metadata:
             parent_tools.append(tool_metadata.func)
-    
-    # Tools de l'enfant (remplacent ceux du parent si même nom)
-    child_tools = []
+            # Clé par id() pour éviter toute collision de __name__
+            parent_registered_names[id(tool_metadata.func)] = tool_metadata.name
+
+    # Tools de l'enfant (remplacent ceux du parent si même nom enregistré)
+    child_tools: List[Any] = []
     for tool_name in child_model.tools or []:
         tool_metadata = ToolRegistry.get(tool_name)
         if tool_metadata:
             child_tools.append(tool_metadata.func)
-    
-    # Fusion : les tools enfants remplacent les tools parents en cas de conflit
-    merged_tools = parent_tools.copy()
-    child_tool_names = {ToolRegistry.get(name).name for name in (child_model.tools or []) if ToolRegistry.get(name)}
-    
-    # Supprimer les tools parents qui sont remplacés
+
+    # Ensemble des noms enregistrés des tools enfants
+    child_tool_names = {
+        ToolRegistry.get(name).name
+        for name in (child_model.tools or [])
+        if ToolRegistry.get(name)
+    }
+
+    # Supprimer les tools parents dont le nom enregistré est couvert par l'enfant.
+    # On utilise parent_registered_names[id(tool)] — robuste même si tool.__name__
+    # diffère du nom d'enregistrement dans ToolRegistry.
     merged_tools = [
-        tool for tool in merged_tools
-        if ToolRegistry.get(tool.__name__).name not in child_tool_names
+        tool for tool in parent_tools
+        if parent_registered_names.get(id(tool)) not in child_tool_names
     ]
-    
+
     # Ajouter les tools enfants
     merged_tools.extend(child_tools)
-    
+
     return merged_tools
 
 
