@@ -55,7 +55,7 @@ class AgentLoader:
         """
         result = await self.session.execute(
             select(AgentModel).where(
-                AgentModel.enabled == True,
+                AgentModel.enabled,
                 AgentModel.base_agent.is_(None)
             )
         )
@@ -83,7 +83,7 @@ class AgentLoader:
         # Chargement de tous les agents enfants (avec héritage)
         result = await self.session.execute(
             select(AgentModel).where(
-                AgentModel.enabled == True,
+                AgentModel.enabled,
                 AgentModel.base_agent.isnot(None)
             )
         )
@@ -146,7 +146,7 @@ class AgentLoader:
         result = await self.session.execute(
             select(AgentModel).where(
                 AgentModel.name == agent_name,
-                AgentModel.enabled == True
+                AgentModel.enabled
             )
         )
         
@@ -190,7 +190,7 @@ class AgentLoader:
             Dict: Rapport de validation pour tous les agents
         """
         result = await self.session.execute(
-            select(AgentModel).where(AgentModel.enabled == True)
+            select(AgentModel).where(AgentModel.enabled)
         )
         
         validation_report = {
