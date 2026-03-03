@@ -28,8 +28,10 @@ def get_supabase_client() -> Client:
         key = os.getenv("SUPABASE_ANON_KEY")
         
         if not key:
-            logger.warning("SUPABASE_ANON_KEY non définie, utilisation de la clé de développement")
-            key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNvbnF1ZWJheSIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNjAwMDAwMDAwLCJleHAiOjE5MDAwMDAwMDB9.test"
+            raise ValueError(
+                "SUPABASE_ANON_KEY non définie dans les variables d'environnement. "
+                "Configurez cette variable avant de démarrer le frontend."
+            )
         
         _supabase_client = create_client(url, key)
         logger.info("Client Supabase frontend initialisé")
