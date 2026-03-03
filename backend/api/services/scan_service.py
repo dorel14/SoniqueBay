@@ -158,7 +158,7 @@ class ScanService:
         try:
             from backend.api.utils.celery_app import celery_app
             # Configuration Celery
-            logger.info(f"[SCAN] Configuration Celery - Broker: {celery_app.conf.broker_url}")
+            logger.debug("[SCAN] Configuration Celery - Broker: [REDACTED]")  # URL masquee pour securite
             backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
             logger.info(f"[SCAN] Backend: {backend_url}")
             celery_app.broker_connection().ensure_connection(max_retries=1)
