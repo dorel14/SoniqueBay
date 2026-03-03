@@ -4,14 +4,13 @@ Tests unitaires pour les services frontend V2 (Supabase).
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-import asyncio
 
 # Patch supabase avant import
 with patch.dict('sys.modules', {'supabase': MagicMock()}):
-    from frontend.services.track_service_v2 import TrackServiceV2, get_track_service_v2, reset_track_service_v2
-    from frontend.services.album_service_v2 import AlbumServiceV2, get_album_service_v2, reset_album_service_v2
-    from frontend.services.artist_service_v2 import ArtistServiceV2, get_artist_service_v2, reset_artist_service_v2
-    from frontend.services.search_service_v2 import SearchServiceV2, get_search_service_v2, reset_search_service_v2
+    from frontend.services.track_service_v2 import TrackServiceV2, reset_track_service_v2
+    from frontend.services.album_service_v2 import AlbumServiceV2, reset_album_service_v2
+    from frontend.services.artist_service_v2 import ArtistServiceV2, reset_artist_service_v2
+    from frontend.services.search_service_v2 import SearchServiceV2, reset_search_service_v2
 
 
 class MockSupabaseResponse:

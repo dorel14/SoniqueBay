@@ -11,9 +11,7 @@ Couvre :
 """
 
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch, call
-from typing import AsyncIterator
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from backend.ai.orchestrator import Orchestrator
 

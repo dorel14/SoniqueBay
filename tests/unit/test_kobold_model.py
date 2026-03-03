@@ -10,7 +10,6 @@ Teste l'implémentation de l'interface pydantic-ai 1.x Model pour KoboldCPP :
 import json
 import pytest
 from datetime import datetime
-from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -453,7 +452,7 @@ class TestKoboldStreamedResponse:
         for finish_reason, description in test_cases:
             sse_lines = [
                 f'data: {{"token": "Hello", "finish_reason": "{finish_reason}"}}',
-                f'data: {{"token": "Should not appear", "finish_reason": null}}',
+                'data: {"token": "Should not appear", "finish_reason": null}',
             ]
             mock_response = self._make_mock_response(sse_lines)
             streamed = self._make_streamed(mock_response)

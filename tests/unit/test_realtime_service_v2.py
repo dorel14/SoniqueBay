@@ -3,7 +3,7 @@ Tests unitaires pour RealtimeServiceV2.
 """
 
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch
 from backend.api.services.realtime_service_v2 import (
     RealtimeServiceV2,
     get_realtime_service_v2,

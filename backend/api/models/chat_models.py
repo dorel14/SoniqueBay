@@ -6,7 +6,7 @@ Architecture: Conversation (entête avec résumé) → ChatMessage (détail)
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
-from sqlalchemy import String, Text, ForeignKey, Index, Float, DateTime, Integer, Boolean, JSON
+from sqlalchemy import String, Text, ForeignKey, Index, Float, DateTime, Integer, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 

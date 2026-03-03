@@ -1,10 +1,8 @@
 """Service d'extraction de features audio."""
 
 import os
-import tempfile
 import numpy as np
 from typing import Dict, Any, Optional
-import soundfile as sf
 
 from backend_worker.utils.logging import logger
 

@@ -22,7 +22,6 @@ Date: 2026-02-06
 """
 
 from typing import Sequence, Union
-from alembic import op
 import logging
 
 # Configuration du logger

@@ -4,10 +4,10 @@ Vérifie que tous les services V2 fonctionnent ensemble avec la couche d'abstrac
 """
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
-from backend.api.utils.db_config import USE_SUPABASE, is_migrated, get_db_backend, MIGRATED_TABLES
-from backend.api.utils.db_adapter import DatabaseAdapter, get_adapter
-from backend.api.repositories.base_repository import BaseRepository, TrackRepository, AlbumRepository, ArtistRepository
+from unittest.mock import Mock, patch, AsyncMock
+from backend.api.utils.db_config import is_migrated, get_db_backend
+from backend.api.utils.db_adapter import get_adapter
+from backend.api.repositories.base_repository import BaseRepository
 from backend.api.services.track_service_v2 import TrackServiceV2, get_track_service
 from backend.api.services.album_service_v2 import AlbumServiceV2, get_album_service
 from backend.api.services.artist_service_v2 import ArtistServiceV2, get_artist_service

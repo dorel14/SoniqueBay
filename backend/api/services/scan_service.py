@@ -9,7 +9,6 @@ Refactorisé pour utiliser la nouvelle architecture de tâches Celery :
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

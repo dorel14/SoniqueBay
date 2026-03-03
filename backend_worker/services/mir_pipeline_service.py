@@ -14,8 +14,6 @@ Version: 1.0.0
 
 import os
 import httpx
-import asyncio
-from typing import Optional
 from backend_worker.utils.logging import logger
 
 

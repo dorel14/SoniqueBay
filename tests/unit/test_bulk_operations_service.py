@@ -3,8 +3,7 @@ Tests unitaires pour le service d'opérations bulk.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock, call, MagicMock
-import asyncio
+from unittest.mock import patch, AsyncMock, MagicMock
 import sys
 
 # Create proper mock for Base with metadata
@@ -46,7 +45,6 @@ with patch.dict('sys.modules', {
     
     from backend_worker.services.bulk_operations_service import (
         BulkOperationsService,
-        get_bulk_operations_service,
         reset_bulk_operations_service,
     )
 

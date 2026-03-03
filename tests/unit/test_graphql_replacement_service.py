@@ -4,13 +4,11 @@ Tests unitaires pour le service de remplacement GraphQL.
 
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-import json
 
 # Patch supabase avant import
 with patch.dict('sys.modules', {'supabase': MagicMock()}):
     from frontend.services.graphql_replacement_service import (
         GraphQLReplacementService,
-        get_graphql_replacement_service,
         reset_graphql_replacement_service
     )
 

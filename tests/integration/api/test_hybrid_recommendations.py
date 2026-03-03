@@ -15,15 +15,9 @@ Marqueurs: pytest.mark.integration, pytest.mark.recommendations, pytest.mark.hyb
 
 import pytest
 import logging
-from typing import Dict, Any, List
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from tests.conftest import (
-    client,
-    db_session,
     create_test_track,
-    create_test_tracks,
-    create_test_artist_album_tracks,
 )
 
 logger = logging.getLogger(__name__)

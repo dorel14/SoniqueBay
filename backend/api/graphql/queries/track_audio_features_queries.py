@@ -19,17 +19,14 @@ from __future__ import annotations
 from typing import Optional, List
 
 import strawberry
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.graphql.types.track_audio_features_type import (
     TrackAudioFeaturesType,
-    TrackAudioFeaturesSearchInput,
 )
 from backend.api.services.track_audio_features_service import (
     TrackAudioFeaturesService,
 )
 from backend.api.utils.database import get_async_session
-from backend.api.utils.logging import logger
 
 
 @strawberry.type

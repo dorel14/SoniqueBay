@@ -4,7 +4,6 @@ Déplace toute la logique métier depuis covers_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.covers_model, backend.api.schemas.covers_schema
 """
-import stat
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from sqlalchemy import select

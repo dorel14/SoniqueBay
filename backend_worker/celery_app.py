@@ -205,9 +205,9 @@ def configure_worker(sender=None, **kwargs):
     # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
     try:
         from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
-        logger.info(f"[WORKER INIT] Publication de la configuration Celery dans Redis")
+        logger.info("[WORKER INIT] Publication de la configuration Celery dans Redis")
         publish_celery_config_to_redis()
-        logger.info(f"[WORKER INIT] Configuration Celery publiée avec succès")
+        logger.info("[WORKER INIT] Configuration Celery publiée avec succès")
     except Exception as e:
         logger.error(f"[WORKER INIT] Erreur lors de la publication de la configuration: {str(e)}")
         # Ne pas bloquer le démarrage du worker si la publication échoue

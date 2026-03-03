@@ -15,15 +15,8 @@ Marqueurs: pytest.mark.e2e, pytest.mark.chat, pytest.mark.ai
 
 import pytest
 import logging
-from typing import Dict, Any, List
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
 
 from tests.conftest import (
-    client,
-    db_session,
-    create_test_track,
-    create_test_tracks,
     create_test_artist_album_tracks,
 )
 

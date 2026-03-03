@@ -10,10 +10,7 @@ Auteur: SoniqueBay Team
 """
 
 import asyncio
-import httpx
-import numpy as np
-from typing import List, Optional, Dict, Any
-import os
+from typing import List, Dict, Any
 from backend_worker.utils.logging import logger
 from backend_worker.services.ollama_embedding_service import (
     OllamaEmbeddingService,
@@ -308,7 +305,7 @@ if __name__ == "__main__":
         service = OptimizedVectorizationService()
 
         # Vérifier disponibilité du modèle
-        print(f"\n1. Vérification modèle...")
+        print("\n1. Vérification modèle...")
         available = service.is_model_available()
         print(f"Modèle disponible: {available}")
 

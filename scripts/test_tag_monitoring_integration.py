@@ -8,7 +8,6 @@ import asyncio
 import os
 import sys
 from datetime import datetime
-from typing import Dict, Any
 
 # Ajouter le répertoire backend_worker au path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
@@ -16,12 +15,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
 from backend_worker.services.tag_monitoring_service import (
     TagMonitoringService,
     TagChangeDetector,
-    RedisPublisher,
-    start_tag_monitoring,
-    check_tags_once
+    RedisPublisher
 )
 
-from backend_worker.utils.logging import logger
 
 
 async def test_api_connectivity():

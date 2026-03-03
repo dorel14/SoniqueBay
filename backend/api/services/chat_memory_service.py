@@ -5,7 +5,7 @@ Gère les résumés et embeddings pour recherche sémantique.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 
 from backend.api.models.chat_models import Conversation, ChatMessage, ConversationSummary
@@ -308,7 +308,6 @@ class ChatMemoryService:
         
         # Récupérer les messages récents
         from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
         
         stmt = (
             select(ChatMessage)

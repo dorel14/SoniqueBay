@@ -352,7 +352,6 @@ class AlbumService:
         Returns:
             List[dict]: Liste des albums créés ou récupérés avec leurs données
         """
-        from backend.api.schemas.albums_schema import AlbumCreate
         
         results = []
         

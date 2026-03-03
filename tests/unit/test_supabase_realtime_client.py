@@ -3,7 +3,7 @@ Tests unitaires pour SupabaseRealtimeClient (frontend).
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from frontend.utils.supabase_realtime import (
     SupabaseRealtimeClient,
     get_realtime_client,

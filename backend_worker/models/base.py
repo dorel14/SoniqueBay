@@ -4,7 +4,7 @@ Base SQLAlchemy pour les modèles backend_worker.
 Dupliqué depuis backend/api/utils/database pour indépendance des conteneurs.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
 from sqlalchemy import DateTime, MetaData, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 

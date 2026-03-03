@@ -6,7 +6,7 @@ Les workers Celery utilisent cette connexion pour les opérations bulk
 """
 
 import os
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 from urllib.parse import quote_plus
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker

@@ -8,7 +8,7 @@ Version: 2.0.0
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import numpy as np
 import os
 import tempfile

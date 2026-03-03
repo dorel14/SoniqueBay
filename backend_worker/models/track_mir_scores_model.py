@@ -19,7 +19,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Index
+from sqlalchemy import Integer, Float, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from backend_worker.models.base import Base, TimestampMixin

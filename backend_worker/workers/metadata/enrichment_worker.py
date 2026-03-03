@@ -383,10 +383,10 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                     has_audio_tags = _has_valid_audio_tags(serialized_tags)
                     if has_audio_tags:
                         logger.info(f"[DIAGNOSTIC AUDIO] ✅ Tags audio standards disponibles dans {file_path}")
-                        logger.info(f"[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
+                        logger.info("[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
                     else:
                         logger.warning(f"[DIAGNOSTIC AUDIO] ❌ Tags présents mais aucun tag audio valide trouvé pour {file_path}")
-                        logger.warning(f"[DIAGNOSTIC AUDIO] La fonction _has_valid_audio_tags a retourné False")
+                        logger.warning("[DIAGNOSTIC AUDIO] La fonction _has_valid_audio_tags a retourné False")
                 else:
                     logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN TAG du tout trouvé pour {file_path}")
                     logger.warning("[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa sera nécessaire")

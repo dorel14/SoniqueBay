@@ -4,12 +4,11 @@ Remplace les websockets pour les notifications, chat, et événements temps rée
 """
 
 import os
-import json
 import asyncio
-from typing import Dict, Any, Optional, Callable, List, Set
+from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
 from backend.api.utils.logging import logger
-from backend.api.utils.db_config import is_migrated, USE_SUPABASE
+from backend.api.utils.db_config import USE_SUPABASE
 
 # Import conditionnel pour Supabase
 try:

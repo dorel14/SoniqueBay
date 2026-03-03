@@ -9,7 +9,7 @@ import json
 import time
 import threading
 import os
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from pathlib import Path
 from backend_worker.utils.logging import logger
 
@@ -128,7 +128,7 @@ class LocalFallbackQueueService:
                 # Vérifier à nouveau après cleanup
                 memory_usage = self._get_memory_usage()
                 if memory_usage > self.max_memory_usage:
-                    logger.error(f"[LOCAL_QUEUE] Mémoire insuffisante même après cleanup")
+                    logger.error("[LOCAL_QUEUE] Mémoire insuffisante même après cleanup")
                     return False
 
             # Générer ID unique

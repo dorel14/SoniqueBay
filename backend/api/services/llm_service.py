@@ -293,7 +293,7 @@ class LLMService:
                 async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
-                    logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
+                    logger.debug("[LLM] Connexion SSE établie, début du streaming")
                     
                     # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                     async for line in response.aiter_lines():
@@ -348,7 +348,7 @@ class LLMService:
                 async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
-                    logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
+                    logger.debug("[LLM] Connexion Ollama établie, début du streaming")
                     
                     # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                     async for line in response.aiter_lines():

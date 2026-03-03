@@ -71,7 +71,7 @@ def bulk_insert_tracks_task(self, tracks_data: List[Dict[str, Any]], batch_size:
             logger.info(f"[BulkTask] Retry {self.request.retries + 1}/{self.max_retries}")
             raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
         else:
-            logger.error(f"[BulkTask] Max retries exceeded")
+            logger.error("[BulkTask] Max retries exceeded")
             raise MaxRetriesExceededError(f"Échec après {self.max_retries} tentatives: {exc}")
 
 
@@ -316,7 +316,7 @@ def process_scan_batch_task(self, batch_data: Dict[str, Any]):
         Dict avec résumé des opérations
     """
     async def _execute():
-        logger.info(f"[BulkTask] Traitement batch de scan")
+        logger.info("[BulkTask] Traitement batch de scan")
         
         bulk_service = get_bulk_operations_service()
         results = {

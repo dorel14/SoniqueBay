@@ -3,7 +3,7 @@ Router API pour le chat simple et rapide avec l'IA.
 Utilise un agent pydantic-ai sans validation stricte pour des réponses instantanées.
 Auteur: SoniqueBay Team
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 from backend.ai.agents.builder import build_simple_chat_agent

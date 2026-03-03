@@ -4,7 +4,7 @@ Tests pour le service entity_manager.
 Ce module teste les fonctions de gestion des entités (artistes, albums, covers, etc.)
 """
 import pytest
-from unittest.mock import AsyncMock, Mock, patch, MagicMock
+from unittest.mock import AsyncMock, Mock, patch
 from typing import List, Dict
 import logging
 

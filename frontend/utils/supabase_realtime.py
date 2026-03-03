@@ -4,7 +4,6 @@ Remplace les websockets pour les fonctionnalités temps réel.
 """
 
 import os
-import json
 import asyncio
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass

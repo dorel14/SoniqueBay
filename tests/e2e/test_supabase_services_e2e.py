@@ -4,10 +4,10 @@ Simulent des workflows réels complets sans dépendre d'une vraie base de donné
 """
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock, call
-from backend.api.services.track_service_v2 import TrackServiceV2, get_track_service
-from backend.api.services.album_service_v2 import AlbumServiceV2, get_album_service
-from backend.api.services.artist_service_v2 import ArtistServiceV2, get_artist_service
+from unittest.mock import patch, AsyncMock
+from backend.api.services.track_service_v2 import TrackServiceV2
+from backend.api.services.album_service_v2 import AlbumServiceV2
+from backend.api.services.artist_service_v2 import ArtistServiceV2
 
 
 class TestCompleteMusicLibraryWorkflow:
