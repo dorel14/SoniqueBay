@@ -344,3 +344,39 @@ def worker_shutdown_handler(sender=None, **kwargs):
         logger.error(f"[WORKER SHUTDOWN] Erreur lors du nettoyage des ressources de logging: {e}")
     
     logger.warning(f"[WORKER SHUTDOWN] Worker {worker_name} s'arrête - Vérifier si c'est normal ou crash")
+
+
+# === DÉFINITIONS DES QUEUES ET ROUTES POUR LES TESTS ===
+# Ces définitions sont nécessaires pour la compatibilité avec les tests unitaires
+
+# Définition des queues pour Celery
+task_queues = [
+    Queue('scan', routing_key='scan'),
+    Queue('extract', routing_key='extract'),
+    Queue('batch', routing_key='batch'),
+    Queue('insert', routing_key='insert'),
+    Queue('covers', routing_key='covers'),
+    Queue('deferred_vectors', routing_key='deferred_vectors'),
+    Queue('deferred_covers', routing_key='deferred_covers'),
+    Queue('deferred_enrichment', routing_key='deferred_enrichment'),
+    Queue('vectorization_monitoring', routing_key='vectorization_monitoring'),
+    Queue('deferred', routing_key='deferred'),
+    Queue('celery', routing_key='celery'),
+    Queue('maintenance', routing_key='maintenance'),
+    Queue('audio_analysis', routing_key='audio_analysis'),
+]
+
+# Définition des routes pour les tâches Celery
+task_routes = {
+    'monitor_tag_changes': {'queue': 'maintenance'},
+    'extract_metadata': {'queue': 'extract'},
+    'process_entities': {'queue': 'batch'},
+    'insert.direct_batch': {'queue': 'insert'},
+    'process_artist_images': {'queue': 'covers'},
+    'process_album_covers': {'queue': 'covers'},
+    'deferred_vectorization': {'queue': 'deferred_vectors'},
+    'deferred_cover_fetch': {'queue': 'deferred_covers'},
+    'deferred_enrichment': {'queue': 'deferred_enrichment'},
+    'monitor_vectorization': {'queue': 'vectorization_monitoring'},
+    'analyze_audio': {'queue': 'audio_analysis'},
+}
