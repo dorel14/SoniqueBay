@@ -1,64 +1,89 @@
+"""Utilitaires de chiffrement pour SoniqueBay.
+
+Ce module fournit des fonctions de chiffrement/déchiffrement basées sur Fernet.
+La clé de chiffrement DOIT être fournie via la variable d'environnement ENCRYPTION_KEY.
+
+Auteur: SoniqueBay Team
+Version: 1.0.0
+"""
+
 import os
 
 from cryptography.fernet import Fernet
 
+from backend.api.utils.logging import logger
+
 
 def _get_encryption_key() -> bytes:
-    """Obtenir la clé de cryptage depuis l'environnement ou utiliser une clé par défaut."""
-    import logging
-    logger = logging.getLogger(__name__)
+    """Obtenir la clé de chiffrement depuis la variable d'environnement ENCRYPTION_KEY.
 
-    # Clé par défaut pour la compatibilité - devrait être remplacée par une clé d'environnement en production
-    # Cette clé est une clé Fernet valide générée avec Fernet.generate_key()
-    DEFAULT_ENCRYPTION_KEY = "ENCRYPTION_KEY_REDACTED"
+    Raises:
+        RuntimeError: Si ENCRYPTION_KEY n'est pas définie ou est invalide.
 
-    key_str = os.getenv('ENCRYPTION_KEY', DEFAULT_ENCRYPTION_KEY)
-    logger.info(f"Clé de chiffrement utilisée: {key_str[:10]}...")
+    Returns:
+        bytes: La clé Fernet encodée en bytes.
+    """
+    key_str = os.getenv('ENCRYPTION_KEY')
+    if not key_str:
+        raise RuntimeError(
+            "ENCRYPTION_KEY environment variable is required but not set. "
+            "Generate a valid Fernet key with: "
+            "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+        )
 
-    # Validation de la clé
+    # Validation de la clé Fernet
     try:
-        # Tester que la clé est valide pour Fernet
         Fernet(key_str.encode())
-        logger.info("Clé de chiffrement valide et prête à l'emploi")
         return key_str.encode()
     except Exception as e:
-        logger.error(f"Clé de chiffrement invalide: {str(e)}, utilisation de la clé par défaut")
-        # Générer une nouvelle clé valide si la clé par défaut est invalide
-        new_key = Fernet.generate_key()
-        logger.warning(f"Nouvelle clé générée: {new_key.decode()[:10]}...")
-        return new_key
+        raise RuntimeError(
+            f"ENCRYPTION_KEY is set but invalid (not a valid Fernet key): {e}. "
+            "Please provide a valid Fernet key."
+        ) from e
+
 
 def encrypt_value(value: str) -> str:
-    """Crypter une valeur en utilisant la clé d'environnement."""
+    """Chiffrer une valeur en utilisant la clé d'environnement.
+
+    Args:
+        value: Valeur en clair à chiffrer.
+
+    Returns:
+        Valeur chiffrée encodée en base64.
+
+    Raises:
+        RuntimeError: Si ENCRYPTION_KEY n'est pas définie ou invalide.
+    """
     key = _get_encryption_key()
     f = Fernet(key)
     return f.encrypt(value.encode()).decode()
 
-def decrypt_value(encrypted_value: str) -> str:
-    """Décrypter une valeur en utilisant la clé d'environnement."""
-    import logging
-    logger = logging.getLogger(__name__)
 
+def decrypt_value(encrypted_value: str) -> str:
+    """Déchiffrer une valeur en utilisant la clé d'environnement.
+
+    Args:
+        encrypted_value: Valeur chiffrée encodée en base64.
+
+    Returns:
+        Valeur déchiffrée, ou chaîne vide si la valeur est invalide.
+
+    Raises:
+        RuntimeError: Si ENCRYPTION_KEY n'est pas définie ou invalide.
+    """
     if not encrypted_value or not isinstance(encrypted_value, str):
         logger.warning(f"Valeur vide ou invalide pour le déchiffrement: {encrypted_value}")
         return ""
 
-    logger.info(f"Tentative de déchiffrement de la valeur: {encrypted_value[:50]}...")  # Log des 50 premiers caractères
-    logger.info(f"Longueur de la valeur chiffrée: {len(encrypted_value)}")
-
     key = _get_encryption_key()
-    logger.info(f"Clé de chiffrement utilisée: {key[:10]}...")  # Log des 10 premiers caractères de la clé
-
     f = Fernet(key)
     try:
         decrypted = f.decrypt(encrypted_value.encode()).decode()
-        logger.info("Déchiffrement réussi")
+        logger.debug("Déchiffrement réussi")
         return decrypted
     except Exception as e:
-        logger.error(f"Échec du déchiffrement: {str(e)}")
-        logger.error(f"Type d'exception: {type(e).__name__}")
-        logger.error(f"Valeur chiffrée problématique (100 premiers caractères): {encrypted_value[:100]}...")
-
-        # En cas d'échec, retourner une valeur par défaut et marquer pour ré-encryption
-        logger.warning("Retour d'une valeur vide en raison de l'échec du déchiffrement")
+        logger.error(f"Échec du déchiffrement: {type(e).__name__}: {e}")
+        logger.error(
+            f"Valeur chiffrée problématique (100 premiers caractères): {encrypted_value[:100]}..."
+        )
         return ""
