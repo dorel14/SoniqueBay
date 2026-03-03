@@ -1,5 +1,5 @@
-from sqlalchemy import Table, Column, Integer, ForeignKey
 from library_api.utils.database import Base
+from sqlalchemy import Column, ForeignKey, Integer, Table
 
 track_genre_links = Table(
     'track_genre_links',

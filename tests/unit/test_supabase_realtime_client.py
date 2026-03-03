@@ -2,14 +2,16 @@
 Tests unitaires pour SupabaseRealtimeClient (frontend).
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from frontend.utils.supabase_realtime import (
+    ChatManager,
+    RealtimeSubscription,
     SupabaseRealtimeClient,
     get_realtime_client,
     reset_realtime_client,
-    ChatManager,
-    RealtimeSubscription
 )
 
 

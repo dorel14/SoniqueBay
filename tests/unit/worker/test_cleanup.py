@@ -1,5 +1,7 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from backend_worker.background_tasks.tasks import cleanup_deleted_tracks_task
+
 
 def test_cleanup_deleted_tracks():
     """Test the cleanup task for deleted tracks."""

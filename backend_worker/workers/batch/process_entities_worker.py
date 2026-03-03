@@ -13,11 +13,11 @@ Architecture :
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
+from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
 from backend_worker.utils.pubsub import publish_event
-from backend_worker.celery_app import celery
 
 
 @celery.task(name="batch.process_entities", queue="batch", bind=True)
@@ -172,7 +172,9 @@ def batch_entities(self, metadata_list: List[Dict[str, Any]], batch_id: str = No
             # Vérifier si la track a des tags audio à analyser
             track_tags = track.get('tags', {})
             if track_tags:
-                from backend_worker.services.audio_features_service import _has_valid_audio_tags
+                from backend_worker.services.audio_features_service import (
+                    _has_valid_audio_tags,
+                )
                 if _has_valid_audio_tags(track_tags):
                     tracks_with_audio_tags.append({
                         'path': track.get('path'),

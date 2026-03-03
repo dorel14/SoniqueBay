@@ -21,8 +21,9 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Optional, List, Dict
 from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 import numpy as np
 
 from backend_worker.utils.logging import logger

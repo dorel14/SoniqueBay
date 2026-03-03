@@ -7,9 +7,8 @@ Create Date: 2025-09-21 12:35:00.000000
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'remove_old_track_vectors_table'

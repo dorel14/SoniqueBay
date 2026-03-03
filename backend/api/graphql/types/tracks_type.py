@@ -9,8 +9,8 @@ from backend.api.graphql.types.track_audio_features_type import (
 from backend.api.graphql.types.track_embeddings_type import TrackEmbeddingsType
 from backend.api.graphql.types.track_metadata_type import TrackMetadataType
 from backend.api.graphql.types.track_mir_type import (
-    TrackMIRRawType,
     TrackMIRNormalizedType,
+    TrackMIRRawType,
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )

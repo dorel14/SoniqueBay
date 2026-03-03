@@ -1,9 +1,10 @@
 # -*- coding: UTF-8 -*-
 """Service V2 pour la gestion des pistes avec Supabase."""
 
-from typing import Dict, Any, Optional, List
-from frontend.utils.logging import logger
+from typing import Any, Dict, List, Optional
+
 from frontend.utils.feature_flags import get_feature_flags
+from frontend.utils.logging import logger
 from frontend.utils.supabase_client import get_supabase_client
 
 

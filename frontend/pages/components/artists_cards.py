@@ -1,12 +1,14 @@
-from nicegui import ui
-import httpx
+import asyncio
 import math
 import os
-import asyncio
-from urllib.parse import urlparse, parse_qs
-from frontend.utils.logging import logger
-from frontend.utils.config import sonique_bay_logo
+from urllib.parse import parse_qs, urlparse
+
+import httpx
+from nicegui import ui
+
 from frontend.utils.app_state import get_state, update_artists_page_size
+from frontend.utils.config import sonique_bay_logo
+from frontend.utils.logging import logger
 
 # URL interne pour les appels API depuis le conteneur frontend
 API_URL = os.getenv('API_URL', 'http://api:8001')

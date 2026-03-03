@@ -4,11 +4,15 @@ Gère les résumés et embeddings pour recherche sémantique.
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-from backend.api.models.chat_models import Conversation, ChatMessage, ConversationSummary
+from backend.api.models.chat_models import (
+    ChatMessage,
+    Conversation,
+    ConversationSummary,
+)
 from backend.api.utils.logging import logger
 
 

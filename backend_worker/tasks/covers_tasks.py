@@ -4,12 +4,18 @@ Utilise le CoverOrchestratorService pour coordonner le traitement intelligent de
 """
 
 import asyncio
-from typing import List, Dict, Any
-from backend_worker.utils.logging import logger
-from backend_worker.celery_app import celery
-from backend_worker.services.cover_orchestrator_service import cover_orchestrator_service
-from backend_worker.services.cover_types import CoverProcessingContext, ImageType, TaskType
+from typing import Any, Dict, List
 
+from backend_worker.celery_app import celery
+from backend_worker.services.cover_orchestrator_service import (
+    cover_orchestrator_service,
+)
+from backend_worker.services.cover_types import (
+    CoverProcessingContext,
+    ImageType,
+    TaskType,
+)
+from backend_worker.utils.logging import logger
 
 
 @celery.task(name="covers.process_artist_images", queue="deferred_covers")
@@ -30,8 +36,9 @@ def process_artist_images(artist_ids: List[int], priority: str = "normal"):
         logger.info(f"[COVERS] Artist IDs à traiter: {artist_ids}")
 
         # Récupérer les informations des artistes depuis la base de données via l'API
-        import httpx
         import os
+
+        import httpx
         # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
         api_url = os.getenv("API_URL", "http://localhost:8001")
         logger.info(f"[COVERS] API URL utilisée: {api_url}")
@@ -136,8 +143,9 @@ def process_album_covers(album_ids: List[int], priority: str = "normal"):
         logger.info(f"[COVERS] Début traitement covers albums: {len(album_ids)} albums")
 
         # Récupérer les informations des albums depuis la base de données via l'API
-        import httpx
         import os
+
+        import httpx
         # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
         api_url = os.getenv("API_URL", "http://localhost:8001")
         logger.info(f"[COVERS] API URL utilisée pour albums: {api_url}")
@@ -368,8 +376,11 @@ def extract_artist_images(file_paths: list[str]):
                 logger.debug(f"[COVERS] Extraction images pour dossier artiste: {artist_path}")
                 
                 # Importer la fonction d'extraction
-                from backend_worker.services.music_scan import extract_artist_images as async_extract_artist_images
                 import asyncio
+
+                from backend_worker.services.music_scan import (
+                    extract_artist_images as async_extract_artist_images,
+                )
                 
                 # Créer le répertoire de base pour la validation sécurité
                 base_path = Path(list(artist_folders.keys())[0]).parent if artist_folders else Path(artist_path).parent
@@ -467,9 +478,10 @@ def extract_embedded(file_paths: list[str]):
         for file_path in file_paths:
             try:
                 from pathlib import Path
-                
+
                 # Extraire les covers intégrées via mutagen
                 from mutagen import File
+
                 from backend_worker.services.music_scan import get_cover_art
                 
                 # Ouvrir le fichier audio de manière sécurisée

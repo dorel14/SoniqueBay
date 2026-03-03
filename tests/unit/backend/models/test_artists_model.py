@@ -1,7 +1,9 @@
 # backend/tests/test_models/test_artists_model.py
 import pytest
 from sqlalchemy.exc import IntegrityError
+
 from backend.api.models.artists_model import Artist
+
 
 def test_create_artist(db_session):
     """Test de création d'un artiste en BDD."""

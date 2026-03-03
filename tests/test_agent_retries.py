@@ -11,8 +11,9 @@ et sont marqués avec @pytest.mark.integration.
 
 Auteur: SoniqueBay Team
 """
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 class TestMaxResultRetriesConfiguration:

@@ -5,9 +5,11 @@ Gère la connexion Redis pub/sub pour les événements temps réel.
 """
 
 import os
-from typing import AsyncGenerator, Any
-from backend.api.utils.logging import logger
+from typing import Any, AsyncGenerator
+
 from redis.asyncio import Redis
+
+from backend.api.utils.logging import logger
 
 
 class RealtimeService:

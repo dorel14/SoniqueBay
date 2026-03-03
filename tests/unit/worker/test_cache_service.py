@@ -1,8 +1,10 @@
-import sys
-import os
-import pytest
 import asyncio
 import importlib
+import os
+import sys
+
+import pytest
+
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 sys.path.insert(0, root_dir)
 cache_service_module = importlib.import_module('backend_worker.services.cache_service')

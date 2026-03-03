@@ -1,11 +1,12 @@
-from fastapi import WebSocket, APIRouter
-from fastapi.websockets import WebSocketDisconnect
-from backend.api.utils.database import AsyncSessionLocal
-from backend.ai.orchestrator import Orchestrator
-from backend.api.utils.logging import logger
-from pydantic import BaseModel
 from typing import Any, Dict
 
+from fastapi import APIRouter, WebSocket
+from fastapi.websockets import WebSocketDisconnect
+from pydantic import BaseModel
+
+from backend.ai.orchestrator import Orchestrator
+from backend.api.utils.database import AsyncSessionLocal
+from backend.api.utils.logging import logger
 
 router = APIRouter()
 

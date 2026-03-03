@@ -4,13 +4,15 @@ Tests pour le service refactoré de monitoring des tags.
 Teste la nouvelle implémentation avec CeleryTaskPublisher au lieu de recommender_api.
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+
 from backend_worker.services.tag_monitoring_service import (
+    CeleryTaskPublisher,
+    RedisPublisher,
     TagChangeDetector,
     TagMonitoringService,
-    CeleryTaskPublisher,
-    RedisPublisher
 )
 
 

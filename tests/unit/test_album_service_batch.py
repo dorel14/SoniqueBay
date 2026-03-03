@@ -4,12 +4,13 @@ Tests unitaires pour la méthode create_albums_batch d'AlbumService.
 Ce module teste la création d'albums en batch avec la logique get_or_create.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from typing import List
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.api.services.album_service import AlbumService
+import pytest
+
 from backend.api.schemas.albums_schema import AlbumCreate
+from backend.api.services.album_service import AlbumService
 
 
 @pytest.fixture

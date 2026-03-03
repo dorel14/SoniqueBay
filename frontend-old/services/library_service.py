@@ -1,9 +1,11 @@
 # -*- coding: UTF-8 -*-
 """Service pour la gestion de la bibliothèque musicale."""
 
-from typing import List, Dict, Any
 import os
+from typing import Any, Dict, List
+
 import httpx
+
 from frontend.utils.logging import logger
 
 api_url = os.getenv("API_URL", "http://api:8001")

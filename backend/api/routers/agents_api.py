@@ -1,28 +1,30 @@
 # backend/api/routes/agents.py
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException, Query
-from backend.api.schemas.agent_schema import AgentCreate, AgentUpdate, AgentOut
+
+from backend.ai.utils.registry import ToolRegistry
+from backend.api.schemas.agent_schema import AgentCreate, AgentOut, AgentUpdate
 from backend.api.schemas.agent_score_schema import (
-    AgentScoreCreate,
-    AgentScoreUpdate,
     AgentScore,
+    AgentScoreCreate,
     AgentScoreListResponse,
+    AgentScoreUpdate,
 )
 from backend.api.services.agent_services import (
     create_agent,
-    get_agent_by_name,
-    list_agents,
-    update_agent,
-    delete_agent,
     create_agent_score,
-    get_agent_score,
-    list_agent_scores,
-    update_agent_score,
+    delete_agent,
     delete_agent_score,
+    get_agent_by_name,
+    get_agent_score,
     get_agent_scores_with_metrics,
     increment_agent_score_usage,
+    list_agent_scores,
+    list_agents,
+    update_agent,
+    update_agent_score,
 )
-from typing import List, Optional
-from backend.ai.utils.registry import ToolRegistry
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 

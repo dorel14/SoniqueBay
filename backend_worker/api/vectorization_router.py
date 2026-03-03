@@ -2,11 +2,12 @@
 Router pour l'API de vectorisation - Communication HTTP avec recommender_api
 """
 
-from fastapi import APIRouter, HTTPException, status
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
-from backend_worker.utils.logging import logger
+from fastapi import APIRouter, HTTPException, status
+
 from backend_worker.api.schemas import EmbeddingRequest, EmbeddingResponse
+from backend_worker.utils.logging import logger
 
 router = APIRouter(prefix="/api/vectorization", tags=["vectorization"])
 
@@ -33,7 +34,9 @@ async def publish_vectorization_event(data: Dict[str, Any]):
         logger.info(f"[VECTOR_API] Publication événement {event_type} pour track {track_id}")
 
         # Publier via Redis
-        from backend_worker.utils.redis_utils import publish_vectorization_event as publish_event
+        from backend_worker.utils.redis_utils import (
+            publish_vectorization_event as publish_event,
+        )
         success = await publish_event(track_id, metadata, event_type)
 
         if success:
@@ -189,8 +192,8 @@ async def generate_embedding(request: EmbeddingRequest):
     """
     try:
         from backend_worker.services.ollama_embedding_service import (
+            OllamaEmbeddingError,
             OllamaEmbeddingService,
-            OllamaEmbeddingError
         )
 
         logger.info(f"[VECTOR_API] Génération embedding pour texte: {request.text[:50]}...")

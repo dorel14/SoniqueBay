@@ -1,7 +1,9 @@
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, Mock
 
 from backend_worker.services.settings_service import SettingsService, _settings_cache
+
 
 @pytest.fixture
 def clear_cache():

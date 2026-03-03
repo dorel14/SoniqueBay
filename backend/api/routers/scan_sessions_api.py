@@ -6,6 +6,7 @@ les sessions de scan de la bibliothèque musicale.
 """
 
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

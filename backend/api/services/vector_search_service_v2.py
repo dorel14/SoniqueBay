@@ -3,10 +3,11 @@ Service de recherche vectorielle V2 pour Supabase.
 Utilise pgvector via Supabase pour les recherches de similarité.
 """
 
-from typing import List, Dict, Any, Optional, Tuple
-from backend.api.utils.logging import logger
-from backend.api.utils.db_config import is_migrated, USE_SUPABASE
+from typing import Any, Dict, List, Optional, Tuple
+
 from backend.api.utils.db_adapter import get_adapter
+from backend.api.utils.db_config import USE_SUPABASE, is_migrated
+from backend.api.utils.logging import logger
 
 
 class VectorSearchServiceV2:

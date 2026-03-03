@@ -14,10 +14,11 @@ Optimisations Raspberry Pi :
 - Barre de progression fonctionnelle via pubsub
 """
 
-import time
 import os
+import time
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 import httpx
 
 from backend_worker.utils.logging import logger

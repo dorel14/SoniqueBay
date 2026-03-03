@@ -1,6 +1,8 @@
-from nicegui import ui
-import httpx
 import os
+
+import httpx
+from nicegui import ui
+
 from frontend.utils.logging import logger
 
 # Ajout de logs pour diagnostiquer le problème d'URL

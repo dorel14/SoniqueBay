@@ -2,10 +2,16 @@
 Tests unitaires pour vérifier le comportement async du LLMService.
 Vérifie que les appels HTTP sont non-bloquants et que l'initialisation est lazy.
 """
-import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
-from backend.api.services.llm_service import LLMService, get_llm_service, get_llm_service_sync
+
+import pytest
+
+from backend.api.services.llm_service import (
+    LLMService,
+    get_llm_service,
+    get_llm_service_sync,
+)
 
 
 @pytest.fixture

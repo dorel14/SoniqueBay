@@ -1,6 +1,8 @@
-from pydantic import BaseModel, ConfigDict, field_validator, field_serializer
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, field_serializer, field_validator
+
 
 class BaseSchema(BaseModel):
     model_config = ConfigDict(

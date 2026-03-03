@@ -7,10 +7,11 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-import pytest
-import numpy as np
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import numpy as np
+import pytest
 
 from backend_worker.services.artist_clustering_service import (
     ArtistClusteringService,

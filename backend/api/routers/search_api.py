@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.api.schemas.search_schema import SearchQuery, SearchResult
-from backend.api.services.search_service import SearchService
 from backend.api.services.search_indexing_service import SearchIndexingService
+from backend.api.services.search_service import SearchService
 from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
-
 
 router = APIRouter(prefix="/search", tags=["search"])
 

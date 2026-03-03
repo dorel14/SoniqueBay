@@ -16,13 +16,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
+
 from typing import Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_embeddings_type import (
-    TrackEmbeddingsType,
     TrackEmbeddingsInput,
+    TrackEmbeddingsType,
     TrackEmbeddingsUpdateInput,
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService

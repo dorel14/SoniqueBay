@@ -1,22 +1,26 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, ForeignKey, Float, Index
+
+# Imports pour les relations vers les nouvelles tables
+from typing import TYPE_CHECKING
+
+from sqlalchemy import Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend_worker.models.base import Base, TimestampMixin
 from backend_worker.models.covers_model import Cover
 from backend_worker.models.tags_model import GenreTag, MoodTag
 
-# Imports pour les relations vers les nouvelles tables
-from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend_worker.models.track_audio_features_model import TrackAudioFeatures
     from backend_worker.models.track_embeddings_model import TrackEmbeddings
     from backend_worker.models.track_metadata_model import TrackMetadata
-    from backend_worker.models.track_mir_raw_model import TrackMIRRaw
     from backend_worker.models.track_mir_normalized_model import TrackMIRNormalized
+    from backend_worker.models.track_mir_raw_model import TrackMIRRaw
     from backend_worker.models.track_mir_scores_model import TrackMIRScores
-    from backend_worker.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+    from backend_worker.models.track_mir_synthetic_tags_model import (
+        TrackMIRSyntheticTags,
+    )
 
 
 

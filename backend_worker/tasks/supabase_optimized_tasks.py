@@ -8,13 +8,14 @@ Ces tâches remplacent les anciennes tâches en utilisant :
 """
 
 import asyncio
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from celery import shared_task
 from celery.exceptions import MaxRetriesExceededError
 
 from backend_worker.services.bulk_operations_service import get_bulk_operations_service
-from backend_worker.utils.supabase_sqlalchemy import test_connection
 from backend_worker.utils.logging import logger
+from backend_worker.utils.supabase_sqlalchemy import test_connection
 
 
 @shared_task(

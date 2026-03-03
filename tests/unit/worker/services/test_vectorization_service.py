@@ -7,16 +7,15 @@ Auteur: SoniqueBay Team
 Version: 1.0.1
 """
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from backend_worker.services.vectorization_service import (
-    OptimizedVectorizationService
-)
+import pytest
+
 from backend_worker.services.ollama_embedding_service import (
+    OllamaEmbeddingError,
     OllamaEmbeddingService,
-    OllamaEmbeddingError
 )
+from backend_worker.services.vectorization_service import OptimizedVectorizationService
 
 
 class TestOptimizedVectorizationService:

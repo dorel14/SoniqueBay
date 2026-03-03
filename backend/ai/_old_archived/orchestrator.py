@@ -2,23 +2,24 @@
 # Orchestrateur IA pour SoniqueBay – charge les YAML, route les intentions,
 # appelle les sous-agents et gère le hot-reload.
 
-import time
 import threading
+import time
 from pathlib import Path
-from typing import Dict, Any
-from pydantic_ai import Agent
-from backend.api.utils.logging import logger
+from typing import Any, Dict
 
-from backend.ai.router import IntentRouter
-from backend.ai.loader import ConfigLoader
 from backend.ai.__old.context_manager import ConversationContext
+from pydantic_ai import Agent
+
 from backend.ai.agents import (
-    orchestrator_agent,
-    search_agent,
-    playlist_agent,
     action_agent,
-    smalltalk_agent
+    orchestrator_agent,
+    playlist_agent,
+    search_agent,
+    smalltalk_agent,
 )
+from backend.ai.loader import ConfigLoader
+from backend.ai.router import IntentRouter
+from backend.api.utils.logging import logger
 
 BUILDERS = {
     "orchestrator": orchestrator_agent.build_orchestrator_agent,

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+
 def reset_database():
     """Réinitialise complètement la base de données."""
     try:

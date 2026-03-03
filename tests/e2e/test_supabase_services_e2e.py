@@ -3,11 +3,13 @@ Tests end-to-end pour les services V2 Supabase.
 Simulent des workflows réels complets sans dépendre d'une vraie base de données.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
-from backend.api.services.track_service_v2 import TrackServiceV2
+
 from backend.api.services.album_service_v2 import AlbumServiceV2
 from backend.api.services.artist_service_v2 import ArtistServiceV2
+from backend.api.services.track_service_v2 import TrackServiceV2
 
 
 class TestCompleteMusicLibraryWorkflow:

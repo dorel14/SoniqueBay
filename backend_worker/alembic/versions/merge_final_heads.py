@@ -7,8 +7,6 @@ Create Date: 2025-12-27 17:02:00.000000
 """
 from typing import Sequence, Union
 
-
-
 # revision identifiers, used by Alembic.
 revision: str = 'merge_all_heads'
 down_revision: Union[str, Sequence[str], None] = ('merge_add_agent_and_user_rel', 'rename_conversation_timestamps')

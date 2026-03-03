@@ -4,12 +4,14 @@ Déplace toute la logique métier depuis genres_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.genres_model, backend.api.schemas.genres_schema
 """
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
+from datetime import datetime
 from typing import List, Optional
+
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.api.models.genres_model import Genre as GenreModel
 from backend.api.schemas.genres_schema import GenreCreate
-from datetime import datetime
 
 
 class GenreService:

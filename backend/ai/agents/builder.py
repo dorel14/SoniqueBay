@@ -1,5 +1,7 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from pydantic_ai import Agent
+
 from backend.ai.ollama import get_ollama_model
 from backend.ai.utils.registry import ToolRegistry
 from backend.api.models.agent_model import AgentModel

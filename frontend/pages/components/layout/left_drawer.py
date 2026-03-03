@@ -1,7 +1,9 @@
+import time
+
 from nicegui import ui
+
 from frontend.utils.app_state import get_state
 from frontend.utils.logging import logger
-import time
 
 
 def left_drawer_component():

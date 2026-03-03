@@ -1,7 +1,6 @@
 from nicegui import ui
 
 
-
 def apply_sonique_theme():
     # Couleurs NiceGUI (composants natifs)
     ui.colors(

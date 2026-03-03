@@ -26,30 +26,30 @@ from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.utils.database import get_async_session
-from backend.api.utils.logging import logger
-from backend.api.services.mir_llm_service import MIRLLMService
-
-# Import des schémas MIR
-from backend.api.schemas.mir_schema import (
-    MIRStoragePayload,
-    MIRStorageResponse,
-    MIRSummaryResponse,
-    MIRRawResponse,
-    MIRNormalizedResponse,
-    MIRScoresResponse,
-    SyntheticTagResponse,
-)
+from backend.api.models.track_audio_features_model import TrackAudioFeatures
+from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
 
 # Import des modèles
 from backend.api.models.track_mir_raw_model import TrackMIRRaw
-from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
 from backend.api.models.track_mir_scores_model import TrackMIRScores
 from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
-from backend.api.models.track_audio_features_model import TrackAudioFeatures
-from sqlalchemy import select, delete
+
+# Import des schémas MIR
+from backend.api.schemas.mir_schema import (
+    MIRNormalizedResponse,
+    MIRRawResponse,
+    MIRScoresResponse,
+    MIRStoragePayload,
+    MIRStorageResponse,
+    MIRSummaryResponse,
+    SyntheticTagResponse,
+)
+from backend.api.services.mir_llm_service import MIRLLMService
+from backend.api.utils.database import get_async_session
+from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="/api", tags=["mir"])
 

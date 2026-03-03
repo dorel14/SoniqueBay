@@ -3,11 +3,13 @@ AlbumService V2 - Refactorisé avec support Supabase.
 Utilise DatabaseAdapter et BaseRepository pour la migration progressive.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.db_config import is_migrated
+
 from backend.api.repositories.base_repository import AlbumRepository
 from backend.api.utils.db_adapter import get_adapter
+from backend.api.utils.db_config import is_migrated
 from backend.api.utils.logging import logger
 
 

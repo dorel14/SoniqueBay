@@ -4,10 +4,15 @@ Test suite for ResilientRedisBackend.
 Tests the custom Redis backend with BusyLoadingError handling.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 import redis.asyncio as redis
-from unittest.mock import AsyncMock, patch
-from backend.api.utils.redis_cache_backend import ResilientRedisBackend, create_resilient_redis_backend
+
+from backend.api.utils.redis_cache_backend import (
+    ResilientRedisBackend,
+    create_resilient_redis_backend,
+)
 
 
 class TestResilientRedisBackend:

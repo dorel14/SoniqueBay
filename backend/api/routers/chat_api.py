@@ -4,6 +4,7 @@ Auteur : Kilo Code
 """
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.api.schemas.chat_schema import ChatMessage, ChatResponse
 from backend.api.services.chat_service import ChatService
 from backend.api.utils.database import get_async_session

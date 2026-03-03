@@ -1,10 +1,11 @@
 # backend/tests/test_api/test_search_api.py
 # Tests pour les endpoints de l'API Search
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture

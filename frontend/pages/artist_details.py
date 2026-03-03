@@ -1,12 +1,13 @@
-from nicegui import ui
-import httpx
-import os
 import datetime
-from frontend.utils.config import sonique_bay_logo
-from frontend.utils.logging import logger
-from frontend.utils.app_state import get_state
+import os
+
+import httpx
+from nicegui import ui
 
 from frontend.services.artist_service import ArtistService
+from frontend.utils.app_state import get_state
+from frontend.utils.config import sonique_bay_logo
+from frontend.utils.logging import logger
 
 api_url = os.getenv('API_URL', 'http://api:8001')
 PUBLIC_API_URL = os.getenv('PUBLIC_API_URL', 'http://localhost:8001')

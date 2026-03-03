@@ -7,8 +7,10 @@ des tâches vers le worker sans erreur Kombu.
 import sys
 import time
 from pathlib import Path
+
 from backend.api.utils.celery_app import celery_app
 from backend.api.utils.logging import logger
+
 # Ajouter le répertoire racine au path Python
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))

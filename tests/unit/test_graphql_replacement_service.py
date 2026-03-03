@@ -2,14 +2,15 @@
 Tests unitaires pour le service de remplacement GraphQL.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
 
 # Patch supabase avant import
 with patch.dict('sys.modules', {'supabase': MagicMock()}):
     from frontend.services.graphql_replacement_service import (
         GraphQLReplacementService,
-        reset_graphql_replacement_service
+        reset_graphql_replacement_service,
     )
 
 
@@ -241,7 +242,9 @@ class TestGraphQLServiceFactory:
     def test_singleton_pattern(self):
         """Test que le service est un singleton."""
         with patch.dict('sys.modules', {'supabase': MagicMock()}):
-            from frontend.services.graphql_replacement_service import get_graphql_replacement_service
+            from frontend.services.graphql_replacement_service import (
+                get_graphql_replacement_service,
+            )
             
             service1 = get_graphql_replacement_service()
             service2 = get_graphql_replacement_service()
@@ -252,7 +255,7 @@ class TestGraphQLServiceFactory:
         with patch.dict('sys.modules', {'supabase': MagicMock()}):
             from frontend.services.graphql_replacement_service import (
                 get_graphql_replacement_service,
-                reset_graphql_replacement_service
+                reset_graphql_replacement_service,
             )
             
             service1 = get_graphql_replacement_service()

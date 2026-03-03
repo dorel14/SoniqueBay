@@ -10,12 +10,12 @@ import os
 import time
 from pathlib import Path
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.utils.logging import logger
 from backend.api.models.scan_sessions_model import ScanSession
-from fastapi import HTTPException
+from backend.api.utils.logging import logger
 
 
 class ScanService:

@@ -16,13 +16,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
+
 from typing import Any, Dict, List, Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_mir_type import (
-    TrackMIRRawType,
     TrackMIRNormalizedType,
+    TrackMIRRawType,
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )

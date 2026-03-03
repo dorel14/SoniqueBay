@@ -1,28 +1,28 @@
 # tests/conftest.py
-import pytest
-import sys
-import os
-import tempfile
 import asyncio
 import logging
+import os
+import sys
+import tempfile
 from pathlib import Path
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
 # Ajout des imports pour les nouvelles fixtures
 import httpx
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 
 import backend.api.utils.search
-from backend.api.utils.database import Base, get_db, get_session
 from backend.api.api_app import create_api
-from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
-from backend.api.models.tracks_model import Track
-from backend.api.models.genres_model import Genre
+from backend.api.models.artists_model import Artist
 from backend.api.models.covers_model import Cover
+from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
+from backend.api.models.tracks_model import Track
+from backend.api.utils.database import Base, get_db, get_session
 
 # Configuration pytest pour les tests asynchrones
 pytest_plugins = ("pytest_asyncio",)

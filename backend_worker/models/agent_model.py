@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Text, JSON, Boolean,Float
+import os
+
+from sqlalchemy import JSON, Boolean, Column, Float, Integer, String, Text
 
 from backend_worker.models.base import Base, TimestampMixin
-import os
 
 DEFAULT_MODEL = os.getenv("AGENT_MODEL", "phi3:mini")
 

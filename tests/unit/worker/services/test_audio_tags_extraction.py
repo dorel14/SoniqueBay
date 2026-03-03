@@ -8,20 +8,21 @@ et vérifie que les caractéristiques audio (BPM, tonalité, moods, genres) sont
 correctement extraites.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Ajouter le répertoire parent au path pour les imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from mutagen import File
+
 from backend_worker.services.audio_features_service import (
-    extract_audio_features,
     _extract_features_from_acoustid_tags,
     _extract_features_from_standard_tags,
     _has_valid_acoustid_tags,
     _has_valid_audio_tags,
+    extract_audio_features,
 )
 from backend_worker.services.music_scan import serialize_tags
 from backend_worker.utils.logging import logger

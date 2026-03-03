@@ -2,13 +2,14 @@
 """
 Script principal pour lancer tous les benchmarks de SoniqueBay.
 """
-import sys
-import os
-from pathlib import Path
 import json
+import os
+import sys
 import time
+from pathlib import Path
 
 from backend_worker.services.audio_features_service import extract_audio_features
+
 # Ajouter le répertoire racine au sys.path
 root_dir = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(root_dir))

@@ -13,11 +13,10 @@ from datetime import datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
 
 from backend_worker.services.tag_monitoring_service import (
-    TagMonitoringService,
+    RedisPublisher,
     TagChangeDetector,
-    RedisPublisher
+    TagMonitoringService,
 )
-
 
 
 async def test_api_connectivity():

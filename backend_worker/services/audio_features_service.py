@@ -1,12 +1,11 @@
 """Service d'extraction de features audio."""
 
 import os
+from typing import Any, Dict, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional
 
 from backend_worker.utils.logging import logger
-
-
 
 
 class AudioFeaturesService:

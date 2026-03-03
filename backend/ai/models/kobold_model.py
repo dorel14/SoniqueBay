@@ -23,8 +23,6 @@ from datetime import datetime
 from typing import Any, AsyncIterator, List, Optional
 
 import httpx
-
-from backend.api.services.llm_http_client import get_llm_http_client
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -37,6 +35,7 @@ from pydantic_ai.models import (
 )
 from pydantic_ai.settings import ModelSettings
 
+from backend.api.services.llm_http_client import get_llm_http_client
 from backend.api.utils.logging import logger
 
 

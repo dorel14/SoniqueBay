@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.database import get_async_session
-from backend.api.services.track_vector_service import TrackVectorService
 from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.services.track_vector_service import TrackVectorService
+from backend.api.utils.database import get_async_session
 
 router = APIRouter(prefix="/track-vectors", tags=["track-vectors"])
 

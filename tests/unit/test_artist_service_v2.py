@@ -3,8 +3,10 @@ Tests unitaires pour ArtistServiceV2 (Phase 4.2).
 Vérifie la compatibilité avec Supabase et le fallback SQLAlchemy.
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+
 from backend.api.services.artist_service_v2 import ArtistServiceV2, get_artist_service
 
 

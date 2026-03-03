@@ -11,8 +11,10 @@ Usage:
     client = get_llm_http_client()
     response = await client.post(...)
 """
-import httpx
 from typing import Optional
+
+import httpx
+
 from backend.api.utils.logging import logger
 
 # Singleton instance

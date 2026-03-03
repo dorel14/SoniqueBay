@@ -29,11 +29,11 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
+import logging
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-import logging
+from alembic import op
 
 # Configuration du logger
 logger = logging.getLogger('alembic.runtime.migration')

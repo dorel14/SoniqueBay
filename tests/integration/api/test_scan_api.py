@@ -1,8 +1,10 @@
 # backend/tests/test_api/test_scan_api.py
 # Tests pour les endpoints de l'API Scan
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
+
 from backend.api.routers.scan_api import convert_path_to_docker
 
 

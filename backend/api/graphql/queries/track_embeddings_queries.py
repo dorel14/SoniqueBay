@@ -16,13 +16,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-from typing import Optional, List
+
+from typing import List, Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_embeddings_type import (
-    TrackEmbeddingsType,
     SimilarTrackResult,
+    TrackEmbeddingsType,
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService
 from backend.api.utils.database import get_async_session

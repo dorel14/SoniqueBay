@@ -10,28 +10,29 @@ Architecture :
 1. discovery → 2. extract_metadata → 3. process_entities → 4. insert_batch
 """
 
-import os
-import httpx
-import time
 import asyncio
-from typing import Dict, Any, List
+import os
+import time
+from typing import Any, Dict, List
 
-from backend_worker.utils.logging import logger
-from backend_worker.utils.pubsub import publish_event
+import httpx
+
 from backend_worker.celery_app import celery
+from backend_worker.services.deferred_queue_service import deferred_queue_service
 from backend_worker.services.entity_manager import (
-    create_or_get_artists_batch,
     create_or_get_albums_batch,
-    create_or_update_tracks_batch,
+    create_or_get_artists_batch,
     create_or_get_genre,
     create_or_get_genre_tag,
     create_or_get_mood_tag,
-    on_artists_inserted_callback,
+    create_or_update_tracks_batch,
+    execute_graphql_query,
     on_albums_inserted_callback,
+    on_artists_inserted_callback,
     on_tracks_inserted_callback,
-    execute_graphql_query
 )
-from backend_worker.services.deferred_queue_service import deferred_queue_service
+from backend_worker.utils.logging import logger
+from backend_worker.utils.pubsub import publish_event
 
 
 @celery.task(name="insert.direct_batch", queue="insert", bind=True)

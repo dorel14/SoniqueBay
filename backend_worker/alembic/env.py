@@ -1,21 +1,20 @@
-from logging.config import fileConfig
 import os
+from logging.config import fileConfig
+
 from backend_worker.utils.logging import logger
 
 # Forcer l'encodage UTF-8 pour psycopg2 avant l'import
 os.environ["PGCLIENTENCODING"] = "UTF8"
 
-from sqlalchemy import create_engine
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import create_engine, pool
+
+# Import tous les modèles pour autogenerate
+from backend_worker.models import *  # noqa: F401
 
 # Import depuis les modèles locaux (pas de dépendance au conteneur backend)
 from backend_worker.models.base import Base
 from backend_worker.utils.supabase_sqlalchemy import get_supabase_database_url
-
-# Import tous les modèles pour autogenerate
-from backend_worker.models import *  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

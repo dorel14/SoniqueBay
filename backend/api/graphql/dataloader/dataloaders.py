@@ -1,11 +1,12 @@
-from backend.api.graphql.dataloader.registry import LoaderRegistry
-from backend.api.graphql.dataloader.factories import by_id_loader
 from strawberry.dataloader import DataLoader
 
-from backend.api.services.track_service import TrackService
-from backend.api.services.covers_service import CoverService
-from backend.api.services.artist_service import ArtistService
+from backend.api.graphql.dataloader.factories import by_id_loader
+from backend.api.graphql.dataloader.registry import LoaderRegistry
 from backend.api.services.album_service import AlbumService
+from backend.api.services.artist_service import ArtistService
+from backend.api.services.covers_service import CoverService
+from backend.api.services.track_service import TrackService
+
 
 class CatalogLoaders:
     def __init__(self, session):

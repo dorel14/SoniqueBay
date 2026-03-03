@@ -3,10 +3,11 @@ Service MIR (Music Information Retrieval) V2 pour Supabase.
 Gère les métadonnées musicales extraites : scores MIR, tags synthétiques, etc.
 """
 
-from typing import List, Dict, Any, Optional
-from backend.api.utils.logging import logger
-from backend.api.utils.db_config import is_migrated, USE_SUPABASE
+from typing import Any, Dict, List, Optional
+
 from backend.api.utils.db_adapter import get_adapter
+from backend.api.utils.db_config import USE_SUPABASE, is_migrated
+from backend.api.utils.logging import logger
 
 
 class TrackMIRServiceV2:

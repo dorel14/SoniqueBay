@@ -13,8 +13,9 @@ Date: 2024
 Marqueurs: pytest.mark.integration, pytest.mark.recommendations, pytest.mark.hybrid
 """
 
-import pytest
 import logging
+
+import pytest
 
 from tests.conftest import (
     create_test_track,

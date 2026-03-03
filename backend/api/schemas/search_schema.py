@@ -1,5 +1,7 @@
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+
 
 class AddToIndexRequest(BaseModel):
     index_dir: str

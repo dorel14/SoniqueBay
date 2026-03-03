@@ -3,26 +3,32 @@ Test de synchronisation de configuration Celery via Redis.
 Valide que le worker publie et que le backend lit correctement la configuration.
 """
 
-import pytest
-import redis
 import json
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-# Import des modules à tester
-from backend_worker.celery_config_source import get_unified_queues, get_unified_task_routes, get_unified_celery_config
-from backend_worker.utils.celery_config_publisher import (
-    publish_celery_config_to_redis,
-    clear_celery_config_from_redis,
-    serialize_queues_for_redis,
-    serialize_routes_for_redis,
-    serialize_base_config_for_redis
-)
+import pytest
+import redis
+
 from backend.api.utils.celery_config_loader import (
-    load_celery_config_from_redis,
     deserialize_queues_from_redis,
     deserialize_routes_from_redis,
-    get_fallback_config
+    get_fallback_config,
+    load_celery_config_from_redis,
+)
+
+# Import des modules à tester
+from backend_worker.celery_config_source import (
+    get_unified_celery_config,
+    get_unified_queues,
+    get_unified_task_routes,
+)
+from backend_worker.utils.celery_config_publisher import (
+    clear_celery_config_from_redis,
+    publish_celery_config_to_redis,
+    serialize_base_config_for_redis,
+    serialize_queues_for_redis,
+    serialize_routes_for_redis,
 )
 
 

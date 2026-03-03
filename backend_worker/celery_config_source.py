@@ -5,6 +5,7 @@ Le backend API lit cette configuration depuis Redis, pas directement.
 """
 
 import os
+
 from kombu import Queue
 
 

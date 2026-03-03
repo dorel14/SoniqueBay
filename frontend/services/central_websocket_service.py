@@ -1,12 +1,14 @@
 # -*- coding: UTF-8 -*-
 """Service centralisé pour la gestion des WebSockets avec support de canaux."""
 
-from typing import Callable, Dict, Any
-import os
-import json
 import asyncio
-import websockets
+import json
+import os
 import socket
+from typing import Any, Callable, Dict
+
+import websockets
+
 from frontend.utils.logging import logger
 
 try:

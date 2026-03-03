@@ -4,7 +4,8 @@ Fournit les opérations CRUD standard en utilisant DatabaseAdapter.
 """
 
 import logging
-from typing import Any, Dict, List, Optional, TypeVar, Generic, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+
 from backend.api.utils.db_adapter import get_adapter
 
 T = TypeVar('T', bound=Dict[str, Any])

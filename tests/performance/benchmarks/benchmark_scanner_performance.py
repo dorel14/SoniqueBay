@@ -8,13 +8,13 @@ et mesure le throughput pour différents volumes de données.
 """
 
 import asyncio
-import time
-import tempfile
-import os
-from pathlib import Path
 import json
-from typing import Dict, List, Any
+import os
 import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Dict, List
 from unittest.mock import patch
 
 # Ajouter le répertoire racine au path

@@ -13,7 +13,9 @@ Version: 1.0.0
 """
 
 import os
+
 import httpx
+
 from backend_worker.utils.logging import logger
 
 
@@ -42,9 +44,11 @@ class MIRPipelineService:
         logger.info("[MIRPipeline] Initialisation du pipeline MIR")
         
         # Initialiser les services
-        from backend_worker.services.mir_normalization_service import MIRNormalizationService
-        from backend_worker.services.mir_scoring_service import MIRScoringService
         from backend_worker.services.genre_taxonomy_service import GenreTaxonomyService
+        from backend_worker.services.mir_normalization_service import (
+            MIRNormalizationService,
+        )
+        from backend_worker.services.mir_scoring_service import MIRScoringService
         from backend_worker.services.synthetic_tags_service import SyntheticTagsService
         
         self.normalization_service = MIRNormalizationService()
@@ -213,8 +217,8 @@ class MIRPipelineService:
         # Ajouter les tags depuis audio_features_service si disponible
         try:
             from backend_worker.services.audio_features_service import (
+                _extract_features_from_acoustid_tags,
                 _extract_features_from_standard_tags,
-                _extract_features_from_acoustid_tags
             )
             
             # Extraire depuis les tags AcoustID

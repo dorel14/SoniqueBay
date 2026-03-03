@@ -7,6 +7,7 @@ pour donner la priorité aux scans complets sur les tâches deferred.
 
 from backend_worker.celery_app import celery, task_queues, task_routes
 
+
 def test_celery_priority_configuration():
     """Test que la configuration des priorités Celery est correcte."""
 

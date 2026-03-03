@@ -7,6 +7,7 @@ Corrige les erreurs les plus courantes sans impacter l'architecture existante
 import subprocess
 from pathlib import Path
 
+
 def run_ruff_fix():
     """Exécute la correction automatique Ruff"""
     print("🔧 Correction automatique des erreurs Ruff...")

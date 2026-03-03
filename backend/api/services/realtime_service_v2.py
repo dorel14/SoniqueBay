@@ -3,16 +3,17 @@ Service Realtime V2 utilisant Supabase Realtime.
 Remplace les websockets pour les notifications, chat, et événements temps réel.
 """
 
-import os
 import asyncio
-from typing import Dict, Any, Optional, Callable, List
+import os
 from dataclasses import dataclass, field
-from backend.api.utils.logging import logger
+from typing import Any, Callable, Dict, List, Optional
+
 from backend.api.utils.db_config import USE_SUPABASE
+from backend.api.utils.logging import logger
 
 # Import conditionnel pour Supabase
 try:
-    from supabase import create_client, Client
+    from supabase import Client, create_client
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False

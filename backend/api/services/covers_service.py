@@ -4,14 +4,17 @@ Déplace toute la logique métier depuis covers_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.covers_model, backend.api.schemas.covers_schema
 """
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from sqlalchemy import select
-from backend.api.models.covers_model import Cover as CoverModel, EntityCoverType
-from backend.api.schemas.covers_schema import CoverCreate
-from PIL import Image
 from io import BytesIO
 from pathlib import Path
+from typing import List, Optional
+
+from PIL import Image
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.models.covers_model import Cover as CoverModel
+from backend.api.models.covers_model import EntityCoverType
+from backend.api.schemas.covers_schema import CoverCreate
 
 BASE = Path("./backend/data/img/")
 class CoverService:

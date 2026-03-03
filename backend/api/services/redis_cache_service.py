@@ -4,12 +4,14 @@ Service de cache Redis pour optimiser les requêtes répétitives
 Utilise Redis pour mettre en cache les résultats de recherche fréquents.
 """
 
-import json
 import hashlib
+import json
 import os
-from typing import Any, Optional, Dict
-from backend.api.utils.logging import logger
+from typing import Any, Dict, Optional
+
 import redis
+
+from backend.api.utils.logging import logger
 
 
 class RedisCacheService:

@@ -8,14 +8,16 @@ Optimisé pour Raspberry Pi 4 : traitement par batches, gestion mémoire.
 """
 
 import asyncio
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import httpx
-from typing import Dict, List, Any, Optional
+
+from backend.api.utils.search import add_to_index, get_or_create_index
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
 from backend_worker.utils.pubsub import publish_event
-from backend.api.utils.search import get_or_create_index, add_to_index
-import os
-from pathlib import Path
 
 
 @celery.task(name="search_indexer.build_index", queue="scan", bind=True)

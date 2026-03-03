@@ -10,12 +10,13 @@ Auteur: SoniqueBay Team
 """
 
 import asyncio
-from typing import List, Dict, Any
-from backend_worker.utils.logging import logger
+from typing import Any, Dict, List
+
 from backend_worker.services.ollama_embedding_service import (
+    OllamaEmbeddingError,
     OllamaEmbeddingService,
-    OllamaEmbeddingError
 )
+from backend_worker.utils.logging import logger
 
 
 class VectorizationError(Exception):

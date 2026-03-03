@@ -4,9 +4,11 @@
 Script de conversion simple pour éviter les problèmes d'import.
 """
 
-import yaml
 import json
 from pathlib import Path
+
+import yaml
+
 
 def flatten_genre_hierarchy(yaml_path: str) -> list:
     """Convertit la hiérarchie YAML des genres en une liste plate."""

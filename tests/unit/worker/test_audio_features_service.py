@@ -7,20 +7,21 @@ Auteur: SoniqueBay Team
 Version: 2.0.0
 """
 
-import pytest
-from unittest.mock import patch
-import numpy as np
 import os
 import tempfile
+from unittest.mock import patch
+
+import numpy as np
+import pytest
 
 from backend_worker.services.audio_features_service import (
     AudioFeaturesService,
-    extract_audio_features,
     _extract_features_from_acoustid_tags,
     _extract_features_from_standard_tags,
     _has_valid_acoustid_tags,
     _has_valid_audio_tags,
     analyze_audio_with_librosa,
+    extract_audio_features,
 )
 
 

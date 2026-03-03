@@ -2,9 +2,10 @@
 Tests unitaires pour le service d'opérations bulk.
 """
 
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 import sys
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Create proper mock for Base with metadata
 mock_base = MagicMock()
@@ -268,7 +269,9 @@ class TestBulkOperationsServiceFactory:
             'sqlalchemy.dialects': MagicMock(),
             'sqlalchemy.dialects.postgresql': MagicMock(),
         }):
-            from backend_worker.services.bulk_operations_service import get_bulk_operations_service
+            from backend_worker.services.bulk_operations_service import (
+                get_bulk_operations_service,
+            )
             
             service1 = get_bulk_operations_service()
             service2 = get_bulk_operations_service()

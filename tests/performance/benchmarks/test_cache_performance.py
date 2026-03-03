@@ -13,10 +13,11 @@ Date: 2024
 Marqueurs: pytest.mark.performance, pytest.mark.benchmark, pytest.mark.cache
 """
 
-import pytest
-import time
 import logging
+import time
 from datetime import datetime
+
+import pytest
 
 logger = logging.getLogger(__name__)
 

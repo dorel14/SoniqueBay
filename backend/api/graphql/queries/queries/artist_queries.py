@@ -1,7 +1,10 @@
 from __future__ import annotations
-import strawberry
+
 import time
 from typing import Optional
+
+import strawberry
+
 from backend.api.graphql.types.artist_type import ArtistType
 from backend.api.services.artist_service import ArtistService
 from backend.api.utils.logging import logger

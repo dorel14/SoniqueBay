@@ -1,5 +1,6 @@
-from backend.api.services.search_service import SearchService
 from backend.api.schemas.search_schema import SearchQuery
+from backend.api.services.search_service import SearchService
+
 
 def test_fts_search_tracks(db_session):
     """Test FTS search functionality."""

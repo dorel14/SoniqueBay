@@ -1,8 +1,10 @@
-import websockets
 import asyncio
-import os
 import json
+import os
 import socket
+
+import websockets
+
 from frontend.utils.logging import logger
 
 wsurl = os.getenv('WS_URL', 'ws://api:8001/api/ws')

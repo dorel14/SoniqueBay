@@ -4,24 +4,24 @@ Services frontend pour SoniqueBay.
 Version unifiée avec support Supabase via feature flags.
 """
 
-from frontend.utils.feature_flags import get_feature_flags
-from frontend.utils.logging import logger
+from frontend.services.album_service import AlbumService
+from frontend.services.album_service_v2 import AlbumServiceV2, get_album_service_v2
+from frontend.services.artist_service import ArtistService
+from frontend.services.artist_service_v2 import ArtistServiceV2, get_artist_service_v2
+from frontend.services.graphql_replacement_service import (
+    GraphQLReplacementService,
+    get_graphql_replacement_service,
+)
+from frontend.services.search_service import SearchService
+from frontend.services.search_service_v2 import SearchServiceV2, get_search_service_v2
 
 # Services Legacy (HTTP API)
 from frontend.services.track_service import TrackService
-from frontend.services.album_service import AlbumService
-from frontend.services.artist_service import ArtistService
-from frontend.services.search_service import SearchService
 
 # Services V2 (Supabase)
 from frontend.services.track_service_v2 import TrackServiceV2, get_track_service_v2
-from frontend.services.album_service_v2 import AlbumServiceV2, get_album_service_v2
-from frontend.services.artist_service_v2 import ArtistServiceV2, get_artist_service_v2
-from frontend.services.search_service_v2 import SearchServiceV2, get_search_service_v2
-from frontend.services.graphql_replacement_service import (
-    GraphQLReplacementService,
-    get_graphql_replacement_service
-)
+from frontend.utils.feature_flags import get_feature_flags
+from frontend.utils.logging import logger
 
 
 class UnifiedTrackService:

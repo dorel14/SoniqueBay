@@ -4,9 +4,11 @@ Utilise Redis pour stocker les tâches en attente et Celery Beat pour les traite
 """
 
 import json
-import redis
 import time
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import redis
+
 from backend_worker.utils.logging import logger
 
 

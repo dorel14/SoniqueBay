@@ -3,6 +3,7 @@ Schemas Pydantic pour la génération d'embeddings.
 """
 
 from typing import List
+
 from pydantic import BaseModel, Field
 
 

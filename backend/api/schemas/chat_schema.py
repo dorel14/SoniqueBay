@@ -1,9 +1,10 @@
 """
 Schéma pour les requêtes et réponses du chat IA.
 """
-from typing import Optional
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class ChatMessage(BaseModel):

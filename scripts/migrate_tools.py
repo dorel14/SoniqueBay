@@ -9,7 +9,7 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from backend.ai.utils.registry import TOOL_REGISTRY, ToolRegistry
 from backend.api.utils.logging import logger

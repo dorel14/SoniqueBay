@@ -2,12 +2,14 @@
 Tests unitaires pour VectorSearchServiceV2.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
+
 from backend.api.services.vector_search_service_v2 import (
     VectorSearchServiceV2,
     get_vector_search_service_v2,
-    reset_vector_search_service_v2
+    reset_vector_search_service_v2,
 )
 
 

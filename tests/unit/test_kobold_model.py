@@ -8,16 +8,14 @@ Teste l'implémentation de l'interface pydantic-ai 1.x Model pour KoboldCPP :
 - Construction du payload KoboldCPP
 """
 import json
-import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-
+import pytest
 from pydantic_ai.models import ModelRequestParameters
 
 from backend.ai.models.kobold_model import KoboldNativeModel, KoboldStreamedResponse
-
 
 # Paramètres de requête par défaut pour les tests (tous les champs ont des valeurs par défaut)
 DEFAULT_MODEL_REQUEST_PARAMS = ModelRequestParameters()

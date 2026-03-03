@@ -1,9 +1,12 @@
-from nicegui import ui
-from datetime import datetime
-from frontend.utils.app_state import get_state
-from frontend.services.chat_service import chat_service
 import asyncio
+from datetime import datetime
+
+from nicegui import ui
+
+from frontend.services.chat_service import chat_service
+from frontend.utils.app_state import get_state
 from frontend.utils.logging import logger
+
 
 @ui.refreshable
 def chat_messages(own_id: str) -> None:

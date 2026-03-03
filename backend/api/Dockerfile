@@ -1,10 +1,23 @@
+# Étape d'extraction de version
+FROM python:3.11-slim AS version_extractor
+COPY _version_.py /_version_.py
+RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
+
 # Dockerfile pour le service API FastAPI
 FROM python:3.11-slim
 
 # Labels pour la traçabilité
-LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app"
-LABEL org.opencontainers.image.description="Service API FastAPI pour SoniqueBay"
-LABEL org.opencontainers.image.version="1.0"
+ARG BUILD_DATE
+
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
+      org.opencontainers.image.version="$(cat /version.txt)" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.authors="SoniqueBay Team" \
+      org.opencontainers.image.vendor="SoniqueBay" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.title="SoniqueBay API" \
+      org.opencontainers.image.description="Service API FastAPI pour SoniqueBay"
 
 # Variables d'environnement
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -55,3 +68,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Commande de démarrage
 CMD ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
+
+

@@ -1,7 +1,8 @@
 """Service d'optimisation du scan."""
 
 import time
-from typing import Dict, Any
+from typing import Any, Dict
+
 from backend_worker.utils.logging import get_logger
 
 logger = get_logger(__name__)

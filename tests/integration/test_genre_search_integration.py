@@ -2,11 +2,12 @@
 Integration tests for genre search exact match functionality.
 Tests the API endpoint directly to verify the race condition fix works in practice.
 """
-import pytest
-import httpx
 import asyncio
-from typing import Dict
 import time
+from typing import Dict
+
+import httpx
+import pytest
 
 
 @pytest.mark.asyncio

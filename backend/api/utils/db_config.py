@@ -17,12 +17,18 @@ SUPABASE_ANON_KEY: Optional[str] = os.getenv("SUPABASE_ANON_KEY")
 SUPABASE_SERVICE_KEY: Optional[str] = os.getenv("SUPABASE_SERVICE_KEY")
 
 # Tables migrées vers Supabase (liste progressive)
-# Au début : [], puis on ajoute "tracks", "albums", etc.
-MIGRATED_TABLES: set = set(
-    os.getenv("MIGRATED_TABLES", "").split(",")
-    if os.getenv("MIGRATED_TABLES")
-    else []
-)
+# Si USE_SUPABASE=true et MIGRATED_TABLES non défini, toutes les tables principales sont migrées par défaut
+_DEFAULT_MIGRATED_TABLES = {"tracks", "albums", "artists", "track_mir_raw", "track_mir_scores", 
+                            "track_mir_synthetic_tags", "track_embeddings", "conversations", 
+                            "chat_messages", "chat_sessions", "conversation_summaries"}
+
+if os.getenv("MIGRATED_TABLES"):
+    MIGRATED_TABLES: set = set(os.getenv("MIGRATED_TABLES", "").split(","))
+elif USE_SUPABASE:
+    # Si USE_SUPABASE=true sans MIGRATED_TABLES explicite, utiliser les tables par défaut
+    MIGRATED_TABLES: set = _DEFAULT_MIGRATED_TABLES
+else:
+    MIGRATED_TABLES: set = set()
 
 
 def is_migrated(table_name: str) -> bool:

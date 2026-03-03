@@ -1,7 +1,9 @@
-from nicegui import ui
-import httpx
 import asyncio
 import os
+
+import httpx
+from nicegui import ui
+
 API_URL = os.getenv('API_URL', 'http://api:8001')
 
 

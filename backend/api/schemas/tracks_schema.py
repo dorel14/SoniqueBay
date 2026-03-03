@@ -1,5 +1,7 @@
+from typing import List, Optional, Union
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from typing import Optional, List, Union
+
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover
 from .tags_schema import Tag

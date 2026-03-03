@@ -6,7 +6,8 @@ Ce service utilise les vues PostgreSQL créées côté Supabase pour
 récupérer des données jointes complexes sans GraphQL.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 from frontend.utils.logging import logger
 from frontend.utils.supabase_client import get_supabase_client
 

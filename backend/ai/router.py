@@ -1,7 +1,10 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from backend.api.models.agent_score_model import AgentScore
 import math
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.api.models.agent_score_model import AgentScore
+
 
 class IntentRouter:
 
@@ -78,6 +81,7 @@ class IntentRouter:
     
     async def has_scores(self, session, intent: str) -> bool:
         from sqlalchemy import select
+
         from backend.api.models.agent_score_model import AgentScore
 
         res = await session.execute(

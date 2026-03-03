@@ -8,6 +8,7 @@ Version: 1.0.0
 """
 
 import sys
+
 sys.path.insert(0, '.')
 
 from backend_worker.services.music_summary_service import MusicSummaryService

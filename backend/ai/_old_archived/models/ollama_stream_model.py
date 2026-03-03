@@ -1,6 +1,7 @@
 # backend/ai_agents/models/ollama_stream_model.py
 
 from typing import AsyncGenerator
+
 import httpx
 from pydantic_ai.models import Model
 

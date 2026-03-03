@@ -12,19 +12,20 @@ Optimisé pour : Raspberry Pi 4
 """
 
 import asyncio
-import joblib
-import json
 import hashlib
+import json
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-import httpx
-import os
+from typing import Any, Dict, List, Optional
 
-from backend_worker.services.vectorization_service import (
-    OptimizedVectorizationService
+import httpx
+import joblib
+
+from backend_worker.services.data_directory_initializer import (
+    initialize_data_directories,
 )
-from backend_worker.services.data_directory_initializer import initialize_data_directories
+from backend_worker.services.vectorization_service import OptimizedVectorizationService
 from backend_worker.utils.logging import logger
 
 

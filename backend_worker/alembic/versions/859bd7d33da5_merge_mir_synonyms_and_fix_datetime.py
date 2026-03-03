@@ -7,8 +7,6 @@ Create Date: 2026-02-15 17:10:07.809241
 """
 from typing import Sequence, Union
 
-
-
 # revision identifiers, used by Alembic.
 revision: str = '859bd7d33da5'
 down_revision: Union[str, None] = ('add_mir_synonyms_table', 'fix_datetime_server_default')

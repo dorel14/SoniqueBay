@@ -3,11 +3,13 @@ Tests unitaires pour les opérations CRUD des services V2 (Phase 4.3).
 Teste create, update, delete, create_batch pour Track, Album, Artist.
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from backend.api.services.track_service_v2 import TrackServiceV2
+
 from backend.api.services.album_service_v2 import AlbumServiceV2
 from backend.api.services.artist_service_v2 import ArtistServiceV2
+from backend.api.services.track_service_v2 import TrackServiceV2
 
 
 class TestTrackServiceV2CRUD:

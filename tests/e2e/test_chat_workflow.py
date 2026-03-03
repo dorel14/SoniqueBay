@@ -13,8 +13,9 @@ Date: 2024
 Marqueurs: pytest.mark.e2e, pytest.mark.chat, pytest.mark.ai
 """
 
-import pytest
 import logging
+
+import pytest
 
 from tests.conftest import (
     create_test_artist_album_tracks,

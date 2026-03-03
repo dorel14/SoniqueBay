@@ -1,5 +1,6 @@
 from pydantic_ai import Agent
 
+
 def build_search_agent(cfg):
     """
     Agent de recherche musicale :

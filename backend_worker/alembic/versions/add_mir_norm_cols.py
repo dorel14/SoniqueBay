@@ -37,11 +37,12 @@ Auteur: SoniqueBay Team
 Date: 2026-02-28
 """
 
-from typing import Sequence, Union
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 import logging
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects import postgresql
 
 # Configuration du logger
 logger = logging.getLogger('alembic.runtime.migration')

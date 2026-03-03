@@ -22,10 +22,11 @@ Auteur: SoniqueBay Team
 Date: 2026-02-06
 """
 
-from typing import Sequence, Union
-from alembic import op
-import sqlalchemy as sa
 import logging
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
 
 # Configuration du logger
 logger = logging.getLogger('alembic.runtime.migration')

@@ -16,17 +16,18 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
+
 from typing import Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_metadata_type import (
-    TrackMetadataType,
-    TrackMetadataInput,
-    TrackMetadataUpdateInput,
     TrackMetadataBatchInput,
     TrackMetadataBatchResult,
     TrackMetadataDeleteInput,
+    TrackMetadataInput,
+    TrackMetadataType,
+    TrackMetadataUpdateInput,
 )
 from backend.api.services.track_metadata_service import TrackMetadataService
 from backend.api.utils.database import get_async_session

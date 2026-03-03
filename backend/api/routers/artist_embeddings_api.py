@@ -4,8 +4,9 @@ Router pour les recommandations basées sur les embeddings d'artistes.
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.database import get_async_session
+
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
+from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 router = APIRouter()

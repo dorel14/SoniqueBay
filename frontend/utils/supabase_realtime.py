@@ -3,15 +3,16 @@ Client Supabase Realtime pour le frontend NiceGUI.
 Remplace les websockets pour les fonctionnalités temps réel.
 """
 
-import os
 import asyncio
-from typing import Dict, Any, Optional, Callable, List
+import os
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
+
 from frontend.utils.logging import logger
 
 # Import conditionnel pour Supabase
 try:
-    from supabase import create_client, Client
+    from supabase import Client, create_client
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False

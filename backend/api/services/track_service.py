@@ -1,19 +1,22 @@
-from sqlalchemy.orm import joinedload
+from collections import defaultdict
+from typing import List, Optional
+
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.models.tracks_model import Track as TrackModel
+from sqlalchemy.orm import joinedload
+
 from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
+from backend.api.models.tracks_model import Track as TrackModel
 from backend.api.schemas.tracks_schema import TrackCreate
-from backend.api.utils.logging import logger
-from typing import List, Optional
-from collections import defaultdict
 
 # Import des nouveaux services pour l'intégration
 from backend.api.services.track_audio_features_service import TrackAudioFeaturesService
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService
 from backend.api.services.track_metadata_service import TrackMetadataService
+from backend.api.utils.logging import logger
+
 
 class TrackService:
     """
@@ -94,7 +97,7 @@ class TrackService:
         Returns:
             Nombre total de pistes
         """
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
         result = await self.session.execute(select(func.count(TrackModel.id)))
         return result.scalar()
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
-from sqlalchemy import Column, Integer, String, Table, ForeignKey, Index
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from sqlalchemy import Column, ForeignKey, Index, Integer, String, Table
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from backend.api.utils.database import Base
 
 # Tables de liaison

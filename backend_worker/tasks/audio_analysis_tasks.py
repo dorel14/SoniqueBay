@@ -7,9 +7,10 @@ ne sont pas disponibles.
 """
 
 import os
-from typing import Dict, Any, Optional
-from celery import shared_task
+from typing import Any, Dict, Optional
+
 import httpx
+from celery import shared_task
 
 from backend_worker.services.audio_features_service import extract_audio_features
 from backend_worker.utils.logging import logger as task_logger
@@ -123,10 +124,10 @@ def analyze_track_audio_features(
                 }
 
         # Importer mutagen pour lire les métadonnées du fichier
-        from mutagen import File
-
         # Vérifier que le fichier existe avant de le charger
         import os
+
+        from mutagen import File
         if not os.path.exists(file_path):
             logger.error(f"❌ FICHIER N'EXISTE PAS: {file_path}")
             return {

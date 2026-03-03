@@ -6,10 +6,11 @@ Utility modules for the recommender API including database connections,
 logging, settings, and vectorization initialization.
 """
 
-from .database import get_session, get_async_session
+from .database import get_async_session, get_session
+from .locked_session import LockedSession
 from .logging import logger
 from .settings import Settings
-from .locked_session import LockedSession
+
 # from .suggestion import SuggestionEngine  # Temporairement commenté - classe manquante
 
 __all__ = [

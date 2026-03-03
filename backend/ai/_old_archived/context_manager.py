@@ -1,7 +1,7 @@
 # context_manager.py
 # Gestion de l'état conversationnel pour l'orchestrateur SoniqueBay
 
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 class ConversationContext:

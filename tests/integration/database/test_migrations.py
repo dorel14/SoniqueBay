@@ -13,12 +13,13 @@ Date: 2024
 Marqueurs: pytest.mark.integration, pytest.mark.database, pytest.mark.migrations
 """
 
-import pytest
 import logging
 import os
-from sqlalchemy import text, inspect
-from alembic.config import Config
+
+import pytest
 from alembic import command
+from alembic.config import Config
+from sqlalchemy import inspect, text
 
 from tests.conftest import (
     test_db_engine,
@@ -201,8 +202,8 @@ class TestDataPreservation:
 
     def test_data_preservation_on_upgrade(self, test_db_engine, db_session):
         """Vérifie la préservation des données après upgrade."""
-        from backend.api.models.tracks_model import Track
         from backend.api.models.artists_model import Artist
+        from backend.api.models.tracks_model import Track
 
         # Créer des données de test
         artist = Artist(name="Test Artist Migration", musicbrainz_artistid="test-mig-id")

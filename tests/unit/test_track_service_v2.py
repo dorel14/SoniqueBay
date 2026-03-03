@@ -3,8 +3,10 @@ Tests unitaires pour TrackServiceV2 (Phase 4.1).
 Vérifie la compatibilité avec Supabase et le fallback SQLAlchemy.
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+
 from backend.api.services.track_service_v2 import TrackServiceV2, get_track_service
 
 

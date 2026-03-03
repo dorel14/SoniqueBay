@@ -1,9 +1,13 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, Boolean
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+
 from datetime import datetime, timezone
+
 from library_api.utils.database import Base
-from recommender_api.api.models.listening_history_model import ListeningHistory # Supprimé pour éviter les imports circulaires
+from recommender_api.api.models.listening_history_model import (
+    ListeningHistory,  # Supprimé pour éviter les imports circulaires
+)
+from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class User(Base):

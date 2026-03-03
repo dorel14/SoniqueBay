@@ -15,14 +15,18 @@ Auteur : Kilo Code
 
 import json
 from datetime import datetime, timedelta
-from typing import Dict, Any
+from typing import Any, Dict
+
 from celery import Task
 from celery.utils.log import get_task_logger
 
-from backend_worker.services.tag_monitoring_service import TagMonitoringService
-from backend_worker.services.model_persistence_service import ModelVersioningService, ModelPersistenceService
-from backend_worker.services.vectorization_service import OptimizedVectorizationService
 from backend_worker.celery_app import celery
+from backend_worker.services.model_persistence_service import (
+    ModelPersistenceService,
+    ModelVersioningService,
+)
+from backend_worker.services.tag_monitoring_service import TagMonitoringService
+from backend_worker.services.vectorization_service import OptimizedVectorizationService
 
 logger = get_task_logger(__name__)
 
@@ -446,8 +450,9 @@ def publish_vectorization_sse(event_type: str, data: Dict[str, Any]):
         data: Données à publier
     """
     try:
-        import redis.asyncio as redis
         import asyncio
+
+        import redis.asyncio as redis
         
         async def publish():
             async with redis.from_url("redis://redis:6379") as client:

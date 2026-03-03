@@ -13,19 +13,19 @@ Version: 1.0.0
 
 import json
 import time
-from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
-import numpy as np
 import httpx
+import numpy as np
 
-from backend_worker.utils.logging import logger
 from backend_worker.services.audio_features_embeddings import (
     AudioFeaturesEmbeddingService,
-    AudioFeaturesInput
+    AudioFeaturesInput,
 )
 from backend_worker.services.gmm_clustering_service import GMMClusteringService
+from backend_worker.utils.logging import logger
 
 # Imports conditionnels pour Redis (optionnel)
 try:

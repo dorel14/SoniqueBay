@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, DeclarativeBase, Session, Mapped, mapped_column
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy import MetaData, DateTime
 import datetime
-from urllib.parse import quote_plus
+import os
 from typing import AsyncGenerator
+from urllib.parse import quote_plus
+
+from dotenv import load_dotenv
+from sqlalchemy import DateTime, MetaData, create_engine, text
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+
 from backend.api.utils.logging import logger
+
 load_dotenv()
 
 # Créer Base avant toute autre opération

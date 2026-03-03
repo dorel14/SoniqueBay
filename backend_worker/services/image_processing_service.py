@@ -3,16 +3,22 @@ Service de traitement d'images.
 Gère le traitement, la transformation et l'optimisation des images musicales.
 """
 
-import io
 import base64
 import hashlib
-from typing import Dict, Any, Optional, Tuple
-from PIL import Image, ImageOps, ImageFilter
+import io
+from typing import Any, Dict, Optional, Tuple
+
 import httpx
-from backend_worker.utils.logging import logger
-from backend_worker.services.image_service import read_image_file, process_cover_image, process_artist_image
+from PIL import Image, ImageFilter, ImageOps
+
 from backend_worker.services.coverart_service import get_coverart_image
+from backend_worker.services.image_service import (
+    process_artist_image,
+    process_cover_image,
+    read_image_file,
+)
 from backend_worker.services.lastfm_service import get_lastfm_artist_image
+from backend_worker.utils.logging import logger
 
 
 class ImageProcessingService:

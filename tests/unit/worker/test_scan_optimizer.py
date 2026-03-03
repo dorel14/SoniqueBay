@@ -4,7 +4,8 @@ Tests pour le service d'optimisation du scan.
 Ce module teste les fonctions d'optimisation du scan de fichiers audio.
 """
 import time
-from backend_worker.services.scan_optimizer import ScanOptimizer, ScanMetrics
+
+from backend_worker.services.scan_optimizer import ScanMetrics, ScanOptimizer
 
 
 def test_scan_optimizer_initialization():

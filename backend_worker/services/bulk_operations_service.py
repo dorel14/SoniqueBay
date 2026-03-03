@@ -4,12 +4,13 @@ Service pour les opérations bulk (inserts/updates/deletes en masse) via SQLAlch
 Optimisé pour les workers Celery avec connexion directe à Supabase PostgreSQL.
 """
 
-from typing import List, Dict, Any, Optional
-from sqlalchemy import update, delete
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import delete, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from backend_worker.utils.supabase_sqlalchemy import get_async_session, import_models
 from backend_worker.utils.logging import logger
+from backend_worker.utils.supabase_sqlalchemy import get_async_session, import_models
 
 
 class BulkOperationsService:

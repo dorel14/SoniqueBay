@@ -5,13 +5,22 @@ Architecture: Conversation (entête avec résumé) → ChatMessage (détail)
 
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from sqlalchemy import String, Text, ForeignKey, Index, Float, DateTime, Integer, Boolean
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 
 from backend_worker.models.base import Base, TimestampMixin
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.api.models.user_model import User

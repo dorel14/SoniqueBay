@@ -5,8 +5,9 @@ Utilise la bibliothèque officielle supabase-py.
 
 import os
 from typing import Optional
-from supabase import create_client, Client
+
 from backend.api.utils.logging import logger
+from supabase import Client, create_client
 
 # Configuration singleton
 _supabase_client: Optional[Client] = None

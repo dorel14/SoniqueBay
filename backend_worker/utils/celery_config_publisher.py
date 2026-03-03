@@ -4,10 +4,11 @@ Le worker utilise ce module pour publier sa configuration au démarrage.
 """
 
 import json
-import time
-import redis
 import os
-from typing import Dict, Any, List
+import time
+from typing import Any, Dict, List
+
+import redis
 
 from backend_worker.utils.logging import logger
 
@@ -106,9 +107,9 @@ def publish_celery_config_to_redis():
         
         # Charger la configuration depuis la source unique
         from backend_worker.celery_config_source import (
+            get_unified_celery_config,
             get_unified_queues,
             get_unified_task_routes,
-            get_unified_celery_config
         )
         
         # Récupérer les configurations

@@ -12,7 +12,7 @@ Author: SoniqueBay Team
 """
 
 from collections import defaultdict
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession

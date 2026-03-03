@@ -3,9 +3,11 @@
 Tests d'intégration pour l'API Last.fm.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+
 from backend.api.api_app import create_api
 
 
@@ -210,11 +212,13 @@ class TestLastFMIntegration:
 
     def test_artist_similar_model_creation(self):
         """Test création du modèle ArtistSimilar."""
-        from backend.api.models.artist_similar_model import ArtistSimilar
+        import os
+        import tempfile
+
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
-        import tempfile
-        import os
+
+        from backend.api.models.artist_similar_model import ArtistSimilar
 
         # Créer une base temporaire
         temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
@@ -264,7 +268,9 @@ class TestLastFMIntegration:
     def test_worker_celery_integration(self):
         """Test intégration des workers Celery Last.fm."""
         with patch('backend_worker.workers.lastfm.lastfm_worker.celery') as mock_celery:
-            from backend_worker.workers.lastfm.lastfm_worker import fetch_artist_lastfm_info
+            from backend_worker.workers.lastfm.lastfm_worker import (
+                fetch_artist_lastfm_info,
+            )
 
             mock_task = MagicMock()
             mock_task.id = "test-lastfm-task-123"

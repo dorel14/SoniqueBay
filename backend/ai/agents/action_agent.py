@@ -1,7 +1,8 @@
 """Agent d'action pour SoniqueBay."""
 
+from typing import Any, Dict, Optional
+
 from pydantic_ai import Agent
-from typing import Dict, Any, Optional
 
 
 class ActionAgent:

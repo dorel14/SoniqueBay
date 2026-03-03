@@ -3,12 +3,13 @@ Tests pour le service Last.fm.
 
 Ce module teste les fonctions de récupération d'images d'artistes depuis Last.fm.
 """
-import pytest
-from unittest.mock import patch, AsyncMock, Mock
 import logging
+from unittest.mock import AsyncMock, Mock, patch
 
-from backend_worker.services.lastfm_service import get_lastfm_artist_image
+import pytest
+
 from backend_worker.services.cache_service import cache_service
+from backend_worker.services.lastfm_service import get_lastfm_artist_image
 
 
 @pytest.fixture

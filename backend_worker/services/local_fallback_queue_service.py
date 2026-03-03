@@ -4,13 +4,14 @@ Utilise SQLite pour stocker les tâches localement quand Redis n'est pas disponi
 Optimisé pour Raspberry Pi avec gestion mémoire limitée.
 """
 
-import sqlite3
 import json
-import time
-import threading
 import os
-from typing import Dict, Any, Optional
+import sqlite3
+import threading
+import time
 from pathlib import Path
+from typing import Any, Dict, Optional
+
 from backend_worker.utils.logging import logger
 
 

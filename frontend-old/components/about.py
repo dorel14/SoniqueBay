@@ -1,5 +1,6 @@
 from nicegui import ui
 
+
 def about_dialog():
     with ui.dialog() as about, ui.card().classes("items-center"):
         ui.label("Informations").classes("text-lg")

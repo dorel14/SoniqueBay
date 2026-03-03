@@ -5,6 +5,7 @@ Ces tests valident la protection contre les injections de prompt via
 les marqueurs ChatML dans le contenu utilisateur.
 """
 import pytest
+
 from backend.ai.models.kobold_model import KoboldNativeModel
 
 

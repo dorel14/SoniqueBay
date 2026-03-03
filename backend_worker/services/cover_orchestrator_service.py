@@ -4,15 +4,27 @@ Coordonne le traitement des images en utilisant les services spécialisés.
 """
 
 import asyncio
-import httpx
-from typing import Dict, Any, Optional, List
 from datetime import datetime, timezone
-from backend_worker.utils.logging import logger
-from backend_worker.services.redis_cache import image_cache_service  # ✅ CORRIGÉ: Import du cache unifié
-from backend_worker.services.image_processing_service import image_processing_service
-from backend_worker.services.image_priority_service import ImagePriorityService, ProcessingContext, ImageSource
-from backend_worker.services.cover_types import CoverProcessingContext, ImageType, TaskType
+from typing import Any, Dict, List, Optional
+
+import httpx
+
+from backend_worker.services.cover_types import (
+    CoverProcessingContext,
+    ImageType,
+    TaskType,
+)
 from backend_worker.services.entity_manager import create_or_update_cover
+from backend_worker.services.image_priority_service import (
+    ImagePriorityService,
+    ImageSource,
+    ProcessingContext,
+)
+from backend_worker.services.image_processing_service import image_processing_service
+from backend_worker.services.redis_cache import (
+    image_cache_service,  # ✅ CORRIGÉ: Import du cache unifié
+)
+from backend_worker.utils.logging import logger
 
 
 class CoverOrchestratorService:

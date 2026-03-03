@@ -7,21 +7,23 @@ Valide que toutes les étapes fonctionnent ensemble correctement.
 """
 
 import asyncio
-import tempfile
-import time
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-import pytest
 
 # Ajouter les chemins nécessaires
 import sys
+import tempfile
+import time
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 sys.path.append('backend_worker')
 sys.path.append('tests')
 
-from backend_worker.background_tasks.optimized_scan import scan_directory_parallel
-from backend_worker.background_tasks.optimized_extract import extract_metadata_batch
 from backend_worker.background_tasks.optimized_batch import batch_entities
+from backend_worker.background_tasks.optimized_extract import extract_metadata_batch
 from backend_worker.background_tasks.optimized_insert import insert_batch_optimized
+from backend_worker.background_tasks.optimized_scan import scan_directory_parallel
 
 
 class TestScanIntegration:
@@ -246,8 +248,9 @@ class TestIntegrationPerformance:
 
 if __name__ == "__main__":
     # Exécuter les tests d'intégration
-    import pytest
     import time
+
+    import pytest
 
     print("TESTS D'INTEGRATION - PIPELINE DE SCAN OPTIMISE")
     print("=" * 60)

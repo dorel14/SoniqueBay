@@ -9,14 +9,15 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-import sys
 import os
+import sys
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 
 
 class TestMIRLLMServiceUnit:

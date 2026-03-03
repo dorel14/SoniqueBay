@@ -1,18 +1,20 @@
 # tests/test_image_service.py
-import pytest
-from unittest.mock import AsyncMock, patch
+import json
 import logging
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # Assuming image_service.py is in the same directory or accessible via PYTHONPATH
 from backend_worker.services.image_service import (
-    process_cover_image,
-    read_image_file,
-    process_image_data,
     find_cover_in_directory,
+    get_artist_images,
     process_artist_image,
-    get_artist_images
+    process_cover_image,
+    process_image_data,
+    read_image_file,
 )
-import json
+
 
 @pytest.mark.asyncio
 async def test_process_cover_image_data_uri():

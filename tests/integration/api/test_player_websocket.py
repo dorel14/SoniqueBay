@@ -13,8 +13,9 @@ Date: 2024
 Marqueurs: pytest.mark.integration, pytest.mark.websocket, pytest.mark.player
 """
 
-import pytest
 import logging
+
+import pytest
 
 from tests.conftest import (
     create_test_track,

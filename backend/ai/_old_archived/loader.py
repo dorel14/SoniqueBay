@@ -1,6 +1,8 @@
 from pydantic_ai import Agent
+
 from backend.ai.utils.registry import TOOL_REGISTRY
 from backend.api.models.agent_model import AgentModel
+
 
 class AgentLoader:
 

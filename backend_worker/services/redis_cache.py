@@ -3,13 +3,15 @@ Service de Cache Redis Intelligent pour Images
 Implémente un cache haute performance avec compression et gestion intelligente des TTL.
 """
 
-import json
-import gzip
-from typing import Any, Optional, Dict, List
-from datetime import datetime, timezone
 import asyncio
+import gzip
 import hashlib
+import json
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
 import redis.asyncio as redis
+
 from backend_worker.utils.logging import logger
 
 

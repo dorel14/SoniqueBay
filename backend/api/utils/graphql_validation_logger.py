@@ -1,11 +1,13 @@
 """
 Utility pour logger les erreurs de validation GraphQL (Strawberry) et conversions Pydantic.
 """
-import traceback
 import json
-from typing import Dict, Any, List, Optional
-from strawberry.types import Info
+import traceback
+from typing import Any, Dict, List, Optional
+
 from pydantic import ValidationError
+from strawberry.types import Info
+
 from .logging import logger
 
 

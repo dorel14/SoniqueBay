@@ -1,14 +1,22 @@
 
-from celery import Celery
-from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdown
-
-from backend_worker.utils.logging import logger
-from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
 import os
-import redis
-import socket
 import signal
+import socket
+
+import redis
+from celery import Celery
+from celery.signals import task_postrun, task_prerun, worker_init, worker_shutdown
 from kombu import Queue
+
+from backend_worker.utils.celery_monitor import (
+    auto_configure_celery_limits,
+    get_size_summary,
+    log_task_size_report,
+    measure_celery_task_size,
+    update_size_metrics,
+)
+from backend_worker.utils.logging import logger
+
 
 # === SIGNAL HANDLERS ===
 def handle_sigterm(signum, frame):
@@ -140,6 +148,7 @@ celery.events.queue_capacity = 10000  # Capacité queue d'événements augmenté
 # === CONFIGURATION UNIFIÉE POUR ÉVITER LES ERREURS KOMBU ===
 # Appliquer la configuration unifiée pour éviter ValueError dans Kombu
 from backend_worker.celery_config_source import get_unified_celery_config
+
 celery.conf.update(get_unified_celery_config())
 
 # === CONFIGURATION SPÉCIFIQUE AU WORKER (EN PLUS DE LA CONFIGURATION UNIFIÉE) ===
@@ -204,7 +213,9 @@ def configure_worker(sender=None, **kwargs):
 
     # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
     try:
-        from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
+        from backend_worker.utils.celery_config_publisher import (
+            publish_celery_config_to_redis,
+        )
         logger.info("[WORKER INIT] Publication de la configuration Celery dans Redis")
         publish_celery_config_to_redis()
         logger.info("[WORKER INIT] Configuration Celery publiée avec succès")

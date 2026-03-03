@@ -16,13 +16,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
+
 from typing import Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_audio_features_type import (
-    TrackAudioFeaturesType,
     TrackAudioFeaturesInput,
+    TrackAudioFeaturesType,
     TrackAudioFeaturesUpdateInput,
 )
 from backend.api.services.track_audio_features_service import (

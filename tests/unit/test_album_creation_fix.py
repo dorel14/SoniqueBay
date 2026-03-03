@@ -6,8 +6,9 @@ Ce module teste les fonctions corrigées dans :
 - backend_worker/workers/insert/insert_batch_worker.py
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 
 class TestAlbumKeyConsistency:

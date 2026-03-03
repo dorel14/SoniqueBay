@@ -2,10 +2,12 @@
 """Service pour la gestion des messages de chat via WebSocket."""
 
 from datetime import datetime
-from typing import Callable, Dict, Any
-from frontend.utils.logging import logger
-from frontend.utils.app_state import add_chat_message
+from typing import Any, Callable, Dict
+
 from frontend.services.central_websocket_service import CentralWebSocketService
+from frontend.utils.app_state import add_chat_message
+from frontend.utils.logging import logger
+
 
 class ChatService:
     """Service pour gérer les messages de chat via WebSocket."""

@@ -1,14 +1,15 @@
 """Tests pour les agents IA spécialisés."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from pydantic_ai import Agent
 
-from backend.ai.agents.search_agent import SearchAgent
-from backend.ai.agents.playlist_agent import PlaylistAgent
 from backend.ai.agents.action_agent import ActionAgent
-from backend.ai.agents.smalltalk_agent import SmalltalkAgent
 from backend.ai.agents.builder import build_agent
+from backend.ai.agents.playlist_agent import PlaylistAgent
+from backend.ai.agents.search_agent import SearchAgent
+from backend.ai.agents.smalltalk_agent import SmalltalkAgent
 
 
 @pytest.mark.asyncio

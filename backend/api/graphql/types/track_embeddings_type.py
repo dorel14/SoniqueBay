@@ -14,11 +14,11 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
 
 import strawberry
-
 
 
 @strawberry.type

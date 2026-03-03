@@ -6,19 +6,20 @@ Usage: python scripts/celery_heartbeat_diagnostic.py
 """
 
 import os
-import sys
-import redis
 import socket
 import subprocess
+import sys
 from datetime import datetime
 from typing import Dict
+
+import redis
 
 # Ajouter le backend_worker au path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
 
 try:
-    from backend_worker.utils.celery_monitor import get_size_summary
     from backend_worker.celery_app import celery
+    from backend_worker.utils.celery_monitor import get_size_summary
 except ImportError as e:
     print(f"❌ Erreur d'import: {e}")
     print("Assurez-vous que le backend_worker est accessible")

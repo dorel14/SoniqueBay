@@ -1,9 +1,11 @@
-import httpx
 import os
-from backend_worker.utils.logging import logger
-from backend_worker.services.lastfm_service import lastfm_service
+
+import httpx
+
 from backend_worker.services.coverart_service import get_coverart_image
 from backend_worker.services.entity_manager import create_or_update_cover
+from backend_worker.services.lastfm_service import lastfm_service
+from backend_worker.utils.logging import logger
 
 api_url = os.getenv("API_URL", "http://api:8001")
 

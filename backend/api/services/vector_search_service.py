@@ -75,8 +75,9 @@ class VectorSearchService:
             Success status
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not isinstance(self.db, AsyncSession):
                 logger.error("Async method requires AsyncSession")
@@ -228,8 +229,9 @@ class VectorSearchService:
             List of similar tracks with distances
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not isinstance(self.db, AsyncSession):
                 logger.error("Async method requires AsyncSession")
@@ -313,8 +315,7 @@ class VectorSearchService:
     def _get_track_embedding_new(self, track_id: int) -> Optional[List[float]]:
         """Get track embedding from TrackEmbeddings table."""
         try:
-            from backend.api.models.track_embeddings_model import \
-                TrackEmbeddings
+            from backend.api.models.track_embeddings_model import TrackEmbeddings
 
             result = self.db.execute(
                 select(TrackEmbeddings)
@@ -355,8 +356,9 @@ class VectorSearchService:
             Embedding vector or None if not found
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not isinstance(self.db, AsyncSession):
                 logger.error("Async method requires AsyncSession")
@@ -473,8 +475,9 @@ class VectorSearchService:
             Success status
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not isinstance(self.db, AsyncSession):
                 logger.error("Async method requires AsyncSession")
@@ -607,8 +610,7 @@ class VectorSearchService:
         Returns:
             Batch operation results
         """
-        from backend.api.services.track_embeddings_service import \
-            TrackEmbeddingsService
+        from backend.api.services.track_embeddings_service import TrackEmbeddingsService
 
         if not isinstance(self.db, AsyncSession):
             return {"error": "Async method requires AsyncSession"}
@@ -687,8 +689,9 @@ class VectorSearchService:
             Database statistics
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not isinstance(self.db, AsyncSession):
                 return {"error": "Async method requires AsyncSession"}

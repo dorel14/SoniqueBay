@@ -6,11 +6,13 @@ Celery worker for fetching artist information from Last.fm API using pylast.
 """
 
 import asyncio
-from typing import List, Dict, Any
+import os
+from typing import Any, Dict, List
+
+import httpx
+
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
-import httpx
-import os
 
 
 @celery.task(name="lastfm.fetch_artist_info", queue="deferred", bind=True)
@@ -29,8 +31,9 @@ def fetch_artist_lastfm_info(self, artist_id: int) -> Dict[str, Any]:
         logger.info(f"[LASTFM] Starting artist info fetch: artist_id={artist_id}, task_id={task_id}")
 
         # Fetch from Last.fm using the service
-        from backend_worker.services.lastfm_service import lastfm_service
         import asyncio
+
+        from backend_worker.services.lastfm_service import lastfm_service
 
         # Get artist name from API first
         library_url = os.getenv("API_URL", "http://api:8001")
@@ -156,8 +159,9 @@ def fetch_similar_artists(self, artist_id: int, limit: int = 10) -> Dict[str, An
             raise ValueError(f"Artist {artist_id} not found in API")
 
         # Fetch similar artists using the Last.fm service
-        from backend_worker.services.lastfm_service import lastfm_service
         import asyncio
+
+        from backend_worker.services.lastfm_service import lastfm_service
 
         # Fetch similar artists using async service
         similar_artists = asyncio.run(lastfm_service.get_similar_artists(artist_name, limit, mb_artist_id))

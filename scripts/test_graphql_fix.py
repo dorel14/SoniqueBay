@@ -4,8 +4,8 @@ Test script to verify the GraphQL filePath filter fix.
 Tests the query syntax and validates it matches the schema.
 """
 
-import sys
 import os
+import sys
 
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

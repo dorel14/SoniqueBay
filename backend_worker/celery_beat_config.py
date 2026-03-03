@@ -3,7 +3,9 @@ Configuration Celery Beat - Tâches planifiées pour les queues différées
 Gère le traitement périodique des tâches lourdes en arrière-plan.
 """
 import os
+
 from celery.schedules import crontab
+
 from backend_worker.celery_app import celery
 
 # Logs de diagnostic pour Celery Beat

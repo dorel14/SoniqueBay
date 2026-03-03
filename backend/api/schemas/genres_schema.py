@@ -1,6 +1,9 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Any
+from typing import Any, List
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from .base_schema import TimestampedSchema
+
 
 class GenreBase(BaseModel):
     name: str = Field(..., description="Nom du genre musical")

@@ -4,11 +4,12 @@ Tests pour le client HTTPX partagé LLM.
 Vérifie que le singleton fonctionne correctement et que
 les connexions sont réutilisées entre les appels.
 """
-import pytest
 import httpx
+import pytest
+
 from backend.api.services.llm_http_client import (
-    get_llm_http_client,
     close_llm_http_client,
+    get_llm_http_client,
     reset_llm_http_client,
 )
 

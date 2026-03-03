@@ -11,14 +11,15 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-import sys
 import os
+import sys
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 
 class TestOllamaSynonymServiceBasics:
@@ -88,8 +89,10 @@ class TestOllamaSynonymServiceBasics:
 
     def test_parse_response_invalid_json(self):
         """Test parsing JSON invalide."""
-        from backend_worker.services.ollama_synonym_service import OllamaSynonymService
-        from backend_worker.services.ollama_synonym_service import OllamaSynonymGenerationError
+        from backend_worker.services.ollama_synonym_service import (
+            OllamaSynonymGenerationError,
+            OllamaSynonymService,
+        )
 
         with patch('backend_worker.services.ollama_synonym_service.OllamaEmbeddingService'):
             service = OllamaSynonymService()

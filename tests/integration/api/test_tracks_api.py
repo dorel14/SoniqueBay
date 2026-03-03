@@ -1,6 +1,7 @@
 # backend/tests/test_api/test_tracks_api.py
 from backend.api.models.tracks_model import Track
 
+
 def test_get_tracks_empty(client, db_session):
     """Test de récupération d'une liste vide de pistes."""
     response = client.get("/api/tracks/")

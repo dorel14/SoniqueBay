@@ -1,15 +1,15 @@
 
-from typing import Dict, Optional, List, Tuple
-from cachetools import TTLCache
-import httpx
-import os
-import redis
 import json
+import os
+from typing import Dict, List, Optional, Tuple
 
-from backend_worker.utils.logging import logger
-from backend_worker.services.settings_service import SettingsService
+import httpx
+import redis
+from cachetools import TTLCache
+
 from backend_worker.services.coverart_service import get_cover_schema, get_cover_types
-
+from backend_worker.services.settings_service import SettingsService
+from backend_worker.utils.logging import logger
 
 
 def snake_to_camel(s: str) -> str:

@@ -2,12 +2,14 @@
 Tests unitaires pour TrackMIRServiceV2.
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock
+
 from backend.api.services.track_mir_service_v2 import (
     TrackMIRServiceV2,
     get_track_mir_service_v2,
-    reset_track_mir_service_v2
+    reset_track_mir_service_v2,
 )
 
 

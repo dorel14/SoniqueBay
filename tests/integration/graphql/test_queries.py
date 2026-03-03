@@ -4,11 +4,11 @@ import pytest
 from strawberry.types import ExecutionResult
 
 from .fixtures import (
-    QUERY_GET_ARTIST,
-    QUERY_LIST_ARTISTS,
     QUERY_GET_ALBUM,
-    QUERY_LIST_ALBUMS,
+    QUERY_GET_ARTIST,
     QUERY_GET_TRACK,
+    QUERY_LIST_ALBUMS,
+    QUERY_LIST_ARTISTS,
     QUERY_LIST_TRACKS,
 )
 

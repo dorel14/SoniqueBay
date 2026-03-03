@@ -4,20 +4,20 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.ai.tools import (
-    search_tracks,
-    search_artists,
-    search_albums,
-    create_playlist,
-    play_track,
     add_to_playqueue,
+    create_playlist,
     get_playqueue,
-    scan_library,
     get_recommendations,
+    play_track,
+    scan_library,
+    search_albums,
+    search_artists,
+    search_tracks,
 )
-from backend.api.models.tracks_model import Track
-from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
+from backend.api.models.artists_model import Artist
 from backend.api.models.playqueue_model import PlayQueueTrack
+from backend.api.models.tracks_model import Track
 
 
 @pytest.mark.asyncio

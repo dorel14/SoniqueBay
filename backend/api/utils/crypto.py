@@ -1,5 +1,7 @@
-from cryptography.fernet import Fernet
 import os
+
+from cryptography.fernet import Fernet
+
 
 def _get_encryption_key() -> bytes:
     """Obtenir la clé de cryptage depuis l'environnement ou utiliser une clé par défaut."""

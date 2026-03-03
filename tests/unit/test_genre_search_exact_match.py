@@ -2,9 +2,11 @@
 Unit tests for genre search exact match functionality.
 Tests the race condition fix for genre creation.
 """
-import pytest
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
 from backend.api.services.genres_service import GenreService
 
 

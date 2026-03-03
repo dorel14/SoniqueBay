@@ -12,11 +12,11 @@ Usage:
 Auteur : Kilo Code
 """
 
+import grp
 import os
 import pwd
-import grp
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def get_current_user_info() -> Dict[str, Any]:
@@ -261,7 +261,9 @@ def main():
     print("\n7. TEST DU SERVICE QUI ÉCHOUE")
     try:
         print("   Tentative d'import du ModelPersistenceService...")
-        from backend_worker.services.model_persistence_service import ModelPersistenceService
+        from backend_worker.services.model_persistence_service import (
+            ModelPersistenceService,
+        )
         print("   ✓ Import réussi")
         
         print("   Tentative d'initialisation...")

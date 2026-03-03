@@ -232,6 +232,7 @@ def test_create_setting_duplicate_key(client, sample_setting_data):
 def test_encryption_decryption_workflow(client, encrypted_setting_data, encryption_key):
     """Test du workflow complet de cryptage/décryptage."""
     from unittest.mock import patch
+
     from backend.api.utils.crypto import encrypt_value
 
     # Utiliser une vraie valeur cryptée pour le test

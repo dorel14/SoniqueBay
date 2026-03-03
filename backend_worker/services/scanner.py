@@ -3,10 +3,12 @@ Module scanner pour le scan de fichiers musicaux.
 Refactorisé pour séparer les responsabilités.
 """
 
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List
+
 from backend_worker.services.music_scan import get_file_type
 from backend_worker.utils.logging import logger
+
 
 def count_music_files(directory: str) -> int:
     """

@@ -1,8 +1,10 @@
+import asyncio
+import json
+
+import redis.asyncio as redis
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
-import json
-import asyncio
-import redis.asyncio as redis
+
 from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="", tags=["sse"])

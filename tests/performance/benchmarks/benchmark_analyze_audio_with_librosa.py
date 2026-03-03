@@ -2,10 +2,11 @@
 """
 Benchmarks pour l'analyse audio individuelle avec Librosa.
 """
-import pytest
 import asyncio
+from unittest.mock import MagicMock, patch
+
 import numpy as np
-from unittest.mock import patch, MagicMock
+import pytest
 
 from backend_worker.services.audio_features_service import analyze_audio_with_librosa
 

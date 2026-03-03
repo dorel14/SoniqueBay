@@ -3,9 +3,11 @@
 Tests d'intégration pour la vectorisation des tracks.
 """
 
-import pytest
 import json
+
+import pytest
 from fastapi.testclient import TestClient
+
 from backend.api.api_app import create_api
 
 
@@ -208,8 +210,9 @@ class TestTrackVectorizationIntegration:
 
     def test_embedding_vector_properties(self, sample_track_data):
         """Test propriétés mathématiques du vecteur d'embedding."""
-        from backend.api.services.vectorization_service import TrackVectorizationService
         import numpy as np
+
+        from backend.api.services.vectorization_service import TrackVectorizationService
 
         service = TrackVectorizationService()
         embedding = service.create_track_embedding(sample_track_data)

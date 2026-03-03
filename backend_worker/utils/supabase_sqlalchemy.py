@@ -9,13 +9,12 @@ import os
 from typing import AsyncGenerator
 from urllib.parse import quote_plus
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy import text
-
-from backend_worker.utils.logging import logger
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Import Base depuis les modèles locaux
 from backend_worker.models.base import Base
+from backend_worker.utils.logging import logger
 
 # Singletons
 _engine = None
@@ -145,10 +144,16 @@ def import_models():
     """
     try:
         from backend_worker.models import (
-            Track, Album, Artist,
-            TrackMIRRaw, TrackMIRNormalized, TrackMIRScores, TrackMIRSyntheticTags,
+            Album,
+            Artist,
+            GenreTag,
+            MoodTag,
+            Track,
             TrackEmbeddings,
-            GenreTag, MoodTag,
+            TrackMIRNormalized,
+            TrackMIRRaw,
+            TrackMIRScores,
+            TrackMIRSyntheticTags,
         )
         
         logger.info("[SupabaseSQLAlchemy] Modèles importés avec succès")

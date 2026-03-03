@@ -4,11 +4,13 @@ Approche simple : une seule classe, pas d'héritage complexe.
 """
 
 from typing import Any, Dict, List, Optional, Union
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.db_config import get_db_backend
+
 from backend.api.utils.database import get_async_session
-from backend.api.utils.supabase_client import get_supabase_service_client
+from backend.api.utils.db_config import get_db_backend
 from backend.api.utils.logging import logger
+from backend.api.utils.supabase_client import get_supabase_service_client
 
 
 class DatabaseAdapter:

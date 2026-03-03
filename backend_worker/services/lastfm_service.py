@@ -6,12 +6,14 @@ Service pour récupérer les informations Last.fm en utilisant la bibliothèque 
 Ce service remplace l'ancienne implémentation basée sur des appels HTTP directs.
 """
 
-import pylast
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
-from backend_worker.utils.logging import logger
-from backend_worker.services.settings_service import SettingsService
+from typing import Any, Dict, List, Optional, Tuple
+
+import pylast
+
 from backend_worker.services.cache_service import cache_service
+from backend_worker.services.settings_service import SettingsService
+from backend_worker.utils.logging import logger
 
 settings_service = SettingsService()
 
@@ -29,8 +31,9 @@ class LastFMService:
             logger.info("[LASTFM] Initializing network via lazy loading with synchronous approach...")
             try:
                 # Récupérer les credentials de manière synchrone depuis l'API
-                import httpx
                 import os
+
+                import httpx
 
                 # Méthode synchrone pour obtenir les settings depuis l'API
                 def get_setting_sync(key: str) -> str:
@@ -238,8 +241,9 @@ class LastFMService:
 
     async def _store_similar_artists(self, artist_name: str, similar_artists: List[Dict[str, Any]], mb_artist_id: Optional[str] = None) -> bool:
         """Store similar artists in the database via API with correct format."""
-        import httpx
         import os
+
+        import httpx
         
         try:
             # Get the API URL
@@ -437,8 +441,9 @@ class LastFMService:
                         logger.info(f"[LASTFM] Found {size} image for artist: {artist_name}")
 
                         # Télécharger et convertir l'image en base64
-                        import httpx
                         import base64
+
+                        import httpx
                         async with httpx.AsyncClient(timeout=10) as client:
                             img_response = await client.get(image_url, timeout=10)
                             if img_response.status_code == 200:

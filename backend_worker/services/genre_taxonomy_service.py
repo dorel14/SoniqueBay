@@ -8,8 +8,9 @@ Version: 1.0.0
 """
 
 from collections import defaultdict
-from backend_worker.utils.logging import logger
+
 from backend_worker.utils.genre_yaml_loader import get_genre_loader
+from backend_worker.utils.logging import logger
 
 
 class GenreTaxonomyService:

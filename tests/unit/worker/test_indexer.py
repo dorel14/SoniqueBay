@@ -1,11 +1,13 @@
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
 
 from backend_worker.services.indexer import (
     MusicIndexer,
+    remote_add_to_index,
     remote_get_or_create_index,
-    remote_add_to_index
 )
+
 
 @pytest.mark.asyncio
 async def test_remote_get_or_create_index_success():

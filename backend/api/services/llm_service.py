@@ -5,15 +5,16 @@ Fournit une interface commune pour les différents fournisseurs de LLM.
 
 Auteur: SoniqueBay Team
 """
-import os
 import asyncio
-from typing import Optional, Dict, Any, List
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.providers.ollama import OllamaProvider
-from backend.api.utils.logging import logger
-from backend.api.services.llm_http_client import get_llm_http_client
+import os
+from typing import Any, Dict, List, Optional
 
+from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.ollama import OllamaProvider
+from pydantic_ai.providers.openai import OpenAIProvider
+
+from backend.api.services.llm_http_client import get_llm_http_client
+from backend.api.utils.logging import logger
 
 # Singleton instance storage
 _llm_service_instance: Optional['LLMService'] = None

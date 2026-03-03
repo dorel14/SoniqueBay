@@ -15,10 +15,11 @@ Couverture:
 Auteur: SoniqueBay Team
 """
 
-import pytest
 import os
 import sys
 from pathlib import Path
+
+import pytest
 
 
 class TestFixAllMIRSchemasMigration:
@@ -107,7 +108,9 @@ class TestModelAlignment:
         """Test que le modèle TrackMIRSyntheticTags attend les bonnes colonnes."""
         sys.path.insert(0, str(Path(__file__).parent.parent.parent))
         try:
-            from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+            from backend.api.models.track_mir_synthetic_tags_model import (
+                TrackMIRSyntheticTags,
+            )
             
             # Vérifier les colonnes attendues
             assert hasattr(TrackMIRSyntheticTags, 'tag_score'), "Doit avoir 'tag_score'"

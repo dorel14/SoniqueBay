@@ -1,10 +1,12 @@
-from backend.api.utils.path_variables import PathVariables
+from typing import Any, Dict, Optional
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.api.models.settings_model import Setting as SettingModel
 from backend.api.schemas.settings_schema import SettingCreate
-from backend.api.utils.crypto import encrypt_value, decrypt_value
-from typing import Any, Dict, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from backend.api.utils.crypto import decrypt_value, encrypt_value
+from backend.api.utils.path_variables import PathVariables
 
 MUSIC_PATH_TEMPLATE = "music_path_template"
 ARTIST_IMAGE_FILES = "artist_image_files"

@@ -9,8 +9,8 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-import sys
 import os
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Ajouter le chemin du projet pour les imports

@@ -1,6 +1,4 @@
-from typing import Dict, Any
-
-
+from typing import Any, Dict
 
 # Sample GraphQL queries for testing
 QUERY_GET_ARTIST = """

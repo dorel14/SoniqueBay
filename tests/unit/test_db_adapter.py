@@ -3,11 +3,13 @@ Tests unitaires pour la couche d'abstraction database (Phase 3).
 Vérifie que DatabaseAdapter et BaseRepository fonctionnent correctement.
 """
 
+from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from backend.api.utils.db_config import USE_SUPABASE, is_migrated, get_db_backend
-from backend.api.utils.db_adapter import DatabaseAdapter, get_adapter
+
 from backend.api.repositories.base_repository import BaseRepository
+from backend.api.utils.db_adapter import DatabaseAdapter, get_adapter
+from backend.api.utils.db_config import USE_SUPABASE, get_db_backend, is_migrated
 
 
 class TestDbConfig:

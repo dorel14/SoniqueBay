@@ -4,9 +4,10 @@ Utilitaires de recherche - Migration vers PostgreSQL + pgvector
 Les fonctions Whoosh ont été supprimées, remplacées par des stubs ou PostgreSQL.
 """
 
-from backend.api.utils.logging import logger
 import os
 from pathlib import Path
+
+from backend.api.utils.logging import logger
 
 BASE_SEARCH_DIR = Path("/app/data/search_indexes")
 

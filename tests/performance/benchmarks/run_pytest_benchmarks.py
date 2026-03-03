@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 def run_benchmarks():
     """Exécute tous les benchmarks pytest-benchmark."""
 

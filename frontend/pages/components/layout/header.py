@@ -1,7 +1,9 @@
 from nicegui import ui
-from frontend.utils.app_state import get_state, toggle_left, toggle_right
+
 from frontend._version_ import __version__
 from frontend.pages.components.layout.menu import settings_menu_component
+from frontend.utils.app_state import get_state, toggle_left, toggle_right
+
 
 def header_component():
     state = get_state()

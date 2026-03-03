@@ -7,9 +7,10 @@ Ce module teste que:
 3. Les méthodes utilisent bien le client persistant self._client
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
 import httpx
+import pytest
 
 
 class TestLLMServiceClientOptimization:
@@ -197,10 +198,9 @@ class TestLLMServiceSingleton:
     async def test_singleton_same_client_instance(self):
         """Test que le singleton réutilise le même client."""
         with patch('backend.api.services.llm_service.logger'):
-            from backend.api.services.llm_service import get_llm_service
-            
             # Reset le singleton pour le test
             import backend.api.services.llm_service as llm_module
+            from backend.api.services.llm_service import get_llm_service
             llm_module._llm_service_instance = None
             
             with patch.object(llm_module, '_llm_service_lock', new=AsyncMock()):

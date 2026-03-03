@@ -1,8 +1,14 @@
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.ai.agents.builder import (
+    build_agent,
+    build_agent_with_inheritance,
+    validate_agent_configuration,
+)
 from backend.api.models.agent_model import AgentModel
-from backend.ai.agents.builder import build_agent, build_agent_with_inheritance, validate_agent_configuration
 from backend.api.utils.logging import logger
 
 

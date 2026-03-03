@@ -1,33 +1,37 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
-import os
+
 import asyncio
-from dataclasses import dataclass
-from fastapi import FastAPI, status, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
+import os
 from contextlib import asynccontextmanager
-from backend.api.utils import settings
-from strawberry.fastapi import GraphQLRouter, BaseContext
-from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.logging import logger
-from backend.api.utils.settings import Settings
-from backend.api.services.settings_service import SettingsService
-from backend.ai.seed_agents import seed_default_agents
+from dataclasses import dataclass
+
 import redis.asyncio as redis
-from backend.api.utils.database import get_async_session
-from backend.api.utils.locked_session import LockedSession
-from alembic.config import Config
 from alembic import command
+from alembic.config import Config
+from fastapi import FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi_cache import FastAPICache
-from backend.api.utils.redis_cache_backend import ResilientRedisBackend
+from sqlalchemy.ext.asyncio import AsyncSession
+from strawberry.fastapi import BaseContext, GraphQLRouter
+
+from backend.ai.seed_agents import seed_default_agents
 
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
-from backend.api.graphql.queries.schema import schema # noqa: E402
 from backend.api.graphql.dataloader.dataloaders import CatalogLoaders
+from backend.api.graphql.queries.schema import schema  # noqa: E402
+from backend.api.services.settings_service import SettingsService
+from backend.api.utils import settings
+from backend.api.utils.database import get_async_session
+from backend.api.utils.locked_session import LockedSession
+from backend.api.utils.logging import logger
+from backend.api.utils.redis_cache_backend import ResilientRedisBackend
+from backend.api.utils.settings import Settings
+
 
 @dataclass
 class AppContext(BaseContext):

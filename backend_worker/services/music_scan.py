@@ -15,21 +15,25 @@ Changements :
 - Tâches Celery : extract_embedded_covers_batch et extract_artist_images_batch pour traitement différé
 """
 
-from pathlib import Path
-from mutagen import File
-import mimetypes
-from mutagen.mp3 import MP3
-from mutagen.flac import FLAC
-import os
-from backend_worker.utils.logging import logger
-import base64
-from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES
-import json
-import aiofiles
 import asyncio
+import base64
+import json
+import mimetypes
+import os
+from pathlib import Path
+
+import aiofiles
 import psutil
+from mutagen import File
+from mutagen.flac import FLAC
+from mutagen.mp3 import MP3
 
-
+from backend_worker.services.settings_service import (
+    ALBUM_COVER_FILES,
+    ARTIST_IMAGE_FILES,
+    SettingsService,
+)
+from backend_worker.utils.logging import logger
 
 settings_service = SettingsService()
 
@@ -604,7 +608,7 @@ async def extract_metadata(audio, file_path_str: str, allowed_base_paths: list[P
             _extract_features_from_acoustid_tags,
             _extract_features_from_standard_tags,
             _has_valid_acoustid_tags,
-            _has_valid_audio_tags
+            _has_valid_audio_tags,
         )
 
         audio_features = {

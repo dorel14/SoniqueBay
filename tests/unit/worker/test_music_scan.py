@@ -1,24 +1,26 @@
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-import logging
 import base64
+import logging
 import os
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend_worker.services.music_scan import (
-    get_file_type,
-    get_cover_art,
-    convert_to_base64,
-    get_file_bitrate,
-    get_musicbrainz_tags,
-    get_artist_images,
-    get_tag,
-    serialize_tags,
-    secure_open_file,
-    sanitize_path,
-    validate_filename
-)
+import pytest
+
 from backend.api.services.scan_service import ScanService
+from backend_worker.services.music_scan import (
+    convert_to_base64,
+    get_artist_images,
+    get_cover_art,
+    get_file_bitrate,
+    get_file_type,
+    get_musicbrainz_tags,
+    get_tag,
+    sanitize_path,
+    secure_open_file,
+    serialize_tags,
+    validate_filename,
+)
+
 
 def test_get_file_type():
     """Test la détermination du type de fichier."""

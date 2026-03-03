@@ -1,9 +1,13 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, Enum, func, UniqueConstraint, Index
-from datetime import datetime
-from sqlalchemy.orm import Mapped, mapped_column
+
 import enum
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, Index, Integer, String, UniqueConstraint, func
+from sqlalchemy.orm import Mapped, mapped_column
+
 from backend_worker.models.base import Base
+
 
 class EntityCoverType(str, enum.Enum):
     TRACK = "track"

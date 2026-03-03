@@ -6,13 +6,12 @@ Tests for the insert_batch_worker fixes:
 4. Album artist case-insensitive matching
 """
 
-import pytest
 from unittest.mock import AsyncMock
 
+import pytest
+
 # Import the functions to test
-from backend_worker.workers.insert.insert_batch_worker import (
-    resolve_track_artist_id
-)
+from backend_worker.workers.insert.insert_batch_worker import resolve_track_artist_id
 
 
 class TestResolveTrackArtistId:
@@ -161,7 +160,9 @@ class TestInsertBatchIntegration:
     @pytest.mark.asyncio
     async def test_artist_resolution_with_case_insensitive_matching(self, mock_client, sample_tracks_data):
         """Test that artists are resolved with case-insensitive matching."""
-        from backend_worker.workers.insert.insert_batch_worker import resolve_track_artist_id
+        from backend_worker.workers.insert.insert_batch_worker import (
+            resolve_track_artist_id,
+        )
         
         # Artist map with proper casing
         artist_map = {

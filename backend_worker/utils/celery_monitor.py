@@ -3,10 +3,12 @@ Utilitaire de monitoring des arguments Celery pour mesurer et optimiser les limi
 """
 
 import json
-import redis
 import os
-from typing import Dict, Any
 from datetime import datetime
+from typing import Any, Dict
+
+import redis
+
 from backend_worker.utils.logging import logger
 
 # Métriques globales pour le monitoring

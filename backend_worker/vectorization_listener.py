@@ -18,8 +18,9 @@ Optimisé pour Raspberry Pi :
 import asyncio
 import signal
 import sys
-from backend_worker.utils.redis_utils import vectorization_listener
+
 from backend_worker.utils.logging import logger
+from backend_worker.utils.redis_utils import vectorization_listener
 
 
 class GracefulShutdown:

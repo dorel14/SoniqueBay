@@ -2,14 +2,16 @@
 Tests unitaires pour RealtimeServiceV2.
 """
 
-import pytest
 from unittest.mock import patch
+
+import pytest
+
 from backend.api.services.realtime_service_v2 import (
+    ChatRealtimeManager,
+    RealtimeChannel,
     RealtimeServiceV2,
     get_realtime_service_v2,
     reset_realtime_service_v2,
-    ChatRealtimeManager,
-    RealtimeChannel
 )
 
 

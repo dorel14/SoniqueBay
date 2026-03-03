@@ -1,8 +1,9 @@
 """Agent de conversation pour SoniqueBay."""
 
-from pydantic_ai import Agent
-from typing import Dict, Any, Optional
 import re
+from typing import Any, Dict, Optional
+
+from pydantic_ai import Agent
 
 
 class SmalltalkAgent:

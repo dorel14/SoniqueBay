@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Float, UniqueConstraint
+from sqlalchemy import Column, Float, Integer, String, UniqueConstraint
+
 from backend.api.utils.database import Base
+
 
 class AgentScore(Base):
     __tablename__ = "agent_scores"

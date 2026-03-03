@@ -3,13 +3,16 @@
 Script de test pour analyser les performances de recherche par genre.
 """
 
-import sys
-import os
 import logging
+import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend', 'library_api'))
 
-from backend.api.utils.database import get_db
 import time
+
+from backend.api.utils.database import get_db
+
 
 def test_genre_search_sql():
     """Test de recherche par genre avec affichage de la requête SQL et caching."""

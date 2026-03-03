@@ -3,14 +3,16 @@ Service de chat IA pour SoniqueBay.
 Gère les interactions avec l'assistant IA musical via LLM (Ollama/KoboldCPP).
 Auteur : Kilo Code
 """
-import uuid
 import asyncio
+import uuid
 from typing import List, Optional
-from sqlalchemy.orm import Session
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.schemas.chat_schema import ChatMessage, ChatResponse, ChatHistory
-from backend.api.utils.logging import logger
+from sqlalchemy.orm import Session
+
+from backend.api.schemas.chat_schema import ChatHistory, ChatMessage, ChatResponse
 from backend.api.services.llm_service import get_llm_service
+from backend.api.utils.logging import logger
 
 
 class ChatService:
@@ -385,9 +387,10 @@ Sois concis, amical et utile. Réponds en français."""
             Description des recommandations
         """
         try:
-            from sqlalchemy import select, and_
-            from backend.api.models.tracks_model import Track
+            from sqlalchemy import and_, select
+
             from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
+            from backend.api.models.tracks_model import Track
 
             # Construire la requête
             conditions = []

@@ -15,16 +15,17 @@ Architecture : backend_worker (CPU) → library_api (données) → recommender_a
 """
 
 import asyncio
+import time
+from typing import Any, Dict, List
+
 import httpx
 from celery import Task
-from typing import List, Dict, Any
-import time
 
 from backend_worker.celery_app import celery
 from backend_worker.services.vectorization_service import (
     OptimizedVectorizationService,
+    train_and_vectorize_all_tracks,
     vectorize_single_track_optimized,
-    train_and_vectorize_all_tracks
 )
 from backend_worker.utils.logging import logger
 

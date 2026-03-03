@@ -12,13 +12,14 @@ Auteur : Kilo Code
 """
 
 import asyncio
-import json
 import hashlib
-from datetime import datetime
-from typing import Dict, Any, Set
+import json
 import os
-import redis.asyncio as redis
+from datetime import datetime
+from typing import Any, Dict, Set
+
 import httpx
+import redis.asyncio as redis
 
 from backend_worker.utils.logging import logger
 

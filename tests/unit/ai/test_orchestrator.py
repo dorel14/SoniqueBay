@@ -10,11 +10,11 @@ Couvre :
 - Gestion d'erreur inattendue dans ws_ai.py
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from backend.ai.orchestrator import Orchestrator
+import pytest
 
+from backend.ai.orchestrator import Orchestrator
 
 # ---------------------------------------------------------------------------
 # Helpers / Fixtures
@@ -273,8 +273,9 @@ class TestWsAiEndpoint:
         """
         Vérifie que le WebSocket appelle bien await orchestrator.init().
         """
-        from backend.api.routers.ws_ai import chat
         from fastapi.websockets import WebSocketDisconnect
+
+        from backend.api.routers.ws_ai import chat
 
         mock_ws = AsyncMock()
         mock_ws.receive_text = AsyncMock(side_effect=WebSocketDisconnect())
@@ -299,8 +300,9 @@ class TestWsAiEndpoint:
         """
         Vérifie que WebSocketDisconnect est géré proprement sans exception.
         """
-        from backend.api.routers.ws_ai import chat
         from fastapi.websockets import WebSocketDisconnect
+
+        from backend.api.routers.ws_ai import chat
 
         mock_ws = AsyncMock()
         mock_ws.receive_text = AsyncMock(side_effect=WebSocketDisconnect())
@@ -327,8 +329,9 @@ class TestWsAiEndpoint:
         """
         Vérifie que les chunks de handle_stream sont envoyés via send_json.
         """
-        from backend.api.routers.ws_ai import chat
         from fastapi.websockets import WebSocketDisconnect
+
+        from backend.api.routers.ws_ai import chat
 
         mock_ws = AsyncMock()
         # Premier appel retourne un message, deuxième déconnecte

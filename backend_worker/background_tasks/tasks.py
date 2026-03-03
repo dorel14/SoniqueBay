@@ -6,12 +6,12 @@ Ce fichier délègue aux nouveaux modules de la refactorisation.
 # Importations depuis les nouveaux modules
 from backend_worker.celery_app import celery
 from backend_worker.tasks.main_tasks import (
-    extract_metadata_batch_legacy,
     batch_entities_legacy,
-    insert_batch_direct_legacy,
-    extract_embedded_covers_batch_legacy,
     extract_artist_images_batch_legacy,
-    show_migration_warnings
+    extract_embedded_covers_batch_legacy,
+    extract_metadata_batch_legacy,
+    insert_batch_direct_legacy,
+    show_migration_warnings,
 )
 
 # Alias pour maintenir la compatibilité avec l'ancienne API
@@ -32,8 +32,9 @@ def cleanup_deleted_tracks_task(music_dir: str, api_url: str = "http://backend:8
         music_dir: Répertoire contenant la musique
         api_url: URL de l'API backend
     """
-    import httpx
     from pathlib import Path
+
+    import httpx
     
     # Récupérer toutes les tracks de la base
     response = httpx.get(f"{api_url}/api/tracks", timeout=30)

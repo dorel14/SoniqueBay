@@ -184,8 +184,9 @@ class SearchService:
         Utilise TrackEmbeddingsService pour la recherche de similarité sémantique.
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             # Pour la recherche vectorielle, on génère un embedding des termes de recherche
             # En production, utiliser un modèle d'embedding réel (Ollama, etc.)
@@ -327,8 +328,9 @@ class SearchService:
             Vecteur d'embedding ou None
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             service = TrackEmbeddingsService(db)
             embedding = await service.get_single_by_track_id(track_id, 'semantic')
@@ -370,8 +372,9 @@ class SearchService:
             db = await get_async_db().__anext__()
 
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             service = TrackEmbeddingsService(db)
             await service.create_or_update(

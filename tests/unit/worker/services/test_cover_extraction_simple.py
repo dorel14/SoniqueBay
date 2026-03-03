@@ -3,8 +3,12 @@
 Test simple pour vérifier que l'extraction des covers fonctionne dans enrichment_worker.py
 """
 
-from unittest.mock import patch, MagicMock
-from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
+from unittest.mock import MagicMock, patch
+
+from backend_worker.workers.metadata.enrichment_worker import (
+    extract_single_file_metadata,
+)
+
 
 def test_cover_extraction_logic():
     """Test simple pour vérifier la logique d'extraction des covers"""

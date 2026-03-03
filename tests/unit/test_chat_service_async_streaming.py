@@ -2,9 +2,10 @@
 Tests unitaires pour le streaming asynchrone dans ChatService.
 Vérifie que le streaming utilise des async iterators non-bloquants.
 """
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 from backend.api.services.chat_service import ChatService
 

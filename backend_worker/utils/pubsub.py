@@ -1,5 +1,7 @@
-import redis
 import json
+
+import redis
+
 
 def publish_event(event_type: str, payload: dict, channel: str = "notifications"):
     """Publie un événement générique dans Redis."""

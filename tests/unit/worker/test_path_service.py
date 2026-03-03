@@ -1,9 +1,16 @@
-import pytest
-from unittest.mock import patch, AsyncMock
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
-from backend_worker.services.path_service import PathService, find_local_images, get_artist_path, find_cover_in_directory
+import pytest
+
+from backend_worker.services.path_service import (
+    PathService,
+    find_cover_in_directory,
+    find_local_images,
+    get_artist_path,
+)
+
 
 @pytest.mark.asyncio
 async def test_get_template_success():

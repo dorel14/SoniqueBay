@@ -1,6 +1,9 @@
 from __future__ import annotations
-import strawberry
+
 from typing import Optional
+
+import strawberry
+
 
 @strawberry.input
 class TrackFilterInput:

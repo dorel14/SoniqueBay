@@ -1,7 +1,10 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover
+
 
 class ArtistBase(BaseModel):
     name: str = Field(..., description="Nom de l'artiste")

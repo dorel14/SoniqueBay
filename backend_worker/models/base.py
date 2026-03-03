@@ -5,9 +5,9 @@ Dupliqué depuis backend/api/utils/database pour indépendance des conteneurs.
 """
 
 from datetime import datetime
+
 from sqlalchemy import DateTime, MetaData, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-
 
 # Naming convention pour les contraintes PostgreSQL
 convention = {

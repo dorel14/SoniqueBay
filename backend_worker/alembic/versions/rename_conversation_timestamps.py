@@ -8,9 +8,8 @@ Create Date: 2025-12-27 16:35:00.000000+00:00
 """
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'rename_conversation_timestamps'

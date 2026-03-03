@@ -1,9 +1,13 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, DateTime, func, Text
-from sqlalchemy.orm import Mapped, mapped_column
-from datetime import datetime
-from backend_worker.models.base import Base
+
 import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from backend_worker.models.base import Base
+
 
 class ScanSession(Base):
     __tablename__ = 'scan_sessions'

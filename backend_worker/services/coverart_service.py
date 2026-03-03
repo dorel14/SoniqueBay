@@ -1,8 +1,11 @@
-import httpx
-from typing import Optional, Tuple
-from backend_worker.utils.logging import logger
 import base64
 import os
+from typing import Optional, Tuple
+
+import httpx
+
+from backend_worker.utils.logging import logger
+
 
 async def get_coverart_image(client: httpx.AsyncClient, mb_release_id: str) -> Optional[Tuple[str, str]]:
     """Récupère l'image de cover depuis Cover Art Archive."""

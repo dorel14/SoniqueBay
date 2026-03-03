@@ -4,14 +4,14 @@ Schémas de réponse pour les agents IA.
 Ce module définit les schémas Pydantic pour les réponses des agents IA,
 conformément aux conventions du projet SoniqueBay.
 """
-from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from .tracks_schema import Track
 from .chat_schema import ChatResponse
+from .tracks_schema import Track
 
 
 class AgentMessageType(str, Enum):

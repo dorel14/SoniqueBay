@@ -1,9 +1,12 @@
 from __future__ import annotations
-import strawberry
+
 from typing import Optional
-from backend.api.graphql.types.tracks_type import TrackType
+
+import strawberry
+
 from backend.api.graphql.types.covers_type import CoverType
 from backend.api.graphql.types.track_filter_type import TrackFilterInput
+from backend.api.graphql.types.tracks_type import TrackType
 from backend.api.services.track_service import TrackService
 
 

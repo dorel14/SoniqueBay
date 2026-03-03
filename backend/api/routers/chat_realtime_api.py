@@ -3,14 +3,14 @@ Router API pour le chat temps réel utilisant Supabase Realtime.
 Remplace le websocket /ws/chat par des endpoints HTTP + Realtime.
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-from backend.api.services.realtime_service_v2 import (
-    get_realtime_service_v2
-)
-from backend.api.utils.logging import logger
+
+from backend.api.services.realtime_service_v2 import get_realtime_service_v2
 from backend.api.utils.db_config import USE_SUPABASE
+from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="/chat", tags=["chat-realtime"])
 
@@ -134,8 +134,8 @@ async def _stream_ai_response(chat_id: str, message: str):
     Stream la réponse IA en arrière-plan via Realtime.
     """
     try:
-        from backend.api.utils.database import AsyncSessionLocal
         from backend.ai.orchestrator import Orchestrator
+        from backend.api.utils.database import AsyncSessionLocal
         
         service = get_realtime_service_v2()
         

@@ -3,12 +3,14 @@
 Exemple de workflow correct pour créer un album avec résolution d'ID artiste.
 """
 
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.api.schemas.albums_schema import AlbumCreate
 from backend.api.schemas.artists_schema import ArtistCreate
+
 
 def test_workflow_correct():
     """Test le workflow correct : recherche/création artiste puis création album."""

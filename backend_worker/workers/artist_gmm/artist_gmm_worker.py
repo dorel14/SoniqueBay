@@ -7,10 +7,12 @@ and managing artist similarity recommendations.
 """
 
 import asyncio
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
+import httpx
+
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
-import httpx
 
 
 @celery.task(name="artist_gmm.train_model", queue="deferred", bind=True)

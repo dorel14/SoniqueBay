@@ -8,6 +8,7 @@ Version: 1.0.0
 """
 
 from typing import Optional
+
 from backend_worker.utils.logging import logger
 
 

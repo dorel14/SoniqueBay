@@ -3,8 +3,9 @@
 Benchmarks pour les opérations CRUD de base de données.
 """
 import pytest
-from backend.api.services.track_service import TrackService
+
 from backend.api.schemas.tracks_schema import TrackCreate
+from backend.api.services.track_service import TrackService
 
 
 class TestDatabaseCRUDBenchmark:

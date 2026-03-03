@@ -1,11 +1,11 @@
 """Tests pour la persistance des conversations."""
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker, select
+from sqlalchemy.orm import select, sessionmaker
 
+from backend.ai.context import ConversationContext
 from backend.api.models.conversation_model import ConversationModel
 from backend.api.utils.database import Base
-from backend.ai.context import ConversationContext
 
 
 @pytest.mark.asyncio

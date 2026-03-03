@@ -1,7 +1,7 @@
 import pytest
 
-from backend.ai.utils.registry import ToolRegistry
 from backend.ai.tool_executor import execute_tool
+from backend.ai.utils.registry import ToolRegistry
 
 
 def teardown_function(fn):

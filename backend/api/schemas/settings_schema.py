@@ -1,7 +1,10 @@
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict
+
 from .base_schema import TimestampedSchema
+
 
 class SettingBase(BaseModel):
     key: str

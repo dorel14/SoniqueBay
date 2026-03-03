@@ -4,13 +4,15 @@ Modèle de base de données pour la persistance des conversations.
 Ce modèle stocke l'historique des conversations entre les utilisateurs
 et les agents IA pour permettre la reprise de sessions et l'analyse.
 """
-from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
-from sqlalchemy import String, JSON, ForeignKey
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend_worker.models.base import Base
 from backend.api.utils.database import TimestampMixin
+from backend_worker.models.base import Base
+
 
 class ConversationModel(Base, TimestampMixin):
     """Modèle de conversation pour le stockage persistant."""

@@ -1,6 +1,8 @@
 from __future__ import annotations
-from sqlalchemy import String, Integer, Boolean
+
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
+
 from backend_worker.models.base import Base, TimestampMixin
 
 

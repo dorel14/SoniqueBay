@@ -5,10 +5,11 @@ Script de test pour valider la correction de la mutation GraphQL create_tracks.
 Vérifie que l'AttributeError 'TrackCreate has no attribute bpm' est résolu.
 """
 
-import httpx
 import json
 import sys
 import time
+
+import httpx
 
 API_URL = "http://localhost:8001/api/graphql"
 
