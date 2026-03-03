@@ -135,3 +135,17 @@ def cleanup_logging():
             log_queue.join_thread()
     except OSError:
         pass  # Ignore errors if the queue thread is already joined
+
+
+# Fonction compatible avec l'ancien API pour obtenir un logger
+def get_logger(name: str) -> logging.Logger:
+    """
+    Retourne un logger pour le nom donné.
+    
+    Args:
+        name: Nom du logger (généralement __name__)
+    
+    Returns:
+        Logger configuré
+    """
+    return logging.getLogger(name)

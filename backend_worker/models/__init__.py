@@ -25,7 +25,6 @@ from backend_worker.models.track_mir_synthetic_tags_model import TrackMIRSynthet
 from backend_worker.models.track_embeddings_model import TrackEmbeddings
 from backend_worker.models.chat_models import Conversation, ChatMessage, ChatSession, ConversationSummary
 from backend_worker.models.user_model import User
-from backend_worker.models.conversation_model import Conversation as OldConversation  # Compat
 
 __all__ = [
     'Base',

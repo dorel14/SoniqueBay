@@ -42,36 +42,20 @@ class ArtistService:
         """
         self.db = db
 
-<<<<<<< HEAD
-    async def create_artist(
-        self, name: str, musicbrainz_artistid: Optional[str], image_url: Optional[str] = None
-    ) -> Artist:
-=======
     async def create_artist(self, artist_data: ArtistCreate) -> Artist:
->>>>>>> origin/master
         """
         Create a new artist.
 
         Args:
-<<<<<<< HEAD
-            name: Artist name (required)
-            musicbrainz_artistid: Optional MusicBrainz artist ID
-            image_url: Optional URL to artist image
-=======
             artist_data: ArtistCreate Pydantic schema with name and musicbrainz_artistid
->>>>>>> origin/master
 
         Returns:
             Artist: Created artist instance
         """
-<<<<<<< HEAD
-        artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid, image_url=image_url)
-=======
         artist = Artist(
             name=artist_data.name,
             musicbrainz_artistid=artist_data.musicbrainz_artistid
         )
->>>>>>> origin/master
         self.db.add(artist)
         await self.db.commit()
         await self.db.refresh(artist)
@@ -151,10 +135,6 @@ class ArtistService:
         artist_id: int,
         name: Optional[str] = None,
         musicbrainz_artistid: Optional[str] = None,
-<<<<<<< HEAD
-        image_url: Optional[str] = None,
-=======
->>>>>>> origin/master
     ) -> Optional[Artist]:
         """
         Update an existing artist.
@@ -162,11 +142,7 @@ class ArtistService:
         Args:
             artist_id: Unique identifier for the artist
             name: Optional new name for the artist
-<<<<<<< HEAD
-            image_url: Optional new image URL
-=======
             musicbrainz_artistid: Optional MusicBrainz artist ID
->>>>>>> origin/master
 
         Returns:
             Optional[Artist]: Updated artist instance if found, None otherwise
@@ -177,11 +153,6 @@ class ArtistService:
                 artist.name = name
             if musicbrainz_artistid is not None:
                 artist.musicbrainz_artistid = musicbrainz_artistid
-<<<<<<< HEAD
-            if image_url is not None:
-                artist.image_url = image_url
-=======
->>>>>>> origin/master
             await self.db.commit()
             await self.db.refresh(artist)
         return artist

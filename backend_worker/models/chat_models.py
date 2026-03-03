@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy import String, Text, ForeignKey, Index, Float, DateTime, Integer, Boolean, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY, VECTOR
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 
 from backend_worker.models.base import Base, TimestampMixin
 from typing import TYPE_CHECKING
@@ -76,8 +76,6 @@ class Conversation(Base, TimestampMixin):
         ARRAY(Float),
         nullable=True
     )
-    # Alternative avec pgvector si disponible:
-    # summary_embedding: Mapped[Optional[Any]] = mapped_column(VECTOR(384), nullable=True)
     
     # Date du dernier résumé généré
     summary_generated_at: Mapped[Optional[datetime]] = mapped_column(
@@ -100,7 +98,7 @@ class Conversation(Base, TimestampMixin):
         nullable=False,
         default="general",
         index=True
-    )  # 'general', 'music_search', 'recommendation', 'analysis', 'support'
+    )
     
     # Contexte système pour cette conversation
     system_context: Mapped[Optional[str]] = mapped_column(
@@ -108,13 +106,12 @@ class Conversation(Base, TimestampMixin):
         nullable=True
     )
     
-    # Métadonnées flexibles
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    # Métadonnées flexibles (renommées pour éviter conflit avec SQLAlchemy)
+    conv_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSONB,
         nullable=True,
         default=dict
     )
-    # Peut contenir: model_used, total_tokens, agent_id, etc.
     
     # État de la conversation
     is_active: Mapped[bool] = mapped_column(
@@ -230,7 +227,7 @@ class ChatMessage(Base, TimestampMixin):
         nullable=False,
         default="user",
         index=True
-    )  # 'user', 'assistant', 'system', 'tool', 'function'
+    )
     
     # Contenu textuel
     content: Mapped[str] = mapped_column(
@@ -243,18 +240,15 @@ class ChatMessage(Base, TimestampMixin):
         ARRAY(Float),
         nullable=True
     )
-    # Alternative pgvector: content_embedding: Mapped[Optional[Any]] = mapped_column(VECTOR(384), nullable=True)
     
     # === MÉTADONNÉES ===
     
-    # Métadonnées du message
-    metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+    # Métadonnées du message (renommées pour éviter conflit)
+    msg_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
         JSONB,
         nullable=True,
         default=dict
     )
-    # Peut contenir: model_used, tokens_input, tokens_output, latency_ms, 
-    #                finish_reason, temperature, etc.
     
     # Appels d'outils (function calling)
     tool_calls: Mapped[Optional[List[Dict]]] = mapped_column(
@@ -339,7 +333,7 @@ class ChatMessage(Base, TimestampMixin):
             "parent_id": str(self.parent_id) if self.parent_id else None,
             "message_timestamp": self.message_timestamp.isoformat() if self.message_timestamp else None,
             "created_at": self.date_added.isoformat() if self.date_added else None,
-            "metadata": self.metadata or {},
+            "msg_metadata": self.msg_metadata or {},
         }
         
         if include_content:
@@ -391,7 +385,7 @@ class ChatSession(Base, TimestampMixin):
         nullable=False,
         default="general",
         index=True
-    )  # 'general', 'music_exploration', 'playlist_creation', 'artist_research'
+    )
     
     # Métadonnées
     session_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(
@@ -473,7 +467,7 @@ class ConversationSummary(Base, TimestampMixin):
     generated_by: Mapped[str] = mapped_column(
         String(100),
         nullable=False
-    )  # 'ai', 'user', 'system'
+    )
     
     model_used: Mapped[Optional[str]] = mapped_column(
         String(100),

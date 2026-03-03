@@ -37,16 +37,6 @@ class ArtistMutations:
         session = info.context.session
         service = ArtistService(session)
 
-<<<<<<< HEAD
-        # Convertir les objets Strawberry en dictionnaires
-        artists_data = []
-        for artist_input in data:
-            artist_data_dict = {
-                'name': artist_input.name,
-                'musicbrainz_artistid': artist_input.musicbrainz_artistid
-            }
-            artists_data.append(artist_data_dict)
-=======
         # Convertir les objets Strawberry en schemas Pydantic
         from backend.api.schemas.artists_schema import ArtistCreate
         artists_data = []
@@ -56,7 +46,6 @@ class ArtistMutations:
                 musicbrainz_artistid=artist_input.musicbrainz_artistid
             )
             artists_data.append(artist_create)
->>>>>>> origin/master
 
         artists = await service.bulk_create_artists(artists_data)
         return [
@@ -86,10 +75,6 @@ class ArtistMutations:
             artist_id=data.id,
             name=artist_data_dict.get('name'),
             musicbrainz_artistid=artist_data_dict.get('musicbrainz_artistid'),
-<<<<<<< HEAD
-            image_url=None
-=======
->>>>>>> origin/master
         )
         if not artist:
             raise ValueError(f"Artist with id {data.id} not found")
@@ -106,16 +91,8 @@ class ArtistMutations:
         session = info.context.session
         service = ArtistService(session)
 
-        # Utiliser get_or_create qui existe dans le service
-<<<<<<< HEAD
-        artist = await service.get_or_create_artist(
-            name=data.name,
-            musicbrainz_artistid=data.musicbrainz_artistid,
-            image_url=None
-        )
-=======
+        # Utiliser get_or_create_artist qui existe dans le service
         artist = await service.get_or_create_artist(name=data.name)
->>>>>>> origin/master
         return ArtistType(
             id=artist.id,
             name=artist.name,
@@ -139,10 +116,6 @@ class ArtistMutations:
                 artist_id=artist.id,
                 name=data,
                 musicbrainz_artistid=None,
-<<<<<<< HEAD
-                image_url=None
-=======
->>>>>>> origin/master
             )
             if updated:
                 updated_artists.append(updated)
@@ -154,8 +127,4 @@ class ArtistMutations:
                 musicbrainz_artistid=artist.musicbrainz_artistid
             )
             for artist in updated_artists
-<<<<<<< HEAD
         ]
-=======
-        ]
->>>>>>> origin/master
