@@ -83,7 +83,9 @@ def decrypt_value(encrypted_value: str) -> str:
         return decrypted
     except Exception as e:
         logger.error(f"Échec du déchiffrement: {type(e).__name__}: {e}")
+        # NOTE: Ne jamais logger le ciphertext - risque de fuite de données
+        # et d'attaques par brute-force offline. On logue seulement la longueur.
         logger.error(
-            f"Valeur chiffrée problématique (100 premiers caractères): {encrypted_value[:100]}..."
+            f"Valeur chiffrée problématique (longueur: {len(encrypted_value)} caractères)"
         )
         return ""
