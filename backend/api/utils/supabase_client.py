@@ -24,7 +24,7 @@ def get_supabase_client() -> Client:
     global _supabase_client
     
     if _supabase_client is None:
-        url = os.getenv("SUPABASE_URL", "http://supabase-db:5432")
+        url = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
         key = os.getenv("SUPABASE_ANON_KEY")
         
         if not key:
@@ -46,7 +46,7 @@ def get_supabase_service_client() -> Client:
     global _supabase_service_client
     
     if _supabase_service_client is None:
-        url = os.getenv("SUPABASE_URL", "http://supabase-db:5432")
+        url = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
         key = os.getenv("SUPABASE_SERVICE_KEY")
         
         if not key:
