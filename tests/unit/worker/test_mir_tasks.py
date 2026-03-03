@@ -60,7 +60,8 @@ class TestMIRTaskQueue:
         """Vérifie que la queue 'mir' est configurée."""
         from backend_worker.celery_config_source import get_unified_queues
         queues = get_unified_queues()
-        assert 'mir' in queues
+        queue_names = [q.name for q in queues]
+        assert 'mir' in queue_names
 
     def test_mir_task_routes_configured(self) -> None:
         """Vérifie que les routes MIR sont configurées."""

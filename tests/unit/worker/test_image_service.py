@@ -133,7 +133,8 @@ async def test_process_cover_image_invalid_album_cover_files_setting(tmp_path, c
         result, mime_type = await process_cover_image(None, str(album_path))
         assert result is None
         assert mime_type is None
-    assert "Erreur traitement cover" in caplog.text
+    assert "Erreur parsing JSON" in caplog.text
+
 @pytest.mark.asyncio
 async def test_read_image_file_nonexistent_file(caplog):
     """Test la lecture d'un fichier image inexistant."""
