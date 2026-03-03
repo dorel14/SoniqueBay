@@ -103,11 +103,11 @@ class ScanService:
         start_time = time.time()
         logger.info(f"[SCAN] Démarrage du scan - répertoire: {directory or 'par défaut'}")
 
-        # DIAGNOSTIC: Variables d'environnement
-        logger.info("[SCAN] === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
+        # DIAGNOSTIC: Variables d'environnement (DEBUG uniquement - evite fuite de donnees sensibles)
+        logger.debug("[SCAN] === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
         for key in sorted(os.environ.keys()):
             if any(env_var in key for env_var in ['MUSIC', 'PLATFORM', 'CELERY', 'DOCKER']):
-                logger.info(f"[SCAN] ENV: {key}={os.environ[key]}")
+                logger.debug(f"[SCAN] ENV: {key}={os.environ[key]}")
 
         # Déterminer le répertoire à scanner
         if not directory:
