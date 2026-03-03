@@ -1,9 +1,31 @@
 """Service d'optimisation du scan."""
 
+import time
 from typing import Dict, Any, Optional
 from backend_worker.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class ScanMetrics:
+    """Métriques de performance pour le scan."""
+    
+    def __init__(self):
+        self.files_processed = 0
+        self.chunks_processed = 0
+        self.processing_time = 0.0
+        self.start_time = time.time()
+        self.errors_count = 0
+        self.files_per_second = 0.0
+        self.avg_chunk_time = 0.0
+    
+    def update(self):
+        """Met à jour les métriques calculées."""
+        elapsed = time.time() - self.start_time
+        if elapsed > 0:
+            self.files_per_second = self.files_processed / elapsed
+        if self.chunks_processed > 0:
+            self.avg_chunk_time = self.processing_time / self.chunks_processed
 
 
 class ScanOptimizer:
@@ -35,4 +57,4 @@ class ScanOptimizer:
         return files
 
 
-__all__ = ['ScanOptimizer']
+__all__ = ['ScanOptimizer', 'ScanMetrics']

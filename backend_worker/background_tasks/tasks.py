@@ -24,6 +24,51 @@ extract_artist_images_batch = extract_artist_images_batch_legacy
 # Fonction utilitaire pour afficher les avertissements de migration
 # REMOVED: Fonction redéfinie, utiliser celle importée depuis main_tasks
 
+# Fonction de nettoyage des tracks supprimées (pour compatibilité tests)
+def cleanup_deleted_tracks_task(music_dir: str, api_url: str = "http://backend:8001") -> None:
+    """Nettoie les tracks supprimées du filesystem dans la base de données.
+    
+    Args:
+        music_dir: Répertoire contenant la musique
+        api_url: URL de l'API backend
+    """
+    import httpx
+    from pathlib import Path
+    
+    # Récupérer toutes les tracks de la base
+    response = httpx.get(f"{api_url}/api/tracks", timeout=30)
+    if response.status_code != 200:
+        return
+    
+    db_tracks = response.json()
+    if not isinstance(db_tracks, list):
+        return
+    
+    # Récupérer tous les fichiers du filesystem
+    music_path = Path(music_dir)
+    if not music_path.exists():
+        return
+    
+    fs_files = set()
+    for ext in ['*.mp3', '*.flac', '*.ogg', '*.m4a', '*.wav']:
+        for file_path in music_path.rglob(ext):
+            fs_files.add(str(file_path))
+    
+    # Trouver les tracks supprimées (présentes en DB mais pas sur le filesystem)
+    db_paths = {track.get('path') for track in db_tracks if track.get('path')}
+    deleted_paths = db_paths - fs_files
+    
+    # Supprimer les tracks manquantes
+    for deleted_path in deleted_paths:
+        try:
+            httpx.delete(
+                f"{api_url}/api/tracks/search?path={deleted_path}",
+                timeout=10
+            )
+        except Exception:
+            pass  # Ignorer les erreurs de suppression
+
+
 # Exportations pour faciliter l'importation
 __all__ = [
     'celery',
@@ -32,5 +77,6 @@ __all__ = [
     'insert_batch_direct',
     'extract_embedded_covers_batch',
     'extract_artist_images_batch',
-    'show_migration_warnings'
+    'show_migration_warnings',
+    'cleanup_deleted_tracks_task'
 ]
