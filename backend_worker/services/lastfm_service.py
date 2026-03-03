@@ -53,20 +53,17 @@ class LastFMService:
 
                 api_key = get_setting_sync("lastfm_api_key")
                 api_secret = get_setting_sync("lastfm_shared_secret")
-                username = get_setting_sync("lastfm_user")
-                password = get_setting_sync("lastfm_password")
 
                 if not api_key or not api_secret:
-                    raise ValueError("Last.fm credentials not configured in settings")
+                    raise ValueError("Last.fm API key and secret not configured in settings")
 
-                logger.info("[LASTFM] Initializing Last.fm network with pylast (synchronous)")
+                logger.info("[LASTFM] Initializing Last.fm network with pylast (anonymous mode)")
 
-                # Créer une session anonyme de manière synchrone
+                # Créer une session anonyme (lecture seule uniquement)
+                # Pas besoin de username/password pour les opérations en lecture seule
                 self._network = pylast.LastFMNetwork(
                     api_key=api_key,
-                    api_secret=api_secret,
-                    username=username,
-                    password_hash=pylast.md5(password) if password else None
+                    api_secret=api_secret
                 )
 
                 logger.info("[LASTFM] Last.fm network initialized with pylast")
@@ -94,19 +91,15 @@ class LastFMService:
             api_secret = await settings_service.get_setting("lastfm_shared_secret")
 
             if not api_key or not api_secret:
-                raise ValueError("Last.fm credentials not configured in settings")
+                raise ValueError("Last.fm API key and secret not configured in settings")
 
-            logger.info("[LASTFM] Initializing Last.fm network with pylast")
+            logger.info("[LASTFM] Initializing Last.fm network with pylast (anonymous mode)")
 
-            # Créer une session anonyme (pas besoin de compte utilisateur)
-            username = await settings_service.get_setting("lastfm_user")
-            password = await settings_service.get_setting("lastfm_password")
-
+            # Créer une session anonyme (lecture seule uniquement)
+            # Pas besoin de username/password pour les opérations en lecture seule
             self._network = pylast.LastFMNetwork(
                 api_key=api_key,
-                api_secret=api_secret,
-                username=username,
-                password_hash=pylast.md5(password)  # Session anonyme
+                api_secret=api_secret
             )
 
             logger.info("[LASTFM] Last.fm network initialized with pylast")

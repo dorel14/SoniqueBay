@@ -27,6 +27,10 @@ from backend.api.routers.track_vectors_api import router as track_vectors_router
 from backend.api.routers.mir_api import router as mir_router  # noqa: E402
 from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
 from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: E402
+<<<<<<< HEAD
+=======
+from backend.api.routers.simple_chat_api import router as simple_chat_router  # noqa: E402
+>>>>>>> origin/master
 
 
 
@@ -62,6 +66,10 @@ ROUTERS = [
     gmm_router,
     synonyms_router,
     track_vectors_router,
+<<<<<<< HEAD
+=======
+    simple_chat_router,
+>>>>>>> origin/master
 ]
 
 # Inclure tous les routers

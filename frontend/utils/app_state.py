@@ -1,12 +1,14 @@
 from dataclasses import dataclass, field
 from nicegui import app
+import uuid
 
 @dataclass
 class Appstate:
     left_drawer_open: bool = True
     right_drawer_open: bool = True
     active_tab: str = 'Queue'
-    chat_messages: list[tuple[str, str, str, str]] =  field(default_factory=list)
+    user_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    chat_messages: list[tuple[str, str, str, str]] = field(default_factory=list)
     total_pages: int = 1
     page_size: int = 10
     current_page: int = 1
@@ -81,3 +83,20 @@ def update_current_page(value: str):
 def set_view_mode(mode: str):
     state = get_state()
     state.view_mode = mode
+
+def add_chat_message(user_id: str, avatar: str, text: str, stamp: str):
+    """
+    Ajoute un message au chat dans l'état de l'application.
+    
+    Args:
+        user_id: ID de l'utilisateur qui a envoyé le message
+        avatar: URL de l'avatar
+        text: Contenu du message
+        stamp: Horodatage du message (format HH:MM)
+    """
+    state = get_state()
+    state.chat_messages.append((user_id, avatar, text, stamp))
+    
+    # Limiter le nombre de messages stockés (garder les 100 derniers)
+    if len(state.chat_messages) > 100:
+        state.chat_messages = state.chat_messages[-100:]

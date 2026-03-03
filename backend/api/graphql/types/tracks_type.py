@@ -270,29 +270,36 @@ class TrackType:
         """
         Récupère les tags MIR bruts de la piste.
 
+        Les champs individuels (bpm, key, scale, etc.) sont extraits depuis
+        le blob JSON `features_raw` du modèle TrackMIRRaw.
+
         Returns:
             Les tags MIR bruts ou None si non disponibles
         """
         if hasattr(self, "_mir_raw") and self._mir_raw:
             raw = self._mir_raw
+            # Extraire les champs individuels depuis le blob JSON features_raw
+            features: dict = raw.features_raw or {}
             return TrackMIRRawType(
                 id=raw.id,
                 track_id=raw.track_id,
-                bpm=raw.bpm,
-                key=raw.key,
-                scale=raw.scale,
-                danceability=raw.danceability,
-                mood_happy=raw.mood_happy,
-                mood_aggressive=raw.mood_aggressive,
-                mood_party=raw.mood_party,
-                mood_relaxed=raw.mood_relaxed,
-                instrumental=raw.instrumental,
-                acoustic=raw.acoustic,
-                tonal=raw.tonal,
-                genre_tags=list(raw.genre_tags) if raw.genre_tags else [],
-                mood_tags=list(raw.mood_tags) if raw.mood_tags else [],
-                analysis_source=raw.analysis_source,
-                created_at=raw.created_at,
+                bpm=features.get("bpm"),
+                key=features.get("key"),
+                scale=features.get("scale"),
+                danceability=features.get("danceability"),
+                mood_happy=features.get("mood_happy"),
+                mood_aggressive=features.get("mood_aggressive"),
+                mood_party=features.get("mood_party"),
+                mood_relaxed=features.get("mood_relaxed"),
+                instrumental=features.get("instrumental"),
+                acoustic=features.get("acoustic"),
+                tonal=features.get("tonal"),
+                genre_tags=list(features.get("genre_tags", [])),
+                mood_tags=list(features.get("mood_tags", [])),
+                # mir_source est le champ de traçabilité de la source d'analyse
+                analysis_source=raw.mir_source,
+                # analyzed_at remplace created_at dans le modèle corrigé
+                created_at=raw.analyzed_at,
                 date_added=raw.date_added,
                 date_modified=raw.date_modified,
             )

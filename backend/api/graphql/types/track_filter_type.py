@@ -9,4 +9,4 @@ class TrackFilterInput:
     album_id: Optional[int] = None
     genre: Optional[str] = None
     year: Optional[str] = None
-    file_path: Optional[str] = None
+    filePath: Optional[str] = None

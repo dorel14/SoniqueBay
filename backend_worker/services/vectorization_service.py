@@ -38,6 +38,16 @@ class OptimizedVectorizationService:
         self.embedding_service = OllamaEmbeddingService()
         self.is_trained = True  # le modèle local n'a pas besoin d'entraînement
         self.vector_dimension = OllamaEmbeddingService.EMBEDDING_DIMENSION
+<<<<<<< HEAD
+=======
+        
+        # Attributs de compatibilité pour ModelPersistenceService (versioning)
+        # Ces attributs simulent les vectorizers entraînables pour la compatibilité
+        # avec l'ancien système de versioning sklearn
+        self.text_vectorizer = _DummyTextVectorizer()
+        self.audio_vectorizer = _DummyAudioVectorizer()
+        self.tag_classifier = _DummyTagClassifier()
+>>>>>>> origin/master
 
         logger.info(
             f"[VECTORIZATION] Service initialisé, dimension={self.vector_dimension}"
@@ -186,6 +196,42 @@ class OptimizedVectorizationService:
     def is_model_available(self) -> bool:
         """Alias plus générique de `is_ollama_available`."""
         return self.is_ollama_available()
+<<<<<<< HEAD
+=======
+
+    async def train_vectorizers(self) -> Dict[str, Any]:
+        """
+        Méthode de compatibilité pour le versioning des modèles.
+        
+        Le modèle sentence-transformers (all-MiniLM-L6-v2) est pré-entraîné
+        et n'a pas besoin d'entraînement. Cette méthode retourne un succès
+        immédiat car le modèle est déjà disponible.
+        
+        Returns:
+            Dict avec le statut de l'entraînement (toujours succès)
+        """
+        logger.info("[VECTORIZATION] Vérification modèle pré-entraîné (sentence-transformers)")
+        
+        # Vérifier que le modèle est disponible
+        model_available = self.is_model_available()
+        
+        if model_available:
+            return {
+                "status": "success",
+                "message": "Modèle sentence-transformers prêt (pré-entraîné)",
+                "model_type": "sentence-transformers",
+                "model_name": OllamaEmbeddingService.MODEL_NAME,
+                "vector_dimension": self.vector_dimension,
+                "is_pretrained": True,
+                "tracks_processed": 0  # Pas de nouvel entraînement nécessaire
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "Modèle sentence-transformers non disponible",
+                "model_type": "sentence-transformers"
+            }
+>>>>>>> origin/master
 
 
 # === FONCTIONS UTILITAIRES ===
@@ -296,3 +342,45 @@ if __name__ == "__main__":
 
     # Exécuter les tests
     asyncio.run(test_service())
+<<<<<<< HEAD
+=======
+
+
+# === CLASSES FACTICES POUR COMPATIBILITÉ VERSIONING ===
+
+class _DummyTextVectorizer:
+    """Classe factice pour compatibilité avec ModelPersistenceService.
+    
+    Le modèle sentence-transformers est pré-entraîné et n'a pas besoin
+    de vectorizer sklearn entraînable.
+    """
+    def __init__(self):
+        self.pipeline = None
+        self.vector_dimension = OllamaEmbeddingService.EMBEDDING_DIMENSION
+        self.is_fitted = True
+    
+    def extract_text_features(self, text: str) -> dict:
+        """Retourne un dictionnaire vide pour compatibilité."""
+        return {}
+
+
+class _DummyAudioVectorizer:
+    """Classe factice pour compatibilité avec ModelPersistenceService."""
+    def __init__(self):
+        self.scaler = None
+        self.key_encoder = None
+        self.scale_encoder = None
+        self.camelot_encoder = None
+        self.is_fitted = True
+        self.feature_names = []
+
+
+class _DummyTagClassifier:
+    """Classe factice pour compatibilité avec ModelPersistenceService."""
+    def __init__(self):
+        self.genre_classifier = None
+        self.mood_classifier = None
+        self.genre_classes = []
+        self.mood_classes = []
+        self.is_fitted = True
+>>>>>>> origin/master

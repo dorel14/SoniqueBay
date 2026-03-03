@@ -19,6 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from backend.api.utils.logging import logger
 from backend.api.models import Album, Artist, Track
+from backend.api.schemas.artists_schema import ArtistCreate
 
 
 class ArtistService:
@@ -41,21 +42,36 @@ class ArtistService:
         """
         self.db = db
 
+<<<<<<< HEAD
     async def create_artist(
         self, name: str, musicbrainz_artistid: Optional[str], image_url: Optional[str] = None
     ) -> Artist:
+=======
+    async def create_artist(self, artist_data: ArtistCreate) -> Artist:
+>>>>>>> origin/master
         """
         Create a new artist.
 
         Args:
+<<<<<<< HEAD
             name: Artist name (required)
             musicbrainz_artistid: Optional MusicBrainz artist ID
             image_url: Optional URL to artist image
+=======
+            artist_data: ArtistCreate Pydantic schema with name and musicbrainz_artistid
+>>>>>>> origin/master
 
         Returns:
             Artist: Created artist instance
         """
+<<<<<<< HEAD
         artist = Artist(name=name, musicbrainz_artistid=musicbrainz_artistid, image_url=image_url)
+=======
+        artist = Artist(
+            name=artist_data.name,
+            musicbrainz_artistid=artist_data.musicbrainz_artistid
+        )
+>>>>>>> origin/master
         self.db.add(artist)
         await self.db.commit()
         await self.db.refresh(artist)
@@ -135,7 +151,10 @@ class ArtistService:
         artist_id: int,
         name: Optional[str] = None,
         musicbrainz_artistid: Optional[str] = None,
+<<<<<<< HEAD
         image_url: Optional[str] = None,
+=======
+>>>>>>> origin/master
     ) -> Optional[Artist]:
         """
         Update an existing artist.
@@ -143,7 +162,11 @@ class ArtistService:
         Args:
             artist_id: Unique identifier for the artist
             name: Optional new name for the artist
+<<<<<<< HEAD
             image_url: Optional new image URL
+=======
+            musicbrainz_artistid: Optional MusicBrainz artist ID
+>>>>>>> origin/master
 
         Returns:
             Optional[Artist]: Updated artist instance if found, None otherwise
@@ -154,8 +177,11 @@ class ArtistService:
                 artist.name = name
             if musicbrainz_artistid is not None:
                 artist.musicbrainz_artistid = musicbrainz_artistid
+<<<<<<< HEAD
             if image_url is not None:
                 artist.image_url = image_url
+=======
+>>>>>>> origin/master
             await self.db.commit()
             await self.db.refresh(artist)
         return artist
@@ -306,16 +332,12 @@ class ArtistService:
         )
         return list(result.scalars().all())
 
-    async def get_or_create_artist(
-        self, name: str, bio: Optional[str] = None, image_url: Optional[str] = None
-    ) -> Artist:
+    async def get_or_create_artist(self, name: str) -> Artist:
         """
         Get an existing artist by name or create a new one.
 
         Args:
             name: Artist name to search for or create
-            bio: Optional biography for new artist
-            image_url: Optional image URL for new artist
 
         Returns:
             Artist: Existing or newly created artist instance
@@ -334,19 +356,18 @@ class ArtistService:
             return artist
 
         # Create new artist if not found
-        return await self.create_artist(
-            name=normalized_name, bio=bio, image_url=image_url
-        )
+        artist_data = ArtistCreate(name=normalized_name, musicbrainz_artistid=None)
+        return await self.create_artist(artist_data)
 
     async def bulk_create_artists(
-        self, artists_data: List[dict]
+        self, artists_data: List[ArtistCreate]
     ) -> List[Artist]:
         """
         Create multiple artists in a single transaction.
 
         Args:
-            artists_data: List of dictionaries containing artist data
-                Each dict should have keys: name (required), bio, image_url
+            artists_data: List of ArtistCreate schemas containing artist data
+                Each schema should have: name (required), musicbrainz_artistid (optional)
 
         Returns:
             List[Artist]: List of created artist instances
@@ -354,9 +375,8 @@ class ArtistService:
         artists = []
         for data in artists_data:
             artist = Artist(
-                name=data["name"],
-                bio=data.get("bio"),
-                image_url=data.get("image_url"),
+                name=data.name,
+                musicbrainz_artistid=data.musicbrainz_artistid,
             )
             self.db.add(artist)
             artists.append(artist)
@@ -405,8 +425,7 @@ class ArtistService:
             stats = {
                 "id": artist.id,
                 "name": artist.name,
-                "bio": artist.bio,
-                "image_url": artist.image_url,
+                "musicbrainz_artistid": artist.musicbrainz_artistid,
                 "album_count": row[1],
                 "track_count": row[2],
             }
