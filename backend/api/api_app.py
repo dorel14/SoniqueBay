@@ -199,7 +199,7 @@ async def handle_trailing_slashes(request: Request, call_next):
                 # route.path est relatif (ex: /artists/), request.url.path est absolu (ex: /api/artists)
                 # On doit comparer route.path (sans slash final) avec request.url.path sans le préfixe /api
                 route_path_no_slash = route.path.rstrip('/')
-                request_path_no_api = request.url.path.replace("/api", "")
+                request_path_no_api = request.url.path.removeprefix("/api")
                 logger.debug(f"[MIDDLEWARE] Comparaison: route.path='{route.path}' -> '{route_path_no_slash}', request='{request_path_no_api}'")
 
                 if route_path_no_slash == request_path_no_api:
