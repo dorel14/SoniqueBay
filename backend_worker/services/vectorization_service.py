@@ -38,8 +38,6 @@ class OptimizedVectorizationService:
         self.embedding_service = OllamaEmbeddingService()
         self.is_trained = True  # le modèle local n'a pas besoin d'entraînement
         self.vector_dimension = OllamaEmbeddingService.EMBEDDING_DIMENSION
-<<<<<<< HEAD
-=======
         
         # Attributs de compatibilité pour ModelPersistenceService (versioning)
         # Ces attributs simulent les vectorizers entraînables pour la compatibilité
@@ -47,7 +45,6 @@ class OptimizedVectorizationService:
         self.text_vectorizer = _DummyTextVectorizer()
         self.audio_vectorizer = _DummyAudioVectorizer()
         self.tag_classifier = _DummyTagClassifier()
->>>>>>> origin/master
 
         logger.info(
             f"[VECTORIZATION] Service initialisé, dimension={self.vector_dimension}"
@@ -185,7 +182,7 @@ class OptimizedVectorizationService:
         return await self.embedding_service.vectorize_tracks_batch(track_ids)
 
     def is_ollama_available(self) -> bool:
-        """Historique : vérifie si le modèle d'embedding local est disponible.
+        """Historique : vérifie si le modèle d'embedding local est disponible.
 
         La méthode conserve son nom pour rétro‑compatibilité, mais le
         modèle n'a plus rien à voir avec Ollama.
@@ -196,8 +193,6 @@ class OptimizedVectorizationService:
     def is_model_available(self) -> bool:
         """Alias plus générique de `is_ollama_available`."""
         return self.is_ollama_available()
-<<<<<<< HEAD
-=======
 
     async def train_vectorizers(self) -> Dict[str, Any]:
         """
@@ -231,7 +226,6 @@ class OptimizedVectorizationService:
                 "message": "Modèle sentence-transformers non disponible",
                 "model_type": "sentence-transformers"
             }
->>>>>>> origin/master
 
 
 # === FONCTIONS UTILITAIRES ===
@@ -342,8 +336,6 @@ if __name__ == "__main__":
 
     # Exécuter les tests
     asyncio.run(test_service())
-<<<<<<< HEAD
-=======
 
 
 # === CLASSES FACTICES POUR COMPATIBILITÉ VERSIONING ===
@@ -383,4 +375,3 @@ class _DummyTagClassifier:
         self.genre_classes = []
         self.mood_classes = []
         self.is_fitted = True
->>>>>>> origin/master
