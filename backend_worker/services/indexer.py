@@ -1,13 +1,11 @@
 # music/indexer.py
-import json
 import os
 import shutil
-from typing import Callable, Dict, Optional
-
-import httpx
-
+from typing import Callable, Optional, Dict
 from backend_worker.services.music_scan import scan_music_files
 from backend_worker.utils.logging import logger
+import httpx
+import json
 
 API_URL= os.getenv("API_URL", "http://localhost:8000")
 

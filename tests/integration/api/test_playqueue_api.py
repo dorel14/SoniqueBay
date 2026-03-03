@@ -8,6 +8,7 @@ import pytest
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack
 
 
+
 @pytest.fixture
 def mock_playqueue_service(mocker):
     """Fixture pour mocker le PlayQueueService."""

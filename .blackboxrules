@@ -59,29 +59,6 @@ Quand Blackbox génère/modifie du code pour ce repo :
 - Règle #8 : les plans et TODO doivent être créés dans le dossier docs/plans 
 - Règle #9 : Chaque corrections fait l'objet d'un commit selon le format 'Conventional Commits'
 - Règle #10 : le développement se faisant sous windows ,  interdiction d'utiliser des commandes linux ,  uniquement powershell 
-- Règle 11 : tous les fichiers de code doivent comporter un entête sous ce format :
-- """Service de génération de vecteurs audio features enrichis (64 dimensions).
-
-Ce service crée des embeddings de 64 dimensions à partir des caractéristiques audio,
-intégrant les formules MIR pour le clustering GMM et les recommandations.
-
-Structure du vecteur 64D:
-- BPM & Temporal (8 dims): bpm_norm, bpm_x2, bpm_sqrt, tempo_category, duration_norm, 
-                            attack_time, release_time, dynamic_complexity
-- Key & Tonality (13 dims): 12 notes one-hot + mode (major/minor)
-- Core Features (12 dims): danceability, acoustic, instrumental, valence, energy, 
-                           speechiness, loudness, liveness, positivity, mood_happy,
-                           mood_aggressive, mood_party, mood_relaxed (1 extra pour alignement)
-- Mood Scores MIR (12 dims): energy_score, valence, dance_score, acousticness,
-                             complexity_score, emotional_intensity + 6备用
-- Derived MIR Scores (12 dims): happiness, sadness, anger, calm, excitement, 
-                                 nostalgia + 6备用
-- Genre Probabilities (8 dims): rock, pop, electronic, jazz, classical, hiphop,
-                                 metal, acoustic
-
-Auteur: SoniqueBay Team
-Version: 1.0.0
-"""
 
 
 ------------------------------------------------------------

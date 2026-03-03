@@ -5,11 +5,9 @@ Respecte l'architecture SoniqueBay
 """
 
 import asyncio
-
-from backend_worker.utils.metadata_diagnostic_api import run_metadata_diagnostic_via_api
-
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
+from backend_worker.utils.metadata_diagnostic_api import run_metadata_diagnostic_via_api
 from backend_worker.utils.redis_utils import get_redis_client
 
 

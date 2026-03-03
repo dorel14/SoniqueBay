@@ -4,11 +4,10 @@ Script de validation Ruff pour SoniqueBay
 Vérifie l'état des erreurs et génère un rapport de qualité
 """
 
-import json
 import subprocess
+import json
 from datetime import datetime
 from pathlib import Path
-
 
 def run_ruff_check():
     """Exécute la vérification Ruff et retourne les résultats"""

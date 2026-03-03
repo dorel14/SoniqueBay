@@ -2,11 +2,9 @@
 Unit tests for genre search exact match functionality.
 Tests the race condition fix for genre creation.
 """
-from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-
+from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime
 from backend.api.services.genres_service import GenreService
 
 
@@ -155,6 +153,7 @@ class TestGenreRaceConditionPrevention:
     @pytest.mark.asyncio
     async def test_create_or_get_genre_uses_exact_match(self):
         """Test that create_or_get_genre uses exact_match parameter."""
+        import httpx
         from backend_worker.services.entity_manager import create_or_get_genre
         
         # Create mock client with proper async behavior
@@ -188,6 +187,7 @@ class TestGenreRaceConditionPrevention:
     @pytest.mark.asyncio
     async def test_create_or_get_genre_creates_when_not_found(self):
         """Test that create_or_get_genre creates genre when not found."""
+        import httpx
         from backend_worker.services.entity_manager import create_or_get_genre
         
         # Create mock client with proper async behavior

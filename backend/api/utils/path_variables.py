@@ -1,6 +1,5 @@
 from typing import Dict
 
-
 class PathVariables:
     # Définition des variables disponibles avec leurs descriptions
     VARIABLES = {

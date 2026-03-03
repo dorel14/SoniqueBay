@@ -18,11 +18,14 @@ Configuration locale :
 """
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, AsyncIterator, List, Optional
 
 import httpx
+
+from backend.api.services.llm_http_client import get_llm_http_client
 from pydantic_ai.messages import (
     ModelMessage,
     ModelResponse,
@@ -33,9 +36,11 @@ from pydantic_ai.models import (
     ModelRequestParameters,
     StreamedResponse,
 )
+from pydantic_ai._parts_manager import ModelResponsePartsManager
+from pydantic_ai._run_context import RunContext
 from pydantic_ai.settings import ModelSettings
+from pydantic_ai.usage import RequestUsage
 
-from backend.api.services.llm_http_client import get_llm_http_client
 from backend.api.utils.logging import logger
 
 

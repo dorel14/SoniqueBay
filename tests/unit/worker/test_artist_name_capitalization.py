@@ -5,10 +5,9 @@ This module tests the proper_case_artist_name function and its integration
 with the artist creation process.
 """
 
-import os
-import sys
-
 import pytest
+import sys
+import os
 
 # Add the project root to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../..'))

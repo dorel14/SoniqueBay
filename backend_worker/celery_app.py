@@ -1,22 +1,14 @@
 
-import os
-import signal
-import socket
-
-import redis
 from celery import Celery
-from celery.signals import task_postrun, task_prerun, worker_init, worker_shutdown
-from kombu import Queue
+from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdown
 
-from backend_worker.utils.celery_monitor import (
-    auto_configure_celery_limits,
-    get_size_summary,
-    log_task_size_report,
-    measure_celery_task_size,
-    update_size_metrics,
-)
 from backend_worker.utils.logging import logger
-
+from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
+import os
+import redis
+import socket
+import signal
+from kombu import Queue
 
 # === SIGNAL HANDLERS ===
 def handle_sigterm(signum, frame):
@@ -148,7 +140,6 @@ celery.events.queue_capacity = 10000  # Capacité queue d'événements augmenté
 # === CONFIGURATION UNIFIÉE POUR ÉVITER LES ERREURS KOMBU ===
 # Appliquer la configuration unifiée pour éviter ValueError dans Kombu
 from backend_worker.celery_config_source import get_unified_celery_config
-
 celery.conf.update(get_unified_celery_config())
 
 # === CONFIGURATION SPÉCIFIQUE AU WORKER (EN PLUS DE LA CONFIGURATION UNIFIÉE) ===
@@ -213,12 +204,10 @@ def configure_worker(sender=None, **kwargs):
 
     # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
     try:
-        from backend_worker.utils.celery_config_publisher import (
-            publish_celery_config_to_redis,
-        )
-        logger.info("[WORKER INIT] Publication de la configuration Celery dans Redis")
+        from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
+        logger.info(f"[WORKER INIT] Publication de la configuration Celery dans Redis")
         publish_celery_config_to_redis()
-        logger.info("[WORKER INIT] Configuration Celery publiée avec succès")
+        logger.info(f"[WORKER INIT] Configuration Celery publiée avec succès")
     except Exception as e:
         logger.error(f"[WORKER INIT] Erreur lors de la publication de la configuration: {str(e)}")
         # Ne pas bloquer le démarrage du worker si la publication échoue
@@ -355,39 +344,3 @@ def worker_shutdown_handler(sender=None, **kwargs):
         logger.error(f"[WORKER SHUTDOWN] Erreur lors du nettoyage des ressources de logging: {e}")
     
     logger.warning(f"[WORKER SHUTDOWN] Worker {worker_name} s'arrête - Vérifier si c'est normal ou crash")
-
-
-# === DÉFINITIONS DES QUEUES ET ROUTES POUR LES TESTS ===
-# Ces définitions sont nécessaires pour la compatibilité avec les tests unitaires
-
-# Définition des queues pour Celery
-task_queues = [
-    Queue('scan', routing_key='scan'),
-    Queue('extract', routing_key='extract'),
-    Queue('batch', routing_key='batch'),
-    Queue('insert', routing_key='insert'),
-    Queue('covers', routing_key='covers'),
-    Queue('deferred_vectors', routing_key='deferred_vectors'),
-    Queue('deferred_covers', routing_key='deferred_covers'),
-    Queue('deferred_enrichment', routing_key='deferred_enrichment'),
-    Queue('vectorization_monitoring', routing_key='vectorization_monitoring'),
-    Queue('deferred', routing_key='deferred'),
-    Queue('celery', routing_key='celery'),
-    Queue('maintenance', routing_key='maintenance'),
-    Queue('audio_analysis', routing_key='audio_analysis'),
-]
-
-# Définition des routes pour les tâches Celery
-task_routes = {
-    'monitor_tag_changes': {'queue': 'maintenance'},
-    'extract_metadata': {'queue': 'extract'},
-    'process_entities': {'queue': 'batch'},
-    'insert.direct_batch': {'queue': 'insert'},
-    'process_artist_images': {'queue': 'covers'},
-    'process_album_covers': {'queue': 'covers'},
-    'deferred_vectorization': {'queue': 'deferred_vectors'},
-    'deferred_cover_fetch': {'queue': 'deferred_covers'},
-    'deferred_enrichment': {'queue': 'deferred_enrichment'},
-    'monitor_vectorization': {'queue': 'vectorization_monitoring'},
-    'analyze_audio': {'queue': 'audio_analysis'},
-}

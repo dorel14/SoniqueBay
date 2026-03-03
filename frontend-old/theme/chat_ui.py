@@ -4,10 +4,8 @@ Classe maintenable inspirée de ChatDemo avec streaming WebSocket.
 Auteur : Kilo Code
 """
 import asyncio
-from typing import Any, Dict, List, Optional
-
+from typing import List, Dict, Any, Optional
 from nicegui import ui
-
 from frontend.utils.logging import logger
 
 

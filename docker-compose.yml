@@ -1,6 +1,6 @@
 # Docker Compose optimisé pour SoniqueBay - Raspberry Pi 4
-# Intègre Supabase + toutes les optimisations pour RPi4
-# Architecture: Supabase (PostgreSQL + Realtime + Auth) + FastAPI + Celery + LLM
+# Intègre toutes les optimisations du scan-optimized avec les services de base
+# Optimisations RPi4 : limites CPU/mémoire, Redis optimisé, pools threads, monitoring Flower
 
 services:
     # === TIME SYNC SERVICE (OPTIMISÉ) ===
@@ -29,8 +29,6 @@ services:
             default:
                 aliases:
                     - timesync
-
-    # === POSTGRESQL ORIGINAL (conservé pour compatibilité) ===
     db:
         build:
             context: .
@@ -60,149 +58,6 @@ services:
             timeout: 5s
             retries: 5
 
-    # === SUPABASE - PostgreSQL avec extensions ===
-    supabase-db:
-        image: supabase/postgres:15.1.0.117
-        container_name: soniquebay-supabase-db
-        restart: unless-stopped
-        networks:
-            default:
-                aliases:
-                    - supabase-db
-        ports:
-            - "54322:5432"
-        env_file:
-            - .env
-        environment:
-            - POSTGRES_USER=${SUPABASE_DB_USER:-supabase}
-            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
-            - POSTGRES_DB=${SUPABASE_DB_NAME:-postgres}
-            - JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
-        volumes:
-            - supabase-data:/var/lib/postgresql/data
-            - ./supabase/db_init/init_supabase.sql:/docker-entrypoint-initdb.d/init.sql:ro
-        healthcheck:
-            test: ["CMD", "pg_isready", "-U", "${SUPABASE_DB_USER:-supabase}", "-d", "${SUPABASE_DB_NAME:-postgres}"]
-            interval: 30s
-            timeout: 5s
-            retries: 5
-            start_period: 60s
-
-    # === SUPABASE - Realtime ===
-    supabase-realtime:
-        image: supabase/realtime:v2.25.66
-        container_name: soniquebay-supabase-realtime
-        restart: unless-stopped
-        depends_on:
-            supabase-db:
-                condition: service_healthy
-        networks:
-            default:
-                aliases:
-                    - supabase-realtime
-        ports:
-            - "54323:4000"
-        environment:
-            - DB_HOST=supabase-db
-            - DB_PORT=5432
-            - DB_USER=${SUPABASE_DB_USER:-supabase}
-            - DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
-            - DB_NAME=${SUPABASE_DB_NAME:-postgres}
-            - DB_SSL=false
-            - JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
-            - SECRET_KEY_BASE=${SUPABASE_SECRET_KEY_BASE:?SUPABASE_SECRET_KEY_BASE must be set in .env (min 64 chars)}
-            - PORT=4000
-            - FLY_ALLOC_ID=123e4567-e89b-12d3-a456-426614174000
-            - FLY_APP_NAME=realtime
-            - FLY_REGION=local
-            - ERL_AFLAGS=-proto_dist inet_tcp
-            - ENABLE_TAILSCALE=false
-            - DNS_NODES=''
-            - MAX_CONNECTIONS=100
-            - MAX_SUBSCRIBERS=1000
-            - MAX_EVENTS_PER_SECOND=1000
-
-    # === SUPABASE - Auth (GoTrue) ===
-    supabase-auth:
-        image: supabase/gotrue:v2.145.0
-        container_name: soniquebay-supabase-auth
-        restart: unless-stopped
-        depends_on:
-            supabase-db:
-                condition: service_healthy
-        networks:
-            default:
-                aliases:
-                    - supabase-auth
-        ports:
-            - "54324:9999"
-        environment:
-            - GOTRUE_API_HOST=0.0.0.0
-            - GOTRUE_API_PORT=9999
-            - API_EXTERNAL_URL=${SUPABASE_API_EXTERNAL_URL:-http://localhost:54324}
-            - GOTRUE_DB_DRIVER=postgres
-            - GOTRUE_DB_DATABASE_URL=postgres://${SUPABASE_DB_USER:-supabase}:${SUPABASE_DB_PASSWORD:-supabase}@supabase-db:5432/${SUPABASE_DB_NAME:-postgres}?sslmode=disable
-            - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-http://localhost:3000}
-            - GOTRUE_URI_ALLOW_LIST=${SUPABASE_REDIRECT_URLS:-http://localhost:3000/**}
-            - GOTRUE_DISABLE_SIGNUP=false
-            - GOTRUE_JWT_SECRET=${SUPABASE_JWT_SECRET:?SUPABASE_JWT_SECRET must be set in .env (min 32 chars)}
-            - GOTRUE_JWT_EXP=3600
-            - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
-            - GOTRUE_EXTERNAL_EMAIL_ENABLED=true
-            - GOTRUE_MAILER_AUTOCONFIRM=true
-            - GOTRUE_SMTP_ADMIN_EMAIL=admin@soniquebay.local
-            - GOTRUE_SMTP_HOST=mail.soniquebay.local
-            - GOTRUE_SMTP_PORT=25
-            - GOTRUE_SMTP_USER=
-            - GOTRUE_SMTP_PASS=
-            - GOTRUE_SMTP_MAX_FREQUENCY=1s
-            - GOTRUE_EXTERNAL_PHONE_ENABLED=false
-            - GOTRUE_SMS_AUTOCONFIRM=false
-            - GOTRUE_LOG_LEVEL=info
-
-    # === SUPABASE - Meta (pour Dashboard) ===
-    supabase-meta:
-        image: supabase/postgres-meta:v0.80.0
-        container_name: soniquebay-supabase-meta
-        restart: unless-stopped
-        depends_on:
-            supabase-db:
-                condition: service_healthy
-        networks:
-            default:
-                aliases:
-                    - supabase-meta
-        environment:
-            - PG_META_PORT=8080
-            - PG_META_DB_HOST=supabase-db
-            - PG_META_DB_PORT=5432
-            - PG_META_DB_NAME=${SUPABASE_DB_NAME:-postgres}
-            - PG_META_DB_USER=${SUPABASE_DB_USER:-supabase}
-            - PG_META_DB_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
-
-    # === SUPABASE - Dashboard (Studio) ===
-    supabase-dashboard:
-        image: supabase/studio:latest
-        container_name: soniquebay-supabase-dashboard
-        restart: unless-stopped
-        depends_on:
-            supabase-db:
-                condition: service_healthy
-            supabase-meta:
-                condition: service_started
-        networks:
-            default:
-                aliases:
-                    - supabase-dashboard
-        ports:
-            - "54325:3000"
-        environment:
-            - STUDIO_PG_META_URL=http://supabase-meta:8080
-            - POSTGRES_PASSWORD=${SUPABASE_DB_PASSWORD:-supabase}
-            - SUPABASE_URL=http://supabase-db:5432
-            - SUPABASE_PUBLIC_URL=http://localhost:54321
-            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY must be set in .env}
-            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY must be set in .env}
 
     # === REDIS (broker + backend) ===
     redis:
@@ -218,7 +73,7 @@ services:
                 aliases:
                     - redis
         ports:
-            - "6379:6379"
+            - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
         healthcheck:
             test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
             interval: 5s
@@ -256,7 +111,7 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - REDIS_URL=redis://redis:6379/0
-            - LLM_PROVIDER=koboldcpp
+            - LLM_PROVIDER=koboldcpp #ollama
             - KOBOLDCPP_BASE_URL=http://llm-service:5001
             - AGENT_MODEL=koboldcpp/qwen2.5-3b-instruct-q4_k_m
             - HEALTHCHECK_PORT=8001
@@ -264,19 +119,12 @@ services:
             - MUSIC_PATH=/music
             - NAS_USER=${NAS_USER:-""}
             - NAS_PASS=${NAS_PASS:-""}
-            # === SUPABASE CONFIGURATION ===
-            - SUPABASE_URL=${SUPABASE_URL:-http://supabase-db:5432}
-            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY must be set in .env}
-            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY must be set in .env}
-            - USE_SUPABASE=${USE_SUPABASE:-false}
         depends_on:
             redis:
                 condition: service_healthy
             timesync:
                 condition: service_started
             db:
-                condition: service_healthy
-            supabase-db:
                 condition: service_healthy
             llm-service:
                 condition: service_started
@@ -296,11 +144,12 @@ services:
         deploy:
             resources:
                 limits:
-                    cpus: '0.5'
-                    memory: 768M
+                    cpus: '0.5'  # Réduit pour Raspberry Pi
+                    memory: 768M  # Augmenté pour éviter SIGKILL
                 reservations:
                     cpus: '0.25'
                     memory: 256M
+
 
     # === FRONTEND ===
     frontend:
@@ -322,15 +171,8 @@ services:
             - TZ=${TZ}
             - PYTHONUNBUFFERED=1
             - PYTHONDONTWRITEBYTECODE=1
-            # === SUPABASE CONFIGURATION ===
-            - SUPABASE_URL=${SUPABASE_URL:-http://localhost:54321}
-            - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:?SUPABASE_ANON_KEY must be set in .env}
-            - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:?SUPABASE_SERVICE_KEY must be set in .env}
-            - USE_SUPABASE=${USE_SUPABASE:-false}
         depends_on:
             api-service:
-                condition: service_healthy
-            supabase-db:
                 condition: service_healthy
         networks:
             default:
@@ -394,13 +236,11 @@ services:
         deploy:
             resources:
                 limits:
-                    cpus: '1.0'
-                    memory: 2G
+                    cpus: '1.0'  # Augmenté pour autoscale (jusqu'à 4 processus)
+                    memory: 2G   # Augmenté pour éviter SIGKILL avec autoscale
                 reservations:
                     cpus: '0.25'
                     memory: 512M
-
-    # === CELERY BEAT ===
     celery_beat:
         build:
             context: .
@@ -434,8 +274,6 @@ services:
                 reservations:
                     cpus: '0.1'
                     memory: 128M
-
-    # === LLM SERVICE (KoboldCpp) ===
     llm-service:
         image: koboldai/koboldcpp:latest
         container_name: llm-service
@@ -460,19 +298,19 @@ services:
         volumes:
             - ./llm-service/models:/workspace
         ports:
-            - "11434:5001"
+            - "5001:5001"
         networks:
             default:
                 aliases:
                     - llm-service
         healthcheck:
+            # KoboldCpp expose /v1/models sur le port 5001 (endpoint OpenAI-compatible)
             test: ["CMD-SHELL", "curl -sf http://localhost:5001/v1/models || exit 1"]
             interval: 30s
             timeout: 10s
             retries: 5
             start_period: 120s
 
-    # === CELERY INSIGHTS ===
     celery-insights:
         image: ghcr.io/danyi1212/celery-insights:latest
         container_name: soniquebay-celery-insights
@@ -490,18 +328,15 @@ services:
             celery-worker:
                 condition: service_started
 
+
+
+
 volumes:
     redis-data:
         driver: local
         driver_opts:
             type: none
             device: ${PWD}/data/redis_data
-            o: bind
-    supabase-data:
-        driver: local
-        driver_opts:
-            type: none
-            device: ${PWD}/data/supabase_data
             o: bind
     api-data:
         driver: local

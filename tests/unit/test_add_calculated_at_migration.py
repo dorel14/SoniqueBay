@@ -14,10 +14,10 @@ Couverture:
 Auteur: SoniqueBay Team
 """
 
-import os
-from pathlib import Path
-
 import pytest
+import os
+import sys
+from pathlib import Path
 
 
 class TestAddCalculatedAtMigration:

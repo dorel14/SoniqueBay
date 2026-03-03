@@ -1,6 +1,5 @@
 from nicegui import ui
 
-
 def settings_menu_component() -> None:
     with ui.menu().classes('sb-header'):
         with ui.menu_item(on_click=lambda: ui.navigate.to('/api_docs')).classes('text-sm sonique-menu-item'):

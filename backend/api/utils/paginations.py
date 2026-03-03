@@ -1,10 +1,8 @@
-from functools import lru_cache
-from typing import Type, TypeVar
-
-from library_api.api.schemas.pagination_schema import PaginatedResponse
-from pydantic import BaseModel
 from sqlalchemy.orm import Query
-
+from library_api.api.schemas.pagination_schema import PaginatedResponse
+from typing import Type, TypeVar
+from pydantic import BaseModel
+from functools import lru_cache
 T = TypeVar("T", bound=BaseModel)
 
 def paginate_query(query: Query, schema: Type[T], skip: int = 0, limit: int = 100):

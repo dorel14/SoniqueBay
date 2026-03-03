@@ -1,18 +1,17 @@
 # -*- coding: UTF-8 -*-
-import asyncio
-import os
-import sys
-from pathlib import Path
-
-import httpx
+from nicegui import ui, app
 from fastapi.middleware.cors import CORSMiddleware
-from main import register_dynamic_routes
-from nicegui import app, ui
+from pathlib import Path
+import sys
+import httpx
+import os
+import asyncio
 
+from main import register_dynamic_routes
 sys.path.append(str(Path(__file__).parent.parent))
 from _version_ import __version__ as version
-from frontend.services.communication_service import get_communication_service
 from frontend.utils.logging import logger
+from frontend.services.communication_service import get_communication_service
 
 app.add_middleware(
         CORSMiddleware,

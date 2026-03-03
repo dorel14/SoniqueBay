@@ -16,9 +16,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, Float, Index, Integer, String
+from sqlalchemy import Boolean, Column, Float, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.api.utils.database import Base

@@ -6,10 +6,10 @@ Ce module teste:
 2. La logique de création d'artistes avec upsert (pas de doublons)
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
-import httpx
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+import httpx
+import json
 
 
 class TestEntityManagerURLs:

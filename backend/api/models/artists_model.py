@@ -1,21 +1,17 @@
 from __future__ import annotations
-
-from datetime import datetime
-from typing import TYPE_CHECKING
-
-from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Index, Integer, String
+from sqlalchemy import String, Integer, DateTime, Index
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from datetime import datetime
+from pgvector.sqlalchemy import Vector
 from backend.api.models.covers_model import Cover
 from backend.api.utils.database import Base, TimestampMixin
-
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.api.models.albums_model import Album
+    from backend.api.models.tracks_model import Track
     from backend.api.models.artist_similar_model import ArtistSimilar
     from backend.api.models.covers_model import Cover
-    from backend.api.models.tracks_model import Track
 
 class Artist(Base, TimestampMixin):
     __tablename__ = 'artists'

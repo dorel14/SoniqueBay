@@ -6,9 +6,9 @@ Ce module teste les fonctions corrigées dans :
 - backend_worker/workers/insert/insert_batch_worker.py
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Dict, List
 
 
 class TestAlbumKeyConsistency:
@@ -16,6 +16,7 @@ class TestAlbumKeyConsistency:
     
     def test_album_key_with_mbid(self):
         """Test que la clé utilise correctement le musicbrainz_albumid."""
+        from backend_worker.services.entity_manager import create_or_get_albums_batch
         
         # Simuler un album avec MBID
         album_data = {

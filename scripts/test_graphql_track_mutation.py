@@ -5,11 +5,10 @@ Script de test pour valider la correction de la mutation GraphQL create_tracks.
 Vérifie que l'AttributeError 'TrackCreate has no attribute bpm' est résolu.
 """
 
+import httpx
 import json
 import sys
 import time
-
-import httpx
 
 API_URL = "http://localhost:8001/api/graphql"
 
@@ -104,8 +103,8 @@ def test_create_tracks_batch_massive_with_audio():
         ]
     }
 
-    print("\n[TEST 1] createTracksBatchMassive avec audio features (bpm, key, scale, etc.)")
-    print("         Vérifie que AttributeError 'TrackCreate.bpm' est résolu")
+    print(f"\n[TEST 1] createTracksBatchMassive avec audio features (bpm, key, scale, etc.)")
+    print(f"         Vérifie que AttributeError 'TrackCreate.bpm' est résolu")
 
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -121,7 +120,7 @@ def test_create_tracks_batch_massive_with_audio():
         if "errors" in data:
             errors = data["errors"]
             if is_original_error(errors):
-                print("[FAIL] ❌ L'erreur originale AttributeError est TOUJOURS présente!")
+                print(f"[FAIL] ❌ L'erreur originale AttributeError est TOUJOURS présente!")
                 print(f"       {json.dumps(errors, indent=2)}")
                 return False
             else:
@@ -165,7 +164,7 @@ def test_create_tracks_without_audio():
         ]
     }
 
-    print("\n[TEST 2] createTracksBatchMassive sans audio features (cas minimal)")
+    print(f"\n[TEST 2] createTracksBatchMassive sans audio features (cas minimal)")
 
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -181,7 +180,7 @@ def test_create_tracks_without_audio():
         if "errors" in data:
             errors = data["errors"]
             if is_original_error(errors):
-                print("[FAIL] ❌ L'erreur originale AttributeError est TOUJOURS présente!")
+                print(f"[FAIL] ❌ L'erreur originale AttributeError est TOUJOURS présente!")
                 return False
             print(f"[FAIL] Erreurs: {json.dumps(errors, indent=2)}")
             return False
@@ -216,7 +215,7 @@ def test_verify_audio_features_created():
     }
     """ % TEST_PATH_BATCH_1
 
-    print("\n[TEST 3] Vérification que TrackAudioFeatures a été créé pour la track avec bpm=128.5")
+    print(f"\n[TEST 3] Vérification que TrackAudioFeatures a été créé pour la track avec bpm=128.5")
 
     try:
         with httpx.Client(timeout=30.0) as client:
@@ -232,8 +231,8 @@ def test_verify_audio_features_created():
         if "errors" in data:
             errors = data["errors"]
             if is_mir_schema_error(errors):
-                print("[WARN] ⚠️  Erreur MIR pré-existante (hors scope): track_mir_raw.features_raw")
-                print("         Notre fix fonctionne, mais il y a un bug MIR pré-existant.")
+                print(f"[WARN] ⚠️  Erreur MIR pré-existante (hors scope): track_mir_raw.features_raw")
+                print(f"         Notre fix fonctionne, mais il y a un bug MIR pré-existant.")
                 return True  # Considéré comme pass car hors scope
             print(f"[FAIL] Erreurs: {json.dumps(errors, indent=2)}")
             return False
@@ -247,13 +246,13 @@ def test_verify_audio_features_created():
 
             # Vérifier que les audio features sont bien présentes
             if track.get('bpm') == 128.5 and track.get('key') == 'Am':
-                print("[PASS] ✅ Audio features correctement stockées dans TrackAudioFeatures!")
+                print(f"[PASS] ✅ Audio features correctement stockées dans TrackAudioFeatures!")
                 return True
             else:
-                print("[WARN] Audio features non trouvées ou incorrectes")
+                print(f"[WARN] Audio features non trouvées ou incorrectes")
                 return False
         else:
-            print("[WARN] Track non trouvée via la requête (peut être un problème de query)")
+            print(f"[WARN] Track non trouvée via la requête (peut être un problème de query)")
             return True  # La création a réussi (test 1), la query est optionnelle
 
     except Exception as e:

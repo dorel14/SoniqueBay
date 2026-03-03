@@ -4,17 +4,14 @@ Script pour vérifier les métriques de taille des arguments Celery.
 Usage: python scripts/check_celery_metrics.py
 """
 
-import os
 import sys
+import os
 
 # Ajouter le backend_worker au path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
 
 try:
-    from backend_worker.utils.celery_monitor import (
-        auto_configure_celery_limits,
-        get_size_summary,
-    )
+    from backend_worker.utils.celery_monitor import get_size_summary, auto_configure_celery_limits
     
     print("=== MÉTRIQUES CELERY MONITOR ===")
     print(get_size_summary())

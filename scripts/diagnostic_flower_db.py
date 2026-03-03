@@ -4,9 +4,9 @@ Script de diagnostic pour la base de données Flower corrompue
 Analyse les sources possibles du problème et génère des logs de diagnostic
 """
 
-import logging
 import os
 import shelve
+import logging
 
 # Import conditionnel pour _gdbm (uniquement sur Unix/Linux)
 try:

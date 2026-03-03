@@ -3,8 +3,8 @@ Script de test pour vérifier le service LLM unifié (Ollama/KoboldCPP).
 Auteur: SoniqueBay Team
 """
 import asyncio
-import os
 import sys
+import os
 
 # Ajouter le backend au path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))

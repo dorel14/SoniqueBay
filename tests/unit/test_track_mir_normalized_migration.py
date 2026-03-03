@@ -9,10 +9,9 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-from datetime import datetime
-from unittest.mock import MagicMock
-
 import pytest
+from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 
 class TestTrackMIRNormalizedModel:

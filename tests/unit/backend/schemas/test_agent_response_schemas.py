@@ -7,17 +7,17 @@ créés dans backend/api/schemas/agent_response_schema.py.
 import pytest
 
 from backend.api.schemas.agent_response_schema import (
-    ActionAgentResponse,
-    AgentClarificationRequest,
-    AgentMessageResponse,
     AgentMessageType,
-    AgentPerformanceMetrics,
-    AgentRefusal,
     AgentState,
     AgentToolCall,
-    AgentWebSocketMessage,
-    PlaylistAgentResponse,
+    AgentClarificationRequest,
+    AgentRefusal,
+    AgentMessageResponse,
     SearchAgentResponse,
+    PlaylistAgentResponse,
+    ActionAgentResponse,
+    AgentWebSocketMessage,
+    AgentPerformanceMetrics,
 )
 
 

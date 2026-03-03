@@ -4,13 +4,12 @@ Ce script valide que la configuration Celery de l'API peut envoyer
 des tâches vers le worker sans erreur Kombu.
 """
 
+import os
 import sys
 import time
 from pathlib import Path
-
 from backend.api.utils.celery_app import celery_app
 from backend.api.utils.logging import logger
-
 # Ajouter le répertoire racine au path Python
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -76,7 +75,7 @@ def test_celery_connection():
             priority=9
         )
         
-        logger.info("    ✓ Tâche envoyée avec succès")
+        logger.info(f"    ✓ Tâche envoyée avec succès")
         logger.info(f"    Task ID: {result.id}")
         logger.info(f"    Task status: {result.status}")
         

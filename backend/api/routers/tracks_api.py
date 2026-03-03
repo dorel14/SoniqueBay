@@ -1,21 +1,15 @@
-import json
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi_cache import FastAPICache
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi_cache import FastAPICache
 
-from backend.api.schemas.tracks_schema import (
-    Track,
-    TrackCreate,
-    TrackUpdate,
-    TrackWithRelations,
-)
-from backend.api.services.track_service import TrackService
+from typing import List, Optional
+import json
 from backend.api.utils.database import get_async_session
+from backend.api.schemas.tracks_schema import TrackCreate, TrackUpdate, Track, TrackWithRelations
 from backend.api.utils.logging import logger
 from backend.api.utils.validation_logger import log_validation_error
+from backend.api.services.track_service import TrackService
 
 router = APIRouter(prefix="/tracks", tags=["tracks"])
 

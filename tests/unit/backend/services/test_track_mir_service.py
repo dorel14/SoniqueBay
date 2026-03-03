@@ -8,9 +8,9 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-from unittest.mock import AsyncMock, patch
-
 import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
 
 from backend_worker.services.audio_features_service import (
     extract_and_store_mir_raw,

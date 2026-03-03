@@ -7,12 +7,10 @@ and managing artist similarity recommendations.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
-
-import httpx
-
+from typing import List, Dict, Optional, Any
 from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
+import httpx
 
 
 @celery.task(name="artist_gmm.train_model", queue="deferred", bind=True)
@@ -178,55 +176,3 @@ def update_artist_clusters(self) -> Dict[str, Any]:
             "success": False,
             "error": str(e)
         }
-
-
-def _generate_artist_embedding(artist, db) -> Optional[List[float]]:
-    """
-    Generate embedding vector for an artist based on their tracks.
-    
-    Args:
-        artist: Artist object with tracks
-        db: Database session
-        
-    Returns:
-        List of floats representing the embedding, or None if no tracks
-    """
-    if not artist.tracks or len(artist.tracks) == 0:
-        return None
-    
-    # Extract features from tracks
-    features = []
-    for track in artist.tracks:
-        # Basic audio features
-        bpm = getattr(track, 'bpm', 120) or 120
-        danceability = getattr(track, 'danceability', 0.5) or 0.5
-        duration = getattr(track, 'duration', 180) or 180
-        
-        # Normalize features
-        features.extend([
-            (bpm - 120) / 60,  # Normalize BPM around 120
-            (danceability - 0.5) * 2,  # Normalize danceability to [-1, 1]
-            (duration - 180) / 120,  # Normalize duration around 3 minutes
-        ])
-    
-    # Calculate statistics
-    if len(features) >= 3:
-        # Return mean of each feature type
-        n_tracks = len(artist.tracks)
-        bpm_mean = sum(features[::3]) / n_tracks
-        dance_mean = sum(features[1::3]) / n_tracks
-        duration_mean = sum(features[2::3]) / n_tracks
-        
-        # Add variance as additional features
-        bpm_var = sum((f - bpm_mean) ** 2 for f in features[::3]) / n_tracks if n_tracks > 1 else 0
-        dance_var = sum((f - dance_mean) ** 2 for f in features[1::3]) / n_tracks if n_tracks > 1 else 0
-        
-        embedding = [
-            bpm_mean, dance_mean, duration_mean,
-            bpm_var, dance_var,
-            float(n_tracks) / 100.0,  # Normalized track count
-        ]
-        
-        return embedding
-    
-    return None

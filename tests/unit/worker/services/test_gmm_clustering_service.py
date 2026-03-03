@@ -7,8 +7,8 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-import numpy as np
 import pytest
+import numpy as np
 
 from backend_worker.services.gmm_clustering_service import GMMClusteringService
 

@@ -4,15 +4,10 @@ Déplace toute la logique métier depuis track_vectors_api.py ici.
 Auteur : Kilo Code
 Dépendances : backend.api.models.track_vectors_model, backend.api.schemas.track_vectors_schema
 """
-from typing import List, Optional
-
 from sqlalchemy.orm import Session as SQLAlchemySession
-
+from typing import List, Optional
 # TrackVectorVirtual removed - using PostgreSQL instead
-from backend.api.schemas.track_vectors_schema import (
-    TrackVectorCreate,
-    TrackVectorResponse,
-)
+from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
 
 
 class TrackVectorService:

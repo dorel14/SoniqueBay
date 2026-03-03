@@ -16,11 +16,45 @@ Auteur: SoniqueBay Team
 """
 
 # Types
-# Mutations
-from backend.api.graphql.mutations import (
-    TrackAudioFeaturesMutation,
-    TrackEmbeddingsMutation,
-    TrackMetadataMutation,
+from backend.api.graphql.types import (
+    # Types de base
+    AlbumType,
+    AlbumCreateInput,
+    AlbumUpdateInput,
+    ArtistType,
+    ArtistCreateInput,
+    ArtistUpdateInput,
+    CoverType,
+    GenreType,
+    GenreTagType,
+    MoodTagType,
+    TrackType,
+    TrackCreateInput,
+    TrackUpdateInput,
+    TrackVectorType,
+    # Track Audio Features
+    TrackAudioFeaturesType,
+    TrackAudioFeaturesInput,
+    TrackAudioFeaturesUpdateInput,
+    TrackAudioFeaturesSearchInput,
+    # Track Embeddings
+    TrackEmbeddingsType,
+    SimilarTrackResult,
+    TrackEmbeddingsInput,
+    TrackEmbeddingsUpdateInput,
+    TrackEmbeddingsSearchInput,
+    TrackEmbeddingsSimilarityInput,
+    # Track Metadata
+    TrackMetadataType,
+    TrackMetadataBatchResult,
+    MetadataKeyStatistics,
+    MetadataSourceStatistics,
+    TrackMetadataStatistics,
+    TrackMetadataInput,
+    TrackMetadataUpdateInput,
+    TrackMetadataBatchInput,
+    TrackMetadataSearchInput,
+    TrackMetadataDeleteInput,
 )
 
 # Queries
@@ -29,45 +63,12 @@ from backend.api.graphql.queries import (
     TrackEmbeddingsQuery,
     TrackMetadataQuery,
 )
-from backend.api.graphql.types import (
-    AlbumCreateInput,
-    # Types de base
-    AlbumType,
-    AlbumUpdateInput,
-    ArtistCreateInput,
-    ArtistType,
-    ArtistUpdateInput,
-    CoverType,
-    GenreTagType,
-    GenreType,
-    MetadataKeyStatistics,
-    MetadataSourceStatistics,
-    MoodTagType,
-    SimilarTrackResult,
-    TrackAudioFeaturesInput,
-    TrackAudioFeaturesSearchInput,
-    # Track Audio Features
-    TrackAudioFeaturesType,
-    TrackAudioFeaturesUpdateInput,
-    TrackCreateInput,
-    TrackEmbeddingsInput,
-    TrackEmbeddingsSearchInput,
-    TrackEmbeddingsSimilarityInput,
-    # Track Embeddings
-    TrackEmbeddingsType,
-    TrackEmbeddingsUpdateInput,
-    TrackMetadataBatchInput,
-    TrackMetadataBatchResult,
-    TrackMetadataDeleteInput,
-    TrackMetadataInput,
-    TrackMetadataSearchInput,
-    TrackMetadataStatistics,
-    # Track Metadata
-    TrackMetadataType,
-    TrackMetadataUpdateInput,
-    TrackType,
-    TrackUpdateInput,
-    TrackVectorType,
+
+# Mutations
+from backend.api.graphql.mutations import (
+    TrackAudioFeaturesMutation,
+    TrackEmbeddingsMutation,
+    TrackMetadataMutation,
 )
 
 __all__ = [

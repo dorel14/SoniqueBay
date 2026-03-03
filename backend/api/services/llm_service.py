@@ -5,16 +5,15 @@ Fournit une interface commune pour les différents fournisseurs de LLM.
 
 Auteur: SoniqueBay Team
 """
-import asyncio
 import os
-from typing import Any, Dict, List, Optional
-
+import asyncio
+from typing import Optional, Dict, Any, List
 from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.ollama import OllamaProvider
 from pydantic_ai.providers.openai import OpenAIProvider
-
-from backend.api.services.llm_http_client import get_llm_http_client
+from pydantic_ai.providers.ollama import OllamaProvider
 from backend.api.utils.logging import logger
+from backend.api.services.llm_http_client import get_llm_http_client
+
 
 # Singleton instance storage
 _llm_service_instance: Optional['LLMService'] = None
@@ -294,7 +293,7 @@ class LLMService:
                 async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
-                    logger.debug("[LLM] Connexion SSE établie, début du streaming")
+                    logger.debug(f"[LLM] Connexion SSE établie, début du streaming")
                     
                     # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                     async for line in response.aiter_lines():
@@ -349,7 +348,7 @@ class LLMService:
                 async with client.stream("POST", url, json=payload, headers=headers) as response:
                     response.raise_for_status()
                     
-                    logger.debug("[LLM] Connexion Ollama établie, début du streaming")
+                    logger.debug(f"[LLM] Connexion Ollama établie, début du streaming")
                     
                     # Utiliser aiter_lines() pour le streaming asynchrone non-bloquant
                     async for line in response.aiter_lines():

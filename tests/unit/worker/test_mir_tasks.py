@@ -9,15 +9,14 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-import os
 import sys
+import os
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
+from unittest.mock import MagicMock, patch, AsyncMock
 
 
 class TestMIRTaskNames:
@@ -61,8 +60,7 @@ class TestMIRTaskQueue:
         """Vérifie que la queue 'mir' est configurée."""
         from backend_worker.celery_config_source import get_unified_queues
         queues = get_unified_queues()
-        queue_names = [q.name for q in queues]
-        assert 'mir' in queue_names
+        assert 'mir' in queues
 
     def test_mir_task_routes_configured(self) -> None:
         """Vérifie que les routes MIR sont configurées."""
@@ -89,7 +87,6 @@ class TestMIRTaskParameters:
     def test_process_track_parameters(self) -> None:
         """Vérifie la signature de process_track_mir."""
         import inspect
-
         from backend_worker.tasks.mir_tasks import process_track_mir
 
         sig = inspect.signature(process_track_mir)
@@ -103,7 +100,6 @@ class TestMIRTaskParameters:
     def test_process_batch_parameters(self) -> None:
         """Vérifie la signature de process_batch_mir."""
         import inspect
-
         from backend_worker.tasks.mir_tasks import process_batch_mir
 
         sig = inspect.signature(process_batch_mir)
@@ -115,7 +111,6 @@ class TestMIRTaskParameters:
     def test_reprocess_track_parameters(self) -> None:
         """Vérifie la signature de reprocess_track_mir."""
         import inspect
-
         from backend_worker.tasks.mir_tasks import reprocess_track_mir
 
         sig = inspect.signature(reprocess_track_mir)
@@ -127,7 +122,6 @@ class TestMIRTaskParameters:
     def test_calculate_scores_parameters(self) -> None:
         """Vérifie la signature de calculate_mir_scores."""
         import inspect
-
         from backend_worker.tasks.mir_tasks import calculate_mir_scores
 
         sig = inspect.signature(calculate_mir_scores)
@@ -237,6 +231,8 @@ class TestMIRTaskLogging:
 
     def test_task_has_logger(self) -> None:
         """Vérifie que les tâches ont accès au logger."""
+        from backend_worker.tasks.mir_tasks import process_track_mir
+        import inspect
 
         # Le module devrait avoir un logger
         import backend_worker.tasks.mir_tasks as mir_tasks_module

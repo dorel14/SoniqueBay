@@ -1,16 +1,12 @@
 import asyncio
 import inspect
-import os
-
+import asyncio
+from nicegui import ui, app, events
 from frontend.config import PAGES_DIR
-from nicegui import app, events, ui
-
-from frontend.services.search_service import SearchService
-from frontend.utils.logging import logger
-
 from .colors import apply_theme
 from .menu import menu
-
+from frontend.utils.logging import logger
+from frontend.services.search_service import SearchService
 
 # --- ÉTAT DE L'APPLICATION (SIMPLIFIÉ) ---
 class AppState:

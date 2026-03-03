@@ -5,8 +5,8 @@ Permet la communication HTTP avec les autres services sans imports directs.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from backend_worker.api.vectorization_router import router as vectorization_router
+
 
 # Créer l'application FastAPI
 app = FastAPI(
@@ -17,12 +17,10 @@ app = FastAPI(
 )
 
 # Configuration CORS
-# Note: allow_credentials=True est interdit avec allow_origins=["*"] par Starlette.
-# Le worker API est un service interne, pas besoin de credentials cross-origin.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # À restreindre en production
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

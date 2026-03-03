@@ -5,10 +5,9 @@ Version corrigée : meilleure gestion des timeouts et fallbacks.
 Usage: python scripts/check_celery_metrics_local.py
 """
 
-import json
 import subprocess
+import json
 from datetime import datetime
-
 
 def run_in_container(container_name, command, timeout=60):
     """Exécute une commande dans un conteneur Docker avec timeout adaptatif."""

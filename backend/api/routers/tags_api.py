@@ -1,11 +1,11 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from typing import List
+from backend.api.utils.database import get_async_session
 from backend.api.schemas.tags_schema import Tag, TagCreate
 from backend.api.services.tags_service import TagService
-from backend.api.utils.database import get_async_session
+
 
 router = APIRouter(prefix="/tags", tags=["tags"])
 

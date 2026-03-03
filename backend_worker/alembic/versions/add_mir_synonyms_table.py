@@ -34,10 +34,10 @@ Contraintes:
 """
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
-from pgvector.sqlalchemy import Vector
+import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from pgvector.sqlalchemy import Vector
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_mir_synonyms_table'

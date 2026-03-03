@@ -6,10 +6,8 @@ Valide que les champs audio (bpm, key, etc.) sont correctement transmis
 à TrackAudioFeatures lors de la création de tracks via GraphQL.
 """
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
-
+from unittest.mock import AsyncMock, MagicMock, patch
 from backend.api.schemas.tracks_schema import TrackCreate
 
 

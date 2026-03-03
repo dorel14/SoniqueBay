@@ -1,19 +1,8 @@
 from __future__ import annotations
-
 import strawberry
 from pydantic import ValidationError
-
-from backend.api.graphql.types.tracks_type import (
-    TrackCreateInput,
-    TrackType,
-    TrackUpdateInput,
-)
-from backend.api.utils.graphql_validation_logger import (
-    log_graphql_mutation_entry,
-    log_graphql_mutation_error,
-    log_graphql_mutation_success,
-    log_graphql_validation_error,
-)
+from backend.api.graphql.types.tracks_type import TrackType, TrackCreateInput, TrackUpdateInput
+from backend.api.utils.graphql_validation_logger import log_graphql_validation_error, log_graphql_mutation_entry, log_graphql_mutation_success, log_graphql_mutation_error
 
 
 @strawberry.type
@@ -30,8 +19,8 @@ class TrackMutations:
     @strawberry.mutation
     def create_track(self, data: TrackCreateInput, info: strawberry.types.Info) -> TrackType:
         """Create a new track."""
-        from backend.api.schemas.tracks_schema import TrackCreate
         from backend.api.services.track_service import TrackService
+        from backend.api.schemas.tracks_schema import TrackCreate
         session = info.context.session
         service = TrackService(session)
 
@@ -116,8 +105,8 @@ class TrackMutations:
         Returns:
             Résultat du traitement en batch
         """
-        from backend.api.schemas.tracks_schema import TrackCreate
         from backend.api.services.track_service import TrackService
+        from backend.api.schemas.tracks_schema import TrackCreate
         from backend.api.utils.logging import logger
         
         log_graphql_mutation_entry("create_tracks_batch_massive", len(data) if data else 0)
@@ -204,8 +193,8 @@ class TrackMutations:
     @strawberry.mutation
     async def create_tracks(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> list[TrackType]:
         """Create multiple tracks in batch."""
-        from backend.api.schemas.tracks_schema import TrackCreate
         from backend.api.services.track_service import TrackService
+        from backend.api.schemas.tracks_schema import TrackCreate
 
         log_graphql_mutation_entry("create_tracks", len(data) if data else 0)
         session = info.context.session
@@ -359,8 +348,8 @@ class TrackMutations:
     @strawberry.mutation
     async def upsert_track(self, data: TrackCreateInput, info: strawberry.types.Info) -> TrackType:
         """Upsert a track (create if not exists, update if exists)."""
-        from backend.api.schemas.tracks_schema import TrackCreate
         from backend.api.services.track_service import TrackService
+        from backend.api.schemas.tracks_schema import TrackCreate
         session = info.context.session
         service = TrackService(session)
 

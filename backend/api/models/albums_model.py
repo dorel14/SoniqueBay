@@ -1,12 +1,8 @@
 from __future__ import annotations
-
-from sqlalchemy import ForeignKey, Index, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from backend.api.models.covers_model import Cover
+from sqlalchemy import String, Integer, ForeignKey, Index
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.api.utils.database import Base, TimestampMixin
-
-
+from backend.api.models.covers_model import Cover
 class Album(Base, TimestampMixin):
     __tablename__ = 'albums'
 

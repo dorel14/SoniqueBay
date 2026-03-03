@@ -14,11 +14,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from backend_worker.services.audio_features_service import (
+    extract_audio_features,
     _extract_features_from_acoustid_tags,
     _extract_features_from_standard_tags,
     _has_valid_acoustid_tags,
-    _has_valid_audio_tags,
-    extract_audio_features,
+    _has_valid_audio_tags
 )
 from backend_worker.utils.logging import logger
 
@@ -235,9 +235,9 @@ def test_db_integration():
     logger.info("=" * 80)
 
     try:
-        from backend.api.schemas.tracks_schema import TrackCreate
-        from backend.api.services.track_service import TrackService
         from backend.api.utils.database import get_db
+        from backend.api.services.track_service import TrackService
+        from backend.api.schemas.tracks_schema import TrackCreate
 
         # Créer une session de base de données
         db_gen = get_db()

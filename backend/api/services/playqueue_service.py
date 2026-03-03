@@ -4,16 +4,13 @@ Utilise PostgreSQL au lieu de TinyDB pour la persistance.
 Auteur : Kilo Code
 Dépendances : backend.api.schemas.playqueue_schema, backend.api.models.playqueue_model, backend.api.utils.database
 """
-from datetime import datetime
-
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.models.playqueue_model import PlayQueue as PlayQueueModel
-from backend.api.models.playqueue_model import PlayQueueTrack
+from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
+from backend.api.models.playqueue_model import PlayQueueTrack, PlayQueue as PlayQueueModel
 from backend.api.models.tracks_model import Track
-from backend.api.schemas.playqueue_schema import PlayQueue, QueueOperation, QueueTrack
 from backend.api.utils.database import get_async_session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from datetime import datetime
 
 
 class PlayQueueService:

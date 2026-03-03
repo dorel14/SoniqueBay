@@ -14,11 +14,12 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional, List
 
 import strawberry
+
+from backend.api.utils.logging import logger
 
 
 @strawberry.type

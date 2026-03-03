@@ -9,15 +9,14 @@ Rôle:
 Auteur: SoniqueBay Team
 """
 
-import os
 import sys
+import os
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from unittest.mock import AsyncMock, MagicMock
-
 import pytest
+from unittest.mock import MagicMock, AsyncMock
 
 
 class TestMIRLLMServiceUnit:
@@ -77,6 +76,7 @@ class TestGenerateTrackSummary:
 
     def test_energetic_track_summary(self, service, sample_mir_data) -> None:
         """Test génération de résumé pour piste énergétique."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         summary = service.generate_track_summary(1, sample_mir_data)
 
         assert isinstance(summary, str)
@@ -86,6 +86,7 @@ class TestGenerateTrackSummary:
 
     def test_chill_track_summary(self, service) -> None:
         """Test génération de résumé pour piste chill."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         mir_data = {
             'normalized': {
                 'energy': 0.2,
@@ -107,6 +108,7 @@ class TestGenerateTrackSummary:
 
     def test_empty_mir_data(self, service) -> None:
         """Test avec données MIR vides."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         summary = service.generate_track_summary(1, {})
 
         assert isinstance(summary, str)
@@ -174,6 +176,7 @@ class TestGenerateTrackDescriptionForLLM:
     @pytest.mark.asyncio
     async def test_description_includes_metadata(self, service, mock_db, sample_mir_data) -> None:
         """Test que la description inclut les métadonnées."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         # Mock de la méthode get_mir_data
         service.get_mir_data = AsyncMock(return_value=sample_mir_data)
 
@@ -190,6 +193,7 @@ class TestGenerateTrackDescriptionForLLM:
     @pytest.mark.asyncio
     async def test_description_without_album(self, service, mock_db, sample_mir_data) -> None:
         """Test description sans album."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         service.get_mir_data = AsyncMock(return_value=sample_mir_data)
 
         description = await service.generate_track_description_for_llm(
@@ -206,6 +210,7 @@ class TestGenerateTrackDescriptionForLLM:
     @pytest.mark.asyncio
     async def test_empty_track_data(self, service, mock_db) -> None:
         """Test avec données de piste vides."""
+        from backend.api.services.mir_llm_service import MIRLLMService
         service.get_mir_data = AsyncMock(return_value={})
 
         description = await service.generate_track_description_for_llm(

@@ -7,10 +7,8 @@ by implementing retry logic for BusyLoadingError exceptions.
 
 import asyncio
 from typing import Optional
-
 import redis.asyncio as redis
 from fastapi_cache.backends.redis import RedisBackend
-
 from backend.api.utils.logging import logger
 
 

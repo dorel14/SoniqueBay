@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import httpx
-
 from backend.api.utils.settings import get_setting
-
 
 class APIConfigError(Exception):
     pass

@@ -4,12 +4,10 @@ Implémente un système intelligent de priorisation des tâches de traitement d'
 """
 
 import json
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timezone
 import redis.asyncio as redis
-
 from backend_worker.utils.logging import logger
 
 

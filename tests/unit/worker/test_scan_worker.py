@@ -6,19 +6,18 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
+import pytest
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from backend_worker.workers.scan.scan_worker import (
-    _get_clustering_stats_via_api,
-    _maybe_trigger_gmm_clustering,
-    get_file_type,
     scan_music_files,
     validate_file_path,
+    get_file_type,
+    _get_clustering_stats_via_api,
+    _maybe_trigger_gmm_clustering,
 )
 
 
@@ -114,8 +113,8 @@ class TestValidateFilePath:
 
     def test_validate_existing_file_returns_true(self) -> None:
         """Test qu'un fichier existant retourne True."""
-        import shutil
         import tempfile
+        import shutil
         
         # Créer un fichier dans un répertoire temporaire
         temp_dir = tempfile.mkdtemp()

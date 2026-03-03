@@ -1,8 +1,6 @@
-import os
-from typing import Optional
-
 import httpx
-
+from typing import Optional
+import os
 from backend.api.utils.logging import logger
 
 API_BASE_URL = os.getenv('API_BASE_URL', 'http://localhost:8000/api')

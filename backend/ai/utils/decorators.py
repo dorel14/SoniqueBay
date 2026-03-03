@@ -1,11 +1,12 @@
+from typing import Any, Dict, List, Optional, Callable, TypeVar, ParamSpec
 import functools
 import inspect
 import time
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, ParamSpec, TypeVar
 
-from backend.ai.utils.registry import ToolRegistry
 from backend.api.utils.logging import logger
+from backend.ai.utils.registry import ToolRegistry
+
 
 P = ParamSpec('P')
 R = TypeVar('R')

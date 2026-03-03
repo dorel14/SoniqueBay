@@ -6,10 +6,8 @@ SQLAlchemy models for artist vector embeddings and GMM clustering.
 """
 
 from __future__ import annotations
-
-from sqlalchemy import Boolean, Float, Integer, String, Text
+from sqlalchemy import String, Integer, Float, Boolean, Text
 from sqlalchemy.orm import Mapped, mapped_column
-
 from backend.api.utils.database import Base, TimestampMixin
 
 

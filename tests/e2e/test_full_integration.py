@@ -11,10 +11,7 @@ from pathlib import Path
 # Ajouter le chemin du backend_worker pour les imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend_worker"))
 
-from backend_worker.workers.metadata.enrichment_worker import (
-    extract_single_file_metadata,
-)
-
+from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
 
 def test_full_integration():
     """Test complet de l'intégration des covers et de l'analyse audio."""

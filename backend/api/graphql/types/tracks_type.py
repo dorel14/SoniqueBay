@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional, List
 
 import strawberry
 
@@ -9,11 +10,12 @@ from backend.api.graphql.types.track_audio_features_type import (
 from backend.api.graphql.types.track_embeddings_type import TrackEmbeddingsType
 from backend.api.graphql.types.track_metadata_type import TrackMetadataType
 from backend.api.graphql.types.track_mir_type import (
-    TrackMIRNormalizedType,
     TrackMIRRawType,
+    TrackMIRNormalizedType,
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )
+from backend.api.utils.logging import logger
 
 
 @strawberry.type

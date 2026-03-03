@@ -1,7 +1,5 @@
-import os
-
 from celery import Celery
-
+import os
 from backend.api.utils.logging import logger
 
 # Configuration Celery pour l'API (envoi de tâches uniquement)

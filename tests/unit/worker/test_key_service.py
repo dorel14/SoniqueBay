@@ -1,6 +1,5 @@
 from backend_worker.services.key_service import key_to_camelot
 
-
 def test_key_to_camelot_major_keys():
     """Test la conversion des clés majeures en notation Camelot."""
     assert key_to_camelot("C", "major") == "8B"

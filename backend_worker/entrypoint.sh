@@ -28,12 +28,6 @@ fi
 # Wait for PostgreSQL to be ready
 /wait
 
-# Run Alembic migrations (using local models in backend_worker)
-echo "[ENTRYPOINT] Running database migrations..."
-cd /app && python -m alembic upgrade head || {
-    echo "[ENTRYPOINT] WARNING: Migration failed, continuing anyway..."
-}
-
 # Initialize data directories before starting any service
 echo "[ENTRYPOINT] Initialisation des répertoires de données..."
 if [ -f /app/backend_worker/services/data_directory_initializer.py ]; then

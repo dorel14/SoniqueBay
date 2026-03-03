@@ -1,13 +1,11 @@
-import os
-from urllib.parse import parse_qs, urlparse
-
-import httpx
-from frontend.config import sonique_bay_logo
-from frontend.theme.layout import COMMON_LINK_CLASSES
 from nicegui import ui
-
-from frontend.services.artist_service import ArtistService
+import httpx
+import os
+from urllib.parse import urlparse, parse_qs
+from frontend.config import sonique_bay_logo
 from frontend.utils.logging import logger
+from frontend.theme.layout import COMMON_LINK_CLASSES
+from frontend.services.artist_service import ArtistService
 
 api_url = os.getenv('API_URL', 'http://api:8001')
 

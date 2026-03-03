@@ -1,13 +1,11 @@
 # -*- coding: UTF-8 -*-
 """Service pour la gestion des WebSockets et SSE."""
 
-import asyncio
+from typing import Callable, Dict, Any
 import json
-import socket
-from typing import Any, Callable, Dict
-
+import asyncio
 import httpx
-
+import socket
 from frontend.utils.logging import logger
 
 try:

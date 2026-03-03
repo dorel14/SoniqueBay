@@ -3,9 +3,8 @@
 Tests d'intégration pour la recherche vectorielle avec sqlite-vec.
 """
 
-import numpy as np
 import pytest
-
+import numpy as np
 from backend.api.services.vector_search_service import VectorSearchService
 
 

@@ -13,20 +13,19 @@ Optimisations Raspberry Pi :
 - Traitement séquentiel pour éviter surcharge
 """
 
+import httpx
+import time
+import os
 import datetime
 import json
-import os
-import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-import httpx
-
-from backend_worker.services.audio_features_service import analyze_audio_with_librosa
-from backend_worker.services.enrichment_service import enrich_album, enrich_artist
+from typing import List, Dict, Any, Optional
 from backend_worker.services.lastfm_service import lastfm_service
+
 from backend_worker.utils.logging import logger
+from backend_worker.services.audio_features_service import analyze_audio_with_librosa
+from backend_worker.services.enrichment_service import enrich_artist, enrich_album
 
 library_api_url = os.getenv("API_URL", "http://api:8001")
 
@@ -46,12 +45,8 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
     try:
         # Import ici pour éviter les problèmes d'import dans les threads
         from mutagen import File
-
         from backend_worker.services.music_scan import (
-            get_file_type,
-            get_musicbrainz_tags,
-            get_tag,
-            sanitize_path,
+            get_file_type, get_tag, sanitize_path, get_musicbrainz_tags,
         )
 
         # Validation et sanitisation du chemin
@@ -103,11 +98,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
 
             # Charger la bibliothèque de genres valides
             try:
-                from backend_worker.utils.genre_converter import (
-                    create_genre_mapping,
-                    load_genre_library,
-                    normalize_genre,
-                )
+                from backend_worker.utils.genre_converter import load_genre_library, normalize_genre, create_genre_mapping
                 genre_mapping = create_genre_mapping()
                 valid_genres = load_genre_library("backend_worker/utils/genre.json")
 
@@ -131,10 +122,9 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                     # Si ce n'est pas un genre valide, vérifier si c'est un nom d'artiste connu
                     # On va comparer avec les artistes de la base de données via un appel API
                     try:
-                        import asyncio
-                        import os
-
                         import httpx
+                        import os
+                        import asyncio
 
                         # Configuration de l'URL de l'API
                         library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
@@ -302,9 +292,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                     cover_mime_type = apic.mime
                     # Convertir les données binaires en base64 de manière synchrone
                     try:
-                        from backend_worker.services.image_service import (
-                            convert_to_base64_sync,
-                        )
+                        from backend_worker.services.image_service import convert_to_base64_sync
                         # Appeler la version synchrone
                         cover_data, _ = convert_to_base64_sync(apic.data, cover_mime_type)
                         logger.info(f"[METADATA] Cover MP3 extraite avec succès pour: {file_path}")
@@ -322,9 +310,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                         logger.debug(f"[METADATA] Avant conversion base64, données disponibles: {len(picture.data) if picture.data else 0}")
 
                         # Utiliser la fonction existante convert_to_base64_sync de manière synchrone
-                        from backend_worker.services.image_service import (
-                            convert_to_base64_sync,
-                        )
+                        from backend_worker.services.image_service import convert_to_base64_sync
                         cover_data, _ = convert_to_base64_sync(picture.data, cover_mime_type)
 
                         logger.debug(f"[METADATA] Conversion base64 réussie, longueur: {len(cover_data) if cover_data else 0}")
@@ -393,16 +379,14 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
             else:
                 # Vérifier si des tags audio sont disponibles dans les métadonnées sérialisées
                 if serialized_tags:
-                    from backend_worker.services.audio_features_service import (
-                        _has_valid_audio_tags,
-                    )
+                    from backend_worker.services.audio_features_service import _has_valid_audio_tags
                     has_audio_tags = _has_valid_audio_tags(serialized_tags)
                     if has_audio_tags:
                         logger.info(f"[DIAGNOSTIC AUDIO] ✅ Tags audio standards disponibles dans {file_path}")
-                        logger.info("[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
+                        logger.info(f"[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
                     else:
                         logger.warning(f"[DIAGNOSTIC AUDIO] ❌ Tags présents mais aucun tag audio valide trouvé pour {file_path}")
-                        logger.warning("[DIAGNOSTIC AUDIO] La fonction _has_valid_audio_tags a retourné False")
+                        logger.warning(f"[DIAGNOSTIC AUDIO] La fonction _has_valid_audio_tags a retourné False")
                 else:
                     logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN TAG du tout trouvé pour {file_path}")
                     logger.warning("[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa sera nécessaire")

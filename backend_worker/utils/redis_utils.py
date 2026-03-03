@@ -19,10 +19,8 @@ Conventions :
 
 import asyncio
 import json
-from typing import Any, Callable, Dict, List, Optional
-
 import redis.asyncio as redis
-
+from typing import Dict, Any, Callable, Optional, List
 from backend_worker.utils.logging import logger
 
 

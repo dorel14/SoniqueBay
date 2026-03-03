@@ -10,13 +10,15 @@ Auteur: SoniqueBay Team
 """
 
 import asyncio
-from typing import Any, Dict, List
-
-from backend_worker.services.ollama_embedding_service import (
-    OllamaEmbeddingError,
-    OllamaEmbeddingService,
-)
+import httpx
+import numpy as np
+from typing import List, Optional, Dict, Any
+import os
 from backend_worker.utils.logging import logger
+from backend_worker.services.ollama_embedding_service import (
+    OllamaEmbeddingService,
+    OllamaEmbeddingError
+)
 
 
 class VectorizationError(Exception):
@@ -180,7 +182,7 @@ class OptimizedVectorizationService:
         return await self.embedding_service.vectorize_tracks_batch(track_ids)
 
     def is_ollama_available(self) -> bool:
-        """Historique : vérifie si le modèle d'embedding local est disponible.
+        """Historique : vérifie si le modèle d'embedding local est disponible.
 
         La méthode conserve son nom pour rétro‑compatibilité, mais le
         modèle n'a plus rien à voir avec Ollama.
@@ -306,7 +308,7 @@ if __name__ == "__main__":
         service = OptimizedVectorizationService()
 
         # Vérifier disponibilité du modèle
-        print("\n1. Vérification modèle...")
+        print(f"\n1. Vérification modèle...")
         available = service.is_model_available()
         print(f"Modèle disponible: {available}")
 

@@ -1,10 +1,8 @@
-import os
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
 from backend.api.models.agent_model import AgentModel
 from backend.api.utils.logging import logger
+import os
 
 DEFAULT_AGENT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
 BASE_AGENTS = [

@@ -5,14 +5,13 @@ Ce script vérifie tous les tags disponibles et identifie ceux qui contiennent
 des informations audio (BPM, tonalité, etc.).
 """
 
-import os
 import sys
+import os
 
 # Ajouter le backend_worker au path pour les imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend_worker'))
 
 from mutagen import File
-
 from backend_worker.services.music_scan import serialize_tags
 
 
@@ -118,9 +117,7 @@ def analyze_audio_file(file_path: str):
         print("\n🔧 ANALYSE SYSTÈME SONIQUEBAY:")
         
         # Vérifier si les tags AcoustID sont valides pour SoniqueBay
-        from backend_worker.services.audio_features_service import (
-            _has_valid_acoustid_tags,
-        )
+        from backend_worker.services.audio_features_service import _has_valid_acoustid_tags
         has_valid_acoustid = _has_valid_acoustid_tags(all_tags)
         print(f"  • Tags AcoustID valides pour SoniqueBay: {'✅ OUI' if has_valid_acoustid else '❌ NON'}")
         

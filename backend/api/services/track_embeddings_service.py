@@ -17,9 +17,9 @@ Auteur: SoniqueBay Team
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Dict, Any, Tuple
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import select, func, and_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 

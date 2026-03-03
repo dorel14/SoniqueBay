@@ -20,11 +20,10 @@ Auteur: SoniqueBay Team
 Date: 2026-03-01
 """
 
-import logging
 from typing import Sequence, Union
-
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+import logging
 
 # Configuration du logger
 logger = logging.getLogger('alembic.runtime.migration')

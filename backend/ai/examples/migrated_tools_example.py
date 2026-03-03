@@ -3,10 +3,10 @@ Exemple d'outil migré utilisant le nouveau système de décorateurs
 Montre la transformation d'un outil existant vers le système optimisé
 """
 
-from typing import Any, Dict, Optional
-
+from typing import Dict, Any, Optional
 from backend.ai.utils.decorators import ai_tool, validate_tool_config
 from backend.api.utils.logging import logger
+
 
 # ============================================================================
 # EXEMPLE 1: Outil de recherche musicale - Version décorée

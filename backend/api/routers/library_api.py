@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-
-from backend.api.models.albums_model import Album
-from backend.api.models.artists_model import Artist
 from backend.api.utils.database import get_async_session
+from backend.api.models.artists_model import Artist
+from backend.api.models.albums_model import Album
 
 router = APIRouter(prefix="/library", tags=["library"])
 

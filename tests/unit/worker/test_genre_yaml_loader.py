@@ -4,21 +4,21 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from pathlib import Path
-from unittest.mock import mock_open, patch
-
 import pytest
+from pathlib import Path
+from unittest.mock import patch, mock_open
 
 from backend_worker.utils.genre_yaml_loader import (
     GenreYamlLoader,
-    flatten_genre_hierarchy,
-    generate_compatible_groups,
-    generate_genre_normalization,
-    get_all_genres_flat,
-    get_genre_yaml_path,
     load_genre_yaml,
+    flatten_genre_hierarchy,
+    generate_genre_normalization,
+    generate_compatible_groups,
+    get_all_genres_flat,
     set_genre_yaml_path,
+    get_genre_yaml_path,
 )
+
 
 # Sample YAML data for testing
 SAMPLE_YAML_DATA = [

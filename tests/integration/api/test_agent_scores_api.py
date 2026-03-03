@@ -1,7 +1,6 @@
 """Tests pour les endpoints de scores d'agents."""
 import pytest
 from fastapi.testclient import TestClient
-
 from backend.api.api_app import create_api
 
 

@@ -2,12 +2,11 @@
 Integration tests for genre search exact match functionality.
 Tests the API endpoint directly to verify the race condition fix works in practice.
 """
-import asyncio
-import time
-from typing import Dict
-
-import httpx
 import pytest
+import httpx
+import asyncio
+from typing import List, Dict
+import time
 
 
 @pytest.mark.asyncio
@@ -131,7 +130,7 @@ async def test_concurrent_genre_creation():
         found_count = sum(1 for r in results if isinstance(r, dict) and r.get("status") in ("found", "found_after_race"))
         error_count = sum(1 for r in results if isinstance(r, Exception))
         
-        print("\nConcurrent creation results:")
+        print(f"\nConcurrent creation results:")
         print(f"  - Created: {created_count}")
         print(f"  - Found: {found_count}")
         print(f"  - Errors: {error_count}")

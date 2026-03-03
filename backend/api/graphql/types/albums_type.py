@@ -5,7 +5,6 @@ import strawberry
 from backend.api.graphql.types.covers_type import CoverType
 from backend.api.graphql.types.tracks_type import TrackType
 
-
 @strawberry.type
 class AlbumType:
     id: int

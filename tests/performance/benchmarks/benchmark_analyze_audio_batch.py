@@ -2,11 +2,10 @@
 """
 Benchmarks pour l'analyse audio en batch.
 """
-import asyncio
-from unittest.mock import MagicMock, patch
-
-import numpy as np
 import pytest
+import asyncio
+import numpy as np
+from unittest.mock import patch, MagicMock
 
 from backend_worker.services.audio_features_service import analyze_audio_batch
 

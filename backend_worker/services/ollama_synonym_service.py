@@ -23,8 +23,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from backend_worker.services.ollama_embedding_service import (
-    OllamaEmbeddingError,
     OllamaEmbeddingService,
+    OllamaEmbeddingError,
 )
 from backend_worker.utils.logging import logger
 

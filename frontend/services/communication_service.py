@@ -1,14 +1,12 @@
 # -*- coding: UTF-8 -*-
 """Service centralisé pour la gestion des communications WebSocket et SSE avec gestion de canaux."""
 
-import asyncio
+from typing import Dict, Callable, Any, Optional
 import os
-from typing import Any, Callable, Dict, Optional
-
+import asyncio
 import httpx
-
-from frontend.services.progress_message_service import progress_service
 from frontend.utils.logging import logger
+from frontend.services.progress_message_service import progress_service
 
 api_url = os.getenv("API_URL", "http://api:8001")
 

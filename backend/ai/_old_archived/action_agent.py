@@ -1,6 +1,5 @@
 from pydantic_ai import Agent
 
-
 def build_action_agent(cfg):
     """
     Agent qui déclenche les actions backend

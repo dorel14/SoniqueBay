@@ -3,10 +3,9 @@ Modèle SQLAlchemy pour la playqueue.
 Stocke la file de lecture en base de données PostgreSQL.
 """
 
+from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer
-from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 

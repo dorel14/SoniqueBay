@@ -6,14 +6,13 @@ dans Kombu en assurant la compatibilité entre l'API et le worker.
 """
 
 import pytest
-
 from backend.api.utils.celery_app import celery_app as api_celery
 from backend_worker.celery_app import celery as worker_celery
-from backend_worker.celery_config_source import (
-    _normalize_redis_url,
+from backend_worker.celery_config import (
     get_unified_celery_config,
     get_unified_queues,
     get_unified_task_routes,
+    _normalize_redis_url
 )
 
 

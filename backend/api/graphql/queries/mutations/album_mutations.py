@@ -1,12 +1,6 @@
 from __future__ import annotations
-
 import strawberry
-
-from backend.api.graphql.types.albums_type import (
-    AlbumCreateInput,
-    AlbumType,
-    AlbumUpdateInput,
-)
+from backend.api.graphql.types.albums_type import AlbumType, AlbumCreateInput, AlbumUpdateInput
 
 
 @strawberry.type
@@ -16,8 +10,8 @@ class AlbumMutations:
     @strawberry.mutation
     def create_album(self, data: AlbumCreateInput, info: strawberry.types.Info) -> AlbumType:
         """Create a new album."""
-        from backend.api.schemas.albums_schema import AlbumCreate
         from backend.api.services.album_service import AlbumService
+        from backend.api.schemas.albums_schema import AlbumCreate
         session = info.context.db
         service = AlbumService(session)
 
@@ -43,8 +37,8 @@ class AlbumMutations:
     @strawberry.mutation
     def create_albums(self, data: list[AlbumCreateInput], info: strawberry.types.Info) -> list[AlbumType]:
         """Create multiple albums in batch."""
-        from backend.api.schemas.albums_schema import AlbumCreate
         from backend.api.services.album_service import AlbumService
+        from backend.api.schemas.albums_schema import AlbumCreate
         session = info.context.db
         service = AlbumService(session)
 
@@ -75,8 +69,8 @@ class AlbumMutations:
     @strawberry.mutation
     def update_album_by_id(self, data: AlbumUpdateInput, info: strawberry.types.Info) -> AlbumType:
         """Update an album by ID."""
-        from backend.api.schemas.albums_schema import AlbumUpdate
         from backend.api.services.album_service import AlbumService
+        from backend.api.schemas.albums_schema import AlbumUpdate
         session = info.context.db
         service = AlbumService(session)
 
@@ -108,8 +102,8 @@ class AlbumMutations:
     @strawberry.mutation
     def upsert_album(self, data: AlbumCreateInput, info: strawberry.types.Info) -> AlbumType:
         """Upsert an album (create if not exists, update if exists)."""
-        from backend.api.schemas.albums_schema import AlbumCreate
         from backend.api.services.album_service import AlbumService
+        from backend.api.schemas.albums_schema import AlbumCreate
         session = info.context.db
         service = AlbumService(session)
 

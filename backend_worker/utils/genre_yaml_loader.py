@@ -8,13 +8,13 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from collections import defaultdict
 from pathlib import Path
 from typing import Optional
-
+from collections import defaultdict
 import yaml
 
 from backend_worker.utils.logging import logger
+
 
 # Chemin vers le fichier YAML (peut être surchargé pour les tests)
 _GENRE_YAML_PATH: Optional[Path] = None

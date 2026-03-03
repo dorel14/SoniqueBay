@@ -13,11 +13,18 @@ Date: 2024
 Marqueurs: pytest.mark.integration, pytest.mark.websocket, pytest.mark.player
 """
 
-import logging
-
 import pytest
+import asyncio
+import json
+import logging
+from typing import Dict, Any, Optional
+from unittest.mock import AsyncMock, MagicMock, patch
+from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 from tests.conftest import (
+    client,
+    db_session,
     create_test_track,
     create_test_tracks,
 )

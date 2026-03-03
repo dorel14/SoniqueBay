@@ -1,11 +1,9 @@
 # -*- coding: UTF-8 -*-
 """Service pour la gestion des pistes."""
 
+from typing import Dict, Any, Optional
 import os
-from typing import Any, Dict, Optional
-
 import httpx
-
 from frontend.utils.logging import logger
 
 api_url = os.getenv("API_URL", "http://localhost:8001")

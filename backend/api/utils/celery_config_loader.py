@@ -6,9 +6,8 @@ Le backend API utilise ce module pour récupérer la configuration du worker.
 import json
 import os
 import time
-from typing import Any, Dict, List
-
 import redis
+from typing import Dict, Any, List, Optional
 from kombu import Queue
 
 from backend.api.utils.logging import logger

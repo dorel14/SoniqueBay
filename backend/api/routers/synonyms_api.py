@@ -15,7 +15,7 @@ Version: 1.0.0
 
 from typing import Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 
 from backend.api.schemas.synonyms_schema import (
     DeleteResponse,
@@ -30,6 +30,7 @@ from backend.api.services.mir_synonym_service import MIRSynonymService
 from backend.api.utils.celery_app import celery_app
 from backend.api.utils.database import AsyncSession, get_async_session
 from backend.api.utils.logging import logger
+
 
 # ============================================================================
 # Router Synonyms

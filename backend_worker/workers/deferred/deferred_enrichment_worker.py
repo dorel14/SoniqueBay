@@ -4,13 +4,12 @@ Traite les tâches d'enrichissement (artistes, albums, tracks) de manière diff�
 """
 
 import asyncio
-from typing import Any, Dict
-
+from typing import Dict, Any
+from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
+from backend_worker.services.enrichment_service import enrich_artist, enrich_album
 from backend_worker.services.audio_features_service import analyze_audio_with_librosa
 from backend_worker.services.deferred_queue_service import deferred_queue_service
-from backend_worker.services.enrichment_service import enrich_album, enrich_artist
-from backend_worker.utils.logging import logger
 
 
 @celery.task(name="worker_deferred_enrichment.process_enrichment_batch", queue="deferred_enrichment")

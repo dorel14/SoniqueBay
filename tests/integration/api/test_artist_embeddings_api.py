@@ -3,11 +3,9 @@
 Tests pour les endpoints API des embeddings d'artistes.
 """
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 from fastapi.testclient import TestClient
-
+from unittest.mock import patch, MagicMock
 from backend.api.api_app import create_api
 
 

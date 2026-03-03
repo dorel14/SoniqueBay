@@ -6,10 +6,9 @@ Génère différents types d'erreurs de validation pour tester le système de lo
 """
 
 import asyncio
+import aiohttp
 import json
 import sys
-
-import aiohttp
 
 
 class ValidationErrorTester:

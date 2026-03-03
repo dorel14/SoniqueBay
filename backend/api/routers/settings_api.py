@@ -1,11 +1,9 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.schemas.settings_schema import Setting, SettingCreate
+from sqlalchemy.exc import IntegrityError
+from typing import List
 from backend.api.utils.database import get_async_session
+from backend.api.schemas.settings_schema import SettingCreate, Setting
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 

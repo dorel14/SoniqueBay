@@ -13,19 +13,19 @@ Version: 1.0.0
 
 import json
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Optional, List, Dict, Any, Union
+from dataclasses import dataclass, field
 
-import httpx
 import numpy as np
+import httpx
 
+from backend_worker.utils.logging import logger
 from backend_worker.services.audio_features_embeddings import (
     AudioFeaturesEmbeddingService,
-    AudioFeaturesInput,
+    AudioFeaturesInput
 )
 from backend_worker.services.gmm_clustering_service import GMMClusteringService
-from backend_worker.utils.logging import logger
 
 # Imports conditionnels pour Redis (optionnel)
 try:
@@ -300,7 +300,7 @@ class ArtistClusteringService:
             success = data.get("success", False)
             
             if success:
-                logger.info("[ArtistClustering] Résultats persistés avec succès")
+                logger.info(f"[ArtistClustering] Résultats persistés avec succès")
             else:
                 logger.warning(f"[ArtistClustering] Échec persistance: {data}")
             

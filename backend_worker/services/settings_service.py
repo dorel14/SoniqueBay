@@ -1,9 +1,7 @@
 import asyncio
+import httpx
 import os
 from typing import Any
-
-import httpx
-
 # Définition locale des clés de settings
 ALBUM_COVER_FILES = "album_cover_files"
 ARTIST_IMAGE_FILES = "artist_image_files"

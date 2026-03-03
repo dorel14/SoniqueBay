@@ -1,13 +1,9 @@
 from __future__ import annotations
-
-import uuid
-from datetime import datetime
-
-from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy import String, Integer, DateTime, func, Text
 from sqlalchemy.orm import Mapped, mapped_column
-
+from datetime import datetime
 from backend.api.utils.database import Base
-
+import uuid
 
 class ScanSession(Base):
     __tablename__ = 'scan_sessions'

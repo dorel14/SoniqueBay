@@ -1,6 +1,5 @@
 from pydantic_ai import Agent
 
-
 def build_playlist_agent(cfg):
     """
     Agent de génération de playlist
