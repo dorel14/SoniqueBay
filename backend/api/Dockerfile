@@ -34,8 +34,9 @@ RUN python3 -c "import uvicorn; print('uvicorn OK')" || uv pip install --system 
 # Copie du code de l'application
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
-COPY alembic/ ./alembic/
-COPY alembic.ini .
+# Note: Les migrations alembic sont gérées par le worker ou Supabase
+# COPY alembic/ ./alembic/
+# COPY alembic.ini .
 
 # Copie du script de healthcheck
 COPY scripts/healthcheck.sh /healthcheck.sh
