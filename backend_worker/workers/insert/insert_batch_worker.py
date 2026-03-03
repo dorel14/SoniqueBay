@@ -261,11 +261,7 @@ async def verify_musicbrainz_ids_persistence(client: httpx.AsyncClient, tracks_d
         if track_path:
             query = """
             query GetTrackMusicBrainzIDs($filePath: String!) {
-<<<<<<< HEAD
-                tracks(where: {filePath: {equals: $filePath}}) {
-=======
                 tracks(where: {filePath: $filePath}) {
->>>>>>> origin/master
                     musicbrainzId
                     musicbrainzAlbumid
                     musicbrainzArtistid
@@ -388,14 +384,6 @@ async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
     """
     artist_name = track.get('artist_name') or track.get('artist')
     
-<<<<<<< HEAD
-    # Essayer d'abord avec le nom d'artiste
-    if artist_name and artist_name in artist_map:
-        artist_id = artist_map[artist_name]['id']
-        logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom -> ID {artist_id}")
-        return artist_id
-    
-=======
     # Essayer d'abord avec le nom d'artiste (recherche exacte)
     if artist_name and artist_name in artist_map:
         artist_id = artist_map[artist_name]['id']
@@ -411,7 +399,6 @@ async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
                 logger.debug(f"[RESOLVE_ARTIST] Artiste '{artist_name}' résolu via nom (case-insensitive) -> ID {artist_id}")
                 return artist_id
     
->>>>>>> origin/master
     # Essayer avec musicbrainz_artistid ou musicbrainz_albumartistid
     mb_artist_id = track.get('musicbrainz_artistid') or track.get('musicbrainz_albumartistid')
     if mb_artist_id:
@@ -421,11 +408,7 @@ async def resolve_track_artist_id(track: Dict, artist_map: Dict) -> int:
                 logger.debug(f"[RESOLVE_ARTIST] Artiste MBID {mb_artist_id} résolu via MBID -> ID {data['id']}")
                 return data['id']
     
-<<<<<<< HEAD
-    logger.warning(f"[RESOLVE_ARTIST] Impossible de résoudre l'artiste pour la track '{track.get('title', 'unknown')}'")
-=======
     logger.warning(f"[RESOLVE_ARTIST] Impossible de résoudre l'artiste pour la track '{track.get('title', 'unknown')}' (nom recherché: '{artist_name}')")
->>>>>>> origin/master
     return None
 
 
@@ -594,11 +577,7 @@ async def verify_entities_presence(client: httpx.AsyncClient, inserted_counts: D
                         # Requête spécifique pour cette track - utiliser le champ correct 'filePath'
                         query = """
                         query GetTrackByPath($filePath: String!) {
-<<<<<<< HEAD
-                            tracks(where: {filePath: {equals: $filePath}}) {
-=======
                             tracks(where: {filePath: $filePath}) {
->>>>>>> origin/master
                                 id
                                 path
                                 bpm
@@ -908,14 +887,6 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     logger.debug(f"[INSERT] Album map keys disponibles: {list(album_map.keys())[:10]}...")
                     
                     for track in tracks_data:
-<<<<<<< HEAD
-                        # Résoudre track_artist_id d'abord
-                        track_artist_id = await resolve_track_artist_id(track, artist_map)
-                        resolved_track = await resolve_album_for_track(track, artist_map, album_map, client)
-                        # Ajouter track_artist_id résolu
-                        if track_artist_id:
-                            resolved_track['track_artist_id'] = track_artist_id
-=======
                         track_title = track.get('title', 'unknown')
                         
                         # Résoudre track_artist_id d'abord
@@ -937,7 +908,6 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         
                         # Ajouter track_artist_id résolu (toujours présent maintenant)
                         resolved_track['track_artist_id'] = track_artist_id
->>>>>>> origin/master
                         resolved_tracks_data.append(resolved_track)
                         
                         # Log du résultat de résolution d'album
