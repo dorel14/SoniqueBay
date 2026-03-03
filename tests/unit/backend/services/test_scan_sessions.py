@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
-
 from backend.api.models.scan_sessions_model import ScanSession
 from backend.api.services.scan_service import ScanService
-
 
 def test_scan_session_creation(db_session: Session):
     """Test creation of scan session."""

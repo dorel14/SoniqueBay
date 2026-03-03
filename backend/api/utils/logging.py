@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-import logging
-import multiprocessing
 import os
+import logging
 import pathlib
 import stat
 import sys
 from datetime import datetime
-from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
+from logging.handlers import RotatingFileHandler, QueueHandler, QueueListener
+import multiprocessing
 
 # Créer une queue pour la communication inter-processus
 log_queue = multiprocessing.Queue(-1)

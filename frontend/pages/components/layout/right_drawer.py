@@ -1,11 +1,8 @@
-import time
-
 from nicegui import ui
-
-from frontend.pages.components.layout.chat import chat_messages, send_message
 from frontend.utils.app_state import get_state
 from frontend.utils.logging import logger
-
+import time
+from frontend.pages.components.layout.chat import chat_messages, send_message
 
 def right_drawer_component():
     logger.debug("Début de l'initialisation du right_drawer")

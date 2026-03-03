@@ -1,7 +1,6 @@
 # backend/tests/test_api/test_artists_api.py
 from backend.api.models.artists_model import Artist
 
-
 def test_get_artists_empty(client, db_session):
     """Test de récupération d'une liste vide d'artistes."""
     response = client.get("/api/artists")

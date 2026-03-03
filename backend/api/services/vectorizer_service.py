@@ -15,7 +15,7 @@ Il sera supprimé dans une future version majeure.
 """
 
 import warnings
-from typing import Any, Dict
+from typing import Dict, Any
 
 # Désactiver tous les avertissements pour ce module
 warnings.filterwarnings("ignore", category=DeprecationWarning)

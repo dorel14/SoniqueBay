@@ -1,8 +1,6 @@
-import uuid
 from dataclasses import dataclass, field
-
 from nicegui import app
-
+import uuid
 
 @dataclass
 class Appstate:

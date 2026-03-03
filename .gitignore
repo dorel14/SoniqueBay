@@ -34,7 +34,7 @@ ollama/*.pub*
 ollama/models/
 .kilocode/*
 llm-service/models/
-llm-service/models/*.gguf*
+
 # Database files
 *.db
 ./music.db

@@ -1,23 +1,10 @@
-# Étape d'extraction de version
-FROM python:3.11-slim AS version_extractor
-COPY _version_.py /_version_.py
-RUN python -c "from _version_ import __version__; print(__version__)" > /version.txt
-
 # Dockerfile pour le service API FastAPI
 FROM python:3.11-slim
 
 # Labels pour la traçabilité
-ARG BUILD_DATE
-
-LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app" \
-      org.opencontainers.image.url="https://github.com/dorel14/SoniqueBay-app" \
-      org.opencontainers.image.version="$(cat /version.txt)" \
-      org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.authors="SoniqueBay Team" \
-      org.opencontainers.image.vendor="SoniqueBay" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.title="SoniqueBay API" \
-      org.opencontainers.image.description="Service API FastAPI pour SoniqueBay"
+LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app"
+LABEL org.opencontainers.image.description="Service API FastAPI pour SoniqueBay"
+LABEL org.opencontainers.image.version="1.0"
 
 # Variables d'environnement
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -30,9 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation de uv et vérification
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    /root/.local/bin/uv --version
+# Installation de uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Création du répertoire de travail
 WORKDIR /app
@@ -40,17 +26,16 @@ WORKDIR /app
 # Copie et installation des dépendances
 COPY requirements.txt .
 
-RUN /root/.local/bin/uv pip install --system -r requirements.txt
+RUN uv pip install --system -r requirements.txt
 
 # Vérification et installation forcée d'uvicorn si nécessaire
-RUN /root/.local/bin/uv pip install --system uvicorn || true
+RUN python3 -c "import uvicorn; print('uvicorn OK')" || uv pip install --system uvicorn
 
 # Copie du code de l'application
 COPY backend/ ./backend/
 COPY scripts/ ./scripts/
-# Note: Les migrations alembic sont gérées par le worker ou Supabase
-# COPY alembic/ ./alembic/
-# COPY alembic.ini .
+COPY alembic/ ./alembic/
+COPY alembic.ini .
 
 # Copie du script de healthcheck
 COPY scripts/healthcheck.sh /healthcheck.sh
@@ -68,5 +53,3 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Commande de démarrage
 CMD ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001"]
-
-

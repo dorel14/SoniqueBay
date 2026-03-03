@@ -3,9 +3,8 @@ Tests d'intégration pour valider les optimisations du scan et de l'intégration
 
 Auteur : Kilo Code
 """
-from unittest.mock import AsyncMock, Mock, patch
-
 import pytest
+from unittest.mock import patch, AsyncMock, Mock
 
 
 @pytest.mark.asyncio
@@ -132,9 +131,8 @@ async def test_audio_analysis_workflow(client, db_session):
 @pytest.mark.asyncio
 async def test_scan_performance_metrics(client, db_session):
     """Test des métriques de performance du scan."""
-    from unittest.mock import AsyncMock
-
     from backend_worker.services.scanner import scan_music_task
+    from unittest.mock import AsyncMock
 
     # Mock des dépendances
     with patch('backend_worker.services.scanner.scan_music_files') as mock_scan, \

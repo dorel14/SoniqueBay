@@ -4,12 +4,12 @@ Script de validation de la synchronisation temporelle des workers Celery.
 Vérifie la cohérence des horloges entre les conteneurs et affiche les statistiques.
 """
 
-import json
-import logging
 import os
-import subprocess
 import time
+import subprocess
+import json
 from datetime import datetime, timezone
+import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

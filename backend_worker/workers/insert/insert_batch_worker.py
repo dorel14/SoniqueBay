@@ -10,29 +10,28 @@ Architecture :
 1. discovery → 2. extract_metadata → 3. process_entities → 4. insert_batch
 """
 
-import asyncio
 import os
-import time
-from typing import Any, Dict, List
-
 import httpx
+import time
+import asyncio
+from typing import Dict, Any, List
 
+from backend_worker.utils.logging import logger
+from backend_worker.utils.pubsub import publish_event
 from backend_worker.celery_app import celery
-from backend_worker.services.deferred_queue_service import deferred_queue_service
 from backend_worker.services.entity_manager import (
-    create_or_get_albums_batch,
     create_or_get_artists_batch,
+    create_or_get_albums_batch,
+    create_or_update_tracks_batch,
     create_or_get_genre,
     create_or_get_genre_tag,
     create_or_get_mood_tag,
-    create_or_update_tracks_batch,
-    execute_graphql_query,
-    on_albums_inserted_callback,
     on_artists_inserted_callback,
+    on_albums_inserted_callback,
     on_tracks_inserted_callback,
+    execute_graphql_query
 )
-from backend_worker.utils.logging import logger
-from backend_worker.utils.pubsub import publish_event
+from backend_worker.services.deferred_queue_service import deferred_queue_service
 
 
 @celery.task(name="insert.direct_batch", queue="insert", bind=True)
@@ -127,7 +126,7 @@ async def enqueue_enrichment_tasks_for_artists(client: httpx.AsyncClient, artist
                         except Exception as info_error:
                             logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
                     else:
-                        logger.error("[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
 
             except Exception as e:
                 logger.error(f"[ENRICHMENT] Erreur vérification artiste {artist_id}: {str(e)}")
@@ -226,7 +225,7 @@ async def enqueue_enrichment_tasks_for_albums(client: httpx.AsyncClient, album_i
                         except Exception as info_error:
                             logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
                     else:
-                        logger.error("[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
+                        logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue")
 
             except Exception as e:
                 logger.error(f"[ENRICHMENT] Erreur vérification album {album_id}: {str(e)}")
@@ -851,7 +850,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                     # DIAGNOSTIC: Vérifier si tous les albums ont été créés
                     if len(album_map) < len(resolved_albums_data):
                         logger.error(f"[INSERT] ⚠️ DISCRÉPANCE: {len(resolved_albums_data)} albums attendus mais {len(album_map)} retournés")
-                        logger.error("[INSERT] Albums manquants potentiels - vérifier les logs entity_manager")
+                        logger.error(f"[INSERT] Albums manquants potentiels - vérifier les logs entity_manager")
 
                     # Déclencher callback pour traitement des covers d'albums
                     if album_map:
@@ -994,7 +993,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                                             except Exception as info_error:
                                                 logger.error(f"[ENRICHMENT DIAGNOSTIC] Impossible d'obtenir info Redis: {info_error}")
                                         else:
-                                            logger.error("[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue audio")
+                                            logger.error(f"[ENRICHMENT DIAGNOSTIC] Redis non disponible lors de l'enqueue audio")
                             logger.info(f"[ENRICHMENT] ✅ {enqueued_count}/{len(processed_tracks)} tâches audio enqueued")
 
                 return inserted_counts

@@ -8,14 +8,17 @@ Teste l'implémentation de l'interface pydantic-ai 1.x Model pour KoboldCPP :
 - Construction du payload KoboldCPP
 """
 import json
+import pytest
 from datetime import datetime
+from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
-import pytest
+
 from pydantic_ai.models import ModelRequestParameters
 
 from backend.ai.models.kobold_model import KoboldNativeModel, KoboldStreamedResponse
+
 
 # Paramètres de requête par défaut pour les tests (tous les champs ont des valeurs par défaut)
 DEFAULT_MODEL_REQUEST_PARAMS = ModelRequestParameters()
@@ -450,7 +453,7 @@ class TestKoboldStreamedResponse:
         for finish_reason, description in test_cases:
             sse_lines = [
                 f'data: {{"token": "Hello", "finish_reason": "{finish_reason}"}}',
-                'data: {"token": "Should not appear", "finish_reason": null}',
+                f'data: {{"token": "Should not appear", "finish_reason": null}}',
             ]
             mock_response = self._make_mock_response(sse_lines)
             streamed = self._make_streamed(mock_response)

@@ -1,9 +1,8 @@
 from contextlib import asynccontextmanager, contextmanager
-from typing import Any, Callable, Coroutine
-
+from backend.api.utils.database import get_session, get_db
 from sqlalchemy.orm import DeclarativeBase
+from typing import Callable, Any, Coroutine
 
-from backend.api.utils.database import get_db, get_session
 
 # -------- ASYNC SESSION --------
 

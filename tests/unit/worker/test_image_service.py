@@ -1,20 +1,18 @@
 # tests/test_image_service.py
-import json
-import logging
-from unittest.mock import AsyncMock, patch
-
 import pytest
+from unittest.mock import AsyncMock, patch
+import logging
 
 # Assuming image_service.py is in the same directory or accessible via PYTHONPATH
 from backend_worker.services.image_service import (
-    find_cover_in_directory,
-    get_artist_images,
-    process_artist_image,
     process_cover_image,
-    process_image_data,
     read_image_file,
+    process_image_data,
+    find_cover_in_directory,
+    process_artist_image,
+    get_artist_images
 )
-
+import json
 
 @pytest.mark.asyncio
 async def test_process_cover_image_data_uri():
@@ -135,8 +133,7 @@ async def test_process_cover_image_invalid_album_cover_files_setting(tmp_path, c
         result, mime_type = await process_cover_image(None, str(album_path))
         assert result is None
         assert mime_type is None
-    assert "Erreur parsing JSON" in caplog.text
-
+    assert "Erreur traitement cover" in caplog.text
 @pytest.mark.asyncio
 async def test_read_image_file_nonexistent_file(caplog):
     """Test la lecture d'un fichier image inexistant."""

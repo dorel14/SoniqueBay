@@ -11,16 +11,16 @@ ARG LOCALE_LANGUAGE=en_US
 COPY --from=version_extractor /version.txt /version.txt
 
 # Installer dépendances système
-RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
-    postgresql-contrib \
+RUN apt-get update && apt-get install -y \
+    postgresql-contrib-17 \
     locales-all \
     tzdata \
     git \
     build-essential \
-    postgresql-server-dev-all \
+    postgresql-server-dev-17 \
     && locale-gen ${LOCALE_LANGUAGE}.UTF-8 \
     && update-locale LANG=${LOCALE_LANGUAGE}.UTF-8 \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Installer pgvector depuis les sources
 RUN git clone https://github.com/pgvector/pgvector.git /tmp/pgvector && \
@@ -31,10 +31,9 @@ RUN git clone https://github.com/pgvector/pgvector.git /tmp/pgvector && \
     rm -rf /tmp/pgvector
 
 # Nettoyer les dépendances de build
-RUN apt-get remove --purge -y git build-essential postgresql-server-dev-all && \
+RUN apt-get remove --purge -y git build-essential postgresql-server-dev-17 && \
     apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    apt-get clean
 
 # Copier les scripts d'initialisation
 COPY db_folder/db_init/ /docker-entrypoint-initdb.d/

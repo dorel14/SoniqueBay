@@ -1,6 +1,7 @@
 from nicegui import ui
 
 
+
 def render(container):
     with container:
         ui.label('SoniqueBay API Documentation').classes('text-2xl font-bold sonique-primary-text')

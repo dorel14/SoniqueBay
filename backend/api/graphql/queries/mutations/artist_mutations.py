@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import strawberry
+from backend.api.graphql.types.artist_type import ArtistType, ArtistCreateInput, ArtistUpdateInput
 from starlette.concurrency import run_in_threadpool
-
-from backend.api.graphql.types.artist_type import (
-    ArtistCreateInput,
-    ArtistType,
-    ArtistUpdateInput,
-)
 
 
 @strawberry.type
@@ -17,6 +12,7 @@ class ArtistMutations:
     @strawberry.mutation
     async def create_artist(self, data: ArtistCreateInput, info: strawberry.types.Info) -> ArtistType:
         """Create a new artist."""
+        from backend.api.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistCreate
         from backend.api.services.artist_service import ArtistService
         session = info.context.session
@@ -97,7 +93,7 @@ class ArtistMutations:
         session = info.context.session
         service = ArtistService(session)
 
-        # Utiliser get_or_create_artist qui existe dans le service
+        # Utiliser get_or_create qui existe dans le service
         artist = await service.get_or_create_artist(name=data.name)
         return ArtistType(
             id=artist.id,

@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from backend.api.utils.logging import logger
 from backend.api.models import Album, Artist, Track
 from backend.api.schemas.artists_schema import ArtistCreate
 
@@ -177,6 +178,7 @@ class ArtistService:
         self,
         name: Optional[str] = None,
         musicbrainz_artistid: Optional[str] = None,
+        genre: Optional[str] = None,
         skip: int = 0,
         limit: Optional[int] = None
     ) -> List[Artist]:
@@ -193,6 +195,7 @@ class ArtistService:
         Returns:
             List[Artist]: List of matching artists
         """
+        from sqlalchemy import or_
 
         # Start building the query
         stmt = select(Artist)

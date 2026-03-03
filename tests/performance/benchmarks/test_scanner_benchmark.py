@@ -7,17 +7,17 @@ Ce fichier utilise pytest-benchmark pour mesurer précisément les performances
 des différentes fonctions du scanner avec des statistiques détaillées.
 """
 
-import os
-import sys
 import tempfile
+import os
 from pathlib import Path
-
+import sys
 import pytest
 
 # Ajouter le répertoire racine au path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from backend_worker.services.scan_optimizer import ScanOptimizer
+
 
 try:
     import pytest_benchmark  # noqa: F401

@@ -6,10 +6,8 @@ Service for generating vector embeddings from track audio features.
 Creates embeddings that can be aggregated to form artist embeddings.
 """
 
-from typing import Any, Dict, List, Optional
-
 import numpy as np
-
+from typing import List, Dict, Optional, Any
 from backend.api.utils.logging import logger
 
 

@@ -21,7 +21,7 @@ Auteur: SoniqueBay Team
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import List, Dict, Any, Optional
 
 import httpx
 from sentence_transformers import SentenceTransformer

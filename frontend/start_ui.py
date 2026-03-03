@@ -1,11 +1,9 @@
-import os
-
+from nicegui import ui, app
 from fastapi.middleware.cors import CORSMiddleware
-from nicegui import app, ui
-
 from frontend._version_ import __version__ as version
+from frontend.utils.logging import logger
 from frontend.pages.root import root_page as root
-
+import os
 storage_secret = os.getenv('ENCRYPTION_KEY', '123456789abcdef')
 app.add_middleware(
         CORSMiddleware,

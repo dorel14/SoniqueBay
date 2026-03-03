@@ -21,15 +21,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
 from backend.api.models.track_mir_raw_model import TrackMIRRaw
+from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
 from backend.api.models.track_mir_scores_model import TrackMIRScores
 from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
 from backend.api.utils.logging import logger

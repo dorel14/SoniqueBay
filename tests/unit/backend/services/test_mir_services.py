@@ -2,12 +2,10 @@
 """Script de test pour les services MIR."""
 
 import sys
-
 sys.path.insert(0, '.')
 
 from backend.api.services.genre_taxonomy_service import GenreTaxonomyService
 from backend.api.services.synthetic_tags_service import SyntheticTagsService
-
 
 def test_genre_taxonomy_service():
     """Test GenreTaxonomyService."""

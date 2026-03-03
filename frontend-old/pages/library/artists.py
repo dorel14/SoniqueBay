@@ -1,14 +1,11 @@
+from nicegui import ui
+import httpx
 import math
 import os
-from urllib.parse import parse_qs, urlparse
-
-import httpx
+from urllib.parse import urlparse, parse_qs
+from frontend.utils.logging import logger
 from frontend.config import sonique_bay_logo
 from frontend.theme.layout import state
-from nicegui import ui
-
-from frontend.utils.logging import logger
-
 API_URL = os.getenv('API_URL', 'http://api:8001')
 
 # Utilisation de l'AppState pour gérer la pagination

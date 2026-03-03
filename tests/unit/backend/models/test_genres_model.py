@@ -1,12 +1,10 @@
 # backend/tests/test_models/test_genres_model.py
 import pytest
 from sqlalchemy.exc import IntegrityError
-
-from backend.api.models.albums_model import Album
-from backend.api.models.artists_model import Artist
 from backend.api.models.genres_model import Genre
+from backend.api.models.artists_model import Artist
+from backend.api.models.albums_model import Album
 from backend.api.models.tracks_model import Track
-
 
 def test_create_genre(db_session):
     """Test de création d'un genre en BDD."""

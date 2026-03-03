@@ -3,15 +3,13 @@
 Tests pour les workers Celery GMM des artistes.
 """
 
-from unittest.mock import MagicMock, patch
-
 import pytest
-
+from unittest.mock import patch, MagicMock
 from backend_worker.workers.artist_gmm.artist_gmm_worker import (
-    _generate_artist_embedding,
-    generate_artist_embeddings,
     train_artist_gmm,
+    generate_artist_embeddings,
     update_artist_clusters,
+    _generate_artist_embedding
 )
 
 
@@ -223,9 +221,7 @@ class TestArtistGMMWorker:
                 mock_service.create_embedding.return_value = MagicMock()
 
                 # Importer et tester la fonction interne
-                from backend_worker.workers.artist_gmm.artist_gmm_worker import (
-                    generate_artist_embeddings,
-                )
+                from backend_worker.workers.artist_gmm.artist_gmm_worker import generate_artist_embeddings
 
                 # Cette fonction déclenche une tâche Celery, donc on teste via les mocks
                 generate_artist_embeddings()

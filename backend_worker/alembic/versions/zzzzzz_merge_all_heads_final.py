@@ -21,8 +21,9 @@ Auteur: SoniqueBay Team
 Date: 2026-02-06
 """
 
-import logging
 from typing import Sequence, Union
+from alembic import op
+import logging
 
 # Configuration du logger
 logger = logging.getLogger('alembic.runtime.migration')

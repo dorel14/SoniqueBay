@@ -1,4 +1,5 @@
-from strawchemy import Strawchemy, StrawchemyConfig, StrawchemySyncRepository
+from strawchemy import Strawchemy, StrawchemySyncRepository, StrawchemyConfig
+from backend.api.utils.settings import get_strawchemy_config
 
 from backend.api.utils.settings import get_strawchemy_config
 

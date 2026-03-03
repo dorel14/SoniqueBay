@@ -15,9 +15,8 @@ Optimisé pour tests :
 
 import asyncio
 from unittest.mock import AsyncMock, patch
-
-from backend_worker.utils.logging import logger
 from backend_worker.utils.redis_utils import publish_vectorization_event, redis_manager
+from backend_worker.utils.logging import logger
 
 
 async def test_redis_pubsub():

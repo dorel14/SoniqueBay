@@ -1,10 +1,8 @@
-import os
-
-import httpx
 from nicegui import ui
-
-from frontend.pages.components.artists_cards import artist_component
 from frontend.pages.layout.theme import apply_sonique_theme
+import httpx
+import os
+from frontend.pages.components.artists_cards import artist_component
 from frontend.utils.logging import logger
 
 

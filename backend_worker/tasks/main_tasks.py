@@ -4,8 +4,8 @@ Tâches legacy pour compatibilité avec l'ancienne architecture.
 Ces tâches seront progressivement supprimées lors de la migration.
 """
 
-from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
+from backend_worker.celery_app import celery
 
 # === ALIAS POUR LES ANCIENNES TÂCHES ===
 

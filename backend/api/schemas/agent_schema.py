@@ -1,8 +1,6 @@
-import os
-from typing import Any, Dict, List, Optional
-
 from pydantic import BaseModel, ConfigDict
-
+from typing import List, Dict, Any, Optional
+import os
 DEFAULT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
 class AgentCreate(BaseModel):
     name: str

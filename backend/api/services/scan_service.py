@@ -9,13 +9,14 @@ Refactorisé pour utiliser la nouvelle architecture de tâches Celery :
 import os
 import time
 from pathlib import Path
+from typing import Optional
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.models.scan_sessions_model import ScanSession
 from backend.api.utils.logging import logger
+from backend.api.models.scan_sessions_model import ScanSession
+from fastapi import HTTPException
 
 
 class ScanService:
@@ -103,11 +104,11 @@ class ScanService:
         start_time = time.time()
         logger.info(f"[SCAN] Démarrage du scan - répertoire: {directory or 'par défaut'}")
 
-        # DIAGNOSTIC: Variables d'environnement (DEBUG uniquement - evite fuite de donnees sensibles)
-        logger.debug("[SCAN] === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
+        # DIAGNOSTIC: Variables d'environnement
+        logger.info("[SCAN] === DIAGNOSTIC VARIABLES D'ENVIRONNEMENT ===")
         for key in sorted(os.environ.keys()):
             if any(env_var in key for env_var in ['MUSIC', 'PLATFORM', 'CELERY', 'DOCKER']):
-                logger.debug(f"[SCAN] ENV: {key}={os.environ[key]}")
+                logger.info(f"[SCAN] ENV: {key}={os.environ[key]}")
 
         # Déterminer le répertoire à scanner
         if not directory:
@@ -158,9 +159,9 @@ class ScanService:
         try:
             from backend.api.utils.celery_app import celery_app
             # Configuration Celery
-            logger.debug("[SCAN] Configuration Celery - Broker: [REDACTED]")  # URL masquee pour securite
+            logger.info(f"[SCAN] Configuration Celery - Broker: {celery_app.conf.broker_url}")
             backend_url = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
-            logger.debug("[SCAN] Backend: [REDACTED]")  # URL masquee pour securite
+            logger.info(f"[SCAN] Backend: {backend_url}")
             celery_app.broker_connection().ensure_connection(max_retries=1)
             inspect = celery_app.control.inspect()
             active_workers = inspect.ping()

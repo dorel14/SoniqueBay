@@ -1,10 +1,8 @@
-import math
-
-from frontend.config import sonique_bay_logo
 from nicegui import ui
-
-from frontend.services.library_service import LibraryService
+import math
 from frontend.utils.logging import logger
+from frontend.config import sonique_bay_logo
+from frontend.services.library_service import LibraryService
 
 total_pages = 1
 page_size = 50

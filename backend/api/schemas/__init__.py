@@ -13,117 +13,100 @@ from backend.api.schemas.agent_score_schema import (
 )
 
 # Imports des schémas
-from backend.api.schemas.albums_schema import (
-    Album,
-    AlbumBase,
-    AlbumCreate,
-    AlbumWithRelations,
+from backend.api.schemas.albums_schema import AlbumBase, AlbumCreate, Album, AlbumWithRelations
+from backend.api.schemas.artists_schema import ArtistBase, ArtistCreate, Artist, ArtistWithRelations
+from backend.api.schemas.genres_schema import GenreBase, GenreCreate, Genre, GenreWithTracks
+from backend.api.schemas.tracks_schema import TrackBase, TrackCreate, Track, TrackWithRelations
+from backend.api.schemas.settings_schema import SettingBase, SettingCreate, Setting
+from backend.api.schemas.search_schema import SearchResult, SearchQuery
+from backend.api.schemas.scan_schema import ScanRequest
+from backend.api.schemas.agent_score_schema import (
+    AgentScoreBase,
+    AgentScoreCreate,
+    AgentScoreUpdate,
+    AgentScore,
+    AgentScoreWithMetrics,
+    AgentScoreListResponse
 )
+from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
 from backend.api.schemas.artist_embeddings_schema import (
     ArtistEmbeddingCreate,
     ArtistEmbeddingUpdate,
-    ArtistSimilarityRecommendation,
     GMMTrainingRequest,
     GMMTrainingResponse,
-)
-from backend.api.schemas.artists_schema import (
-    Artist,
-    ArtistBase,
-    ArtistCreate,
-    ArtistWithRelations,
-)
-from backend.api.schemas.genres_schema import (
-    Genre,
-    GenreBase,
-    GenreCreate,
-    GenreWithTracks,
-)
-from backend.api.schemas.gmm_schema import (
-    ClusteringTaskResponse,
-    ClusterResponse,
-    ClusterStatusResponse,
-    RefreshClustersResponse,
-    SimilarArtistsResponse,
-)
-from backend.api.schemas.mir_schema import (
-    MIRNormalizedPayload,
-    MIRNormalizedResponse,
-    MIRRawPayload,
-    MIRRawResponse,
-    MIRScoresPayload,
-    MIRScoresResponse,
-    MIRStoragePayload,
-    MIRStorageResponse,
-    MIRSummaryResponse,
-    SyntheticTagPayload,
-    SyntheticTagResponse,
-)
-from backend.api.schemas.scan_schema import ScanRequest
-from backend.api.schemas.search_schema import SearchQuery, SearchResult
-from backend.api.schemas.settings_schema import Setting, SettingBase, SettingCreate
-from backend.api.schemas.synonyms_schema import (
-    DeleteResponse,
-    GenerateRequest,
-    SearchResponse,
-    SearchResultItem,
-    SynonymRequest,
-    SynonymResponse,
-    TriggerTaskResponse,
+    ArtistSimilarityRecommendation
 )
 from backend.api.schemas.track_audio_features_schema import (
-    TrackAudioFeatures,
     TrackAudioFeaturesBase,
-    TrackAudioFeaturesCompact,
     TrackAudioFeaturesCreate,
     TrackAudioFeaturesUpdate,
+    TrackAudioFeatures,
     TrackAudioFeaturesWithTrack,
+    TrackAudioFeaturesCompact,
 )
 from backend.api.schemas.track_embeddings_schema import (
-    EmbeddingBatchRequest,
-    EmbeddingBatchResponse,
-    TrackEmbeddings,
     TrackEmbeddingsBase,
     TrackEmbeddingsCreate,
     TrackEmbeddingsUpdate,
-    TrackEmbeddingsVectorOnly,
-    TrackEmbeddingsWithTrack,
+    TrackEmbeddings,
     TrackEmbeddingsWithVector,
+    TrackEmbeddingsWithTrack,
+    TrackEmbeddingsVectorOnly,
     TrackSimilarityResult,
+    EmbeddingBatchRequest,
+    EmbeddingBatchResponse,
+)
+from backend.api.schemas.gmm_schema import (
+    ClusterResponse,
+    SimilarArtistsResponse,
+    ClusterStatusResponse,
+    ClusteringTaskResponse,
+    RefreshClustersResponse,
+)
+from backend.api.schemas.mir_schema import (
+    MIRRawPayload,
+    MIRNormalizedPayload,
+    MIRScoresPayload,
+    SyntheticTagPayload,
+    MIRStoragePayload,
+    MIRStorageResponse,
+    MIRSummaryResponse,
+    MIRRawResponse,
+    MIRNormalizedResponse,
+    MIRScoresResponse,
+    SyntheticTagResponse,
 )
 from backend.api.schemas.track_metadata_schema import (
-    CommonMetadataKeys,
-    TrackMetadata,
     TrackMetadataBase,
-    TrackMetadataBatchCreate,
-    TrackMetadataBatchResponse,
+    TrackMetadataCreate,
+    TrackMetadataUpdate,
+    TrackMetadata,
+    TrackMetadataWithTrack,
+    TrackMetadataCompact,
     TrackMetadataByKey,
     TrackMetadataBySource,
-    TrackMetadataCompact,
-    TrackMetadataCreate,
+    TrackMetadataBatchCreate,
+    TrackMetadataBatchResponse,
     TrackMetadataFilter,
     TrackMetadataStats,
-    TrackMetadataUpdate,
-    TrackMetadataWithTrack,
+    CommonMetadataKeys,
 )
-from backend.api.schemas.track_vectors_schema import (
-    TrackVectorCreate,
-    TrackVectorResponse,
+from backend.api.schemas.synonyms_schema import (
+    SynonymRequest,
+    SynonymResponse,
+    SearchResultItem,
+    SearchResponse,
+    TriggerTaskResponse,
+    DeleteResponse,
+    GenerateRequest,
 )
-from backend.api.schemas.tracks_schema import (
-    Track,
-    TrackBase,
-    TrackCreate,
-    TrackWithRelations,
-)
-
-from .base_schema import BaseSchema
 
 if TYPE_CHECKING:
     from backend.api.schemas.albums_schema import Album
     from backend.api.schemas.artists_schema import Artist
     from backend.api.schemas.genres_schema import Genre
-    from backend.api.schemas.settings_schema import Setting
     from backend.api.schemas.tracks_schema import Track
+    from backend.api.schemas.settings_schema import Setting
 
 __all__ = [
     'BaseSchema',

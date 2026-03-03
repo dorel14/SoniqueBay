@@ -1,12 +1,10 @@
 # backend/agent_manager.py
 import json
 from typing import Dict, Optional
-
+from backend.api.services.agent_services import get_agent_by_name, list_agents
+from backend.api.models.agent_model import AgentModel
 from backend.ai.models.ollama_stream_model import OllamaStreamModel
 from pydantic_ai import Agent as PydanticAgent
-
-from backend.api.models.agent_model import AgentModel
-from backend.api.services.agent_services import get_agent_by_name, list_agents
 
 # cache in-memory of built agents
 AGENT_CACHE: Dict[str, PydanticAgent] = {}

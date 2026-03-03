@@ -12,7 +12,7 @@ Author: SoniqueBay Team
 """
 
 from collections import defaultdict
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -352,6 +352,7 @@ class AlbumService:
         Returns:
             List[dict]: Liste des albums créés ou récupérés avec leurs données
         """
+        from backend.api.schemas.albums_schema import AlbumCreate
         
         results = []
         

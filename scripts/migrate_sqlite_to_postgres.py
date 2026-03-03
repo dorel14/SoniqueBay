@@ -7,13 +7,12 @@ Auteur: Kilo Code
 Date: 2025-11-21
 """
 
-import json
-import logging
 import os
 import sys
+import json
+import logging
 from pathlib import Path
 from typing import List
-
 from dotenv import load_dotenv
 
 # Ajouter le répertoire backend au path

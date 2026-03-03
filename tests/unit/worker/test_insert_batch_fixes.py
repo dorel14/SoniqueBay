@@ -6,12 +6,16 @@ Tests for the insert_batch_worker fixes:
 4. Album artist case-insensitive matching
 """
 
-from unittest.mock import AsyncMock
-
 import pytest
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Dict, List
 
 # Import the functions to test
-from backend_worker.workers.insert.insert_batch_worker import resolve_track_artist_id
+from backend_worker.workers.insert.insert_batch_worker import (
+    resolve_track_artist_id,
+    resolve_album_for_track
+)
 
 
 class TestResolveTrackArtistId:
@@ -160,9 +164,7 @@ class TestInsertBatchIntegration:
     @pytest.mark.asyncio
     async def test_artist_resolution_with_case_insensitive_matching(self, mock_client, sample_tracks_data):
         """Test that artists are resolved with case-insensitive matching."""
-        from backend_worker.workers.insert.insert_batch_worker import (
-            resolve_track_artist_id,
-        )
+        from backend_worker.workers.insert.insert_batch_worker import resolve_track_artist_id
         
         # Artist map with proper casing
         artist_map = {
@@ -249,6 +251,8 @@ class TestGraphQLValidation:
     def test_track_create_input_has_required_fields(self):
         """Verify TrackCreateInput schema requirements."""
         from backend.api.graphql.types.tracks_type import TrackCreateInput
+        import strawberry
+        import sys
         
         # Check that track_artist_id is required (not Optional)
         # In the schema, track_artist_id: int (not int | None)

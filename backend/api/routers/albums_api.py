@@ -1,22 +1,15 @@
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Request
 from fastapi_cache.decorator import cache
 from pydantic import ValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.schemas.albums_schema import (
-    Album,
-    AlbumCreate,
-    AlbumUpdate,
-    AlbumWithRelations,
-)
 from backend.api.schemas.pagination_schema import PaginatedAlbums
+from sqlalchemy.ext.asyncio import AsyncSession
+from backend.api.schemas.albums_schema import AlbumCreate, AlbumUpdate, Album, AlbumWithRelations
 from backend.api.schemas.tracks_schema import Track
-from backend.api.services.album_service import AlbumService
+from typing import List, Optional
 from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 from backend.api.utils.validation_logger import log_validation_error
+from backend.api.services.album_service import AlbumService
 
 router = APIRouter(prefix="/albums", tags=["albums"])
 

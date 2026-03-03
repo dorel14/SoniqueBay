@@ -180,9 +180,8 @@ class SearchIndexingService:
     ) -> Dict[str, Any]:
         """Crée un embedding dans TrackEmbeddings."""
         try:
-            from backend.api.services.track_embeddings_service import (
-                TrackEmbeddingsService,
-            )
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
 
             if not db:
                 from backend.api.utils.database import get_async_db
@@ -233,9 +232,8 @@ class SearchIndexingService:
 
             # Supprimer l'embedding de TrackEmbeddings
             try:
-                from backend.api.services.track_embeddings_service import (
-                    TrackEmbeddingsService,
-                )
+                from backend.api.services.track_embeddings_service import \
+                    TrackEmbeddingsService
 
                 service = TrackEmbeddingsService(db)
                 await service.delete(track_id)
@@ -626,9 +624,8 @@ class SearchIndexingService:
             Résultat de l'opération
         """
         try:
-            from backend.api.services.track_embeddings_service import (
-                TrackEmbeddingsService,
-            )
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
 
             if not db:
                 from backend.api.utils.database import get_async_db
@@ -682,9 +679,8 @@ class SearchIndexingService:
             Résultat de l'opération
         """
         try:
-            from backend.api.services.track_embeddings_service import (
-                TrackEmbeddingsService,
-            )
+            from backend.api.services.track_embeddings_service import \
+                TrackEmbeddingsService
 
             if not db:
                 from backend.api.utils.database import get_async_db

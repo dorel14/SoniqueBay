@@ -5,10 +5,8 @@ Auteur : Kilo Code
 """
 import json
 import time
-from typing import Any, Dict, Optional
-
+from typing import Optional, Dict, Any
 import redis
-
 from frontend.utils.logging import logger
 
 

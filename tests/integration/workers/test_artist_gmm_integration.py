@@ -5,15 +5,13 @@ Tests d'intégration pour le système GMM des artistes.
 Tests complets du pipeline : génération d'embeddings → entraînement GMM → recommandations.
 """
 
-from unittest.mock import MagicMock, patch
-
 import pytest
-
+from unittest.mock import patch, MagicMock
+from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.schemas.artist_embeddings_schema import (
     ArtistEmbeddingCreate,
-    GMMTrainingRequest,
+    GMMTrainingRequest
 )
-from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 
 
 class TestArtistGMMIntegration:
@@ -257,7 +255,7 @@ class TestArtistGMMIntegration:
         from backend_worker.workers.artist_gmm.artist_gmm_worker import (
             generate_artist_embeddings,
             train_artist_gmm,
-            update_artist_clusters,
+            update_artist_clusters
         )
 
         # Mock pour éviter les vraies dépendances Celery

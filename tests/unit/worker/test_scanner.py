@@ -1,9 +1,7 @@
+import pytest
 from unittest.mock import patch
 
-import pytest
-
 from backend_worker.services.scanner import count_music_files
-
 
 @pytest.mark.asyncio
 async def test_count_music_files():

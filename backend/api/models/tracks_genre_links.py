@@ -1,7 +1,6 @@
 from __future__ import annotations
-
-from sqlalchemy import ForeignKey, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Integer, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from backend.api.utils.database import Base, TimestampMixin
 

@@ -6,9 +6,9 @@ Workers for fetching artist information from Last.fm API.
 """
 
 from .lastfm_worker import (
-    batch_fetch_lastfm_info,
     fetch_artist_lastfm_info,
     fetch_similar_artists,
+    batch_fetch_lastfm_info
 )
 
 __all__ = [

@@ -1,9 +1,8 @@
 from __future__ import annotations
-
-from sqlalchemy import Column, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from sqlalchemy import Column, String, Integer, DateTime, Table, ForeignKey
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.api.utils.database import Base, TimestampMixin
+from datetime import datetime, timezone
 
 # Tables d'association
 artist_genres = Table(

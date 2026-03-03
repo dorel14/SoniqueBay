@@ -7,9 +7,9 @@ and managing artist similarity recommendations.
 """
 
 from .artist_gmm_worker import (
-    generate_artist_embeddings,
     train_artist_gmm,
-    update_artist_clusters,
+    generate_artist_embeddings,
+    update_artist_clusters
 )
 
 __all__ = [

@@ -1,14 +1,12 @@
-import asyncio
+from nicegui import ui
+import httpx
 import math
 import os
-from urllib.parse import parse_qs, urlparse
-
-import httpx
-from nicegui import ui
-
-from frontend.utils.app_state import get_state, update_artists_page_size
-from frontend.utils.config import sonique_bay_logo
+import asyncio
+from urllib.parse import urlparse, parse_qs
 from frontend.utils.logging import logger
+from frontend.utils.config import sonique_bay_logo
+from frontend.utils.app_state import get_state, update_artists_page_size
 
 # URL interne pour les appels API depuis le conteneur frontend
 API_URL = os.getenv('API_URL', 'http://api:8001')
@@ -167,7 +165,7 @@ async def artist_component():
                         for artist in artists_list:
                             # Check client connection periodically during rendering
                             if not is_client_connected():
-                                logger.warning("DEBUG: Client disconnected during artist card rendering")
+                                logger.warning(f"DEBUG: Client disconnected during artist card rendering")
                                 break
                             
                             with ui.card().tight().classes(
@@ -261,7 +259,7 @@ async def artist_component():
         async def update_artists_page_size_action(value: int, column, pagination_func):
             logger.info(f"DEBUG: update_artists_page_size_action appelé avec value={value}")
             if not is_client_connected():
-                logger.warning("DEBUG: Client disconnected, skipping update_artists_page_size_action")
+                logger.warning(f"DEBUG: Client disconnected, skipping update_artists_page_size_action")
                 return
             update_artists_page_size(value)
             state.last_rendered_page = None
@@ -283,4 +281,4 @@ async def artist_component():
         if is_client_connected():
             await artist_view(initial_page)
         else:
-            logger.warning("DEBUG: Client disconnected before initial page render")
+            logger.warning(f"DEBUG: Client disconnected before initial page render")

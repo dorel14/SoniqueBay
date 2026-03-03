@@ -1,7 +1,5 @@
 from typing import Callable, Dict
-
 from strawberry.dataloader import DataLoader
-
 
 class LoaderRegistry:
     def __init__(self):

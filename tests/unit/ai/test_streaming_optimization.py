@@ -1,8 +1,7 @@
-import time
-from collections import deque
-from unittest.mock import Mock, patch
-
 import pytest
+import time
+from unittest.mock import Mock, patch
+from collections import deque
 
 from backend.ai.runtime import AgentRuntime, StreamingBuffer
 from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState

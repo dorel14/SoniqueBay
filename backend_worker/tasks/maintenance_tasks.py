@@ -3,9 +3,9 @@ Tâches de maintenance pour les workers - Nettoyage et monitoring
 Utilisé principalement par Celery Beat pour les tâches planifiées.
 """
 
+from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 from backend_worker.services.deferred_queue_service import deferred_queue_service
-from backend_worker.utils.logging import logger
 
 
 @celery.task(name="backend_worker.tasks.maintenance_tasks.cleanup_expired_tasks_task")

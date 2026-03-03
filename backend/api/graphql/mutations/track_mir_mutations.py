@@ -17,20 +17,19 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-
 from typing import Any, Dict, List, Optional
 
 import strawberry
 
 from backend.api.graphql.types.track_mir_type import (
-    TrackMIRBatchResult,
-    TrackMIRNormalizedType,
     TrackMIRRawType,
+    TrackMIRNormalizedType,
     TrackMIRSyntheticTagType,
+    TrackMIRBatchResult,
 )
 from backend.api.graphql.types.tracks_type import TrackType
-from backend.api.services.mir_llm_service import MIRLLMService
 from backend.api.services.track_mir_service import TrackMIRService
+from backend.api.services.mir_llm_service import MIRLLMService
 from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 

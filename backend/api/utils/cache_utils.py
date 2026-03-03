@@ -8,10 +8,8 @@ sur Raspberry Pi 4.
 
 import inspect
 import json
-from typing import Any, Optional
-
 import redis
-
+from typing import Any, Optional
 from backend.api.utils.logging import logger
 
 

@@ -1,25 +1,25 @@
+from fastapi import APIRouter, HTTPException, Depends, Query, status
+from fastapi_cache.decorator import cache
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi_cache.decorator import cache
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.models.artist_similar_model import ArtistSimilar
-from backend.api.models.artists_model import Artist as ArtistModel
+from backend.api.schemas.pagination_schema import PaginatedArtists
 from backend.api.schemas.artist_similar_schema import (
     ArtistSimilarCreate,
-    ArtistSimilarListResponse,
     ArtistSimilarUpdate,
     ArtistSimilarWithDetails,
+    ArtistSimilarListResponse
 )
-from backend.api.schemas.artists_schema import Artist, ArtistCreate, ArtistWithRelations
-from backend.api.schemas.pagination_schema import PaginatedArtists
+from backend.api.utils.database import get_async_session
+from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
 from backend.api.schemas.tracks_schema import TrackWithRelations
 from backend.api.services.artist_service import ArtistService
 from backend.api.services.artist_similar_service import ArtistSimilarService
-from backend.api.utils.database import get_async_session
+from backend.api.models.artists_model import Artist as ArtistModel
+from backend.api.models.artist_similar_model import ArtistSimilar
 from backend.api.utils.logging import logger
+
 
 router = APIRouter(prefix="/artists", tags=["artists"])
 
@@ -119,8 +119,8 @@ async def delete_artist(artist_id: int, db: AsyncSession = Depends(get_async_ses
 @router.get("/{artist_id}/tracks", response_model=List[TrackWithRelations])
 async def read_artist_tracks(artist_id: int, db: AsyncSession = Depends(get_async_session)):
     """Récupère toutes les pistes d'un artiste."""
-    from backend.api.schemas.tracks_schema import TrackWithRelations
     from backend.api.services.track_service import TrackService
+    from backend.api.schemas.tracks_schema import TrackWithRelations
     service = TrackService(db)
     tracks = await service.get_artist_tracks(artist_id)
     return [TrackWithRelations.model_validate(t).model_dump() for t in tracks]
@@ -364,10 +364,9 @@ async def update_artist_lastfm_info(
     Returns:
         Success message
     """
+    from backend.api.models.artists_model import Artist
     import json
     from datetime import datetime
-
-    from backend.api.models.artists_model import Artist
 
     try:
         # Query artist using async SQLAlchemy
@@ -451,9 +450,8 @@ async def update_artist_similar(
     Returns:
         Success message
     """
-    from datetime import datetime
-
     from backend.api.models.artists_model import Artist
+    from datetime import datetime
 
     try:
         # Mark that similar artists have been fetched

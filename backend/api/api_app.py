@@ -1,37 +1,33 @@
 # -*- coding: UTF-8 -*-
 from __future__ import annotations
-
-import asyncio
 import os
-from contextlib import asynccontextmanager
+import asyncio
 from dataclasses import dataclass
-
-import redis.asyncio as redis
-from alembic import command
-from alembic.config import Config
-from fastapi import FastAPI, Request, status
-from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi_cache import FastAPICache
+from fastapi.encoders import jsonable_encoder
+from contextlib import asynccontextmanager, AsyncExitStack
+from backend.api.utils import settings
+from strawberry.fastapi import GraphQLRouter, BaseContext
 from sqlalchemy.ext.asyncio import AsyncSession
-from strawberry.fastapi import BaseContext, GraphQLRouter
-
+from backend.api.utils.logging import logger
+from backend.api.utils.settings import Settings
+from backend.api.services.settings_service import SettingsService
 from backend.ai.seed_agents import seed_default_agents
+import redis.asyncio as redis
+from backend.api.utils.database import get_async_session
+from backend.api.utils.locked_session import LockedSession
+from alembic.config import Config
+from alembic import command
+from fastapi_cache import FastAPICache
+from backend.api.utils.redis_cache_backend import ResilientRedisBackend
 
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
+from backend.api.graphql.queries.schema import schema # noqa: E402
 from backend.api.graphql.dataloader.dataloaders import CatalogLoaders
-from backend.api.graphql.queries.schema import schema  # noqa: E402
-from backend.api.services.settings_service import SettingsService
-from backend.api.utils import settings
-from backend.api.utils.database import get_async_session
-from backend.api.utils.locked_session import LockedSession
-from backend.api.utils.logging import logger
-from backend.api.utils.redis_cache_backend import ResilientRedisBackend
-from backend.api.utils.settings import Settings
-
 
 @dataclass
 class AppContext(BaseContext):
@@ -139,14 +135,13 @@ async def lifespan(app: FastAPI):
     pass
 
 # Créer l'application FastAPI
-# Note: reload=True est un argument uvicorn (CLI), pas un paramètre FastAPI.
-# Configurer le hot-reload via la commande uvicorn : uvicorn ... --reload
 app = FastAPI(title="SoniqueBay API Unifiée",
             redirect_slashes=False,
             version="1.0.0",
             docs_url="/api/docs",
             openapi_url="/api/openapi.json",
-            lifespan=lifespan)
+            lifespan=lifespan,
+            reload=True)
 
 # Configuration CORS avec allow_all_origins pour permettre les connexions WebSocket sans Origin
 app.add_middleware(
@@ -200,22 +195,29 @@ async def handle_trailing_slashes(request: Request, call_next):
                 # route.path est relatif (ex: /artists/), request.url.path est absolu (ex: /api/artists)
                 # On doit comparer route.path (sans slash final) avec request.url.path sans le préfixe /api
                 route_path_no_slash = route.path.rstrip('/')
-                request_path_no_api = request.url.path.removeprefix("/api")
+                request_path_no_api = request.url.path.replace("/api", "")
                 logger.debug(f"[MIDDLEWARE] Comparaison: route.path='{route.path}' -> '{route_path_no_slash}', request='{request_path_no_api}'")
 
                 if route_path_no_slash == request_path_no_api:
                     logger.debug(f"[MIDDLEWARE] Route trouvée: {route.path}")
                     
-                    # CORRECTION : Ne rediriger que si la route définie a un slash final
-                    # Note : Les paramètres de requête sont conservés lors d'une redirection 307
-                    if route.path.endswith('/'):
-                        logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
-                        from fastapi.responses import RedirectResponse
-                        return RedirectResponse(url=new_url, status_code=307)
-                    else:
-                        # La route existe sans slash, et on est sans slash. Pas de redirection.
-                        logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                    # Vérifier si la route accepte les paramètres de requête
+                    # Si la route a des paramètres, ne pas rediriger
+                    if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
+                        # Route avec dépendances (a des paramètres)
+                        # Ne pas rediriger pour éviter de perdre les paramètres
+                        logger.debug("[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
                         pass
+                    else:
+                        # CORRECTION : Ne rediriger que si la route définie a un slash final
+                        if route.path.endswith('/'):
+                            logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
+                            from fastapi.responses import RedirectResponse
+                            return RedirectResponse(url=new_url, status_code=307)
+                        else:
+                            # La route existe sans slash, et on est sans slash. Pas de redirection.
+                            logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                            pass
 
     return await call_next(request)
 

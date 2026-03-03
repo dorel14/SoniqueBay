@@ -27,27 +27,9 @@ from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 date_format = "%Y%m%d"
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
+# Utiliser un chemin relatif pour les logs dans le répertoire de l'application
 logdir = os.path.join(parentdir, 'logs')
-logfiles = os.path.join(logdir, 'soniquebay - ' + datetime.today().strftime(date_format) + '.log')
-
-# === CRÉATION DU RÉPERTOIRE DE LOGS ===
-pathlib.Path(logdir).mkdir(parents=True, exist_ok=True)
-try:
-    os.chmod(logdir, 0o755)
-except Exception:
-    pass  # Ignorer les erreurs de permissions (ex: Docker)
-
-# Créer le fichier de log s'il n'existe pas
-if not os.path.exists(logfiles):
-    try:
-        with open(logfiles, 'a', encoding='utf-8') as f:
-            pass
-        os.chmod(
-            logfiles,
-            stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH
-        )
-    except Exception:
-        pass  # Ignorer les erreurs de création
+logfiles = os.path.join(logdir, 'soniquebay - '+ datetime.today().strftime(date_format) +'.log')
 
 
 # === FORMATEUR SÉCURISÉ ===
@@ -173,57 +155,37 @@ def configure_worker_logging() -> logging.Logger:
 
     # Ajouter un QueueHandler qui envoie les logs à la queue partagée
     handler = QueueHandler(log_queue)
-    worker_logger.addHandler(handler)
-    worker_logger.setLevel(_log_level_int)
+    logger.addHandler(handler)
+    logger.setLevel(getattr(logging, log_level))
+    return logger
 
-    return worker_logger
-
-
-def cleanup_logging() -> None:
-    """Nettoie les ressources de logging à la fin du programme.
-
-    Doit être appelée lors de l'arrêt du worker pour éviter les fuites
-    de ressources et les erreurs de fermeture de queue.
+# Fonction pour nettoyer les ressources de logging à la fin du programme
+def cleanup_logging():
+    """
+    Clean up logging resources properly.
+    This should be called at application shutdown.
     """
     global listener
-
-    # Arrêter le listener proprement
     try:
-        if listener is not None and hasattr(listener, 'stop'):
+        if hasattr(listener, 'stop'):
             listener.stop()
-    except (OSError, EOFError, BrokenPipeError):
-        pass  # Ignorer les erreurs si déjà arrêté
-
-    # Supprimer les handlers du logger
+    except OSError:
+        pass  # Ignore errors if the listener is already stopped
+    
     try:
         for handler in logger.handlers[:]:
-            try:
-                logger.removeHandler(handler)
-                handler.close()
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-    # Vider et fermer la queue
+            logger.removeHandler(handler)
+    except OSError:
+        pass  # Ignore errors if handlers are already removed
+    
     try:
-        # Vider la queue pour éviter les blocages
-        while not log_queue.empty():
-            try:
-                log_queue.get_nowait()
-            except queue.Empty:
-                break
-    except Exception:
-        pass
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Retourne un logger pour le nom donné.
-
-    Args:
-        name: Nom du logger (généralement __name__)
-
-    Returns:
-        Logger configuré
-    """
-    return logging.getLogger(name)
+        if hasattr(log_queue, 'close'):
+            log_queue.close()
+    except OSError:
+        pass  # Ignore errors if the queue is already closed
+    
+    try:
+        if hasattr(log_queue, 'join_thread'):
+            log_queue.join_thread()
+    except OSError:
+        pass  # Ignore errors if the queue thread is already joined

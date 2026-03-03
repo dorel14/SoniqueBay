@@ -11,11 +11,10 @@ Usage:
     python tests/worker/test_audio_features_pipeline.py
 """
 
-import os
 import tempfile
-from unittest.mock import Mock
-
+import os
 import numpy as np
+from unittest.mock import Mock
 import soundfile as sf
 
 from backend_worker.services.audio_features_service import AudioFeaturesService

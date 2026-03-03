@@ -4,15 +4,12 @@ Combine Redis (prioritaire) avec file locale SQLite en cas de défaillance.
 Optimisé pour Raspberry Pi avec retry automatique et monitoring mémoire.
 """
 
-import threading
 import time
-from typing import Any, Dict, Optional
-
-from backend_worker.services.deferred_queue_service import deferred_queue_service
-from backend_worker.services.local_fallback_queue_service import (
-    local_fallback_queue_service,
-)
+import threading
+from typing import Dict, Any, Optional
 from backend_worker.utils.logging import logger
+from backend_worker.services.deferred_queue_service import deferred_queue_service
+from backend_worker.services.local_fallback_queue_service import local_fallback_queue_service
 
 
 class HybridQueueService:
@@ -95,7 +92,7 @@ class HybridQueueService:
                     
                     # Test de connexion avant tentative
                     if not self._test_redis_connection():
-                        logger.warning("[HYBRID_QUEUE] Redis non disponible, passage au fallback")
+                        logger.warning(f"[HYBRID_QUEUE] Redis non disponible, passage au fallback")
                         break
                     
                     success = self.redis_service.enqueue_task(
@@ -117,7 +114,7 @@ class HybridQueueService:
                                 
                                 # Si mémoire saturée, activer fallback
                                 if used_memory > 100 * 1024 * 1024:  # 100MB
-                                    logger.warning("[HYBRID_QUEUE] Mémoire Redis saturée, activation fallback forcé")
+                                    logger.warning(f"[HYBRID_QUEUE] Mémoire Redis saturée, activation fallback forcé")
                                     self.fallback_active = True
                                     break
                             except Exception as info_error:

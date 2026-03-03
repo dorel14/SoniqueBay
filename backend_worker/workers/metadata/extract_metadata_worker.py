@@ -10,17 +10,15 @@ Architecture :
 1. discovery → 2. extract_metadata → 3. batch_entities → 4. insert_batch
 """
 
-import os
 import time
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
-from backend_worker.celery_app import celery
 from backend_worker.utils.logging import logger
 from backend_worker.utils.pubsub import publish_event
-from backend_worker.workers.metadata.enrichment_worker import (
-    extract_single_file_metadata,
-)
+from backend_worker.celery_app import celery
+from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
 
 
 @celery.task(name="metadata.extract_batch", queue="extract", bind=True)

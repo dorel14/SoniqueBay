@@ -16,8 +16,7 @@ Dépendances:
 Auteur: SoniqueBay Team
 """
 
-from typing import Any, Dict, List, Optional
-
+from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.utils.logging import logger
@@ -194,14 +193,11 @@ class MIRLLMService:
             Dictionnaire contenant toutes les données MIR ou None si non trouvé
         """
         try:
-            from sqlalchemy import select
-
-            from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
             from backend.api.models.track_mir_raw_model import TrackMIRRaw
+            from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
             from backend.api.models.track_mir_scores_model import TrackMIRScores
-            from backend.api.models.track_mir_synthetic_tags_model import (
-                TrackMIRSyntheticTags,
-            )
+            from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+            from sqlalchemy import select
 
             # Récupérer les données MIR brutes
             raw_result = await self.session.execute(

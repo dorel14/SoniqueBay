@@ -3,7 +3,6 @@ Tests pour l'endpoint de chat simple.
 """
 import pytest
 from fastapi.testclient import TestClient
-
 from backend.api.api_app import app
 
 client = TestClient(app)

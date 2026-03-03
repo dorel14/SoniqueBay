@@ -6,11 +6,11 @@ retourne un `StreamedRunResult` qui doit être utilisé avec `async with`
 et non avec `await`.
 """
 
+import pytest
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 from dataclasses import dataclass
 from typing import AsyncIterator
-from unittest.mock import MagicMock
-
-import pytest
 
 from backend.ai.runtime import AgentRuntime, StreamingBuffer
 
@@ -162,10 +162,7 @@ class TestAgentRuntimeStreaming:
     @pytest.mark.asyncio
     async def test_normalize_stream_event_with_string(self, runtime):
         """Test la normalisation des événements de type string."""
-        from backend.api.schemas.agent_response_schema import (
-            AgentMessageType,
-            AgentState,
-        )
+        from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState
         
         event = "Test content"
         result = runtime._normalize_stream_event(event)
@@ -192,7 +189,7 @@ class TestAgentRuntimeStreaming:
     @pytest.mark.asyncio
     async def test_normalize_stream_event_with_pydantic_ai_event(self, runtime):
         """Test la normalisation des événements pydantic-ai."""
-        from backend.api.schemas.agent_response_schema import AgentMessageType
+        from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState
         
         # Mock d'un événement pydantic-ai
         mock_event = MagicMock()
@@ -209,6 +206,7 @@ class TestAgentRuntimeStreaming:
 
 # Import nécessaire pour les tests
 from contextlib import asynccontextmanager
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

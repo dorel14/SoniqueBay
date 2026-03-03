@@ -3,13 +3,12 @@
 Script pour lancer les benchmarks manuellement.
 Utilise time.perf_counter au lieu de pytest-benchmark pour éviter les conflits.
 """
-import json
-import os
-import statistics
-import sys
 import time
+import sys
+import os
 from pathlib import Path
-
+import statistics
+import json
 from backend_worker.services.audio_features_service import extract_audio_features
 
 # Ajouter le répertoire racine au sys.path

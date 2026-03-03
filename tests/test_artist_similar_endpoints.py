@@ -4,11 +4,9 @@
 Test script for ArtistSimilar endpoints
 """
 
+import httpx
 import asyncio
 from datetime import datetime
-
-import httpx
-
 
 async def test_artist_similar_endpoints():
     """

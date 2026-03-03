@@ -6,13 +6,9 @@ Pydantic schemas for artist similar relationships API endpoints.
 """
 
 from __future__ import annotations
-
-from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field
-
+from typing import Optional, List
+from pydantic import BaseModel, Field, ConfigDict
 from .base_schema import TimestampedSchema
-
 
 class ArtistSimilarBase(BaseModel):
     """

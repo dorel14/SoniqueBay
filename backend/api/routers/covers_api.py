@@ -1,18 +1,15 @@
-import base64
-from pathlib import Path
-from typing import List, Optional
-
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.api.models.covers_model import EntityCoverType
-from backend.api.schemas.covers_schema import Cover as CoverSchema
-from backend.api.schemas.covers_schema import CoverCreate
-from backend.api.services.covers_service import CoverService
-from backend.api.utils.celery_app import celery_app
+from typing import List, Optional
 from backend.api.utils.database import get_async_session
+from backend.api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
+from backend.api.services.covers_service import CoverService
+from backend.api.models.covers_model import EntityCoverType
 from backend.api.utils.logging import logger
+from backend.api.utils.celery_app import celery_app
+import base64
+from pathlib import Path
 
 router = APIRouter(prefix="/covers", tags=["covers"])
 
@@ -192,7 +189,6 @@ async def scan_all_artist_images(db: AsyncSession = Depends(get_async_session)):
         
         # Récupérer tous les IDs d'artistes depuis la DB
         from sqlalchemy import select
-
         from backend.api.models.artists_model import Artist
         result = await db.execute(select(Artist.id))
         artist_ids = [row[0] for row in result.all()]
@@ -227,7 +223,6 @@ async def scan_all_album_images(db: AsyncSession = Depends(get_async_session)):
         
         # Récupérer tous les IDs d'albums depuis la DB
         from sqlalchemy import select
-
         from backend.api.models.albums_model import Album
         result = await db.execute(select(Album.id))
         album_ids = [row[0] for row in result.all()]
@@ -275,7 +270,6 @@ async def scan_embedded_covers(directory: Optional[str] = None, db: AsyncSession
         else:
             # Sinon, récupérer tous les chemins de fichiers musicaux depuis la DB
             from sqlalchemy import select
-
             from backend.api.models.tracks_model import Track
             result = await db.execute(select(Track.path))
             file_paths = [row[0] for row in result.all()]

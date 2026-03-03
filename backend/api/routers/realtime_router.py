@@ -5,7 +5,6 @@ Gère les connexions SSE et WebSocket pour les événements temps réel.
 """
 
 from fastapi import APIRouter, WebSocket
-
 from backend.api.services.realtime_service import realtime_service
 from backend.api.utils.logging import logger
 

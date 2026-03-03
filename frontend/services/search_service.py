@@ -1,13 +1,11 @@
 # -*- coding: UTF-8 -*-
 """Service pour la gestion de la recherche."""
 
-import asyncio
+from typing import List, Dict, Any, Optional
 import os
-from typing import Any, Dict, List, Optional
-
 import httpx
-from nicegui import events, ui
-
+import asyncio
+from nicegui import ui, events
 from frontend.utils.logging import logger
 
 api_url = os.getenv("API_URL", "http://localhost:8001")

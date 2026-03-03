@@ -13,11 +13,12 @@ Date: 2024
 Marqueurs: pytest.mark.performance, pytest.mark.benchmark, pytest.mark.cache
 """
 
-import logging
-import time
-from datetime import datetime
-
 import pytest
+import time
+import logging
+from typing import Dict, Any, List
+from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class TestRedisCachePerformance:
         # Benchmark
         result = benchmark(
             lambda: client.post(
-                "/api/cache/set",
+                f"/api/cache/set",
                 json={"key": key, "value": value}
             )
         )
@@ -57,7 +58,7 @@ class TestRedisCachePerformance:
         key = f"benchmark:test:get:{datetime.now().timestamp()}"
         # Préparer une valeur
         client.post(
-            "/api/cache/set",
+            f"/api/cache/set",
             json={"key": key, "value": "test"}
         )
 
@@ -83,7 +84,7 @@ class TestRedisCachePerformance:
         key = f"benchmark:test:delete:{datetime.now().timestamp()}"
         # Préparer une valeur
         client.post(
-            "/api/cache/set",
+            f"/api/cache/set",
             json={"key": key, "value": "to delete"}
         )
 
@@ -235,7 +236,7 @@ class TestCacheConcurrency:
         # Préparer des clés
         for i in range(10):
             client.post(
-                "/api/cache/set",
+                f"/api/cache/set",
                 json={"key": f"concurrent:get:{i}", "value": f"value_{i}"}
             )
 

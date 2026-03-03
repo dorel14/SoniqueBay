@@ -31,23 +31,17 @@ RUN --mount=type=cache,target=/var/cache/apt/builder \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation de uv via le script officiel avec fallback vers pip
+# Installation de uv via le script officiel
 RUN --mount=type=cache,target=/root/.cache/uv \
-    (curl -LsSf https://astral.sh/uv/install.sh | sh && ln -sf /root/.local/bin/uv /usr/local/bin/uv) || \
-    (echo "UV installation failed, using pip as fallback" && \
-     apt-get update && apt-get install -y --no-install-recommends python3-pip && \
-     ln -sf /usr/bin/pip /usr/local/bin/uv)
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -sf /root/.local/bin/uv /usr/local/bin/uv
 
-ENV PATH="/root/.local/bin:/usr/local/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
-# Copier et installer les dépendances Python avec uv (ou pip en fallback)
+# Copier et installer les dépendances Python avec uv
 COPY --link ./backend_worker/requirements.txt /build/requirements.txt
 RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked \
-    if [ -f /root/.local/bin/uv ] && [ -x /root/.local/bin/uv ]; then \
-        /root/.local/bin/uv pip install --no-cache-dir --system -r /build/requirements.txt; \
-    else \
-        pip install --no-cache-dir --system -r /build/requirements.txt; \
-    fi
+    /root/.local/bin/uv pip install --no-cache-dir --system -r /build/requirements.txt
 
 # Runner stage: image de production optimisée
 FROM python:3.11-slim AS runner
@@ -87,9 +81,9 @@ RUN --mount=type=cache,target=/var/cache/apt/runner \
     # Créer les répertoires de données et logs avec permissions correctes
     mkdir -p /home/soniquebay /data /logs /app/backend_worker/logs /app/backend_worker/data /data/celery_beat_data
 
-# Copier uv depuis le builder stage (si disponible)
-COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv 
-COPY --from=builder /root/.local/bin/uv /root/.local/bin/uv 
+# Copier uv depuis le builder stage
+COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
+COPY --from=builder /root/.local/bin/uv /root/.local/bin/uv
 
 # Copier les packages Python installés depuis le builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
@@ -102,10 +96,6 @@ RUN python3 -c "import celery; print('celery import check'); print('Celery versi
 COPY --link ./backend_worker /app/backend_worker
 COPY --link ./backend /app/backend
 COPY --link ./backend_worker/api_app.py /app/backend_worker/api_app.py
-
-# Copier alembic.ini et les migrations
-COPY --link ./alembic.ini /app/alembic.ini
-COPY --link ./backend_worker/alembic /app/backend_worker/alembic
 
 WORKDIR /app
 

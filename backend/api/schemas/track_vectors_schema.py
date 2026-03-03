@@ -3,10 +3,8 @@ Schemas Pydantic pour les vecteurs de pistes.
 Utilisé pour la validation et sérialisation des données de vectorisation.
 """
 from __future__ import annotations
-
 from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class TrackVectorBase(BaseModel):

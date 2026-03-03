@@ -6,7 +6,6 @@ Remplace 'from backend.api.' par 'from backend.api.' dans tous les fichiers Pyth
 import os
 import re
 
-
 def update_imports_in_file(filepath):
     """Met à jour les imports dans un fichier."""
     try:

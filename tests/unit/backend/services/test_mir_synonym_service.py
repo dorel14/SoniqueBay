@@ -10,8 +10,8 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-import os
 import sys
+import os
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))

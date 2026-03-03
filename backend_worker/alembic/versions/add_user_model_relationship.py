@@ -6,8 +6,9 @@ Revises: add_conversation_model
 Create Date: 2025-12-21 16:37:00.000000+00:00
 
 """
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+
 
 # revision identifiers, used by Alembic.
 revision = 'add_user_model_relationship'

@@ -6,9 +6,7 @@ Pydantic schemas for artist embeddings API endpoints.
 """
 
 from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
-
+from typing import List, Dict, Optional, Any
 from pydantic import BaseModel, Field
 
 

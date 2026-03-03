@@ -2,13 +2,12 @@
 """
 Configuration et fixtures communes pour les benchmarks.
 """
+import pytest
+import numpy as np
+import tempfile
 import os
 import sys
-import tempfile
 from pathlib import Path
-
-import numpy as np
-import pytest
 
 # Ajouter le répertoire racine au sys.path
 root_dir = Path(__file__).parent.parent.parent
@@ -194,10 +193,9 @@ def benchmark_db_session(test_db_engine):
 @pytest.fixture
 def benchmark_client(benchmark_db_session):
     """Client FastAPI pour les benchmarks."""
-    from fastapi.testclient import TestClient
-
     from backend.api.api_app import create_api
     from backend.api.utils.database import get_db, get_session
+    from fastapi.testclient import TestClient
 
     app = create_api()
 

@@ -17,20 +17,23 @@ Version: 1.0.0
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.schemas.gmm_schema import (
-    ClusteringTaskResponse,
     ClusterResponse,
-    ClusterStatusResponse,
-    RefreshClustersResponse,
     SimilarArtistsResponse,
+    ClusterStatusResponse,
+    ClusteringTaskResponse,
+    RefreshClustersResponse,
 )
+
+from backend.api.utils.database import get_async_session
+from backend.api.utils.celery_app import celery_app
+from backend.api.utils.logging import logger
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.services.artist_service import ArtistService
-from backend.api.utils.celery_app import celery_app
-from backend.api.utils.database import get_async_session
-from backend.api.utils.logging import logger
+
 
 # ============================================================================
 # Router GMM

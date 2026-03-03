@@ -1,15 +1,9 @@
 # backend/tests/test_api/test_track_vectors_api.py
 # Tests pour les endpoints de l'API Track Vectors
 
-from unittest.mock import MagicMock, patch
-
 import pytest
-
-from backend.api.schemas.track_vectors_schema import (
-    TrackVectorIn,
-    TrackVectorOut,
-    TrackVectorResponse,
-)
+from unittest.mock import patch, MagicMock
+from backend.api.schemas.track_vectors_schema import TrackVectorIn, TrackVectorOut, TrackVectorResponse
 
 
 @pytest.fixture

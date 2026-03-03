@@ -1,7 +1,5 @@
-from typing import Any, Awaitable, Callable, Sequence
-
+from typing import Callable, Awaitable, Sequence, Any
 from strawberry.dataloader import DataLoader
-
 
 def by_id_loader(
     fetch_fn: Callable[[Sequence[int], Any], Awaitable[Sequence[Any]]],

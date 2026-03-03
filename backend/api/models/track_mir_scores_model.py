@@ -16,12 +16,11 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, Integer
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Index
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from backend.api.utils.database import Base, TimestampMixin
 

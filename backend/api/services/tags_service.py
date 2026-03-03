@@ -4,12 +4,10 @@ Déplace toute la logique métier depuis tags_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.tags_model, backend.api.schemas.tags_schema
 """
-from typing import List, Optional
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from typing import List, Optional
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.api.schemas.tags_schema import TagCreate
 

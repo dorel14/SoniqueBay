@@ -1,7 +1,6 @@
 """Tests pour les endpoints d'agents dans backend/api/routers/agents_api.py."""
 import pytest
 from fastapi.testclient import TestClient
-
 from backend.api.api_app import create_api
 
 

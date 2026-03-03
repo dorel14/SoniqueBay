@@ -3,9 +3,9 @@ Types et classes de contexte pour le traitement des covers.
 Évite les imports circulaires en séparant les définitions de types.
 """
 
-from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Optional
+from datetime import datetime, timezone
 
 
 class ImageType(Enum):

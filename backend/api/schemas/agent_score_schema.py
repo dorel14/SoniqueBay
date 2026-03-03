@@ -6,10 +6,8 @@ liées aux scores des agents dans l'API.
 """
 
 from __future__ import annotations
-
 from typing import Optional
-
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class AgentScoreBase(BaseModel):

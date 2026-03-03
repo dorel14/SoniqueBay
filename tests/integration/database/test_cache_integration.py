@@ -4,14 +4,13 @@ Test d'intégration pour vérifier que le cache des appels API fonctionne correc
 """
 
 import asyncio
-import os
 import sys
+import os
 
 # Ajouter le chemin du backend_worker pour les imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'backend_worker'))
 
 from backend_worker.services.cache_service import cache_service
-
 
 async def test_artist_search_cache():
     """Teste le cache pour les recherches d'artistes."""

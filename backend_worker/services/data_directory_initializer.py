@@ -7,12 +7,11 @@ avec les bonnes permissions avant l'exécution des tâches Celery.
 Auteur : Kilo Code
 """
 
-import grp
 import os
 import pwd
+import grp
 from pathlib import Path
-from typing import Any, Dict
-
+from typing import Dict, Any
 from backend_worker.utils.logging import logger
 
 

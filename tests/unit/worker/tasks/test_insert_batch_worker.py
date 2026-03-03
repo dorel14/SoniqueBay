@@ -1,9 +1,7 @@
 """Test pour valider le fix de l'insertion des tracks avec des artistes manquants."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
-
+from unittest.mock import AsyncMock, MagicMock, patch
 from backend_worker.workers.insert.insert_batch_worker import _insert_batch_direct_async
 
 

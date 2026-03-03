@@ -12,6 +12,7 @@ from backend_worker.services.settings_service import SettingsService
 from backend_worker.utils.logging import logger
 
 
+
 def snake_to_camel(s: str) -> str:
     """Convert snake_case to camelCase."""
     parts = s.split('_')

@@ -4,12 +4,10 @@ Gestionnaire centralisé des WebSockets pour SoniqueBay
 Gère les connexions WebSocket avec support multi-canaux.
 """
 
-import asyncio
 import json
-from typing import Any, Callable, Dict, List, Optional
-
+import asyncio
+from typing import Dict, List, Optional, Callable, Any
 from fastapi import WebSocket
-
 from backend.api.utils.logging import logger
 
 

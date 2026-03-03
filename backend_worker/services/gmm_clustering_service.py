@@ -8,11 +8,11 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Any, Dict, Optional, Tuple
-
+from typing import Optional, Dict, Any, Tuple
 import numpy as np
-from sklearn.cluster import KMeans
+
 from sklearn.mixture import GaussianMixture
+from sklearn.cluster import KMeans
 
 from backend_worker.utils.logging import logger
 

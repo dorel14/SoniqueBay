@@ -1,11 +1,8 @@
-from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-from backend.api.utils.logging import logger
-
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from typing import Optional, List
 from .base_schema import TimestampedSchema
 from .covers_schema import Cover
+from backend.api.utils.logging import logger
 
 
 class AlbumBase(BaseModel):

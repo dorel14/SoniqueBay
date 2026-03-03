@@ -6,13 +6,10 @@ Service for managing artist similarity relationships.
 """
 
 from __future__ import annotations
-
-from typing import Any, Dict, List, Optional
-
-from sqlalchemy import and_, func, or_, select
+from typing import List, Optional, Dict, Any
+from sqlalchemy import func, or_, and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from backend.api.models.artist_similar_model import ArtistSimilar as ArtistSimilarModel
 from backend.api.models.artists_model import Artist as ArtistModel
 from backend.api.utils.logging import logger

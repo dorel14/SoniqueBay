@@ -9,7 +9,6 @@ import sys
 import traceback
 from datetime import datetime
 
-
 def test_model_imports():
     """
     Test that the models can be imported and initialized without errors.
@@ -20,8 +19,8 @@ def test_model_imports():
     try:
         # Test 1: Import the models
         print("📦 Test 1: Importing models...")
-        from backend.api.models.artist_similar_model import ArtistSimilar
         from backend.api.models.artists_model import Artist
+        from backend.api.models.artist_similar_model import ArtistSimilar
         print("✅ Success: Models imported successfully")
 
         # Test 2: Check that the relationships are properly configured

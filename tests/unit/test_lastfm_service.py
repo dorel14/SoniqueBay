@@ -7,9 +7,10 @@ Ce module teste le service LastFM pour s'assurer que :
 3. Les méthodes principales fonctionnent comme attendu
 """
 
-from unittest.mock import Mock, patch
-
 import pytest
+from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime
+from typing import Optional, Dict, Any, List, Tuple
 
 # Import du service à tester
 from backend_worker.services.lastfm_service import LastFMService, lastfm_service

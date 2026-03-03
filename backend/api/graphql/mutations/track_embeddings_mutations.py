@@ -16,14 +16,14 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-
-from typing import Optional
+from typing import Optional, List
 
 import strawberry
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.graphql.types.track_embeddings_type import (
-    TrackEmbeddingsInput,
     TrackEmbeddingsType,
+    TrackEmbeddingsInput,
     TrackEmbeddingsUpdateInput,
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService

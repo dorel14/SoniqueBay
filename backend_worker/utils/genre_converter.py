@@ -5,13 +5,11 @@ Convertion de la hiérarchie YAML des genres en une bibliothèque JSON plate
 pour validation et normalisation des genres musicaux.
 """
 
-import json
-from pathlib import Path
-from typing import Dict, List, Set
-
 import yaml
-
+import json
 from backend_worker.utils.logging import logger
+from pathlib import Path
+from typing import List, Dict, Set
 
 # Cache global pour la bibliothèque de genres
 _GENRE_LIBRARY_CACHE = None

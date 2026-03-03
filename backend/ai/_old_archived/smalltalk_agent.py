@@ -1,6 +1,5 @@
 from pydantic_ai import Agent
 
-
 def build_smalltalk_agent(cfg):
     """
     Agent qui gère le smalltalk et infère le mood

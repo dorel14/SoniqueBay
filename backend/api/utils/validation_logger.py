@@ -1,13 +1,11 @@
 """
 Utility pour logger les erreurs de validation Pydantic et générer des diagnostics détaillés.
 """
-import json
 import traceback
-from typing import Any, Dict, List
-
+import json
+from typing import Dict, Any, List
 from fastapi import Request
 from pydantic import ValidationError
-
 from .logging import logger
 
 

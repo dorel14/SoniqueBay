@@ -3,7 +3,6 @@
 
 from typing import Optional
 
-
 class IntentRouter:
     """
     Détermine l'intention en lisant les mots-clés depuis orchestrator.yaml.

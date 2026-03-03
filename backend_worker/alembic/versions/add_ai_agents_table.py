@@ -7,8 +7,9 @@ Create Date: 2025-12-14 18:36:00.000000
 """
 from typing import Sequence, Union
 
-import sqlalchemy as sa
 from alembic import op
+import sqlalchemy as sa
+
 
 # revision identifiers, used by Alembic.
 revision: str = 'add_ai_agents'

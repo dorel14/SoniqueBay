@@ -1,357 +1,212 @@
-"""Tests unitaires pour AudioFeaturesService.
-
-Ces tests vérifient le bon fonctionnement du service d'extraction
-de caractéristiques audio.
-
-Auteur: SoniqueBay Team
-Version: 2.0.0
-"""
-
-import os
-import tempfile
-from unittest.mock import patch
-
-import numpy as np
 import pytest
+from unittest.mock import AsyncMock, patch, MagicMock
+import logging
+import numpy as np
 
 from backend_worker.services.audio_features_service import (
-    AudioFeaturesService,
-    _extract_features_from_acoustid_tags,
-    _extract_features_from_standard_tags,
-    _has_valid_acoustid_tags,
-    _has_valid_audio_tags,
     analyze_audio_with_librosa,
     extract_audio_features,
+    retry_failed_updates
 )
 
+@pytest.mark.asyncio
+async def test_analyze_audio_with_librosa_success(caplog, tmp_path):
+    """Test l'analyse audio avec Librosa avec succès."""
+    caplog.set_level(logging.INFO)
+    
+    # Créer un fichier audio temporaire
+    test_file = tmp_path / "test.wav"
+    test_file.write_bytes(b"dummy audio data")
+    
+    # Mock pour librosa.load
+    mock_y = np.zeros(1000)
+    mock_sr = 22050
+    
+    # Mock pour les fonctions librosa
+    with patch('librosa.load', return_value=(mock_y, mock_sr)) as mock_load:
+        with patch('librosa.beat.beat_track', return_value=(120, None)) as mock_beat:
+            with patch('librosa.feature.chroma_stft', return_value=np.zeros((12, 10))) as mock_chroma:
+                with patch('librosa.feature.spectral_centroid', return_value=[np.zeros(10)]):
+                    with patch('librosa.feature.spectral_rolloff', return_value=[np.zeros(10)]):
+                        with patch('httpx.AsyncClient') as mock_client:
+                            # Configurer le mock client
+                            mock_response = AsyncMock()
+                            mock_response.status_code = 200
+                            mock_response.raise_for_status = MagicMock()
+                            mock_response.json = MagicMock(return_value={"status": "success"})
+                            mock_client.return_value.__aenter__.return_value.put.return_value = mock_response
+                            
+                            # Appeler la fonction
+                            result = await analyze_audio_with_librosa(1, str(test_file))
+                            
+                            # Vérifier les appels
+                            mock_load.assert_called_once()
+                            mock_beat.assert_called_once()
+                            mock_chroma.assert_called_once()
+                            
+                            # Vérifier le résultat
+                            assert "bpm" in result
+                            assert "key" in result
+                            assert "danceability" in result
+                            assert "Track 1 mise à jour avec succès" in caplog.text
 
-class TestAudioFeaturesService:
-    """Tests pour AudioFeaturesService."""
+@pytest.mark.asyncio
+async def test_analyze_audio_with_librosa_api_error(caplog, tmp_path):
+    """Test l'analyse audio avec Librosa avec erreur API."""
+    caplog.set_level(logging.ERROR)
     
-    @pytest.fixture
-    def service(self):
-        """Fixture pour créer une instance du service."""
-        return AudioFeaturesService()
+    # Créer un fichier audio temporaire
+    test_file = tmp_path / "test.wav"
+    test_file.write_bytes(b"dummy audio data")
     
-    def test_has_valid_acoustid_tags_with_valid_tags(self):
-        """Test la détection de tags AcoustID valides."""
-        tags = {
-            'ab:hi:danceability': 0.8,
-            'ab:lo:rhythm:bpm': 120,
-        }
-        assert _has_valid_acoustid_tags(tags) is True
+    # Mock pour librosa.load
+    mock_y = np.zeros(1000)
+    mock_sr = 22050
     
-    def test_has_valid_acoustid_tags_with_invalid_tags(self):
-        """Test la détection de tags AcoustID invalides."""
-        tags = {
-            'bpm': 120,
-            'key': 'C',
-        }
-        assert _has_valid_acoustid_tags(tags) is False
+    # Mock pour TinyDB
+    mock_db = MagicMock()
     
-    def test_has_valid_acoustid_tags_empty(self):
-        """Test la détection avec tags vides."""
-        assert _has_valid_acoustid_tags({}) is False
-        assert _has_valid_acoustid_tags(None) is False
+    with patch('librosa.load', return_value=(mock_y, mock_sr)):
+        with patch('librosa.beat.beat_track', return_value=(120, None)):
+            with patch('librosa.feature.chroma_stft', return_value=np.zeros((12, 10))):
+                with patch('librosa.feature.spectral_centroid', return_value=[np.zeros(10)]):
+                    with patch('librosa.feature.spectral_rolloff', return_value=[np.zeros(10)]):
+                        with patch('httpx.AsyncClient') as mock_client:
+                            # Configurer le mock client pour simuler une erreur
+                            mock_response = AsyncMock()
+                            mock_response.status_code = 500
+                            mock_response.raise_for_status = MagicMock(side_effect=Exception("API Error"))
+                            mock_client.return_value.__aenter__.return_value.put.return_value = mock_response
+                            
+                            with patch('backend_worker.services.audio_features_service.failed_updates_db', mock_db):
+                                # Appeler la fonction
+                                result = await analyze_audio_with_librosa(1, str(test_file))
+                                
+                                # Vérifier que l'erreur est gérée
+                                assert "bpm" in result
+                                assert "Erreur lors de la mise à jour de la track" in caplog.text
+                                mock_db.insert.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_analyze_audio_with_librosa_exception(caplog, tmp_path):
+    """Test l'analyse audio avec Librosa avec exception."""
+    caplog.set_level(logging.ERROR)
     
-    def test_has_valid_audio_tags_with_valid_tags(self):
-        """Test la détection de tags audio valides."""
-        tags = {
-            'bpm': 120,
-            'key': 'C',
-        }
-        assert _has_valid_audio_tags(tags) is True
+    # Créer un fichier audio temporaire
+    test_file = tmp_path / "test.wav"
+    test_file.write_bytes(b"dummy audio data")
     
-    def test_has_valid_audio_tags_with_invalid_tags(self):
-        """Test la détection de tags audio invalides."""
-        tags = {
-            'random_tag': 'value',
-        }
-        assert _has_valid_audio_tags(tags) is False
+    # Mock pour librosa.load qui lève une exception
+    with patch('librosa.load', side_effect=Exception("Test Exception")):
+        # Appeler la fonction
+        result = await analyze_audio_with_librosa(1, str(test_file))
+        
+        # Vérifier que l'exception est gérée
+        assert result == {}
+        assert "Erreur analyse Librosa: Test Exception" in caplog.text
+
+@pytest.mark.asyncio
+async def test_extract_audio_features_empty_tags():
+    """Test l'extraction des caractéristiques audio avec tags vides."""
+    result = await extract_audio_features(None, None)
     
-    def test_extract_features_from_acoustid_tags_complete(self):
-        """Test l'extraction complète des features AcoustID."""
-        tags = {
-            'ab:lo:rhythm:bpm': ['120'],
-            'ab:lo:tonal:key_key': ['C'],
-            'ab:lo:tonal:key_scale': ['major'],
-            'ab:hi:danceability:danceable': ['0.8'],
-            'ab:hi:mood_happy:happy': ['0.7'],
-            'ab:hi:voice_instrumental:instrumental': ['0.2'],
-            'ab:genre': ['rock', 'pop'],
-            'ab:mood': ['energetic'],
-        }
-        
-        features = _extract_features_from_acoustid_tags(tags)
-        
-        assert features['bpm'] == 120.0
-        assert features['key'] == 'C'
-        assert features['scale'] == 'major'
-        assert features['danceability'] == 0.8
-        assert features['mood_happy'] == 0.7
-        assert features['instrumental'] == 0.2
-        assert 'rock' in features['genre_tags']
-        assert 'energetic' in features['mood_tags']
+    # Vérifier que toutes les caractéristiques sont initialisées à None
+    assert result["bpm"] is None
+    assert result["key"] is None
+    assert result["genre_tags"] == []
+    assert result["mood_tags"] == []
+
+@pytest.mark.asyncio
+async def test_extract_audio_features_with_tags(caplog):
+    """Test l'extraction des caractéristiques audio avec tags."""
+    caplog.set_level(logging.DEBUG)
     
-    def test_extract_features_from_acoustid_tags_partial(self):
-        """Test l'extraction partielle des features AcoustID."""
-        tags = {
-            'ab:lo:rhythm:bpm': ['120'],
-        }
-        
-        features = _extract_features_from_acoustid_tags(tags)
-        
-        assert features['bpm'] == 120.0
-        assert 'key' not in features
+    # Simuler des tags AcoustID
+    tags = {
+        'ab:lo:rhythm:bpm': ['120'],
+        'ab:lo:tonal:key_key': ['C'],
+        'ab:lo:tonal:key_scale': ['major'],
+        'ab:hi:danceability:danceable': ['0.8'],
+        'ab:hi:mood_happy:happy': ['0.7'],
+        'ab:hi:voice_instrumental:instrumental': ['0.2'],
+        'ab:genre:electronic': ['electronic', 'techno'],
+        'ab:mood:energetic': ['energetic']
+    }
     
-    def test_extract_features_from_standard_tags_complete(self):
-        """Test l'extraction complète des tags standards."""
-        tags = {
-            'bpm': ['120'],
-            'key': ['C'],
-            'genre': ['rock'],
-        }
-        
-        features = _extract_features_from_standard_tags(tags)
-        
-        assert features['bpm'] == 120.0
-        assert features['key'] == 'C'
-        assert 'rock' in features['genre_tags']
+    result = await extract_audio_features(None, tags, "test.mp3")
     
-    def test_extract_features_from_standard_tags_empty(self):
-        """Test l'extraction avec tags vides."""
-        features = _extract_features_from_standard_tags({})
-        assert features == {}
+    # Vérifier les valeurs extraites
+    assert result["bpm"] == 120.0
+    assert result["key"] == "C"
+    assert result["scale"] == "major"
+    assert result["danceability"] == 0.8
+    assert result["mood_happy"] == 0.7
+    assert result["instrumental"] == 0.2
+    assert "electronic" in result["genre_tags"]
+    assert "techno" in result["genre_tags"]
+    assert "energetic" in result["mood_tags"]
+    assert "Tags nettoyés pour test.mp3" in caplog.text
+
+@pytest.mark.asyncio
+async def test_extract_audio_features_exception(caplog):
+    """Test l'extraction des caractéristiques audio avec exception."""
+    caplog.set_level(logging.ERROR)
     
-    def test_extract_audio_features_with_acoustid_tags(self):
-        """Test l'extraction avec tags AcoustID."""
-        tags = {
-            'ab:lo:rhythm:bpm': ['120'],
-            'ab:lo:tonal:key_key': ['C'],
-        }
-        
-        features = extract_audio_features(tags=tags)
-        
-        assert features['bpm'] == 120.0
-        assert features['key'] == 'C'
+    # Simuler des tags qui provoqueront une exception
+    tags = {"invalid": Exception("Test Exception")}
     
-    def test_extract_audio_features_with_standard_tags(self):
-        """Test l'extraction avec tags standards."""
-        tags = {
-            'bpm': ['120'],
-            'key': ['C'],
-        }
-        
-        features = extract_audio_features(tags=tags)
-        
-        assert features['bpm'] == 120.0
-        assert features['key'] == 'C'
+    result = await extract_audio_features(None, tags)
     
-    def test_extract_audio_features_empty(self):
-        """Test l'extraction avec tags vides."""
-        features = extract_audio_features(tags={})
-        
-        assert 'bpm' in features
-        assert features.get('bpm') is None or features.get('bpm') == 0
+    # Vérifier que l'exception est gérée
+    assert "bpm" in result
+    assert "Erreur extraction caractéristiques" in caplog.text
+
+@pytest.mark.asyncio
+async def test_retry_failed_updates_success(caplog):
+    """Test la reprise des mises à jour échouées avec succès."""
+    caplog.set_level(logging.INFO)
     
-    @pytest.mark.asyncio
-    async def test_analyze_audio_with_librosa_file_not_found(self):
-        """Test l'analyse avec fichier inexistant."""
-        result = await analyze_audio_with_librosa(1, '/nonexistent/file.wav')
-        assert result is None
+    # Créer un mock pour TinyDB
+    mock_db = MagicMock()
+    mock_db.all.return_value = [
+        {"doc_id": 1, "track_id": 1, "features": {"bpm": 120}}
+    ]
     
-    @pytest.mark.asyncio
-    async def test_analyze_audio_with_librosa_success(self, tmp_path):
-        """Test l'analyse audio avec Librosa."""
-        # Créer un fichier audio temporaire factice
-        test_file = tmp_path / "test.wav"
-        test_file.write_bytes(b"RIFF" + b"\x00" * 100)  # Fichier WAV minimaliste
-        
-        # Mock librosa
-        mock_y = np.zeros(1000)
-        mock_sr = 22050
-        
-        with patch('librosa.load', return_value=(mock_y, mock_sr)):
-            with patch('librosa.beat.beat_track', return_value=(120.0, None)):
-                with patch('librosa.feature.chroma_stft', return_value=np.random.rand(12, 10)):
-                    with patch('librosa.feature.rms', return_value=np.array([[0.5]])):
-                        with patch('librosa.onset.onset_strength', return_value=np.array([0.8])):
-                            with patch('librosa.feature.spectral_contrast', return_value=np.random.rand(6, 10)):
-                                with patch('librosa.get_duration', return_value=180.0):
-                                    result = await analyze_audio_with_librosa(1, str(test_file))
-        
-        assert result is not None
-        assert 'bpm' in result
-        assert 'key' in result
-        assert 'duration' in result
-    
-    def test_service_extract_from_acoustid_tags(self, service):
-        """Test la méthode du service pour extraire des tags AcoustID."""
-        tags = {
-            'ab:hi:danceability': 0.8,
-            'ab:hi:energy': 0.7,
-        }
-        
-        features = service._extract_from_acoustid_tags(tags)
-        
-        assert features is not None
-        assert features['danceability'] == 0.8
-        assert features['energy'] == 0.7
-    
-    def test_service_extract_with_librosa_mock(self, service):
-        """Test la méthode du service avec Librosa mocké."""
-        mock_y = np.zeros(1000)
-        mock_sr = 22050
-        
-        with patch('librosa.load', return_value=(mock_y, mock_sr)):
-            with patch('librosa.beat.beat_track', return_value=(120.0, None)):
-                with patch('librosa.feature.chroma_stft', return_value=np.random.rand(12, 10)):
-                    with patch('librosa.feature.rms', return_value=np.array([[0.5]])):
-                        with patch('librosa.onset.onset_strength', return_value=np.array([0.8])):
-                            with patch('librosa.feature.spectral_contrast', return_value=np.random.rand(6, 10)):
-                                with patch('librosa.get_duration', return_value=180.0):
-                                    # Créer un fichier temporaire
-                                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                                        f.write(b"dummy")
-                                        temp_path = f.name
-                                    
-                                    try:
-                                        features = service._extract_with_librosa(temp_path)
-                                        
-                                        assert features is not None
-                                        assert 'bpm' in features
-                                        assert 'key' in features
-                                        assert 'duration' in features
-                                    finally:
-                                        os.unlink(temp_path)
-    
-    def test_service_estimate_key(self, service):
-        """Test l'estimation de la tonalité."""
-        # Créer un chromagram mock
-        chroma = np.array([
-            [1, 0, 0, 0, 1, 0, 0, 1, 0, 0],  # C
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # C#
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # D
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # D#
-            [1, 0, 0, 0, 1, 0, 0, 0, 0, 0],  # E
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # F
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # F#
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # G
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # G#
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # A
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # A#
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # B
-        ])
-        
-        key = service._estimate_key(chroma)
-        
-        # La clé devrait être C (la plus forte)
-        assert key == 'C'
-    
-    def test_service_extract_audio_features_with_tags(self, service):
-        """Test l'extraction complète avec tags."""
-        tags = {
-            'ab:hi:danceability': 0.8,
-            'ab:lo:rhythm:bpm': 120,
-        }
-        
-        # Créer un fichier temporaire
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-            f.write(b"dummy")
-            temp_path = f.name
-        
-        try:
-            features = service.extract_audio_features(temp_path, tags)
+    with patch('backend_worker.services.audio_features_service.failed_updates_db', mock_db):
+        with patch('httpx.AsyncClient') as mock_client:
+            # Configurer le mock client
+            mock_response = AsyncMock()
+            mock_response.status_code = 200
+            mock_response.raise_for_status = MagicMock()
+            mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
             
-            assert features is not None
-            assert features['danceability'] == 0.8
-            assert features['bpm'] == 120.0
-        finally:
-            os.unlink(temp_path)
-    
-    def test_service_extract_audio_features_fallback_to_librosa(self, service):
-        """Test le fallback vers Librosa quand pas de tags."""
-        mock_y = np.zeros(1000)
-        mock_sr = 22050
-        
-        with patch('librosa.load', return_value=(mock_y, mock_sr)):
-            with patch('librosa.beat.beat_track', return_value=(120.0, None)):
-                with patch('librosa.feature.chroma_stft', return_value=np.random.rand(12, 10)):
-                    with patch('librosa.feature.rms', return_value=np.array([[0.5]])):
-                        with patch('librosa.onset.onset_strength', return_value=np.array([0.8])):
-                            with patch('librosa.feature.spectral_contrast', return_value=np.random.rand(6, 10)):
-                                with patch('librosa.get_duration', return_value=180.0):
-                                    # Créer un fichier temporaire
-                                    with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-                                        f.write(b"dummy")
-                                        temp_path = f.name
-                                    
-                                    try:
-                                        features = service.extract_audio_features(temp_path, {})
-                                        
-                                        assert features is not None
-                                        assert 'bpm' in features
-                                    finally:
-                                        os.unlink(temp_path)
+            # Appeler la fonction
+            await retry_failed_updates()
+            
+            # Vérifier les appels
+            mock_client.return_value.__aenter__.return_value.post.assert_called_once()
+            mock_db.remove.assert_called_once()
+            assert "Retry réussi pour track 1" in caplog.text
 
-
-class TestAudioFeaturesEdgeCases:
-    """Tests pour les cas limites."""
+@pytest.mark.asyncio
+async def test_retry_failed_updates_error(caplog):
+    """Test la reprise des mises à jour échouées avec erreur."""
+    caplog.set_level(logging.ERROR)
     
-    def test_extract_features_from_acoustid_tags_invalid_values(self):
-        """Test l'extraction avec valeurs invalides."""
-        tags = {
-            'ab:lo:rhythm:bpm': ['invalid'],
-            'ab:lo:tonal:key_key': ['C'],
-        }
-        
-        # Ne devrait pas planter, juste ignorer la valeur invalide
-        features = _extract_features_from_acoustid_tags(tags)
-        
-        assert 'bpm' not in features  # Valeur invalide ignorée
-        assert features['key'] == 'C'  # Valeur valide conservée
+    # Créer un mock pour TinyDB
+    mock_db = MagicMock()
+    mock_db.all.return_value = [
+        {"doc_id": 1, "track_id": 1, "features": {"bpm": 120}}
+    ]
     
-    def test_extract_features_from_acoustid_tags_list_values(self):
-        """Test l'extraction avec valeurs en liste."""
-        tags = {
-            'ab:lo:rhythm:bpm': ['120', '121'],  # Liste de valeurs
-            'ab:lo:tonal:key_key': ['C', 'D'],   # Liste de clés
-        }
-        
-        features = _extract_features_from_acoustid_tags(tags)
-        
-        # Devrait prendre la première valeur
-        assert features['bpm'] == 120.0
-        assert features['key'] == 'C'
-    
-    def test_has_valid_audio_tags_none_values(self):
-        """Test avec valeurs None."""
-        tags = {
-            'bpm': None,
-            'key': '',
-        }
-        assert _has_valid_audio_tags(tags) is False
-    
-    def test_service_extract_with_librosa_import_error(self):
-        """Test le comportement quand Librosa n'est pas installé."""
-        service = AudioFeaturesService()
-        
-        # Créer un fichier temporaire
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
-            f.write(b"dummy")
-            temp_path = f.name
-        
-        try:
-            # Patcher l'import de librosa au niveau du module pour simuler son absence
-            with patch.dict('sys.modules', {'librosa': None}):
-                # Forcer le rechargement pour que l'import échoue
-                import sys
-                # Supprimer librosa des modules importés si présent
-                if 'librosa' in sys.modules:
-                    del sys.modules['librosa']
-                
-                # Le service gère l'ImportError et retourne None
-                features = service._extract_with_librosa(temp_path)
-                assert features is None
-        finally:
-            os.unlink(temp_path)
+    with patch('backend_worker.services.audio_features_service.failed_updates_db', mock_db):
+        with patch('httpx.AsyncClient') as mock_client:
+            # Configurer le mock client pour simuler une erreur
+            mock_client.return_value.__aenter__.return_value.post.side_effect = Exception("API Error")
+            
+            # Appeler la fonction
+            await retry_failed_updates()
+            
+            # Vérifier que l'erreur est gérée
+            mock_db.remove.assert_not_called()
+            assert "Retry échoué pour track 1" in caplog.text

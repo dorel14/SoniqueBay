@@ -3,14 +3,10 @@
 Test d'intégration pour l'extraction des covers dans enrichment_worker.py
 """
 
-import os
 import tempfile
-from unittest.mock import MagicMock, patch
-
-from backend_worker.workers.metadata.enrichment_worker import (
-    extract_single_file_metadata,
-)
-
+import os
+from unittest.mock import patch, MagicMock
+from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
 
 def test_cover_extraction_mp3_with_embedded_cover():
     """Test l'extraction des covers intégrées pour un fichier MP3 avec cover"""

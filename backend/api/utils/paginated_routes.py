@@ -1,12 +1,10 @@
-from typing import Any, Callable, Type
-
-from fastapi import APIRouter, Depends
-from library_api.api.schemas.pagination_schema import PaginatedResponse
-from library_api.utils.database import get_db  # Ton propre get_db dépendance
-from library_api.utils.paginations import paginate_query
-from pydantic import BaseModel
+from typing import Type, Callable,Any
+from fastapi import Depends, APIRouter
 from sqlalchemy.orm import Session
-
+from library_api.utils.paginations import paginate_query
+from library_api.api.schemas.pagination_schema import PaginatedResponse
+from pydantic import BaseModel
+from library_api.utils.database import get_db  # Ton propre get_db dépendance
 
 def paginated_route(
     router: APIRouter,
