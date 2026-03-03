@@ -17,8 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Installation de uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Installation de uv et vérification
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    /root/.local/bin/uv --version
 
 # Création du répertoire de travail
 WORKDIR /app
@@ -26,10 +27,10 @@ WORKDIR /app
 # Copie et installation des dépendances
 COPY requirements.txt .
 
-RUN uv pip install --system -r requirements.txt
+RUN /root/.local/bin/uv pip install --system -r requirements.txt
 
 # Vérification et installation forcée d'uvicorn si nécessaire
-RUN python3 -c "import uvicorn; print('uvicorn OK')" || uv pip install --system uvicorn
+RUN /root/.local/bin/uv pip install --system uvicorn || true
 
 # Copie du code de l'application
 COPY backend/ ./backend/
