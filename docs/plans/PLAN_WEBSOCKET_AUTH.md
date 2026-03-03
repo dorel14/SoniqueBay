@@ -38,6 +38,20 @@ d'identité. Cela expose le service IA (orchestrateur + LLM KoboldCpp) à :
 | `/api/realtime/*` | `backend/api/routers/realtime_router.py` | Moyen | Moyenne |
 | `/api/sse/*` | `backend/api/routers/sse_api.py` | Moyen | Moyenne |
 
+## Endpoints HTTP critiques sans authentification
+
+| Endpoint | Fichier | Risque | Priorité |
+|----------|---------|--------|----------|
+| `POST /chat/notify` | `backend/api/routers/chat_realtime_api.py` | **Critique** | **Haute** |
+
+**Problème identifié (PR #38)** : L'endpoint `POST /chat/notify` permet à n'importe quel appelant non authentifié d'envoyer des notifications arbitraires à n'importe quel `user_id`. Cela permet le spoofing de notifications et des attaques de phishing potentielles.
+
+**Solution requise** :
+- Ajouter `Depends(get_current_user)` ou équivalent
+- Vérifier que l'appelant est autorisé à envoyer des notifications au `user_id` cible
+- Retourner `401 Unauthorized` si non authentifié
+- Retourner `403 Forbidden` si non autorisé à notifier cet utilisateur spécifique
+
 ---
 
 ## Architecture Cible
@@ -249,10 +263,12 @@ if message_count >= MAX_MESSAGES_PER_MINUTE:
 - [ ] Créer `backend/api/utils/ws_auth.py`
 - [ ] Modifier `backend/api/routers/ws_ai.py` — vérification avant `ws.accept()`
 - [ ] Modifier `backend/api/routers/realtime_router.py` — même pattern
+- [ ] **Sécuriser `POST /chat/notify`** — ajouter `Depends(get_current_user)` et vérifier autorisation
 - [ ] Ajouter `WS_API_KEY` dans `docker-compose.yml` (obligatoire via `:?`)
 - [ ] Ajouter `WS_API_KEY` dans `.env.example`
 - [ ] Modifier frontend `frontend/utils/supabase_realtime.py` — transmettre token
 - [ ] Tests unitaires `tests/unit/test_ws_auth.py`
+- [ ] Tests unitaires `tests/unit/test_chat_notify_auth.py` — vérifier 401/403 sans auth
 - [ ] Commit "feat(security): add token-based websocket authentication"
 
 ### Phase 2 (Long terme — après Phase 8 Supabase)
