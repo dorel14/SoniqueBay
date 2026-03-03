@@ -32,7 +32,6 @@ jobs:
         with:
           enable-cache: true
       - name: 📦 Install Dependencies
-        run: uv sync
         run: uv sync --all-groups
       - name: 📦 Install codeflash
         run: uv pip install codeflash

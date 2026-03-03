@@ -3,6 +3,7 @@ Application FastAPI pour le backend worker.
 Permet la communication HTTP avec les autres services sans imports directs.
 """
 
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend_worker.api.vectorization_router import router as vectorization_router
@@ -16,11 +17,16 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# Configuration CORS
+# Configuration CORS - restrict to known origins
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://api:8001,http://localhost:8001,http://frontend:8080,http://localhost:8080"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # À restreindre en production
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,  # Cannot use credentials with wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -5,12 +5,15 @@ Remplace le websocket /ws/chat par des endpoints HTTP + Realtime.
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.api.services.realtime_service_v2 import get_realtime_service_v2
 from backend.api.utils.db_config import USE_SUPABASE
 from backend.api.utils.logging import logger
+
+# TODO: Implement proper authentication dependency
+# from backend.api.utils.auth import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["chat-realtime"])
 
@@ -238,11 +241,22 @@ async def clear_chat_history(chat_id: str):
 # ==================== ENDPOINTS DE NOTIFICATIONS ====================
 
 @router.post("/notify")
-async def send_notification(user_id: str, notification: Dict[str, Any]):
+async def send_notification(
+    user_id: str, 
+    notification: Dict[str, Any],
+    # current_user: dict = Depends(get_current_user)  # TODO: Enable auth
+):
     """
     Envoie une notification à un utilisateur via Realtime.
+    
+    TODO: Add authentication check to verify caller is authorized to send notifications
+    to the target user_id.
     """
     try:
+        # TODO: Verify current_user is authorized to send notifications to user_id
+        # if current_user["id"] != user_id and not current_user.get("is_admin"):
+        #     raise HTTPException(status_code=403, detail="Not authorized")
+        
         service = get_realtime_service_v2()
         success = await service.send_notification(user_id, notification)
         
@@ -259,11 +273,22 @@ async def send_notification(user_id: str, notification: Dict[str, Any]):
 # ==================== ENDPOINTS DE PROGRESSION ====================
 
 @router.post("/progress/update")
-async def update_progress(task_id: str, progress: Dict[str, Any]):
+async def update_progress(
+    task_id: str, 
+    progress: Dict[str, Any],
+    # current_user: dict = Depends(get_current_user)  # TODO: Enable auth
+):
     """
     Met à jour la progression d'une tâche via Realtime.
+    
+    TODO: Add authentication check to verify caller is authorized to update
+    the target task_id.
     """
     try:
+        # TODO: Verify current_user is authorized to update this task
+        # if not current_user.get("is_admin") and not current_user.get("can_update_tasks"):
+        #     raise HTTPException(status_code=403, detail="Not authorized")
+        
         service = get_realtime_service_v2()
         success = await service.update_progress(task_id, progress)
         
