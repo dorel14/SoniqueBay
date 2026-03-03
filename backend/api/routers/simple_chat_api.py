@@ -3,6 +3,7 @@ Router API pour le chat simple et rapide avec l'IA.
 Utilise un agent pydantic-ai sans validation stricte pour des réponses instantanées.
 Auteur: SoniqueBay Team
 """
+import asyncio
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
@@ -26,18 +27,20 @@ class SimpleChatResponse(BaseModel):
 
 # Cache de l'agent simple (singleton)
 _simple_chat_agent = None
+_simple_chat_agent_lock = asyncio.Lock()
 
 
 async def get_simple_chat_agent():
     """Récupère ou crée l'agent de chat simple (singleton)."""
     global _simple_chat_agent
-    if _simple_chat_agent is None:
-        _simple_chat_agent = await build_simple_chat_agent(
-            name="simple-chat",
-            system_prompt="""Tu es un assistant amical et concis.
+    async with _simple_chat_agent_lock:
+        if _simple_chat_agent is None:
+            _simple_chat_agent = await build_simple_chat_agent(
+                name="simple-chat",
+                system_prompt="""Tu es un assistant amical et concis.
 Réponds de manière naturelle et directe. Sois bref mais chaleureux."""
-        )
-        logger.info("[SIMPLE_CHAT] Agent de chat simple initialisé")
+            )
+            logger.info("[SIMPLE_CHAT] Agent de chat simple initialisé")
     return _simple_chat_agent
 
 
