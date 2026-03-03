@@ -13,7 +13,15 @@ done
 echo "✅ supabase-db est prêt"
 
 echo "🔧 Création du schéma auth..."
-docker exec -i soniquebay-supabase-db env PGPASSWORD="${SUPABASE_DB_PASSWORD:-supabase}" psql -h localhost -p 5432 -U supabase -d postgres -c "
+
+# Vérifier que SUPABASE_DB_PASSWORD est défini
+if [ -z "$SUPABASE_DB_PASSWORD" ]; then
+    echo "❌ Erreur: SUPABASE_DB_PASSWORD n'est pas défini"
+    echo "Veuillez définir la variable d'environnement SUPABASE_DB_PASSWORD"
+    exit 1
+fi
+
+docker exec -i soniquebay-supabase-db env PGPASSWORD="$SUPABASE_DB_PASSWORD" psql -h localhost -p 5432 -U supabase -d postgres -c "
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT ALL ON SCHEMA auth TO supabase;
 "
