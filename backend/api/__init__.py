@@ -17,6 +17,9 @@ from backend.api.routers.realtime_router import router as realtime_router  # noq
 from backend.api.routers.scan_api import router as scan_router
 from backend.api.routers.scan_sessions_api import router as scan_sessions_router
 from backend.api.routers.search_api import router as search_router
+from backend.api.routers.settings_api import router as settings_router
+from backend.api.routers.tags_api import router as tags_router
+from backend.api.routers.tracks_api import router as tracks_router
 from backend.api.routers.covers_api import router as covers_router
 from backend.api.routers.library_api import router as library_router
 from backend.api.routers.celery_tasks_api import router as celery_tasks_router

@@ -22,10 +22,10 @@ RUN apt-get update && apt-get install -y \
 # - vector (pgvector)
 
 # Copier les scripts d'initialisation
-COPY supabase/db_init/ /docker-entrypoint-initdb.d/
+COPY db_init/ /docker-entrypoint-initdb.d/
 
 # Copier le script d'entrypoint personnalisé
-COPY supabase/scripts/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
+COPY scripts/entrypoint.sh /usr/local/bin/custom-entrypoint.sh
 RUN chmod +x /usr/local/bin/custom-entrypoint.sh
 
 # Exposer le port PostgreSQL

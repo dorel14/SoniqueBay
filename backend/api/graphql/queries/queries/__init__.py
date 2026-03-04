@@ -16,6 +16,7 @@ from backend.api.graphql.types import (  # noqa: F401
 from .album_queries import AlbumQueries
 from .artist_queries import ArtistQueries
 from .other_queries import OtherQueries
+from .track_queries import TrackQueries
 from backend.api.graphql.types import (  # noqa: F401
     AlbumType,
     ArtistType,
