@@ -111,13 +111,15 @@ class TrackEmbeddings(Base, TimestampMixin):
             'embedding_type',
             unique=True
         ),
-        # Index HNSW pour recherche vectorielle rapide
+        # Index HNSW pour recherche vectorielle rapide (avec operator class)
         Index(
             'idx_track_embeddings_vector',
             'vector',
             postgresql_using='hnsw',
-            postgresql_with={'m': 16, 'ef_construction': 64}
+            postgresql_with={'m': 16, 'ef_construction': 64},
+            postgresql_ops={'vector': 'vector_l2_ops'}
         ),
+
     )
 
     def __repr__(self) -> str:

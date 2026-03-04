@@ -61,8 +61,9 @@ class Artist(Base, TimestampMixin):
     __table_args__ = (
         # Index pour les recherches par nom d'artiste
         Index('idx_artist_name', 'name'),
-        # Index HNSW pour recherche vectorielle
-        Index('idx_artists_vector', 'vector', postgresql_using='hnsw', postgresql_with={'m': 16, 'ef_construction': 64}),
+        # Index HNSW pour recherche vectorielle (avec operator class pour éviter l'erreur "has no default operator class")
+        Index('idx_artists_vector', 'vector', postgresql_using='hnsw', postgresql_with={'m': 16, 'ef_construction': 64}, postgresql_ops={'vector': 'vector_l2_ops'}),
+
         # Index GIN pour recherche textuelle
         Index('idx_artists_search', 'search', postgresql_using='gin'),
     )
