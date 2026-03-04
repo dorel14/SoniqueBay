@@ -462,11 +462,15 @@ services:
         environment:
             - STUDIO_DEFAULT_PROJECT=SoniqueBay
             - STUDIO_DEFAULT_ORGANIZATION=SoniqueBay
-            - SUPABASE_URL=http://supabase-db:54321
-            - SUPABASE_PUBLIC_URL=http://localhost:54321
+            - SUPABASE_URL=http://api:8001
+            - SUPABASE_PUBLIC_URL=http://localhost:8001
             - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-REMOVED_JWT_TOKEN}
             - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY:-REMOVED_SERVICE_JWT}
+            - NEXT_PUBLIC_ENABLE_LOGS=true
+            - NEXT_PUBLIC_SITE_URL=http://localhost:54325
         depends_on:
+            api-service:
+                condition: service_healthy
             supabase-db:
                 condition: service_healthy
             supabase-meta:
