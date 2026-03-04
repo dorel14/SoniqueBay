@@ -4,8 +4,7 @@ import logging
 import os
 import sys
 import tempfile
-import asyncio
-import logging
+import pytest
 from pathlib import Path
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
