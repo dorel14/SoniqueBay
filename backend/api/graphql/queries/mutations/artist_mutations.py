@@ -14,7 +14,6 @@ class ArtistMutations:
         """Create a new artist."""
         from backend.api.services.artist_service import ArtistService
         from backend.api.schemas.artists_schema import ArtistCreate
-        from backend.api.services.artist_service import ArtistService
         session = info.context.session
         service = ArtistService(session)
 

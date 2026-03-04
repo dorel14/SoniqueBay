@@ -58,8 +58,8 @@ def get_engine():
             max_overflow=20,
             pool_timeout=30,
             pool_recycle=3600,
-            # Optimisations pour bulk operations
-            executemany_mode='batch',  # Mode batch pour inserts multiples
+            # Note: asyncpg handles batch operations natively
+            # executemany_mode is not valid for asyncpg (psycopg2 only)
         )
         
         logger.info(f"[SupabaseSQLAlchemy] Engine créé pour {database_url.replace(os.getenv('SUPABASE_DB_PASSWORD', ''), '***')}")

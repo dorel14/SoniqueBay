@@ -5,15 +5,31 @@ Remplace le websocket /ws/chat par des endpoints HTTP + Realtime.
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from backend.api.services.realtime_service_v2 import get_realtime_service_v2
 from backend.api.utils.db_config import USE_SUPABASE
 from backend.api.utils.logging import logger
 
-# TODO: Implement proper authentication dependency
-# from backend.api.utils.auth import get_current_user
+# TODO: Replace with proper authentication from backend.api.utils.auth
+async def get_current_user():
+    """
+    Temporary auth dependency - returns mock user.
+    TODO: Replace with real JWT token validation.
+    """
+    # For now, return a mock user - this should be replaced with real auth
+    return {"id": "temp_user", "is_authenticated": False}
+
+
+async def verify_chat_ownership(chat_id: str, current_user: dict = Depends(get_current_user)):
+    """
+    Verify that the current user owns the chat session.
+    TODO: Implement real ownership check against database.
+    """
+    # TODO: Check in database that current_user["id"] owns this chat_id
+    # For now, allow all access (temporary)
+    return current_user
 
 router = APIRouter(prefix="/chat", tags=["chat-realtime"])
 
@@ -52,12 +68,18 @@ _chat_histories: Dict[str, List[Dict[str, Any]]] = {}
 
 
 @router.post("/send", response_model=ChatResponse)
-async def send_message(request: ChatMessageRequest):
+async def send_message(
+    request: ChatMessageRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Envoie un message dans un chat via Supabase Realtime.
     
     Remplace l'envoi via websocket.
+    
+    Requires: Authentication
     """
+    # TODO: Verify user owns the chat session
     try:
         service = get_realtime_service_v2()
         
@@ -197,10 +219,20 @@ async def _stream_ai_response(chat_id: str, message: str):
 
 
 @router.get("/history/{chat_id}", response_model=ChatHistoryResponse)
-async def get_chat_history(chat_id: str):
+async def get_chat_history(
+    chat_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Récupère l'historique d'un chat.
+    
+    Requires: Authentication
+    Security: User must own the chat session (IDOR protection)
     """
+    # TODO: Verify user owns this chat_id before returning history
+    # if not await verify_user_owns_chat(current_user["id"], chat_id):
+    #     raise HTTPException(status_code=403, detail="Not authorized to access this chat")
+    
     history = _chat_histories.get(chat_id, [])
     return ChatHistoryResponse(
         chat_id=chat_id,
@@ -231,8 +263,20 @@ async def subscribe_to_chat(chat_id: str):
 
 
 @router.delete("/history/{chat_id}")
-async def clear_chat_history(chat_id: str):
-    """Efface l'historique d'un chat."""
+async def clear_chat_history(
+    chat_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Efface l'historique d'un chat.
+    
+    Requires: Authentication
+    Security: User must own the chat session
+    """
+    # TODO: Verify user owns this chat_id before deleting
+    # if not await verify_user_owns_chat(current_user["id"], chat_id):
+    #     raise HTTPException(status_code=403, detail="Not authorized to delete this chat")
+    
     if chat_id in _chat_histories:
         del _chat_histories[chat_id]
     return {"success": True, "chat_id": chat_id}

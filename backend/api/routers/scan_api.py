@@ -1,11 +1,12 @@
  
 import os
+from typing import Optional
+
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.utils.database import get_async_session
 
 from backend.api.services.scan_service import ScanService
 from backend.api.schemas.scan_schema import ScanRequest
-from backend.api.services.scan_service import ScanService
 from backend.api.utils.database import get_async_session
 
 
