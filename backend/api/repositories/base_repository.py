@@ -62,16 +62,18 @@ class BaseRepository(Generic[T]):
         filters: Optional[Dict[str, Any]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        order_by: Optional[str] = None
+        order_by: Optional[str] = None,
+        ilike: Optional[Dict[str, str]] = None
     ) -> List[T]:
         """
         Récupère toutes les entités avec filtres optionnels.
         
         Args:
-            filters: Filtres clé-valeur
+            filters: Filtres clé-valeur (utilise eq())
             limit: Limite de résultats
             offset: Offset pour pagination
             order_by: Colonne de tri
+            ilike: Filtres case-insensitive {colonne: pattern}
             
         Returns:
             Liste des entités
@@ -81,7 +83,8 @@ class BaseRepository(Generic[T]):
                 filters=filters,
                 limit=limit,
                 offset=offset,
-                order_by=order_by
+                order_by=order_by,
+                ilike=ilike
             )
             self.logger.debug(f"get_all() -> {len(results)} résultats")
             return results
@@ -212,12 +215,26 @@ class ArtistRepository(BaseRepository):
     def __init__(self):
         super().__init__("artists")
     
-    async def search_by_name(self, name: str) -> List[Dict[str, Any]]:
-        """Recherche d'artistes par nom (ILIKE)."""
-        # Utiliser l'adapter pour une recherche textuelle
-        # Note: À implémenter avec ilike quand disponible dans l'adapter
-        all_artists = await self.get_all()
-        return [a for a in all_artists if name.lower() in a.get("name", "").lower()]
+    async def search_by_name(self, name: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Recherche d'artistes par nom (ILIKE case-insensitive).
+        
+        Utilise le filtre ilike de Supabase pour éviter un full table scan.
+        
+        Args:
+            name: Nom à rechercher
+            limit: Limite de résultats (défaut: 50)
+            
+        Returns:
+            Liste des artistes correspondants
+        """
+        # Utiliser ilike pour une recherche case-insensitive côté DB
+        # Cela évite de récupérer tous les artistes en mémoire
+        return await self.get_all(
+            ilike={"name": name},
+            limit=limit,
+            order_by="name"
+        )
 
 
 # Export

@@ -83,17 +83,19 @@ class DatabaseAdapter:
         columns: Optional[List[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-        order_by: Optional[str] = None
+        order_by: Optional[str] = None,
+        ilike: Optional[Dict[str, str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Récupère plusieurs enregistrements avec filtres optionnels.
         
         Args:
-            filters: Filtres clé-valeur
+            filters: Filtres clé-valeur (utilise eq())
             columns: Colonnes à récupérer
             limit: Limite de résultats
             offset: Offset pour pagination
             order_by: Colonne de tri (préfixée par - pour DESC)
+            ilike: Filtres case-insensitive {colonne: pattern}
             
         Returns:
             Liste de dicts avec les données
@@ -103,10 +105,15 @@ class DatabaseAdapter:
                 ",".join(columns) if columns else "*"
             )
             
-            # Appliquer les filtres
+            # Appliquer les filtres exacts (eq)
             if filters:
                 for key, value in filters.items():
                     query = query.eq(key, value)
+            
+            # Appliquer les filtres ilike (case-insensitive)
+            if ilike:
+                for key, pattern in ilike.items():
+                    query = query.ilike(key, f"%{pattern}%")
             
             # Pagination et tri
             if order_by:
