@@ -3,10 +3,9 @@ import strawberry
 import time
 from typing import Optional
 
-import strawberry
-
 from backend.api.graphql.types.covers_type import CoverType
 from backend.api.graphql.types.track_filter_type import TrackFilterInput
+from backend.api.graphql.types.tracks_type import TrackType
 from backend.api.services.track_service import TrackService
 from backend.api.utils.logging import logger
 
