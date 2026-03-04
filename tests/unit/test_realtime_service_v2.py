@@ -64,12 +64,11 @@ class TestRealtimeServiceV2:
     def test_init_supabase_mode(self):
         """Test initialisation en mode Supabase."""
         with patch('backend.api.services.realtime_service_v2.SUPABASE_AVAILABLE', True):
-            with patch('backend.api.utils.db_config.USE_SUPABASE', True):
-                with patch('backend.api.utils.db_config.is_migrated', return_value=True):
-                    # Recréer le service pour prendre en compte le patch
-                    reset_realtime_service_v2()
-                    service = RealtimeServiceV2()
-                    assert service.use_supabase is True
+            with patch('backend.api.services.realtime_service_v2.USE_SUPABASE', True):
+                # Recréer le service pour prendre en compte le patch
+                reset_realtime_service_v2()
+                service = RealtimeServiceV2()
+                assert service.use_supabase is True
     
     @pytest.mark.asyncio
     async def test_connect_fallback(self):
