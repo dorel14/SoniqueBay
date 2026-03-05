@@ -175,7 +175,7 @@ def _process_single_enrichment_task(task: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-@celery.task(name="worker_deferred_enrichment.get_enrichment_stats", queue="worker_deferred_enrichment")
+@celery.task(name="worker_deferred_enrichment.get_enrichment_stats", queue="deferred_enrichment")
 def get_enrichment_stats_task() -> Dict[str, Any]:
     """
     Retourne les statistiques de la queue d'enrichissement.
@@ -199,7 +199,7 @@ def get_enrichment_stats_task() -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-@celery.task(name="worker_deferred_enrichment.retry_failed_enrichments", queue="worker_deferred_enrichment")
+@celery.task(name="worker_deferred_enrichment.retry_failed_enrichments", queue="deferred_enrichment")
 def retry_failed_enrichments_task(max_retries: int = 5) -> Dict[str, Any]:
     """
     Retente les enrichissements échoués.
