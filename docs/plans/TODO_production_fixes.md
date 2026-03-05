@@ -14,6 +14,8 @@ Cette branche est dédiée aux correctifs suite aux tests en production.
 | 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
 | 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | 3a9d4db, 179dc93 |
 | 3 | **Cache HuggingFace non persistant** - Modèle re-téléchargé à chaque fois | ✅ Corrigé | 00ca9b3, 32c8bdd, 7d4ada1 |
+| 4 | **Déclenchement enrichissement** - process_enrichment_batch planifié au lieu d'être chaîné | ✅ Corrigé | 7ff1f1e |
+| 5 | **Diagnostic tags audio redondant** - Double extraction ralentissant le scan | ✅ Corrigé | d3d9855 |
 
 ### Fix #1 : DNS Error "Name or service not known" ✅
 
@@ -154,7 +156,40 @@ except ImportError:
 
 ---
 
-**Statut global** : 🟢 Fixes #1, #2 et #3 terminés - **Redémarrage des conteneurs requis**
+### Fix #4 : Déclenchement de l'enrichissement à la fin du pipeline ✅
+
+**Problème** : La tâche `process_enrichment_batch` était planifiée toutes les 2 minutes dans Celery Beat, mais elle devrait être déclenchée à la fin du pipeline scan+extract+insert.
+
+**Solution** :
+1. Suppression de la tâche planifiée `'process-deferred-enrichment'` de `celery_beat_config.py`
+2. Ajout du déclenchement explicite dans `insert_batch_worker.py` après l'insertion réussie
+
+**Workflow corrigé** :
+```
+scan.discovery → metadata.extract_batch → batch.process_entities 
+→ insert.direct_batch → worker_deferred_enrichment.process_enrichment_batch
+```
+
+**Commit** : `7ff1f1e`
+
+---
+
+### Fix #5 : Suppression du diagnostic redondant des tags audio ✅
+
+**Problème** : Le diagnostic `[DIAGNOSTIC TAGS]` dans `extract_single_file_metadata` faisait une double extraction des métadonnées, ralentissant considérablement le scan.
+
+**Solution** : Remplacement du bloc de diagnostic verbeux (38 lignes) par une extraction optimisée (9 lignes) :
+- Suppression des logs INFO excessifs
+- Conservation uniquement des tags audio pertinents (BPM, KEY, MOOD, etc.)
+- Passage des logs d'erreur en DEBUG pour les erreurs non critiques
+
+**Résultat** : Le scan ne fait plus de double extraction des métadonnées.
+
+**Commit** : `d3d9855`
+
+---
+
+**Statut global** : 🟢 Fixes #1 à #5 terminés - **Redémarrage des conteneurs requis**
 
 ### Commandes pour appliquer les changements
 
