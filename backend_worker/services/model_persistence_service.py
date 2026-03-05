@@ -80,7 +80,7 @@ class ModelPersistenceService:
             logger.error(f"[MODEL_PERSISTENCE] Pas d'accès en écriture à {self.models_dir}: {e}")
             raise PermissionError(f"Pas d'accès en écriture au répertoire des modèles: {e}")
         
-        self.api_url = os.getenv("API_SERVICE_URL", "http://api-service:8000")
+        self.api_url = os.getenv("API_URL", "http://api:8001")
         self.current_version = None
         
         logger.info(f"ModelPersistenceService initialisé avec succès: {self.models_dir}")
