@@ -117,11 +117,6 @@ def get_unified_task_routes():
         'synonym.regenerate_all': {'queue': 'maintenance'},
         'synonym.check_status': {'queue': 'maintenance'},
         
-        # === TÂCHES SEARCH INDEXER ===
-        'search_indexer.build_index': {'queue': 'scan'},
-        'search_indexer.update_index': {'queue': 'scan'},
-        'search_indexer.clear_index': {'queue': 'maintenance'},
-        
         # === TÂCHES MAINTENANCE ===
         'backend_worker.tasks.maintenance_tasks.cleanup_expired_tasks_task': {'queue': 'maintenance'},
         'backend_worker.tasks.maintenance_tasks.generate_daily_health_report_task': {'queue': 'maintenance'},

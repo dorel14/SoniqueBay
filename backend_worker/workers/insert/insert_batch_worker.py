@@ -721,7 +721,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
             }
 
         # Configuration pour les appels API
-        library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
+        library_api_url = os.getenv("API_URL", "http://library:8001")
 
         # Configuration client HTTP asynchrone optimisée pour Raspberry Pi
         async with httpx.AsyncClient(
