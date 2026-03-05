@@ -56,7 +56,7 @@ class ModelPersistenceService:
     
     def __init__(self):
         """Initialise le service de persistance."""
-        self.models_dir = Path("/app/data/models")
+        self.models_dir = Path("/app/backend/data/models")
         
         # Initialiser les répertoires de données avant utilisation
         logger.info("[MODEL_PERSISTENCE] Initialisation des répertoires de données...")
