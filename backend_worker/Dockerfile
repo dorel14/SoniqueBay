@@ -79,7 +79,8 @@ RUN --mount=type=cache,target=/var/cache/apt/runner \
     rm -rf /var/lib/apt/lists/* && \
     ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     # Créer les répertoires de données et logs avec permissions correctes
-    mkdir -p /home/soniquebay /data /logs /app/backend_worker/logs /app/backend_worker/data /data/celery_beat_data
+    mkdir -p /home/soniquebay /data /logs /app/backend_worker/logs /app/backend_worker/data /data/celery_beat_data /root/.cache/huggingface && \
+    chmod -R 777 /root/.cache/huggingface
 
 # Copier uv depuis le builder stage
 COPY --from=builder /root/.local/bin/uv /usr/local/bin/uv
