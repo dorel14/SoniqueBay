@@ -214,11 +214,13 @@ services:
             - music-share:/music:ro
             - ./logs:/app/logs
             - /etc/localtime:/etc/localtime:ro
+            - huggingface-cache:/root/.cache/huggingface
         environment:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - API_URL=http://library:8001
             - HF_TOKEN=${HF_TOKEN}
+            - HF_HOME=/root/.cache/huggingface
             - MUSIC_PATH=/music
             - PLATFORM=docker
             - NAS_USER=${NAS_USER:-""}
@@ -362,6 +364,12 @@ volumes:
         driver_opts:
             type: none
             device: ${PWD}/data/flower_data
+            o: bind
+    huggingface-cache:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/huggingface_cache
             o: bind
     logs:
         driver: local
