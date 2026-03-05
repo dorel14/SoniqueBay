@@ -218,6 +218,7 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - API_URL=http://api:8001
+            - HF_TOKEN=${HF_TOKEN}
             - MUSIC_PATH=/music
             - PLATFORM=docker
             - NAS_USER=${NAS_USER:-""}

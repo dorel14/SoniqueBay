@@ -401,20 +401,20 @@ alembic upgrade head
 
 | # | Étape | Statut | Date |
 |---|-------|--------|------|
-| 1 | Création branche rollback | ⬜ | |
-| 2 | Arrêt services Supabase | ⬜ | |
-| 3 | Modification docker-compose.yml | ⬜ | |
-| 4 | Suppression fichiers backend | ⬜ | |
-| 5 | Suppression fichiers frontend | ⬜ | |
-| 6 | Suppression fichiers worker | ⬜ | |
-| 7 | Suppression tests Supabase | ⬜ | |
-| 8 | Suppression dossier supabase/ | ⬜ | |
-| 9 | Mise à jour dépendances | ⬜ | |
-| 10 | Nettoyage variables .env | ⬜ | |
-| 11 | Tests unitaires passent | ⬜ | |
+| 1 | Création branche rollback | ✅ | 2025-01-20 |
+| 2 | Arrêt services Supabase | ✅ | 2025-01-20 |
+| 3 | Modification docker-compose.yml | ✅ | 2025-01-20 |
+| 4 | Suppression fichiers backend | ✅ | 2025-01-20 |
+| 5 | Suppression fichiers frontend | ✅ | 2025-01-20 |
+| 6 | Suppression fichiers worker | ✅ | 2025-01-20 |
+| 7 | Suppression tests Supabase | ✅ | 2025-01-20 |
+| 8 | Suppression dossier supabase/ | ✅ | 2025-01-20 |
+| 9 | Mise à jour dépendances | ✅ | 2025-01-20 |
+| 10 | Nettoyage variables .env | ✅ | 2025-01-20 |
+| 11 | Tests unitaires passent | 🔄 | En attente rebuild conteneurs |
 | 12 | Tests E2E passent | ⬜ | |
 | 13 | Validation manuelle | ⬜ | |
-| 14 | Documentation à jour | ⬜ | |
+| 14 | Documentation à jour | ✅ | 2025-01-20 |
 | 15 | Merge vers master | ⬜ | |
 
 ---
@@ -523,4 +523,4 @@ Ce plan de rollback permet de revenir à l'architecture PostgreSQL/SQLAlchemy or
 
 **Signé** : SoniqueBay Team  
 **Date** : 2025-01-20  
-**Statut** : ✅ Plan complet - Prêt pour exécution
+**Statut** : ✅ Rollback exécuté - 45+ fichiers supprimés, architecture PostgreSQL restaurée

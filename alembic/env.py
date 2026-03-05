@@ -1,7 +1,7 @@
 import os
 from logging.config import fileConfig
-import os
 from backend.api.utils.logging import logger
+
 # Forcer l'encodage UTF-8 pour psycopg2 avant l'import
 os.environ["PGCLIENTENCODING"] = "UTF8"
 
@@ -11,11 +11,13 @@ from sqlalchemy import pool
 from alembic import context
 from backend.api.utils.database import get_database_url_raw, Base
 import backend.api.models  # noqa: F401
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 db_url = get_database_url_raw()
 logger.info(f"Database URL: {db_url}")
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
@@ -63,7 +65,6 @@ def run_migrations_online() -> None:
     """
     # Utiliser les paramètres de connexion séparés pour éviter les problèmes
     # d'encodage avec les caractères spéciaux dans les passwords
-    import os
     from urllib.parse import quote_plus
     
     user = os.getenv('POSTGRES_USER', 'postgres')

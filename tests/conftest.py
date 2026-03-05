@@ -325,12 +325,6 @@ def setup_test_environment():
     os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
     os.environ["TESTING"] = "true"
     
-    # Variables d'environnement Supabase pour les tests
-    os.environ["SUPABASE_URL"] = os.getenv("TEST_SUPABASE_URL", "http://localhost:54321")
-    os.environ["SUPABASE_ANON_KEY"] = os.getenv("TEST_SUPABASE_ANON_KEY", "REMOVED_JWT_TOKEN")
-    os.environ["SUPABASE_SERVICE_KEY"] = os.getenv("TEST_SUPABASE_SERVICE_KEY", "REMOVED_SERVICE_JWT")
-    os.environ["USE_SUPABASE"] = "false"  # Mode fallback pour les tests par défaut
-    
     # Configuration du logging pour les tests
     logging.getLogger("backend_worker").setLevel(logging.DEBUG)
     logging.getLogger("tests").setLevel(logging.DEBUG)
@@ -338,8 +332,7 @@ def setup_test_environment():
     yield
     
     # Cleanup après les tests
-    test_env_vars = ["API_URL", "REDIS_HOST", "DATABASE_URL", "TESTING", 
-                     "SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY", "USE_SUPABASE"]
+    test_env_vars = ["API_URL", "REDIS_HOST", "DATABASE_URL", "TESTING"]
     for var in test_env_vars:
         if var in os.environ:
             del os.environ[var]

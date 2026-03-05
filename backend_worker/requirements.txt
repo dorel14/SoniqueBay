@@ -24,9 +24,6 @@ pgvector>=0.2.4  # PostgreSQL vector extension
 httpx>=0.24.0
 websockets>=11.0.3
 
-# Supabase
-supabase>=2.0.0
-
 # Stockage et Index de recherche
 tinydb>=4.8.0
 cachetools>=5.3.2
