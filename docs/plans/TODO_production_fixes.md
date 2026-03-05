@@ -13,7 +13,7 @@ Cette branche est dédiée aux correctifs suite aux tests en production.
 |---|----------|--------|--------|
 | 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
 | 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | 3a9d4db, 179dc93 |
-| 3 | **Cache HuggingFace non persistant** - Modèle re-téléchargé à chaque fois | ✅ Corrigé | 00ca9b3 |
+| 3 | **Cache HuggingFace non persistant** - Modèle re-téléchargé à chaque fois | ✅ Corrigé | 00ca9b3, 32c8bdd, 7d4ada1 |
 
 ### Fix #1 : DNS Error "Name or service not known" ✅
 
@@ -78,11 +78,13 @@ Tâche lancée → Échec (DNS Error) → Retry 1 (après 1 min) → Échec → 
 → Échec → DLQ (stockée pour analyse)
 ```
 
-### Fix #3 : Cache HuggingFace non persistant ✅
+### Fix #3 : Cache HuggingFace persistant entre rebuilds ✅
 
 **Problème** : Le modèle sentence-transformers est re-téléchargé à chaque exécution car le cache HuggingFace n'est pas persistant entre les redémarrages du conteneur.
 
-**Solution** : Ajout d'un volume persistant dans `docker-compose.yml` :
+**Solution complète** :
+
+#### 1. Volume persistant dans docker-compose.yml (commit 00ca9b3)
 ```yaml
 volumes:
   - huggingface-cache:/root/.cache/huggingface
@@ -91,7 +93,30 @@ environment:
   - HF_HOME=/root/.cache/huggingface
 ```
 
-**Commit** : `00ca9b3`
+#### 2. Création du répertoire dans le Dockerfile (commit 32c8bdd)
+```dockerfile
+RUN mkdir -p /root/.cache/huggingface && \
+    chmod -R 777 /root/.cache/huggingface
+```
+
+#### 3. Script de rebuild avec cache (commit 7d4ada1)
+Script `scripts/rebuild_worker_with_cache.sh` pour rebuild l'image en préservant le cache.
+
+#### Dossier sur l'hôte
+Le cache est stocké dans `./data/huggingface_cache` et monté via un volume bind.
+
+#### Commandes pour appliquer
+
+```powershell
+# 1. Créer le dossier cache sur l'hôte
+mkdir -p data/huggingface_cache
+
+# 2. Redémarrer les conteneurs avec les nouveaux volumes
+docker-compose up -d --force-recreate celery-worker
+
+# 3. Pour rebuild l'image en préservant le cache
+./scripts/rebuild_worker_with_cache.sh
+```
 
 ## Procédure de travail
 
