@@ -1,6 +1,9 @@
 from __future__ import annotations
-import strawberry
+
 from typing import Optional
+
+import strawberry
+
 from backend.api.graphql.types.albums_type import AlbumType
 from backend.api.services.album_service import AlbumService
 from backend.api.utils.logging import logger

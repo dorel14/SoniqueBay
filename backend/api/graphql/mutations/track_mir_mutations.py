@@ -205,7 +205,8 @@ class TrackMIRMutation:
                     genre_tags=raw_data.get("genre_tags", []),
                     mood_tags=raw_data.get("mood_tags", []),
                     analysis_source=mir_raw.mir_source,
-                    created_at=mir_raw.created_at,
+                    # analyzed_at remplace created_at dans le modèle corrigé (fix_track_mir_raw_schema)
+                    created_at=mir_raw.analyzed_at,
                     date_added=mir_raw.date_added,
                     date_modified=mir_raw.date_modified,
                 )

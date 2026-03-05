@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.api.utils.database import Base, TimestampMixin
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
+from backend.api.utils.database import Base, TimestampMixin
 
 # Imports pour les relations vers les nouvelles tables
 from typing import TYPE_CHECKING

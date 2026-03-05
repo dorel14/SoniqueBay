@@ -12,7 +12,7 @@ from backend_worker.services.cover_types import CoverProcessingContext, ImageTyp
 
 
 
-@celery.task(name="covers.process_artist_images", queue="deferred")
+@celery.task(name="covers.process_artist_images", queue="deferred_covers")
 def process_artist_images(artist_ids: List[int], priority: str = "normal"):
     """
     Traite les images d'artistes en utilisant le CoverOrchestratorService.
@@ -120,7 +120,7 @@ def process_artist_images(artist_ids: List[int], priority: str = "normal"):
         return {"success": False, "error": str(e), "artists_processed": 0}
 
 
-@celery.task(name="covers.process_album_covers", queue="deferred")
+@celery.task(name="covers.process_album_covers", queue="deferred_covers")
 def process_album_covers(album_ids: List[int], priority: str = "normal"):
     """
     Traite les covers d'albums en utilisant le CoverOrchestratorService.
@@ -222,7 +222,7 @@ def process_album_covers(album_ids: List[int], priority: str = "normal"):
         return {"success": False, "error": str(e), "albums_processed": 0}
 
 
-@celery.task(name="covers.process_track_covers_batch", queue="deferred")
+@celery.task(name="covers.process_track_covers_batch", queue="deferred_covers")
 def process_track_covers_batch(album_covers: List[Dict[str, Any]]):
     """
     Traite les covers extraites des métadonnées des tracks.
@@ -271,7 +271,7 @@ def process_track_covers_batch(album_covers: List[Dict[str, Any]]):
         return {"success": False, "error": str(e), "covers_processed": 0}
 
 
-@celery.task(name="covers.process_artist_images_batch", queue="deferred")
+@celery.task(name="covers.process_artist_images_batch", queue="deferred_covers")
 def process_artist_images_batch(artist_images: List[Dict[str, Any]]):
     """
     Traite les images d'artistes extraites des métadonnées des tracks.
@@ -320,7 +320,7 @@ def process_artist_images_batch(artist_images: List[Dict[str, Any]]):
         return {"success": False, "error": str(e), "images_processed": 0}
 
 
-@celery.task(name="covers.extract_artist_images", queue="deferred")
+@celery.task(name="covers.extract_artist_images", queue="deferred_covers")
 def extract_artist_images(file_paths: list[str]):
     """
     Extrait les images d'artistes depuis les chemins de fichiers musicaux.
@@ -440,7 +440,7 @@ def extract_artist_images(file_paths: list[str]):
         }
 
 
-@celery.task(name="covers.extract_embedded", queue="deferred")
+@celery.task(name="covers.extract_embedded", queue="deferred_covers")
 def extract_embedded(file_paths: list[str]):
     """
     Extrait les covers intégrées (embedded) depuis les fichiers musicaux.

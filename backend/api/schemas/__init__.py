@@ -1,8 +1,16 @@
 """
 Schémas Pydantic pour la validation des données
 """
-from .base_schema import BaseSchema
 from typing import TYPE_CHECKING
+
+from backend.api.schemas.agent_score_schema import (
+    AgentScore,
+    AgentScoreBase,
+    AgentScoreCreate,
+    AgentScoreListResponse,
+    AgentScoreUpdate,
+    AgentScoreWithMetrics,
+)
 
 # Imports des schémas
 from backend.api.schemas.albums_schema import AlbumBase, AlbumCreate, Album, AlbumWithRelations

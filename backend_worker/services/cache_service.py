@@ -6,8 +6,10 @@ aux APIs externes et gérer les pannes.
 """
 
 import time
-from typing import Dict, Any, Optional, Callable
+from typing import Any, Callable, Dict, Optional
+
 from cachetools import TTLCache
+
 from backend_worker.utils.logging import logger
 
 

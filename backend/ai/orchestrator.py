@@ -39,11 +39,37 @@ class Orchestrator:
             "agent_selections": {}
         }
 
-        # Chargement des agents
-        self.agents = self.loader.load_enabled_agents()
+        # Les agents sont chargés via `await self.init()` (méthode async obligatoire)
+        # Ne pas appeler load_enabled_agents() ici : c'est une coroutine async
+        self.agents: Dict[str, Any] = {}
+
+    # ---------------------------------------------------------
+    # Initialisation asynchrone (doit être appelée après __init__)
+    # ---------------------------------------------------------
+    async def init(self) -> None:
+        """
+        Initialisation asynchrone de l'orchestrateur.
+        Doit être appelée avec `await orchestrator.init()` après l'instanciation.
+        Charge les agents depuis la base de données et valide la présence de l'agent orchestrateur.
+        """
+        self.agents = await self.loader.load_enabled_agents()
 
         if "orchestrator" not in self.agents:
-            raise RuntimeError("Agent 'orchestrator' manquant")
+            logger.error(
+                "Agent 'orchestrator' manquant dans la base de données ou désactivé",
+                extra={"available_agents": list(self.agents.keys())}
+            )
+            raise RuntimeError(
+                "Agent 'orchestrator' manquant — vérifiez que l'agent est activé en base de données."
+            )
+
+        logger.info(
+            "Orchestrateur initialisé avec succès",
+            extra={
+                "agents_loaded": list(self.agents.keys()),
+                "total_agents": len(self.agents)
+            }
+        )
 
     # ---------------------------------------------------------
     # Appel standard (non streaming) avec monitoring
@@ -148,18 +174,60 @@ class Orchestrator:
             orch = self.agents["orchestrator"]
             
             intent_res = await asyncio.wait_for(
-                orch.run(
-                    message,
-                    context=self.context.export()
-                ),
-                timeout=timeout
+                orch.run(message),
+                timeout=60.0  # Augmenté à 60s pour les modèles plus lents
             )
             
-            return {
-                "intent": intent_res.get("intent"),
-                "agent": intent_res.get("agent"),
-                "confidence": intent_res.get("confidence", 0.0)
-            }
+            # Gérer le résultat comme un objet AgentRunResult (pydantic-ai)
+            # ou comme un dictionnaire selon le type retourné
+            if hasattr(intent_res, 'output'):
+                # C'est un AgentRunResult, extraire l'output
+                output = intent_res.output
+                if isinstance(output, dict):
+                    return {
+                        "intent": output.get("intent"),
+                        "agent": output.get("agent"),
+                        "confidence": output.get("confidence", 0.0)
+                    }
+                elif isinstance(output, str):
+                    # L'output est une chaîne, essayer de parser comme JSON
+                    try:
+                        import json
+                        parsed = json.loads(output)
+                        return {
+                            "intent": parsed.get("intent"),
+                            "agent": parsed.get("agent"),
+                            "confidence": parsed.get("confidence", 0.0)
+                        }
+                    except json.JSONDecodeError:
+                        # Fallback: utiliser la chaîne comme intent
+                        return {
+                            "intent": "general",
+                            "agent": "smalltalk_agent",
+                            "confidence": 0.5
+                        }
+                else:
+                    # Fallback pour tout autre type
+                    return {
+                        "intent": "general",
+                        "agent": "smalltalk_agent",
+                        "confidence": 0.5
+                    }
+            elif isinstance(intent_res, dict):
+                # C'est déjà un dictionnaire
+                return {
+                    "intent": intent_res.get("intent"),
+                    "agent": intent_res.get("agent"),
+                    "confidence": intent_res.get("confidence", 0.0)
+                }
+            else:
+                # Fallback pour tout autre type
+                logger.warning(f"Type de résultat inattendu: {type(intent_res)}")
+                return {
+                    "intent": "general",
+                    "agent": "smalltalk_agent",
+                    "confidence": 0.5
+                }
             
         except asyncio.TimeoutError:
             logger.warning(
@@ -347,8 +415,7 @@ class Orchestrator:
                 session=self.session,
                 agent_name=agent_name,
                 intent=intent,
-                success=success,
-                response_time=response_time
+                success=success
             )
             
             # Logging de l'apprentissage

@@ -1,16 +1,25 @@
 from fastapi import APIRouter
 
+from backend.api.routers.agents_api import router as agents_router  # noqa: E402
+
 # Import des routers
 from backend.api.routers.albums_api import router as albums_router
 from backend.api.routers.artists_api import router as artists_router
-from backend.api.routers.tracks_api import router as tracks_router
+from backend.api.routers.celery_tasks_api import router as celery_tasks_router
+from backend.api.routers.covers_api import router as covers_router
 from backend.api.routers.genres_api import router as genres_router
+from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
+from backend.api.routers.library_api import router as library_router
+from backend.api.routers.mir_api import router as mir_router  # noqa: E402
+from backend.api.routers.ollama_api import router as ollama_router  # noqa: E402
+from backend.api.routers.playqueue_api import router as playqueue_router
+from backend.api.routers.realtime_router import router as realtime_router  # noqa: E402
 from backend.api.routers.scan_api import router as scan_router
 from backend.api.routers.scan_sessions_api import router as scan_sessions_router
+from backend.api.routers.search_api import router as search_router
 from backend.api.routers.settings_api import router as settings_router
 from backend.api.routers.tags_api import router as tags_router
-from backend.api.routers.playqueue_api import router as playqueue_router
-from backend.api.routers.search_api import router as search_router
+from backend.api.routers.tracks_api import router as tracks_router
 from backend.api.routers.covers_api import router as covers_router
 from backend.api.routers.library_api import router as library_router
 from backend.api.routers.celery_tasks_api import router as celery_tasks_router
@@ -27,6 +36,7 @@ from backend.api.routers.track_vectors_api import router as track_vectors_router
 from backend.api.routers.mir_api import router as mir_router  # noqa: E402
 from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
 from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: E402
+from backend.api.routers.simple_chat_api import router as simple_chat_router  # noqa: E402
 
 
 
@@ -62,6 +72,7 @@ ROUTERS = [
     gmm_router,
     synonyms_router,
     track_vectors_router,
+    simple_chat_router,
 ]
 
 # Inclure tous les routers

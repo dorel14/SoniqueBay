@@ -4,6 +4,7 @@ from .base_schema import TimestampedSchema
 from .covers_schema import Cover
 from backend.api.utils.logging import logger
 
+
 class AlbumBase(BaseModel):
     title: str = Field(..., description="Titre de l'album")
     album_artist_id: int = Field(..., description="ID de l'artiste")

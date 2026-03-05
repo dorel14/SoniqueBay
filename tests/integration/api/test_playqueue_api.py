@@ -1,8 +1,10 @@
 # backend/tests/test_api/test_playqueue_api.py
 # Tests pour les endpoints de l'API Playqueue
 
-import pytest
 from datetime import datetime
+
+import pytest
+
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack
 
 

@@ -1,8 +1,11 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 from enum import Enum
 from pathlib import Path
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
+
 from .base_schema import TimestampedSchema
+
 
 class CoverType(str, Enum):
     ARTIST = "artist"

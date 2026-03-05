@@ -1,8 +1,7 @@
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
 import os
-DEFAULT_MODEL = os.getenv("AGENT_MODEL", "phi3:mini")
+DEFAULT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
 class AgentCreate(BaseModel):
     name: str
     model: str = DEFAULT_MODEL
@@ -51,9 +50,11 @@ class AgentOut(BaseModel):
     rules: Optional[str] = None
     output_schema: Optional[str] = None
     state_strategy: Optional[str] = None
-    tools: List[Dict[str, Any]]
-    tags: List[str]
+    tools: Any
+    tags: Any
     version: str
     temperature: float
     top_p: float
     num_ctx: int
+
+    model_config = ConfigDict(from_attributes=True)

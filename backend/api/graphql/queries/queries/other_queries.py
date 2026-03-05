@@ -1,8 +1,11 @@
 from __future__ import annotations
-import strawberry
+
 from typing import Optional
-from backend.api.graphql.types.genres_type import GenreType
+
+import strawberry
+
 from backend.api.graphql.types.covers_type import CoverType
+from backend.api.graphql.types.genres_type import GenreType
 from backend.api.graphql.types.tags_type import GenreTagType, MoodTagType
 from backend.api.services.genres_service import GenreService
 from backend.api.services.covers_service import CoverService

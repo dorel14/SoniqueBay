@@ -2,9 +2,10 @@ from __future__ import annotations
 import strawberry
 import time
 from typing import Optional
-from backend.api.graphql.types.tracks_type import TrackType
+
 from backend.api.graphql.types.covers_type import CoverType
 from backend.api.graphql.types.track_filter_type import TrackFilterInput
+from backend.api.graphql.types.tracks_type import TrackType
 from backend.api.services.track_service import TrackService
 from backend.api.utils.logging import logger
 
@@ -71,6 +72,7 @@ class TrackQueries:
                 'album_id': where.album_id,
                 'genre': where.genre,
                 'year': where.year,
+                'filePath': where.filePath,
             })
 
         cached_data = graphql_cache.get("tracks_v2", **cache_params)
@@ -93,6 +95,8 @@ class TrackQueries:
                 tracks = [t for t in tracks if t.genre and where.genre.lower() in t.genre.lower()]
             if where.year:
                 tracks = [t for t in tracks if t.year == where.year]
+            if where.filePath:
+                tracks = [t for t in tracks if t.path == where.filePath]
 
             # Apply pagination
             tracks = tracks[skip:skip + limit] if limit else tracks[skip:]

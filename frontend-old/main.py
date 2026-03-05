@@ -1,11 +1,13 @@
-import os
-import inspect
-import importlib
 import glob
+import importlib
+import inspect
+import os
+
+from config import PAGES_DIR
 from nicegui import ui
 from theme.layout import wrap_with_layout
 from utils.logging import logger
-from config import PAGES_DIR
+
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # Define project root
 
 

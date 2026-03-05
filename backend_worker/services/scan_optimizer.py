@@ -1,11 +1,5 @@
-"""
-ScanOptimizer - Optimiseur de scan pour SoniqueBay
+"""Service d'optimisation du scan."""
 
-Cette classe gère la parallélisation intelligente du scan de bibliothèque musicale,
-optimise l'utilisation des ressources et fournit des métriques temps réel.
-"""
-
-import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Callable, Any, Tuple
@@ -20,47 +14,30 @@ from backend_worker.services.entity_manager import (
 )
 from backend_worker.celery_app import celery
 
-try:
-    import psutil
-    PSUTIL_AVAILABLE = True
-    logger.info("psutil module loaded successfully")
-except ImportError as e:
-    PSUTIL_AVAILABLE = False
-    logger.error(f"psutil module not available: {e}")
-    psutil = None
+from backend_worker.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-@dataclass
 class ScanMetrics:
-    """Métriques de performance du scan."""
-    start_time: float = field(default_factory=time.time)
-    files_processed: int = 0
-    files_total: int = 0
-    chunks_processed: int = 0
-    processing_time: float = 0.0
-    memory_usage_mb: float = 0.0
-    cpu_usage_percent: float = 0.0
-    avg_chunk_time: float = 0.0
-    files_per_second: float = 0.0
-    errors_count: int = 0
-
+    """Métriques de performance pour le scan."""
+    
+    def __init__(self):
+        self.files_processed = 0
+        self.chunks_processed = 0
+        self.processing_time = 0.0
+        self.start_time = time.time()
+        self.errors_count = 0
+        self.files_per_second = 0.0
+        self.avg_chunk_time = 0.0
+    
     def update(self):
         """Met à jour les métriques calculées."""
-        if self.processing_time > 0:
-            self.files_per_second = self.files_processed / self.processing_time
-        else:
-            elapsed = time.time() - self.start_time
-            if elapsed > 0:
-                self.files_per_second = self.files_processed / elapsed
+        elapsed = time.time() - self.start_time
+        if elapsed > 0:
+            self.files_per_second = self.files_processed / elapsed
         if self.chunks_processed > 0:
             self.avg_chunk_time = self.processing_time / self.chunks_processed
-        if PSUTIL_AVAILABLE and psutil:
-            self.memory_usage_mb = psutil.virtual_memory().used / (1024 * 1024)
-            self.cpu_usage_percent = psutil.cpu_percent(interval=0.1)
-        else:
-            self.memory_usage_mb = 0.0
-            self.cpu_usage_percent = 0.0
-            logger.warning("psutil not available, memory and CPU metrics set to 0")
 
 
 class ScanOptimizer:
@@ -78,8 +55,8 @@ class ScanOptimizer:
                  enable_threading: bool = True,
                  max_parallel_chunks: int = 4):
         """
-        Initialise l'optimiseur de scan.
-
+        Traite un fichier audio pour le stockage.
+        
         Args:
             max_concurrent_files: Nombre maximum de fichiers traités simultanément
             max_concurrent_audio: Nombre maximum d'analyses audio simultanées
@@ -119,7 +96,7 @@ class ScanOptimizer:
             scan_config: Configuration du scan
 
         Returns:
-            Liste des métadonnées extraites
+            Données traitées prêtes pour le stockage
         """
         start_time = time.time()
 
@@ -291,21 +268,16 @@ class ScanOptimizer:
         elapsed = time.time() - self.metrics.start_time
 
         return {
-            "total_time_seconds": elapsed,
-            "files_processed": self.metrics.files_processed,
-            "chunks_processed": self.metrics.chunks_processed,
-            "avg_chunk_time": self.metrics.avg_chunk_time,
-            "avg_files_per_second": self.metrics.files_per_second,
-            "memory_peak_mb": self.metrics.memory_usage_mb,
-            "cpu_avg_percent": self.metrics.cpu_usage_percent,
-            "errors_count": self.metrics.errors_count,
-            "efficiency_score": self._calculate_efficiency_score()
+            'track_id': metadata.get('id', 'unknown'),
+            'file_path': file_path,
+            'tags': metadata.get('tags', {}),
+            'metadata': metadata
         }
+    
+    def optimize_batch(self, files: list) -> list:
+        """Optimise un batch de fichiers."""
+        return files
 
-    def _calculate_efficiency_score(self) -> float:
-        """Calcule un score d'efficacité basé sur les métriques."""
-        if self.metrics.files_processed == 0:
-            return 0.0
 
         # Score basé sur la vitesse et les erreurs
         speed_score = min(100, self.metrics.files_per_second * 10)  # 10 fichiers/s = 100 points

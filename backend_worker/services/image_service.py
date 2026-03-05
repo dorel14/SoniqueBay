@@ -1,13 +1,18 @@
-import json
 import base64
+import json
 import mimetypes
+from pathlib import Path
+from typing import List, Optional, Tuple
+
 import aiofiles
 
-from typing import Tuple, Optional, List
-from backend_worker.utils.logging import logger
 from backend_worker.services.path_service import find_local_images
-from backend_worker.services.settings_service import SettingsService, ALBUM_COVER_FILES, ARTIST_IMAGE_FILES
-from pathlib import Path
+from backend_worker.services.settings_service import (
+    ALBUM_COVER_FILES,
+    ARTIST_IMAGE_FILES,
+    SettingsService,
+)
+from backend_worker.utils.logging import logger
 
 settings_service = SettingsService()
 

@@ -1,5 +1,5 @@
 # Docker Compose optimisé pour SoniqueBay - Raspberry Pi 4
-# Intègre toutes les optimisations du scan-optimized avec les services de base
+# Architecture PostgreSQL/SQLAlchemy originale (rollback Supabase complété)
 # Optimisations RPi4 : limites CPU/mémoire, Redis optimisé, pools threads, monitoring Flower
 
 services:
@@ -29,6 +29,8 @@ services:
             default:
                 aliases:
                     - timesync
+
+    # === POSTGRESQL (BASE DE DONNÉES PRINCIPALE) ===
     db:
         build:
             context: .
@@ -58,7 +60,6 @@ services:
             timeout: 5s
             retries: 5
 
-
     # === REDIS (broker + backend) ===
     redis:
         image: redis:7
@@ -73,7 +74,7 @@ services:
                 aliases:
                     - redis
         ports:
-            - "6379:6379"  # Expose Redis pour accès local (monitoring Celery)
+            - "6379:6379"
         healthcheck:
             test: ["CMD-SHELL", "redis-cli ping && redis-cli info | grep -q 'loading:0'"]
             interval: 5s
@@ -111,8 +112,9 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - REDIS_URL=redis://redis:6379/0
-            - AGENT_MODEL=phi3:3.8b-mini-4k-instruct-q4_K_M
-            - OLLAMA_BASE_URL=http://ollama:11434
+            - LLM_PROVIDER=koboldcpp
+            - KOBOLDCPP_BASE_URL=http://llm-service:5001
+            - AGENT_MODEL=koboldcpp/qwen2.5-3b-instruct-q4_k_m
             - HEALTHCHECK_PORT=8001
             - PLATFORM=${PLATFORM:-windows}
             - MUSIC_PATH=/music
@@ -125,6 +127,8 @@ services:
                 condition: service_started
             db:
                 condition: service_healthy
+            llm-service:
+                condition: service_started
         networks:
             default:
                 aliases:
@@ -141,12 +145,11 @@ services:
         deploy:
             resources:
                 limits:
-                    cpus: '0.5'  # Réduit pour Raspberry Pi
-                    memory: 768M  # Augmenté pour éviter SIGKILL
+                    cpus: '0.5'
+                    memory: 768M
                 reservations:
                     cpus: '0.25'
                     memory: 256M
-
 
     # === FRONTEND ===
     frontend:
@@ -166,6 +169,8 @@ services:
             - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
+            - PYTHONUNBUFFERED=1
+            - PYTHONDONTWRITEBYTECODE=1
         depends_on:
             api-service:
                 condition: service_healthy
@@ -190,7 +195,7 @@ services:
                     cpus: '0.25'
                     memory: 128M
 
-    # === CELERY WORKER UNIFIÉ AVEC AUTOSCALE - OPTIMISÉ POUR RASPBERRY PI ===
+    # === CELERY WORKER UNIFIÉ ===
     celery-worker:
         build:
             context: .
@@ -213,6 +218,7 @@ services:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - API_URL=http://api:8001
+            - HF_TOKEN=${HF_TOKEN}
             - MUSIC_PATH=/music
             - PLATFORM=docker
             - NAS_USER=${NAS_USER:-""}
@@ -231,11 +237,12 @@ services:
         deploy:
             resources:
                 limits:
-                    cpus: '1.0'  # Augmenté pour autoscale (jusqu'à 4 processus)
-                    memory: 2G   # Augmenté pour éviter SIGKILL avec autoscale
+                    cpus: '1.0'
+                    memory: 2G
                 reservations:
                     cpus: '0.25'
                     memory: 512M
+
     celery_beat:
         build:
             context: .
@@ -269,14 +276,16 @@ services:
                 reservations:
                     cpus: '0.1'
                     memory: 128M
+
+    # === LLM SERVICE (KOBOLDCPP) ===
     llm-service:
         image: koboldai/koboldcpp:latest
         container_name: llm-service
         restart: unless-stopped
-        pull_policy: always
+        pull_policy: missing
         environment:
             - TZ=${TZ}
-            - HF_TOKEN=HF_TOKEN_REDACTED
+            - HF_TOKEN=${HF_TOKEN}
             - MODEL=qwen2.5-3b-instruct-q4_k_m.gguf
             - KCPP_DONT_UPDATE=false
             - KCPP_DONT_TUNNEL=true
@@ -293,8 +302,19 @@ services:
         volumes:
             - ./llm-service/models:/workspace
         ports:
-            - "11434:5001"
+            - "5001:5001"
+        networks:
+            default:
+                aliases:
+                    - llm-service
+        healthcheck:
+            test: ["CMD-SHELL", "curl -sf http://localhost:5001/v1/models || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 120s
 
+    # === CELERY INSIGHTS (MONITORING) ===
     celery-insights:
         image: ghcr.io/danyi1212/celery-insights:latest
         container_name: soniquebay-celery-insights
@@ -311,9 +331,6 @@ services:
                 condition: service_healthy
             celery-worker:
                 condition: service_started
-
-
-
 
 volumes:
     redis-data:

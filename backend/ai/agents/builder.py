@@ -53,7 +53,7 @@ def build_rtcros_prompt(agent_model: AgentModel) -> str:
     return "\n\n".join(parts)
 
 
-def build_agent(agent_model: AgentModel) -> Agent:
+async def build_agent(agent_model: AgentModel) -> Agent:
     """
     Construit un agent PydanticAI à partir d'un modèle AgentModel.
     
@@ -102,12 +102,11 @@ def build_agent(agent_model: AgentModel) -> Agent:
             )
     
     # Configuration du modèle LLM avec paramètres RTCROS
+    # Note: temperature et top_p sont gérés au niveau des requêtes API, pas dans le constructeur
     try:
-        ollama_model = get_ollama_model(
+        ollama_model = await get_ollama_model(
             model_name=agent_model.model,
-            num_ctx=agent_model.num_ctx,
-            temperature=agent_model.temperature,
-            top_p=agent_model.top_p
+            num_ctx=agent_model.num_ctx
         )
     except Exception as e:
         logger.error(
@@ -121,14 +120,14 @@ def build_agent(agent_model: AgentModel) -> Agent:
         )
         raise ValueError(f"Impossible de configurer le modèle LLM: {e}")
     
-    # Création de l'agent
+    # Création de l'agent avec configuration permissive pour conversations rapides
     try:
         agent = Agent(
             name=agent_model.name,
             model=ollama_model,
             system_prompt=system_prompt,
             tools=tools,
-            result_type=agent_model.output_schema  # Support du schema de sortie RTCROS
+            retries=5,  # Augmenté pour tolérance aux erreurs de validation
         )
         
         logger.info(
@@ -157,7 +156,7 @@ def build_agent(agent_model: AgentModel) -> Agent:
         raise ValueError(f"Impossible de créer l'agent: {e}")
 
 
-def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str, AgentModel]) -> Agent:
+async def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str, AgentModel]) -> Agent:
     """
     Construit un agent en héritant des capacités d'un agent parent.
     
@@ -169,7 +168,7 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
         Agent: Agent PydanticAI avec héritage
     """
     if not agent_model.base_agent:
-        return build_agent(agent_model)
+        return await build_agent(agent_model)
     
     # Récupération de l'agent parent
     parent_model = base_agents.get(agent_model.base_agent)
@@ -182,22 +181,22 @@ def build_agent_with_inheritance(agent_model: AgentModel, base_agents: Dict[str,
                 "available_base_agents": list(base_agents.keys())
             }
         )
-        return build_agent(agent_model)
+        return await build_agent(agent_model)
     
     # Construction de l'agent parent
-    parent_agent = build_agent(parent_model)
+    parent_agent = await build_agent(parent_model)
     
     # Construction de l'agent enfant avec spécialisation
     child_prompt = _build_specialized_prompt(agent_model, parent_model)
     child_tools = _merge_tools(agent_model, parent_model)
     
-    # Création de l'agent spécialisé
+    # Création de l'agent spécialisé avec configuration permissive
     specialized_agent = Agent(
         name=agent_model.name,
         model=parent_agent.model,  # Hérite du modèle du parent
         system_prompt=child_prompt,
         tools=child_tools,
-        result_type=agent_model.output_schema
+        retries=5,  # Augmenté pour tolérance aux erreurs de validation
     )
     
     logger.info(
@@ -259,7 +258,52 @@ def _merge_tools(child_model: AgentModel, parent_model: AgentModel) -> List[Any]
     return merged_tools
 
 
-def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
+async def build_simple_chat_agent(
+    name: str = "chat",
+    model_name: str = "Qwen/Qwen3-4B-Instruct:Q3_K_M",
+    system_prompt: str = None,
+) -> Agent:
+    """
+    Construit un agent de chat simple sans validation stricte.
+    
+    Cet agent est optimisé pour des conversations rapides et simples
+    (ex: dire "coucou", répondre à des questions basiques).
+    Pas de tools, pas de schéma de sortie strict - juste du texte libre.
+    
+    Args:
+        name: Nom de l'agent
+        model_name: Nom du modèle LLM
+        system_prompt: Prompt système personnalisé (optionnel)
+        
+    Returns:
+        Agent: Agent PydanticAI configuré pour du chat libre
+    """
+    from backend.ai.ollama import get_ollama_model
+    
+    # Prompt par défaut pour un assistant conversationnel simple
+    default_prompt = """Tu es un assistant conversationnel amical et concis.
+Réponds de manière naturelle et directe aux messages de l'utilisateur.
+Pas besoin de formatage spécial, juste une réponse textuelle simple."""
+    
+    effective_prompt = system_prompt or default_prompt
+    
+    # Récupérer le modèle
+    ollama_model = await get_ollama_model(model_name=model_name)
+    
+    # Créer l'agent sans tools et avec validation minimale
+    agent = Agent(
+        name=name,
+        model=ollama_model,
+        system_prompt=effective_prompt,
+        tools=[],  # Pas de tools pour du chat simple
+        retries=5,
+    )
+    
+    logger.info(f"Agent de chat simple créé: {name} avec modèle {model_name}")
+    return agent
+
+
+async def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
     """
     Valide la configuration d'un agent et retourne un rapport de validation.
     
@@ -297,11 +341,9 @@ def validate_agent_configuration(agent_model: AgentModel) -> Dict[str, Any]:
     try:
         # Test de création du modèle (sans l'instancier complètement)
         from backend.ai.ollama import get_ollama_model
-        get_ollama_model(
+        await get_ollama_model(
             model_name=agent_model.model,
-            num_ctx=agent_model.num_ctx,
-            temperature=agent_model.temperature,
-            top_p=agent_model.top_p
+            num_ctx=agent_model.num_ctx
         )
         validation_report["details"]["model_validation"] = "success"
     except Exception as e:

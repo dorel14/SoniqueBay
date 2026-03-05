@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import strawberry
-from .artist_mutations import ArtistMutations
+
 from .album_mutations import AlbumMutations
+from .artist_mutations import ArtistMutations
 from .track_mutations import TrackMutations
 
 

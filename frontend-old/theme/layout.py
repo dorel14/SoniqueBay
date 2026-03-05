@@ -1,4 +1,4 @@
-import os
+import asyncio
 import inspect
 import asyncio
 from nicegui import ui, app, events

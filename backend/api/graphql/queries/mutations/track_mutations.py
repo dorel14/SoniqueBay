@@ -74,19 +74,8 @@ class TrackMutations:
             file_type=track.file_type,
             bitrate=track.bitrate,
             featured_artists=track.featured_artists,
-            bpm=track.bpm,
-            key=track.key,
-            scale=track.scale,
-            danceability=track.danceability,
-            mood_happy=track.mood_happy,
-            mood_aggressive=track.mood_aggressive,
-            mood_party=track.mood_party,
-            mood_relaxed=track.mood_relaxed,
-            instrumental=track.instrumental,
-            acoustic=track.acoustic,
-            tonal=track.tonal,
-            camelot_key=track.camelot_key,
-            genre_main=track.genre_main,
+            # Note: bpm, key, scale, danceability, mood_*, etc. sont des resolvers
+            # dans TrackType — ils lisent depuis la relation audio_features.
             musicbrainz_id=track.musicbrainz_id,
             musicbrainz_albumid=track.musicbrainz_albumid,
             musicbrainz_artistid=track.musicbrainz_artistid,
@@ -102,7 +91,7 @@ class TrackMutations:
         message: str
 
     @strawberry.mutation
-    def create_tracks_batch_massive(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> BatchResult:
+    async def create_tracks_batch_massive(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> BatchResult:
         """
         Crée un batch massif de pistes avec optimisation maximale.
 
@@ -167,7 +156,7 @@ class TrackMutations:
                 tracks_data.append(TrackCreate(**track_data_dict))
 
             # Utiliser la méthode optimisée pour les batches massifs
-            tracks = service.create_or_update_tracks_batch(tracks_data)
+            tracks = await service.create_or_update_tracks_batch(tracks_data)
 
             logger.info(f"[MASSIVE_BATCH] Batch massif terminé: {len(tracks)} pistes traitées")
             log_graphql_mutation_success("create_tracks_batch_massive", len(tracks))
@@ -202,7 +191,7 @@ class TrackMutations:
             )
 
     @strawberry.mutation
-    def create_tracks(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> list[TrackType]:
+    async def create_tracks(self, data: list[TrackCreateInput], info: strawberry.types.Info) -> list[TrackType]:
         """Create multiple tracks in batch."""
         from backend.api.services.track_service import TrackService
         from backend.api.schemas.tracks_schema import TrackCreate
@@ -248,7 +237,7 @@ class TrackMutations:
             }
             tracks_data.append(TrackCreate(**track_data_dict))
 
-        tracks = service.create_or_update_tracks_batch(tracks_data)
+        tracks = await service.create_or_update_tracks_batch(tracks_data)
         log_graphql_mutation_success("create_tracks", len(tracks))
         return [
             TrackType(
@@ -265,19 +254,8 @@ class TrackMutations:
                 file_type=track.file_type,
                 bitrate=track.bitrate,
                 featured_artists=track.featured_artists,
-                bpm=track.bpm,
-                key=track.key,
-                scale=track.scale,
-                danceability=track.danceability,
-                mood_happy=track.mood_happy,
-                mood_aggressive=track.mood_aggressive,
-                mood_party=track.mood_party,
-                mood_relaxed=track.mood_relaxed,
-                instrumental=track.instrumental,
-                acoustic=track.acoustic,
-                tonal=track.tonal,
-                camelot_key=track.camelot_key,
-                genre_main=track.genre_main,
+                # Note: bpm, key, scale, danceability, mood_*, etc. sont des resolvers
+                # dans TrackType — ils lisent depuis la relation audio_features.
                 musicbrainz_id=track.musicbrainz_id,
                 musicbrainz_albumid=track.musicbrainz_albumid,
                 musicbrainz_artistid=track.musicbrainz_artistid,
@@ -289,7 +267,7 @@ class TrackMutations:
         ]
 
     @strawberry.mutation
-    def update_track_by_id(self, data: TrackUpdateInput, info: strawberry.types.Info) -> TrackType:
+    async def update_track_by_id(self, data: TrackUpdateInput, info: strawberry.types.Info) -> TrackType:
         """Update a track by ID."""
         from backend.api.services.track_service import TrackService
         session = info.context.session
@@ -329,7 +307,7 @@ class TrackMutations:
             'acoustid_fingerprint': data.acoustid_fingerprint
         }
 
-        track = service.update_track(data.id, track_data_dict)
+        track = await service.update_track(data.id, track_data_dict)
         if not track:
             raise ValueError(f"Track with id {data.id} not found")
         return TrackType(
@@ -368,7 +346,7 @@ class TrackMutations:
         )
 
     @strawberry.mutation
-    def upsert_track(self, data: TrackCreateInput, info: strawberry.types.Info) -> TrackType:
+    async def upsert_track(self, data: TrackCreateInput, info: strawberry.types.Info) -> TrackType:
         """Upsert a track (create if not exists, update if exists)."""
         from backend.api.services.track_service import TrackService
         from backend.api.schemas.tracks_schema import TrackCreate
@@ -410,7 +388,7 @@ class TrackMutations:
         }
         track_create = TrackCreate(**track_data_dict)
 
-        track = service.upsert_track(track_create)
+        track = await service.upsert_track(track_create)
         return TrackType(
             id=track.id,
             title=track.title,
@@ -447,14 +425,14 @@ class TrackMutations:
         )
 
     @strawberry.mutation
-    def update_tracks(self, filter: str, data: str, info: strawberry.types.Info) -> list[TrackType]:
+    async def update_tracks(self, filter: str, data: str, info: strawberry.types.Info) -> list[TrackType]:
         """Update multiple tracks by filter."""
         from backend.api.services.track_service import TrackService
         session = info.context.session
         service = TrackService(session)
         filter_data = {"title": {"icontains": filter}}
         update_data = {"title": data}
-        tracks = service.update_tracks_by_filter(filter_data, update_data)
+        tracks = await service.update_tracks_by_filter(filter_data, update_data)
         return [
             TrackType(
                 id=track.id,

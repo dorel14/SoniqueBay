@@ -2,6 +2,7 @@
 # from backend.api.graphql.strawchemy_init import strawchemy
 import strawberry
 
+
 @strawberry.type
 class CoverType:
     id: int
