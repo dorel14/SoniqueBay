@@ -959,18 +959,23 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         # ENQUEUE AUDIO ENRICHMENT TASKS POUR LES TRACKS
                         logger.info(f"[ENRICHMENT] Enqueue tâches d'enrichissement audio pour {len(processed_tracks)} tracks")
                         if processed_tracks:
-                            # Enqueue chaque track individuellement avec son file_path
+                            # Enqueue chaque track individuellement avec son file_path et tags
                             enqueued_count = 0
                             for track in processed_tracks:
                                 track_id = track.get('id')
                                 file_path = track.get('path')  # Le chemin du fichier
+                                # Récupérer les tags audio extraits lors du scan (si disponibles)
+                                tags = track.get('tags') or track.get('audio_tags')
                                 if track_id and file_path:
                                     # DIAGNOSTIC: Logs détaillés pour les tracks audio
                                     task_data = {
                                         "type": "track_audio",  # Format attendu par le worker
                                         "id": track_id,
-                                        "file_path": file_path
+                                        "file_path": file_path,
+                                        "tags": tags  # Tags audio extraits lors du scan
                                     }
+                                    if tags:
+                                        logger.info(f"[ENRICHMENT] Track {track_id}: {len(tags)} tags audio transmis pour enrichissement")
                                     
                                     logger.info(f"[ENRICHMENT DIAGNOSTIC] Tentative enqueue audio track {track_id} avec données: {task_data}")
                                     logger.info(f"[ENRICHMENT DIAGNOSTIC] Redis disponible: {deferred_queue_service.redis is not None}")

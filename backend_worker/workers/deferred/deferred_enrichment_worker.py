@@ -131,9 +131,28 @@ def _process_single_enrichment_task(task: Dict[str, Any]) -> Dict[str, Any]:
         elif task_type == "track_audio":
             # Analyse audio de la track
             file_path = task_data.get("file_path")
+            tags = task_data.get("tags")  # Tags audio extraits lors du scan
+            
             if file_path:
-                result = asyncio.run(analyze_audio_with_librosa(entity_id, file_path))
-                success = result is not None and bool(result)
+                # Si des tags sont disponibles, les utiliser pour l'enrichissement
+                if tags:
+                    logger.info(f"[ENRICHMENT] Track {entity_id}: utilisation des {len(tags)} tags audio transmis")
+                    # Utiliser extract_audio_features avec les tags déjà extraits
+                    from backend_worker.services.audio_features_service import extract_audio_features
+                    result = asyncio.run(extract_audio_features(None, tags, file_path, entity_id))
+                    success = result is not None and bool(result)
+                    if success:
+                        logger.info(f"[ENRICHMENT] ✅ Track {entity_id} enrichie avec les tags audio transmis")
+                    else:
+                        logger.warning(f"[ENRICHMENT] ⚠️ Échec enrichissement avec tags pour track {entity_id}, fallback Librosa")
+                        # Fallback vers Librosa si l'extraction des tags échoue
+                        result = asyncio.run(analyze_audio_with_librosa(entity_id, file_path))
+                        success = result is not None and bool(result)
+                else:
+                    # Pas de tags disponibles, utiliser Librosa directement
+                    logger.info(f"[ENRICHMENT] Track {entity_id}: pas de tags audio transmis, utilisation de Librosa")
+                    result = asyncio.run(analyze_audio_with_librosa(entity_id, file_path))
+                    success = result is not None and bool(result)
             else:
                 error_message = "Chemin de fichier manquant"
 

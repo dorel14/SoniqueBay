@@ -818,6 +818,9 @@ def clean_track_data(file: Dict) -> Dict:
         # S'assurer que les tags sont des listes
         "genre_tags": genre_tags,
         "mood_tags": mood_tags,
+        
+        # Conserver les tags audio bruts pour l'enrichissement différé
+        "tags": file.get("tags"),
     }
 
     # DIAGNOSTIC: Log pour vérifier les données entrantes
@@ -835,7 +838,8 @@ def clean_track_data(file: Dict) -> Dict:
             isinstance(v, bool) or 
             isinstance(v, (int, float)) or 
             (isinstance(v, str) and v.strip()) or
-            (isinstance(v, list) and v)
+            (isinstance(v, list) and v) or
+            (isinstance(v, dict) and v)  # Garder les dict (tags audio)
         )
     }
 
