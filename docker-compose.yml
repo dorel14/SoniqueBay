@@ -165,7 +165,7 @@ services:
         env_file:
             - .env
         environment:
-            - API_URL=http://api:8001
+            - API_URL=http://library:8001
             - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
@@ -217,7 +217,7 @@ services:
         environment:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - API_URL=http://api:8001
+            - API_URL=http://library:8001
             - HF_TOKEN=${HF_TOKEN}
             - MUSIC_PATH=/music
             - PLATFORM=docker
