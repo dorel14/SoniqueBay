@@ -83,9 +83,28 @@ class FailedTasksResponse(BaseModel):
     count: int
 
 
+# Whitelist des tâches Celery autorisées à être relancées via l'API admin
+# TODO: Ajuster selon les besoins de production
+ALLOWED_RETRY_TASKS = {
+    'backend_worker.celery_tasks.process_audio_file',
+    'backend_worker.celery_tasks.extract_metadata',
+    'backend_worker.celery_tasks.vectorize_track',
+    'backend_worker.celery_tasks.enrich_track_metadata',
+    'backend_worker.celery_tasks.deferred_enrichment',
+    'backend_worker.celery_tasks.insert_batch',
+}
+
+
 class RetryTaskRequest(BaseModel):
     """Requête pour relancer une tâche."""
     task_id: str
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "task_id": "abc123-def456-ghi789"
+            }
+        }
 
 
 class RetryTaskResponse(BaseModel):
@@ -164,10 +183,18 @@ async def retry_failed_task(request: RetryTaskRequest):
                 task_id=request.task_id
             )
         
+        # Vérifier que la tâche est dans la whitelist (sécurité)
+        task_name = task_info.get('task_name')
+        if task_name not in ALLOWED_RETRY_TASKS:
+            logger.warning(f"[CELERY ADMIN] Tentative de retry d'une tâche non autorisée: {task_name}")
+            return RetryTaskResponse(
+                success=False,
+                message=f"Tâche '{task_name}' non autorisée pour retry via API. Contactez l'administrateur.",
+                task_id=request.task_id
+            )
+        
         # Importer Celery pour relancer la tâche
         from backend_worker.celery_app import celery
-        
-        task_name = task_info.get('task_name')
         args_str = task_info.get('args', '()')
         kwargs_str = task_info.get('kwargs', '{}')
         
