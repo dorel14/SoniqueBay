@@ -80,7 +80,7 @@ class ModelPersistenceService:
             logger.error(f"[MODEL_PERSISTENCE] Pas d'accès en écriture à {self.models_dir}: {e}")
             raise PermissionError(f"Pas d'accès en écriture au répertoire des modèles: {e}")
         
-        self.library_api_url = os.getenv("LIBRARY_API_URL", "http://library-api:8001")
+        self.api_url = os.getenv("API_SERVICE_URL", "http://api-service:8000")
         self.current_version = None
         
         logger.info(f"ModelPersistenceService initialisé avec succès: {self.models_dir}")
@@ -334,7 +334,7 @@ class ModelPersistenceService:
                 }
                 
                 response = await client.post(
-                    f"{self.library_api_url}/api/model-versions",
+                    f"{self.api_url}/api/model-versions",
                     json=metadata
                 )
                 
@@ -421,7 +421,7 @@ class ModelVersioningService:
         """Récupère le nombre total de tracks."""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(f"{self.persistence_service.library_api_url}/api/tracks/count")
+                response = await client.get(f"{self.persistence_service.api_url}/api/tracks/count")
                 if response.status_code == 200:
                     return response.json().get("count", 0)
                 return 0
