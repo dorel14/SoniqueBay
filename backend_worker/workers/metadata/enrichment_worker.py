@@ -338,21 +338,11 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
             # L'analyse audio est déjà intégrée via extract_audio_features dans extract_metadata
             # Mais nous pouvons ajouter des logs pour vérifier que les champs sont présents
             
-            # === DIAGNOSTIC: Extraire et logger tous les tags bruts du fichier ===
+            # Extraction optimisée des tags audio (sans diagnostic redondant)
             try:
                 all_tags = dict(audio) if hasattr(audio, 'keys') else {}
-                logger.info(f"[DIAGNOSTIC TAGS] Fichier: {file_path}")
-                logger.info(f"[DIAGNOSTIC TAGS] Nombre total de tags bruts: {len(all_tags)}")
-                logger.info(f"[DIAGNOSTIC TAGS] Toutes les clés de tags: {list(all_tags.keys())}")
                 
-                # Rechercher les tags liés à l'audio
-                audio_tag_keys = [k for k in all_tags.keys() if any(term in str(k).upper() for term in ['BPM', 'KEY', 'TEMPO', 'MOOD', 'DANCE', 'ENERGY', 'ACOUSTIC', 'AB:'])]
-                logger.info(f"[DIAGNOSTIC TAGS] Clés liées à l'audio trouvées: {audio_tag_keys}")
-                for key in audio_tag_keys[:5]:
-                    logger.info(f"[DIAGNOSTIC TAGS]   {key}: {all_tags[key]}")
-                
-                # Stocker les tags dans les métadonnées pour analyse ultérieure
-                # Convertir les tags en format sérialisable
+                # Convertir les tags en format sérialisable pour l'enrichissement différé
                 serialized_tags = {}
                 for key, value in all_tags.items():
                     try:
@@ -362,34 +352,15 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                             serialized_tags[str(key)] = str(value)
                     except:
                         serialized_tags[str(key)] = "<non-serializable>"
-                metadata['tags'] = serialized_tags
-                logger.info(f"[DIAGNOSTIC TAGS] Tags sérialisés et ajoutés aux métadonnées: {len(serialized_tags)} tags")
+                
+                # Stocker uniquement si des tags audio pertinents sont présents
+                audio_tag_keys = [k for k in all_tags.keys() if any(term in str(k).upper() for term in ['BPM', 'KEY', 'TEMPO', 'MOOD', 'DANCE', 'ENERGY', 'ACOUSTIC', 'AB:'])]
+                if audio_tag_keys:
+                    metadata['tags'] = serialized_tags
+                    logger.debug(f"[METADATA] {len(audio_tag_keys)} tags audio trouvés, stockés pour enrichissement différé")
                 
             except Exception as e:
-                logger.error(f"[DIAGNOSTIC TAGS] Erreur lors de l'extraction des tags: {e}")
-                all_tags = {}
-                serialized_tags = {}
-            
-            audio_fields = ["bpm", "key", "scale", "danceability", "mood_happy", "mood_aggressive", "mood_party", "mood_relaxed", "instrumental", "acoustic", "tonal", "camelot_key", "musicbrainz_genre"]
-            found_audio_fields = [field for field in audio_fields if metadata.get(field)]
-            missing_audio_fields = [field for field in audio_fields if not metadata.get(field)]
-            
-            if found_audio_fields:
-                logger.info(f"[DIAGNOSTIC AUDIO] ✅ Champs audio trouvés pour {file_path}: {found_audio_fields}")
-            else:
-                # Vérifier si des tags audio sont disponibles dans les métadonnées sérialisées
-                if serialized_tags:
-                    from backend_worker.services.audio_features_service import _has_valid_audio_tags
-                    has_audio_tags = _has_valid_audio_tags(serialized_tags)
-                    if has_audio_tags:
-                        logger.info(f"[DIAGNOSTIC AUDIO] ✅ Tags audio standards disponibles dans {file_path}")
-                        logger.info(f"[DIAGNOSTIC AUDIO] Les champs audio seront extraits lors de l'enrichissement différé")
-                    else:
-                        logger.warning(f"[DIAGNOSTIC AUDIO] ❌ Tags présents mais aucun tag audio valide trouvé pour {file_path}")
-                        logger.warning(f"[DIAGNOSTIC AUDIO] La fonction _has_valid_audio_tags a retourné False")
-                else:
-                    logger.warning(f"[DIAGNOSTIC AUDIO] ❌ AUCUN TAG du tout trouvé pour {file_path}")
-                    logger.warning("[DIAGNOSTIC AUDIO] L'analyse audio avec Librosa sera nécessaire")
+                logger.debug(f"[METADATA] Erreur lors de l'extraction des tags: {e}")
 
             logger.debug(f"[METADATA] Métadonnées extraites: {file_path}")
             return metadata
