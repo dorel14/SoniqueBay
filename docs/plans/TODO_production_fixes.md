@@ -12,47 +12,69 @@ Cette branche est dédiée aux correctifs suite aux tests en production.
 | # | Problème | Statut | Commit |
 |---|----------|--------|--------|
 | 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
+| 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | À venir |
 
-### Fix #1 : DNS Error "Name or service not known"
+### Fix #1 : DNS Error "Name or service not known" ✅
 
-**Problème :**
-Les workers Celery ne pouvaient pas se connecter à l'API car la variable d'environnement `API_URL` dans `docker-compose.yml` pointait vers un hostname inexistant (`api` au lieu de `library`).
+**Problème** : Les workers Celery ne pouvaient pas résoudre `http://api:8001`
 
-**Root Cause :**
+**Solution** : Correction de la variable d'environnement dans `docker-compose.yml` :
 ```yaml
-# AVANT (incorrect)
-environment:
-  - API_URL=http://api:8001  # ❌ 'api' n'est pas un alias réseau valide
+# Avant
+- API_URL=http://api:8001
 
-# APRÈS (corrigé)
-environment:
-  - API_URL=http://library:8001  # ✅ 'library' est l'alias défini dans api-service
+# Après  
+- API_URL=http://library:8001
 ```
 
-**Solution :**
-Correction unique dans `docker-compose.yml` :
-- `celery-worker` : `API_URL=http://library:8001`
-- `frontend` : `API_URL=http://library:8001`
+**Services corrigés** :
+- `celery-worker`
+- `frontend`
 
-**Pourquoi c'est la bonne approche :**
-- ✅ Le code Python utilise déjà `os.getenv("API_URL", "http://library:8001")`
-- ✅ Les valeurs par défaut dans le code sont correctes
-- ✅ Seule la configuration Docker était incorrecte
-- ✅ **Aucune modification du code source nécessaire** - configuration via variables d'environnement uniquement
+### Fix #2 : Système de retry Celery avec Dead Letter Queue ✅
 
-**Action requise :**
-⚠️ **Redémarrer les conteneurs** pour prendre en compte les changements :
-```bash
-docker-compose down && docker-compose up -d
-# ou juste
-docker-compose restart celery-worker frontend
+**Problème** : Les tâches Celery qui échouent (ex: erreur DNS, timeout API) ne sont pas automatiquement retentées.
+
+**Solution** : Mise en place d'un système de retry robuste avec :
+
+#### 1. Configuration des retries (backend_worker/celery_app.py)
+```python
+task_default_retry_delay=60,      # 1 minute avant première retry
+task_max_retries=5,               # 5 tentatives maximum
+task_retry_backoff=True,          # Backoff exponentiel
+task_retry_backoff_max=3600,      # Maximum 1 heure
+task_retry_jitter=True,           # Jitter pour éviter thundering herds
+task_autoretry_for=(              # Exceptions qui déclenchent le retry
+    ConnectionError,
+    TimeoutError,
+    OSError,  # DNS errors
+),
 ```
 
-**Vérification :**
-```bash
-# Vérifier que la variable est correcte dans le conteneur
-docker exec soniquebay-celery-worker env | grep API_URL
-# Doit afficher : API_URL=http://library:8001
+#### 2. Dead Letter Queue (DLQ)
+- Queue `failed` ajoutée au worker
+- Les tâches en échec après 5 retries sont stockées dans Redis
+- Retention de 7 jours pour analyse
+
+#### 3. API d'administration (backend/api/routers/celery_admin_api.py)
+Endpoints disponibles :
+- `GET /api/admin/celery/failed-tasks` - Liste les tâches en échec
+- `POST /api/admin/celery/retry-task` - Relance une tâche manuellement
+- `DELETE /api/admin/celery/failed-tasks/{task_id}` - Supprime une tâche de la DLQ
+- `GET /api/admin/celery/retry-stats` - Statistiques de retry
+
+#### Fichiers créés/modifiés :
+1. `backend_worker/utils/celery_retry_config.py` - Configuration des retries
+2. `backend_worker/celery_app.py` - Intégration des retries
+3. `backend/api/routers/celery_admin_api.py` - API d'administration
+4. `backend/api/__init__.py` - Enregistrement du router
+5. `docker-compose.yml` - Ajout de la queue `failed`
+
+#### Exemple de comportement :
+```
+Tâche lancée → Échec (DNS Error) → Retry 1 (après 1 min) → Échec → Retry 2 (après 2 min) 
+→ Échec → Retry 3 (après 4 min) → Échec → Retry 4 (après 8 min) → Échec → Retry 5 (après 16 min) 
+→ Échec → DLQ (stockée pour analyse)
 ```
 
 ## Procédure de travail
@@ -73,4 +95,4 @@ docker exec soniquebay-celery-worker env | grep API_URL
 
 ---
 
-**Statut global** : 🟢 Fix #1 terminé - **Redémarrage des conteneurs requis**
+**Statut global** : 🟢 Fixes #1 et #2 terminés - **Redémarrage des conteneurs requis**

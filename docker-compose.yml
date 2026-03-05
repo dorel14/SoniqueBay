@@ -205,7 +205,7 @@ services:
         command: >
             celery -A backend_worker.celery_app worker
             -E 
-            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance
+            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance,failed
             --concurrency=1
             --loglevel=INFO
             --hostname=celery-worker@%h

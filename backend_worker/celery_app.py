@@ -4,6 +4,7 @@ from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdo
 
 from backend_worker.utils.logging import logger
 from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
+from backend_worker.utils.celery_retry_config import configure_celery_retries, DeadLetterQueueHandler
 import os
 import redis
 import socket
@@ -148,8 +149,11 @@ celery.conf.update(
     # === TIMEOUTS OPTIMISÉS POUR RASPBERRY PI ===
     task_time_limit=7200,  # 2h pour tâches longues (audio processing)
     task_soft_time_limit=6900,  # 1h55 avant interruption
-    task_default_retry_delay=10,  # Démarrage rapide
-    task_max_retries=3,  # Plus de tentatives avec backoff exponentiel
+    task_default_retry_delay=60,  # 1 minute avant première retry
+    task_max_retries=5,  # 5 tentatives avec backoff exponentiel
+    task_retry_backoff=True,  # Backoff exponentiel activé
+    task_retry_backoff_max=3600,  # Maximum 1 heure entre retries
+    task_retry_jitter=True,  # Jitter pour éviter thundering herds
 
     # === CONTRÔLE DE FLUX ===
     worker_prefetch_multiplier=1,  # Contrôlé dynamiquement par queue
@@ -175,6 +179,13 @@ celery.conf.update(
     # === COMPRESSION POUR GROS MESSAGES ===
     task_compression='gzip',               # Compression automatique
     result_compression='gzip',
+    
+    # === CONFIGURATION DES RETRIES AUTOMATIQUES ===
+    task_autoretry_for=(
+        ConnectionError,
+        TimeoutError,
+        OSError,  # DNS errors like [Errno -2] Name or service not known
+    ),
     
     # === FORCER LE WORKER À ÉCOUTER TOUTES LES QUEUES ===
     # Définir explicitement les queues que le worker doit consommer
@@ -222,6 +233,10 @@ def configure_worker(sender=None, **kwargs):
     sender.app.conf.worker_prefetch_multiplier = 1
     sender.app.conf.worker_concurrency = 2  # Limité pour Raspberry Pi
     sender.app.conf.task_acks_late = True
+
+    # === CONFIGURATION DES RETRIES ===
+    configure_celery_retries(sender.app)
+    logger.info(f"[WORKER] {worker_name} configuration des retries activée (max_retries=5, backoff exponentiel)")
 
     logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec configuration unifiée")
 

@@ -37,6 +37,7 @@ from backend.api.routers.mir_api import router as mir_router  # noqa: E402
 from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
 from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: E402
 from backend.api.routers.simple_chat_api import router as simple_chat_router  # noqa: E402
+from backend.api.routers.celery_admin_api import router as celery_admin_router  # noqa: E402
 
 
 
@@ -73,6 +74,7 @@ ROUTERS = [
     synonyms_router,
     track_vectors_router,
     simple_chat_router,
+    celery_admin_router,
 ]
 
 # Inclure tous les routers
