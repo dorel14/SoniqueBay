@@ -245,7 +245,9 @@ def configure_worker(sender=None, **kwargs):
 def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
     """Log avant exécution de tâche pour diagnostiquer les blocages."""
     try:
-        worker_name = getattr(sender, 'hostname', 'unknown')
+        # sender is the task, not the worker - get worker name from current process
+        import socket
+        worker_name = socket.gethostname()
         task_name = getattr(task, 'name', 'unknown')
         task_queue = getattr(task, 'queue', 'unknown')
 
