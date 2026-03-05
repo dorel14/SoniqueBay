@@ -22,13 +22,14 @@ from typing import TYPE_CHECKING
 from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
-from backend.api.utils.database import Base, TimestampMixin
+from backend.api.utils.database import Base
+from sqlalchemy.sql import func
 
 if TYPE_CHECKING:
     from backend.api.models.tracks_model import Track
 
 
-class TrackMIRSyntheticTags(Base, TimestampMixin):
+class TrackMIRSyntheticTags(Base):
     """
     Tags synthétiques MIR d'une piste musicale.
 
@@ -84,6 +85,19 @@ class TrackMIRSyntheticTags(Base, TimestampMixin):
         nullable=True,
         doc="Date de création du tag"
     )
+    
+    # Timestamps standards (sans TimestampMixin pour compatibilité BDD)
+    date_added: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=True
+    )
+    date_modified: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=True
+    )
 
     # Relations
     track: Mapped["Track"] = relationship(
@@ -119,6 +133,6 @@ class TrackMIRSyntheticTags(Base, TimestampMixin):
             'tag_category': self.tag_category,
             'tag_source': self.tag_source,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'date_added': self.date_added.isoformat() if self.date_added else None,
-            'date_modified': self.date_modified.isoformat() if self.date_modified else None,
+            'date_added': self.date_added.isoformat() if getattr(self, 'date_added', None) else None,
+            'date_modified': self.date_modified.isoformat() if getattr(self, 'date_modified', None) else None,
         }
