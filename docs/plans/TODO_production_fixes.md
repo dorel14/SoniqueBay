@@ -13,6 +13,7 @@ Cette branche est dédiée aux correctifs suite aux tests en production.
 |---|----------|--------|--------|
 | 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
 | 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | 3a9d4db, 179dc93 |
+| 3 | **Cache HuggingFace non persistant** - Modèle re-téléchargé à chaque fois | ✅ Corrigé | 00ca9b3 |
 
 ### Fix #1 : DNS Error "Name or service not known" ✅
 
@@ -77,6 +78,21 @@ Tâche lancée → Échec (DNS Error) → Retry 1 (après 1 min) → Échec → 
 → Échec → DLQ (stockée pour analyse)
 ```
 
+### Fix #3 : Cache HuggingFace non persistant ✅
+
+**Problème** : Le modèle sentence-transformers est re-téléchargé à chaque exécution car le cache HuggingFace n'est pas persistant entre les redémarrages du conteneur.
+
+**Solution** : Ajout d'un volume persistant dans `docker-compose.yml` :
+```yaml
+volumes:
+  - huggingface-cache:/root/.cache/huggingface
+
+environment:
+  - HF_HOME=/root/.cache/huggingface
+```
+
+**Commit** : `00ca9b3`
+
 ## Procédure de travail
 
 1. **Réception du problème** : L'utilisateur décrit le bug rencontré en production
@@ -113,4 +129,20 @@ except ImportError:
 
 ---
 
-**Statut global** : 🟢 Fixes #1 et #2 terminés - **Redémarrage des conteneurs requis**
+**Statut global** : 🟢 Fixes #1, #2 et #3 terminés - **Redémarrage des conteneurs requis**
+
+### Commandes pour appliquer les changements
+
+```powershell
+# Créer le dossier pour le cache HuggingFace
+mkdir -p data/huggingface_cache
+
+# Redémarrer les conteneurs avec les nouveaux volumes
+docker-compose up -d --force-recreate celery-worker frontend
+```
+
+### Vérification post-déploiement
+
+1. **Test DNS** : `docker-compose exec celery-worker curl http://library:8001/api/healthcheck`
+2. **Test retry** : Vérifier dans les logs que les erreurs DNS sont suivies de retries automatiques
+3. **Test cache** : La deuxième exécution du training ne doit pas re-télécharger le modèle
