@@ -14,6 +14,7 @@ import os
 from datetime import datetime
 
 from backend.api.utils.logging import logger
+from backend_worker.utils.celery_retry_config import DEFAULT_RETRY_CONFIG
 
 router = APIRouter(prefix="/api/admin/celery", tags=["celery-admin"])
 
@@ -281,8 +282,11 @@ async def get_retry_stats():
         return {
             "total_failed_tasks": len(failed_keys),
             "exception_breakdown": exception_counts,
-            "max_retries_configured": 5,
-            "backoff_strategy": "exponential with jitter",
+            "max_retries_configured": DEFAULT_RETRY_CONFIG.get('max_retries', 5),
+            "backoff_strategy": "exponential with jitter" if DEFAULT_RETRY_CONFIG.get('retry_backoff') else "fixed",
+            "retry_backoff_max": DEFAULT_RETRY_CONFIG.get('retry_backoff_max', 3600),
+            "retry_jitter": DEFAULT_RETRY_CONFIG.get('retry_jitter', True),
+            "default_retry_delay": DEFAULT_RETRY_CONFIG.get('default_retry_delay', 60),
             "dlq_retention_days": 7,
         }
         
