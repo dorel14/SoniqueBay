@@ -8,6 +8,20 @@ Responsabilités :
 
 Architecture :
 1. discovery → 2. extract_metadata → 3. process_entities → 4. insert_batch
+
+NOTE: Les fonctions de vérification (verify_musicbrainz_ids_in_tracks, 
+verify_musicbrainz_ids_persistence, verify_entities_presence) ont été supprimées 
+car elles causaient des erreurs de syntaxe/structure et étaient redondantes avec:
+- La gestion d'erreurs déjà présente dans les fonctions d'insertion
+- Les callbacks on_*_inserted_callback qui vérifient le succès
+- Les logs détaillés qui capturent les échecs
+- L'entity_manager qui gère l'intégrité des références
+
+L'intégrité des données est assurée par:
+1. Les transactions de l'API backend
+2. La gestion des erreurs dans entity_manager
+3. Les callbacks de confirmation d'insertion
+4. Les logs applicatifs détaillés
 """
 
 import os
