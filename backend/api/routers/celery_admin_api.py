@@ -1,9 +1,12 @@
 """
 API endpoints pour l'administration des tâches Celery.
 Permet de visualiser les tâches en échec et de les relancer.
+
+⚠️ SECURITE: Ces endpoints sont protégés par une clé API admin.
+La clé doit être définie dans la variable d'environnement CELERY_ADMIN_API_KEY.
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header, status
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import redis
@@ -13,6 +16,53 @@ from datetime import datetime
 from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="/api/admin/celery", tags=["celery-admin"])
+
+
+# ============================================================================
+# SECURITE: Authentification par clé API admin
+# ============================================================================
+
+def verify_admin_key(x_admin_key: str = Header(..., description="Clé API admin pour l'accès Celery")):
+    """
+    Vérifie la clé API admin pour l'accès aux endpoints d'administration Celery.
+    
+    La clé doit être définie dans la variable d'environnement CELERY_ADMIN_API_KEY.
+    En l'absence de clé configurée, l'accès est refusé par défaut (fail-secure).
+    """
+    expected_key = os.getenv('CELERY_ADMIN_API_KEY')
+    
+    # Fail-secure: si aucune clé n'est configurée, l'accès est refusé
+    if not expected_key:
+        logger.error("[CELERY ADMIN] Tentative d'accès sans CELERY_ADMIN_API_KEY configurée")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service non configuré: CELERY_ADMIN_API_KEY manquante"
+        )
+    
+    # Constant-time comparison pour éviter les attaques timing
+    if not _secure_compare(x_admin_key, expected_key):
+        logger.warning(f"[CELERY ADMIN] Tentative d'accès avec clé invalide")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Clé API admin invalide",
+            headers={"WWW-Authenticate": "ApiKey"}
+        )
+    
+    return True
+
+
+def _secure_compare(a: str, b: str) -> bool:
+    """
+    Comparaison en temps constant pour éviter les attaques par timing.
+    """
+    if len(a) != len(b):
+        return False
+    
+    result = 0
+    for x, y in zip(a, b):
+        result |= ord(x) ^ ord(y)
+    
+    return result == 0
 
 
 class FailedTask(BaseModel):
@@ -51,7 +101,7 @@ def get_redis_client():
     return redis.from_url(redis_url, decode_responses=True)
 
 
-@router.get("/failed-tasks", response_model=FailedTasksResponse)
+@router.get("/failed-tasks", response_model=FailedTasksResponse, dependencies=[Depends(verify_admin_key)])
 async def get_failed_tasks(limit: int = 100):
     """
     Récupère la liste des tâches Celery en échec stockées dans Redis.
@@ -94,7 +144,7 @@ async def get_failed_tasks(limit: int = 100):
         raise HTTPException(status_code=500, detail=f"Erreur Redis: {str(e)}")
 
 
-@router.post("/retry-task", response_model=RetryTaskResponse)
+@router.post("/retry-task", response_model=RetryTaskResponse, dependencies=[Depends(verify_admin_key)])
 async def retry_failed_task(request: RetryTaskRequest):
     """
     Relance une tâche précédemment en échec.
@@ -153,7 +203,7 @@ async def retry_failed_task(request: RetryTaskRequest):
         raise HTTPException(status_code=500, detail=f"Erreur lors du retry: {str(e)}")
 
 
-@router.delete("/failed-tasks/{task_id}")
+@router.delete("/failed-tasks/{task_id}", dependencies=[Depends(verify_admin_key)])
 async def delete_failed_task(task_id: str):
     """
     Supprime une tâche en échec de la DLQ sans la relancer.
@@ -183,7 +233,7 @@ async def delete_failed_task(task_id: str):
         raise HTTPException(status_code=500, detail=f"Erreur: {str(e)}")
 
 
-@router.get("/retry-stats")
+@router.get("/retry-stats", dependencies=[Depends(verify_admin_key)])
 async def get_retry_stats():
     """
     Récupère les statistiques de retry pour les tâches Celery.
