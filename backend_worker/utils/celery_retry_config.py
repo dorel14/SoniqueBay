@@ -15,7 +15,14 @@ from celery import Task
 from celery.exceptions import MaxRetriesExceededError, Retry
 import httpx
 import redis
-import sqlalchemy
+
+# Import SQLAlchemy optionnel (peut ne pas être disponible dans le worker)
+try:
+    import sqlalchemy
+    SQLALCHEMY_AVAILABLE = True
+except ImportError:
+    SQLALCHEMY_AVAILABLE = False
+    sqlalchemy = None
 
 
 # === CONFIGURATION DES RETRIES ===
@@ -52,9 +59,11 @@ DEFAULT_RETRY_CONFIG = {
         redis.ConnectionError,
         redis.TimeoutError,
         
-        # Erreurs base de données (transitoires)
-        sqlalchemy.exc.OperationalError,
-        sqlalchemy.exc.TimeoutError,
+        # Erreurs base de données (transitoires) - uniquement si SQLAlchemy disponible
+        *((
+            sqlalchemy.exc.OperationalError,
+            sqlalchemy.exc.TimeoutError,
+        ) if SQLALCHEMY_AVAILABLE else ()),
     ),
     
     # Exceptions qui ne doivent PAS déclencher de retry
