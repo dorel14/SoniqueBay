@@ -34,6 +34,10 @@ from backend_worker.services.entity_manager import (
 from backend_worker.services.deferred_queue_service import deferred_queue_service
 
 
+# Import pour déclenchement de l'enrichissement à la fin de l'insertion
+from backend_worker.workers.deferred.deferred_enrichment_worker import process_enrichment_batch_task
+
+
 @celery.task(name="insert.direct_batch", queue="insert", bind=True)
 def insert_batch_direct(self, insertion_data: Dict[str, Any]):
     """Insère en base de données via l'API HTTP uniquement.
@@ -1063,6 +1067,25 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                 "insertion_time": total_time,
                 "insertions_per_second": sum(inserted_counts.values()) / total_time if total_time > 0 else 0
             }, channel="progress")
+
+            # Déclencher le traitement d'enrichissement à la fin de l'insertion
+            logger.info("[INSERT] Déclenchement du traitement d'enrichissement après insertion")
+            try:
+                # Vérifier si des tâches d'enrichissement sont en attente
+                from backend_worker.services.deferred_queue_service import deferred_queue_service
+                stats = deferred_queue_service.get_queue_stats("deferred_enrichment")
+                pending_count = stats.get("pending", 0)
+                
+                if pending_count > 0:
+                    logger.info(f"[INSERT] {pending_count} tâches d'enrichissement en attente, déclenchement du traitement")
+                    # Déclencher le traitement des enrichissements
+                    enrichment_result = process_enrichment_batch_task.delay(batch_size=min(pending_count, 50))
+                    logger.info(f"[INSERT] Tâche d'enrichissement déclenchée avec ID: {enrichment_result.id}")
+                else:
+                    logger.info("[INSERT] Aucune tâche d'enrichissement en attente")
+            except Exception as enrich_error:
+                logger.warning(f"[INSERT] Erreur lors du déclenchement de l'enrichissement: {enrich_error}")
+                # Ne pas bloquer l'insertion si le déclenchement échoue
 
             result = {
                 'task_id': task_id,
