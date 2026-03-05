@@ -127,7 +127,7 @@ def extract_single_file_metadata(file_path: str) -> Optional[Dict[str, Any]]:
                         import asyncio
 
                         # Configuration de l'URL de l'API
-                        library_api_url = os.getenv("LIBRARY_API_URL", "http://api:8001")
+                        library_api_url = os.getenv("API_URL", "http://library:8001")
 
                         # LOG: Indiquer qu'on va faire un appel API pour vérifier si c'est un artiste
                         logger.info(f"[GENRE_CHECK] Genre suspect '{single_genre}' non trouvé dans la bibliothèque. Appel API /api/artists/search?name={cleaned} pour vérifier si c'est un artiste")
