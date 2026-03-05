@@ -143,6 +143,9 @@ celery.events.queue_capacity = 10000  # Capacité queue d'événements augmenté
 from backend_worker.celery_config_source import get_unified_celery_config
 celery.conf.update(get_unified_celery_config())
 
+# Rendre task_routes disponible pour import (évite l'erreur d'import circulaire)
+task_routes = celery.conf.task_routes or {}
+
 # === CONFIGURATION SPÉCIFIQUE AU WORKER (EN PLUS DE LA CONFIGURATION UNIFIÉE) ===
 # Ces paramètres sont spécifiques au worker et ne doivent pas être dans la config unifiée
 celery.conf.update(
