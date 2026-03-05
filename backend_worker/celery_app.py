@@ -287,7 +287,7 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
                 logger.info(f"[MONITOR_TAG_CHANGES DIAG] Kwargs: {task.kwargs}")
 
             # Vérification de la configuration de routage
-            from backend_worker.celery_app import task_routes
+            task_routes = celery.conf.task_routes or {}
             expected_queue = task_routes.get('monitor_tag_changes', {}).get('queue', 'non-configurée')
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue attendue: {expected_queue}")
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue actuelle: {task_queue}")
