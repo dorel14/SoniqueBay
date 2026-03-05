@@ -12,7 +12,7 @@ Cette branche est dédiée aux correctifs suite aux tests en production.
 | # | Problème | Statut | Commit |
 |---|----------|--------|--------|
 | 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
-| 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | À venir |
+| 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | 3a9d4db, 179dc93 |
 
 ### Fix #1 : DNS Error "Name or service not known" ✅
 
@@ -92,6 +92,24 @@ Tâche lancée → Échec (DNS Error) → Retry 1 (après 1 min) → Échec → 
 - Les tests unitaires sont obligatoires pour chaque fix
 - La branche reste ouverte tant que des correctifs sont nécessaires
 - **Principe important** : Toujours privilégier la configuration via variables d'environnement plutôt que de modifier le code source
+
+---
+
+### Fix #2b : Import SQLAlchemy optionnel ✅
+
+**Problème** : Le worker Celery n'a pas SQLAlchemy installé, causant une erreur `ModuleNotFoundError` au démarrage.
+
+**Solution** : Rendre l'import SQLAlchemy optionnel dans `backend_worker/utils/celery_retry_config.py` :
+```python
+try:
+    import sqlalchemy
+    SQLALCHEMY_AVAILABLE = True
+except ImportError:
+    SQLALCHEMY_AVAILABLE = False
+    sqlalchemy = None
+```
+
+**Commit** : `179dc93`
 
 ---
 
