@@ -8,6 +8,7 @@ Ce module fournit :
 """
 
 import os
+import ast
 from functools import wraps
 from typing import List, Type, Optional, Callable, Any
 from kombu import Queue
@@ -254,8 +255,8 @@ class DeadLetterQueueHandler:
                            for k, v in task_info.items()}
             
             task_name = decoded_info.get('task_name')
-            args = eval(decoded_info.get('args', '()'))
-            kwargs = eval(decoded_info.get('kwargs', '{}'))
+            args = ast.literal_eval(decoded_info.get('args', '()'))
+            kwargs = ast.literal_eval(decoded_info.get('kwargs', '{}'))
             
             # Relancer la tâche
             self.app.send_task(task_name, args=args, kwargs=kwargs)
