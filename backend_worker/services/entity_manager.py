@@ -494,7 +494,7 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
 
         for artist in cleaned_artists_data:
             cache_key = f"artist:{artist['name'].lower()}"
-            cached = cache_service.get("lastfm", cache_key)
+            cached = await cache_service.get("lastfm", cache_key)
             if cached:
                 cached_artists[artist['name'].lower()] = cached
                 logger.debug(f"[CACHE] Artiste trouvé en cache: {artist['name']}")
@@ -618,7 +618,7 @@ async def create_or_get_albums_batch(client: httpx.AsyncClient, albums_data: Lis
         for album in cleaned_albums_data:
             # Créer une clé de cache basée sur titre + artist_id
             cache_key = f"album:{album['title'].lower()}:{album.get('album_artist_id', 'unknown')}"
-            cached = cache_service.get("lastfm", cache_key)
+            cached = await cache_service.get("lastfm", cache_key)
             if cached:
                 cached_albums[cache_key] = cached
                 logger.debug(f"[CACHE] Album trouvé en cache: {album['title']} (clé: {cache_key})")
