@@ -20,14 +20,6 @@ from backend.api.schemas.tracks_schema import TrackBase, TrackCreate, Track, Tra
 from backend.api.schemas.settings_schema import SettingBase, SettingCreate, Setting
 from backend.api.schemas.search_schema import SearchResult, SearchQuery
 from backend.api.schemas.scan_schema import ScanRequest
-from backend.api.schemas.agent_score_schema import (
-    AgentScoreBase,
-    AgentScoreCreate,
-    AgentScoreUpdate,
-    AgentScore,
-    AgentScoreWithMetrics,
-    AgentScoreListResponse
-)
 from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
 from backend.api.schemas.artist_embeddings_schema import (
     ArtistEmbeddingCreate,

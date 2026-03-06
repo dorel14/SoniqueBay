@@ -7,8 +7,7 @@ et non avec `await`.
 """
 
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 from dataclasses import dataclass
 from typing import AsyncIterator
 
@@ -189,7 +188,7 @@ class TestAgentRuntimeStreaming:
     @pytest.mark.asyncio
     async def test_normalize_stream_event_with_pydantic_ai_event(self, runtime):
         """Test la normalisation des événements pydantic-ai."""
-        from backend.api.schemas.agent_response_schema import AgentMessageType, AgentState
+        from backend.api.schemas.agent_response_schema import AgentMessageType
         
         # Mock d'un événement pydantic-ai
         mock_event = MagicMock()

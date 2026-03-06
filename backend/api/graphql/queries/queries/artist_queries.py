@@ -1,10 +1,8 @@
 from __future__ import annotations
 import strawberry
 import time
-from typing import Optional, Any
+from typing import Optional
 from backend.api.graphql.types.artist_type import ArtistType
-from backend.api.graphql.types.covers_type import CoverType
-from backend.api.graphql.types.albums_type import AlbumType
 from backend.api.services.artist_service import ArtistService
 from backend.api.utils.logging import logger
 

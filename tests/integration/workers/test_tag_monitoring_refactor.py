@@ -5,7 +5,6 @@ Teste la nouvelle implémentation avec CeleryTaskPublisher au lieu de recommende
 """
 
 import pytest
-import asyncio
 from unittest.mock import Mock, patch, AsyncMock
 from backend_worker.services.tag_monitoring_service import (
     TagChangeDetector,

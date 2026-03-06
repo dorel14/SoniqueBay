@@ -19,7 +19,6 @@ from typing import Optional, List, Dict
 
 import strawberry
 
-from backend.api.utils.logging import logger
 
 
 @strawberry.type

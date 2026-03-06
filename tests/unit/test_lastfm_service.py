@@ -8,9 +8,7 @@ Ce module teste le service LastFM pour s'assurer que :
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
-from typing import Optional, Dict, Any, List, Tuple
+from unittest.mock import Mock, patch
 
 # Import du service à tester
 from backend_worker.services.lastfm_service import LastFMService, lastfm_service

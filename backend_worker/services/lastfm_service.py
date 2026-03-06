@@ -12,8 +12,6 @@ from typing import List, Dict, Any, Optional, Tuple
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService
 from backend_worker.services.cache_service import cache_service
-from backend_worker.services.settings_service import SettingsService
-from backend_worker.utils.logging import logger
 
 settings_service = SettingsService()
 

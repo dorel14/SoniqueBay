@@ -197,7 +197,7 @@ class TestLLMServiceSingleton:
     async def test_singleton_same_client_instance(self):
         """Test que le singleton réutilise le même client."""
         with patch('backend.api.services.llm_service.logger'):
-            from backend.api.services.llm_service import get_llm_service, _llm_service_instance
+            from backend.api.services.llm_service import get_llm_service
             
             # Reset le singleton pour le test
             import backend.api.services.llm_service as llm_module

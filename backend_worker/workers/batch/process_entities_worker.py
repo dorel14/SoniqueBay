@@ -242,12 +242,17 @@ def batch_entities(self, metadata_list: List[Dict[str, Any]], batch_id: str = No
         }
 
         # Envoyer vers l'insertion directe via API uniquement
-        celery.send_task(
-            'insert.direct_batch',
-            args=[insertion_data],
-            queue='insert',
-            priority=7  # Priorité élevée pour l'insertion
-        )
+        logger.info(f"[BATCH] Envoi vers insertion: {len(artists_data)} artistes, {len(albums_data)} albums, {len(tracks_data)} tracks")
+        try:
+            result = celery.send_task(
+                'insert.direct_batch',
+                args=[insertion_data],
+                queue='insert',
+                priority=7  # Priorité élevée pour l'insertion
+            )
+            logger.info(f"[BATCH] Tâche insert.direct_batch envoyée avec ID: {result.id}")
+        except Exception as e:
+            logger.error(f"[BATCH] ERREUR lors de l'envoi de la tâche insert.direct_batch: {str(e)}")
 
         return insertion_data
 

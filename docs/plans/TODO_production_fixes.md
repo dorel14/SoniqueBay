@@ -1,0 +1,208 @@
+# TODO - Correctifs Production
+
+> Branche : `blackboxai/production-fixes`
+> Créée le : 2025-03-05
+> Base : `master` (commit 4ba4834)
+
+## Objectif
+Cette branche est dédiée aux correctifs suite aux tests en production.
+
+## Liste des correctifs
+
+| # | Problème | Statut | Commit |
+|---|----------|--------|--------|
+| 1 | **DNS Error "Name or service not known"** - Variable d'environnement API_URL incorrecte | ✅ Corrigé | ef280de |
+| 2 | **Système de retry Celery avec DLQ** - Les tâches échouées ne sont pas retentées | ✅ Implémenté | 3a9d4db, 179dc93 |
+| 3 | **Cache HuggingFace non persistant** - Modèle re-téléchargé à chaque fois | ✅ Corrigé | 00ca9b3, 32c8bdd, 7d4ada1 |
+| 4 | **Déclenchement enrichissement** - process_enrichment_batch planifié au lieu d'être chaîné | ✅ Corrigé | 7ff1f1e |
+| 5 | **Diagnostic tags audio redondant** - Double extraction ralentissant le scan | ✅ Corrigé | d3d9855 |
+
+### Fix #1 : DNS Error "Name or service not known" ✅
+
+**Problème** : Les workers Celery ne pouvaient pas résoudre `http://api:8001`
+
+**Solution** : Correction de la variable d'environnement dans `docker-compose.yml` :
+```yaml
+# Avant
+- API_URL=http://api:8001
+
+# Après  
+- API_URL=http://library:8001
+```
+
+**Services corrigés** :
+- `celery-worker`
+- `frontend`
+
+### Fix #2 : Système de retry Celery avec Dead Letter Queue ✅
+
+**Problème** : Les tâches Celery qui échouent (ex: erreur DNS, timeout API) ne sont pas automatiquement retentées.
+
+**Solution** : Mise en place d'un système de retry robuste avec :
+
+#### 1. Configuration des retries (backend_worker/celery_app.py)
+```python
+task_default_retry_delay=60,      # 1 minute avant première retry
+task_max_retries=5,               # 5 tentatives maximum
+task_retry_backoff=True,          # Backoff exponentiel
+task_retry_backoff_max=3600,      # Maximum 1 heure
+task_retry_jitter=True,           # Jitter pour éviter thundering herds
+task_autoretry_for=(              # Exceptions qui déclenchent le retry
+    ConnectionError,
+    TimeoutError,
+    OSError,  # DNS errors
+),
+```
+
+#### 2. Dead Letter Queue (DLQ)
+- Queue `failed` ajoutée au worker
+- Les tâches en échec après 5 retries sont stockées dans Redis
+- Retention de 7 jours pour analyse
+
+#### 3. API d'administration (backend/api/routers/celery_admin_api.py)
+Endpoints disponibles :
+- `GET /api/admin/celery/failed-tasks` - Liste les tâches en échec
+- `POST /api/admin/celery/retry-task` - Relance une tâche manuellement
+- `DELETE /api/admin/celery/failed-tasks/{task_id}` - Supprime une tâche de la DLQ
+- `GET /api/admin/celery/retry-stats` - Statistiques de retry
+
+#### Fichiers créés/modifiés :
+1. `backend_worker/utils/celery_retry_config.py` - Configuration des retries
+2. `backend_worker/celery_app.py` - Intégration des retries
+3. `backend/api/routers/celery_admin_api.py` - API d'administration
+4. `backend/api/__init__.py` - Enregistrement du router
+5. `docker-compose.yml` - Ajout de la queue `failed`
+
+#### Exemple de comportement :
+```
+Tâche lancée → Échec (DNS Error) → Retry 1 (après 1 min) → Échec → Retry 2 (après 2 min) 
+→ Échec → Retry 3 (après 4 min) → Échec → Retry 4 (après 8 min) → Échec → Retry 5 (après 16 min) 
+→ Échec → DLQ (stockée pour analyse)
+```
+
+### Fix #3 : Cache HuggingFace persistant entre rebuilds ✅
+
+**Problème** : Le modèle sentence-transformers est re-téléchargé à chaque exécution car le cache HuggingFace n'est pas persistant entre les redémarrages du conteneur.
+
+**Solution complète** :
+
+#### 1. Volume persistant dans docker-compose.yml (commit 00ca9b3)
+```yaml
+volumes:
+  - huggingface-cache:/root/.cache/huggingface
+
+environment:
+  - HF_HOME=/root/.cache/huggingface
+```
+
+#### 2. Création du répertoire dans le Dockerfile (commit 32c8bdd)
+```dockerfile
+RUN mkdir -p /root/.cache/huggingface && \
+    chmod -R 777 /root/.cache/huggingface
+```
+
+#### 3. Script de rebuild avec cache (commit 7d4ada1)
+Script `scripts/rebuild_worker_with_cache.sh` pour rebuild l'image en préservant le cache.
+
+#### Dossier sur l'hôte
+Le cache est stocké dans `./data/huggingface_cache` et monté via un volume bind.
+
+#### Commandes pour appliquer
+
+```powershell
+# 1. Créer le dossier cache sur l'hôte
+mkdir -p data/huggingface_cache
+
+# 2. Redémarrer les conteneurs avec les nouveaux volumes
+docker-compose up -d --force-recreate celery-worker
+
+# 3. Pour rebuild l'image en préservant le cache
+./scripts/rebuild_worker_with_cache.sh
+```
+
+## Procédure de travail
+
+1. **Réception du problème** : L'utilisateur décrit le bug rencontré en production
+2. **Analyse** : Investigation des logs et du code concerné
+3. **Correction** : Implémentation du fix avec tests
+4. **Commit** : Format `type(scope): description` (Conventional Commits)
+5. **Test** : Vérification en production
+6. **Itération** : Si nouveau problème, retour à l'étape 1
+
+## Notes
+
+- Chaque correction fait l'objet d'un commit séparé
+- Les tests unitaires sont obligatoires pour chaque fix
+- La branche reste ouverte tant que des correctifs sont nécessaires
+- **Principe important** : Toujours privilégier la configuration via variables d'environnement plutôt que de modifier le code source
+
+---
+
+### Fix #2b : Import SQLAlchemy optionnel ✅
+
+**Problème** : Le worker Celery n'a pas SQLAlchemy installé, causant une erreur `ModuleNotFoundError` au démarrage.
+
+**Solution** : Rendre l'import SQLAlchemy optionnel dans `backend_worker/utils/celery_retry_config.py` :
+```python
+try:
+    import sqlalchemy
+    SQLALCHEMY_AVAILABLE = True
+except ImportError:
+    SQLALCHEMY_AVAILABLE = False
+    sqlalchemy = None
+```
+
+**Commit** : `179dc93`
+
+---
+
+### Fix #4 : Déclenchement de l'enrichissement à la fin du pipeline ✅
+
+**Problème** : La tâche `process_enrichment_batch` était planifiée toutes les 2 minutes dans Celery Beat, mais elle devrait être déclenchée à la fin du pipeline scan+extract+insert.
+
+**Solution** :
+1. Suppression de la tâche planifiée `'process-deferred-enrichment'` de `celery_beat_config.py`
+2. Ajout du déclenchement explicite dans `insert_batch_worker.py` après l'insertion réussie
+
+**Workflow corrigé** :
+```
+scan.discovery → metadata.extract_batch → batch.process_entities 
+→ insert.direct_batch → worker_deferred_enrichment.process_enrichment_batch
+```
+
+**Commit** : `7ff1f1e`
+
+---
+
+### Fix #5 : Suppression du diagnostic redondant des tags audio ✅
+
+**Problème** : Le diagnostic `[DIAGNOSTIC TAGS]` dans `extract_single_file_metadata` faisait une double extraction des métadonnées, ralentissant considérablement le scan.
+
+**Solution** : Remplacement du bloc de diagnostic verbeux (38 lignes) par une extraction optimisée (9 lignes) :
+- Suppression des logs INFO excessifs
+- Conservation uniquement des tags audio pertinents (BPM, KEY, MOOD, etc.)
+- Passage des logs d'erreur en DEBUG pour les erreurs non critiques
+
+**Résultat** : Le scan ne fait plus de double extraction des métadonnées.
+
+**Commit** : `d3d9855`
+
+---
+
+**Statut global** : 🟢 Fixes #1 à #5 terminés - **Redémarrage des conteneurs requis**
+
+### Commandes pour appliquer les changements
+
+```powershell
+# Créer le dossier pour le cache HuggingFace
+mkdir -p data/huggingface_cache
+
+# Redémarrer les conteneurs avec les nouveaux volumes
+docker-compose up -d --force-recreate celery-worker frontend
+```
+
+### Vérification post-déploiement
+
+1. **Test DNS** : `docker-compose exec celery-worker curl http://library:8001/api/healthcheck`
+2. **Test retry** : Vérifier dans les logs que les erreurs DNS sont suivies de retries automatiques
+3. **Test cache** : La deuxième exécution du training ne doit pas re-télécharger le modèle

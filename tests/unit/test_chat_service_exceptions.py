@@ -3,9 +3,6 @@ Tests unitaires pour la gestion des exceptions dans ChatService.
 Vérifie que le remplacement du 'except:' nu fonctionne correctement.
 """
 import pytest
-import json
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
-from typing import List
 
 from backend.api.services.chat_service import ChatService
 

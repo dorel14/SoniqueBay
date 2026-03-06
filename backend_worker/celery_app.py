@@ -4,11 +4,11 @@ from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdo
 
 from backend_worker.utils.logging import logger
 from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
+from backend_worker.utils.celery_retry_config import configure_celery_retries
 import os
 import redis
 import socket
 import signal
-from kombu import Queue
 
 # === SIGNAL HANDLERS ===
 def handle_sigterm(signum, frame):
@@ -142,14 +142,20 @@ celery.events.queue_capacity = 10000  # Capacité queue d'événements augmenté
 from backend_worker.celery_config_source import get_unified_celery_config
 celery.conf.update(get_unified_celery_config())
 
+# Rendre task_routes disponible pour import (évite l'erreur d'import circulaire)
+task_routes = celery.conf.task_routes or {}
+
 # === CONFIGURATION SPÉCIFIQUE AU WORKER (EN PLUS DE LA CONFIGURATION UNIFIÉE) ===
 # Ces paramètres sont spécifiques au worker et ne doivent pas être dans la config unifiée
 celery.conf.update(
     # === TIMEOUTS OPTIMISÉS POUR RASPBERRY PI ===
     task_time_limit=7200,  # 2h pour tâches longues (audio processing)
     task_soft_time_limit=6900,  # 1h55 avant interruption
-    task_default_retry_delay=10,  # Démarrage rapide
-    task_max_retries=3,  # Plus de tentatives avec backoff exponentiel
+    task_default_retry_delay=60,  # 1 minute avant première retry
+    task_max_retries=5,  # 5 tentatives avec backoff exponentiel
+    task_retry_backoff=True,  # Backoff exponentiel activé
+    task_retry_backoff_max=3600,  # Maximum 1 heure entre retries
+    task_retry_jitter=True,  # Jitter pour éviter thundering herds
 
     # === CONTRÔLE DE FLUX ===
     worker_prefetch_multiplier=1,  # Contrôlé dynamiquement par queue
@@ -175,6 +181,13 @@ celery.conf.update(
     # === COMPRESSION POUR GROS MESSAGES ===
     task_compression='gzip',               # Compression automatique
     result_compression='gzip',
+    
+    # === CONFIGURATION DES RETRIES AUTOMATIQUES ===
+    task_autoretry_for=(
+        ConnectionError,
+        TimeoutError,
+        OSError,  # DNS errors like [Errno -2] Name or service not known
+    ),
     
     # === FORCER LE WORKER À ÉCOUTER TOUTES LES QUEUES ===
     # Définir explicitement les queues que le worker doit consommer
@@ -205,9 +218,9 @@ def configure_worker(sender=None, **kwargs):
     # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
     try:
         from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
-        logger.info(f"[WORKER INIT] Publication de la configuration Celery dans Redis")
+        logger.info("[WORKER INIT] Publication de la configuration Celery dans Redis")
         publish_celery_config_to_redis()
-        logger.info(f"[WORKER INIT] Configuration Celery publiée avec succès")
+        logger.info("[WORKER INIT] Configuration Celery publiée avec succès")
     except Exception as e:
         logger.error(f"[WORKER INIT] Erreur lors de la publication de la configuration: {str(e)}")
         # Ne pas bloquer le démarrage du worker si la publication échoue
@@ -223,6 +236,10 @@ def configure_worker(sender=None, **kwargs):
     sender.app.conf.worker_concurrency = 2  # Limité pour Raspberry Pi
     sender.app.conf.task_acks_late = True
 
+    # === CONFIGURATION DES RETRIES ===
+    configure_celery_retries(sender.app)
+    logger.info(f"[WORKER] {worker_name} configuration des retries activée (max_retries=5, backoff exponentiel)")
+
     logger.info(f"[WORKER] {worker_name} consommateur ajouté pour toutes les queues avec configuration unifiée")
 
 
@@ -230,7 +247,9 @@ def configure_worker(sender=None, **kwargs):
 def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
     """Log avant exécution de tâche pour diagnostiquer les blocages."""
     try:
-        worker_name = getattr(sender, 'hostname', 'unknown')
+        # sender is the task, not the worker - get worker name from current process
+        import socket
+        worker_name = socket.gethostname()
         task_name = getattr(task, 'name', 'unknown')
         task_queue = getattr(task, 'queue', 'unknown')
 
@@ -270,7 +289,7 @@ def task_prerun_handler(sender=None, task_id=None, task=None, **kwargs):
                 logger.info(f"[MONITOR_TAG_CHANGES DIAG] Kwargs: {task.kwargs}")
 
             # Vérification de la configuration de routage
-            from backend_worker.celery_app import task_routes
+            task_routes = celery.conf.task_routes or {}
             expected_queue = task_routes.get('monitor_tag_changes', {}).get('queue', 'non-configurée')
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue attendue: {expected_queue}")
             logger.info(f"[MONITOR_TAG_CHANGES DIAG] Queue actuelle: {task_queue}")

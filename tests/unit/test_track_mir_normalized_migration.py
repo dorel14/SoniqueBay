@@ -11,7 +11,7 @@ Auteur: SoniqueBay Team
 
 import pytest
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 class TestTrackMIRNormalizedModel:

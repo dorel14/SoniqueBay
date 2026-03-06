@@ -7,7 +7,6 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Optional
 from backend_worker.utils.logging import logger
 
 
@@ -358,7 +357,7 @@ class SyntheticTagsService:
         Returns:
             Dictionnaire complet avec tous les tags par catégorie
         """
-        logger.info(f"[SyntheticTags] Début de la génération des tags synthétiques")
+        logger.info("[SyntheticTags] Début de la génération des tags synthétiques")
         
         result = {
             'mood_tags': [],

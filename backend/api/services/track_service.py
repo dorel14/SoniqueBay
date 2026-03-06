@@ -520,13 +520,16 @@ class TrackService:
         path: Optional[str], musicbrainz_id: Optional[str], genre_tags: Optional[List[str]], mood_tags: Optional[List[str]],
         skip: int = 0, limit: Optional[int] = None
     ):
+        from backend.api.models.artists_model import Artist
+        from backend.api.models.albums_model import Album
+        
         query = select(TrackModel)
         if title:
             query = query.where(TrackModel.title.ilike(f"%{title}%"))
         if artist:
-            query = query.join(TrackModel.artist).where(TrackModel.artist.has(name=artist))
+            query = query.join(TrackModel.artist).where(Artist.name.ilike(f"%{artist}%"))
         if album:
-            query = query.join(TrackModel.album).where(TrackModel.album.has(title=album))
+            query = query.join(TrackModel.album).where(Album.title.ilike(f"%{album}%"))
         if genre:
             query = query.where(TrackModel.genre.ilike(f"%{genre}%"))
         if year:

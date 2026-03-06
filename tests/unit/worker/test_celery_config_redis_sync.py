@@ -7,7 +7,6 @@ import pytest
 import redis
 import json
 import os
-import time
 from unittest.mock import patch, MagicMock
 
 # Import des modules à tester
@@ -23,7 +22,6 @@ from backend.api.utils.celery_config_loader import (
     load_celery_config_from_redis,
     deserialize_queues_from_redis,
     deserialize_routes_from_redis,
-    deserialize_base_config_from_redis,
     get_fallback_config
 )
 

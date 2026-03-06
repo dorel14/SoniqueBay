@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Query
-from fastapi_cache.decorator import cache
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from backend.api.utils.database import get_async_session

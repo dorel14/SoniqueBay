@@ -25,7 +25,6 @@ Date: 2026-02-03
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.sql import text
 import logging
 
 # Configuration du logger
@@ -158,6 +157,7 @@ def upgrade() -> None:
         sa.Column('source', sa.String(50), nullable=True),  # Source: 'taxonomy_fusion', 'llm', 'manual'
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('date_added', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+        sa.Column('date_modified', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
         sa.ForeignKeyConstraint(['track_id'], ['tracks.id'], ondelete='CASCADE', name='fk_track_mir_synthetic_tags_track_id_tracks'),
         sa.PrimaryKeyConstraint('id', name='pk_track_mir_synthetic_tags')
     )

@@ -4,7 +4,6 @@ import strawberry
 
 from backend.api.graphql.types.albums_type import AlbumType
 from backend.api.graphql.types.covers_type import CoverType
-from backend.api.graphql.types.albums_type import AlbumType
 
 
 @strawberry.type

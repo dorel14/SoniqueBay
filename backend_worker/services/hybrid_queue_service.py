@@ -92,7 +92,7 @@ class HybridQueueService:
                     
                     # Test de connexion avant tentative
                     if not self._test_redis_connection():
-                        logger.warning(f"[HYBRID_QUEUE] Redis non disponible, passage au fallback")
+                        logger.warning("[HYBRID_QUEUE] Redis non disponible, passage au fallback")
                         break
                     
                     success = self.redis_service.enqueue_task(
@@ -114,7 +114,7 @@ class HybridQueueService:
                                 
                                 # Si mémoire saturée, activer fallback
                                 if used_memory > 100 * 1024 * 1024:  # 100MB
-                                    logger.warning(f"[HYBRID_QUEUE] Mémoire Redis saturée, activation fallback forcé")
+                                    logger.warning("[HYBRID_QUEUE] Mémoire Redis saturée, activation fallback forcé")
                                     self.fallback_active = True
                                     break
                             except Exception as info_error:

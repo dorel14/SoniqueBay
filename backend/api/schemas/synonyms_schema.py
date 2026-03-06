@@ -12,7 +12,6 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Optional
 
 from pydantic import BaseModel, Field
 

@@ -370,7 +370,6 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
         # Import de sentence-transformers
         from sentence_transformers import SentenceTransformer
         import httpx
-        import numpy as np
         
         # Chargement du modèle (lazy loading - chargé une seule fois)
         model = SentenceTransformer(EMBEDDING_MODEL)
@@ -473,7 +472,6 @@ def calculate_vector_batch(self, track_ids: list[int]):
     try:
         from sentence_transformers import SentenceTransformer
         import httpx
-        import numpy as np
         
         # Chargement du modèle (une seule fois pour tout le batch)
         model = SentenceTransformer(EMBEDDING_MODEL)

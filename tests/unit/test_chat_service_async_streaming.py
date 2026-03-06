@@ -4,8 +4,7 @@ Vérifie que le streaming utilise des async iterators non-bloquants.
 """
 import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
-from typing import List, AsyncGenerator
+from unittest.mock import Mock, AsyncMock, patch
 
 from backend.api.services.chat_service import ChatService
 
@@ -201,7 +200,6 @@ class TestStreamingChunkParsing:
 
     def test_chunk_parsing_done_signal(self):
         """Test la détection du signal de fin."""
-        import json
         
         # Format KoboldCPP: data: [DONE]
         line = 'data: [DONE]'

@@ -6,7 +6,7 @@ Dépendances : backend.api.schemas.search_schema
 """
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.schemas.search_schema import SearchQuery, SearchResult

@@ -5,16 +5,9 @@ from typing import Optional,  List
 from backend_worker.utils.logging import logger
 from backend_worker.services.settings_service import SettingsService, ARTIST_IMAGE_FILES, ALBUM_COVER_FILES
 from pathlib import Path
-from typing import List, Optional
 
 import httpx
 
-from backend_worker.services.settings_service import (
-    ALBUM_COVER_FILES,
-    ARTIST_IMAGE_FILES,
-    SettingsService,
-)
-from backend_worker.utils.logging import logger
 
 settings_service = SettingsService()
 

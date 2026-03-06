@@ -1,6 +1,5 @@
 import asyncio
 import inspect
-import asyncio
 from nicegui import ui, app, events
 from frontend.config import PAGES_DIR
 from .colors import apply_theme

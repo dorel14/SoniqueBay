@@ -7,6 +7,7 @@ ne sont pas disponibles.
 """
 
 import os
+import asyncio
 from typing import Dict, Any, Optional
 from celery import shared_task
 import httpx
@@ -155,12 +156,12 @@ def analyze_track_audio_features(
 
         # Extraire les caractéristiques audio (tags AcoustID d'abord, puis Librosa en fallback)
         logger.info(f"🎵 Appel de extract_audio_features pour track {actual_track_id}")
-        features = extract_audio_features(
+        features = asyncio.run(extract_audio_features(
             audio=audio,
             tags=acoustid_tags or {},
             file_path=file_path,
             track_id=actual_track_id
-        )
+        ))
 
         # Ajouter le track_id au résultat
         features["track_id"] = track_id

@@ -10,7 +10,7 @@ Version: 1.0.0
 import pytest
 import numpy as np
 from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, patch, MagicMock
 
 from backend_worker.services.artist_clustering_service import (
     ArtistClusteringService,

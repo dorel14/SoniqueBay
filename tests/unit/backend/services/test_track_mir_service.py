@@ -9,8 +9,7 @@ Auteur: SoniqueBay Team
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 from backend_worker.services.audio_features_service import (
     extract_and_store_mir_raw,

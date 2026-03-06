@@ -14,7 +14,7 @@ Version: 1.0.0
 import json
 import time
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -300,7 +300,7 @@ class ArtistClusteringService:
             success = data.get("success", False)
             
             if success:
-                logger.info(f"[ArtistClustering] Résultats persistés avec succès")
+                logger.info("[ArtistClustering] Résultats persistés avec succès")
             else:
                 logger.warning(f"[ArtistClustering] Échec persistance: {data}")
             
