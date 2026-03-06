@@ -11,7 +11,7 @@ Delegates GMM clustering to Celery workers.
 import json
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.models.artist_embeddings_model import (

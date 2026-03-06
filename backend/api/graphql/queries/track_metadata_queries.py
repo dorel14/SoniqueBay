@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import Optional, List, Dict
 
 import strawberry
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.graphql.types.track_metadata_type import (
     TrackMetadataType,
@@ -29,7 +28,6 @@ from backend.api.graphql.types.track_metadata_type import (
 )
 from backend.api.services.track_metadata_service import TrackMetadataService
 from backend.api.utils.database import get_async_session
-from backend.api.utils.logging import logger
 
 
 @strawberry.type

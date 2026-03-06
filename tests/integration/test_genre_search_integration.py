@@ -5,7 +5,7 @@ Tests the API endpoint directly to verify the race condition fix works in practi
 import pytest
 import httpx
 import asyncio
-from typing import List, Dict
+from typing import Dict
 import time
 
 
@@ -130,7 +130,7 @@ async def test_concurrent_genre_creation():
         found_count = sum(1 for r in results if isinstance(r, dict) and r.get("status") in ("found", "found_after_race"))
         error_count = sum(1 for r in results if isinstance(r, Exception))
         
-        print(f"\nConcurrent creation results:")
+        print("\nConcurrent creation results:")
         print(f"  - Created: {created_count}")
         print(f"  - Found: {found_count}")
         print(f"  - Errors: {error_count}")

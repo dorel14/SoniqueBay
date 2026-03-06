@@ -7,7 +7,7 @@ Valide que les champs audio (bpm, key, etc.) sont correctement transmis
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from backend.api.schemas.tracks_schema import TrackCreate
 
 

@@ -10,10 +10,9 @@ Ce module fournit :
 import os
 import ast
 from functools import wraps
-from typing import List, Type, Optional, Callable, Any
+from typing import Type, Optional, Callable
 from kombu import Queue
 from celery import Task
-from celery.exceptions import MaxRetriesExceededError, Retry
 import httpx
 import redis
 
@@ -182,7 +181,6 @@ class DeadLetterQueueHandler:
         
         # Stocker les informations de la tâche échouée dans Redis pour analyse
         try:
-            import json
             from datetime import datetime
             
             failed_task_info = {

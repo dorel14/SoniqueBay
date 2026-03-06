@@ -1,5 +1,4 @@
 from __future__ import annotations
-from typing import Optional, List
 
 import strawberry
 
@@ -15,7 +14,6 @@ from backend.api.graphql.types.track_mir_type import (
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )
-from backend.api.utils.logging import logger
 
 
 @strawberry.type

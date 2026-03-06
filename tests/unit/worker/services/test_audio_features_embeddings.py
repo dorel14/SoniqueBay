@@ -9,7 +9,6 @@ Version: 1.0.0
 
 import pytest
 import numpy as np
-from unittest.mock import patch, MagicMock
 
 from backend_worker.services.audio_features_embeddings import (
     AudioFeaturesEmbeddingService,

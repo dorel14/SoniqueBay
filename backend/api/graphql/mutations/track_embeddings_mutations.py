@@ -16,10 +16,9 @@ Auteur: SoniqueBay Team
 """
 
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional
 
 import strawberry
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.graphql.types.track_embeddings_type import (
     TrackEmbeddingsType,

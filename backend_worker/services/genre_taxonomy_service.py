@@ -7,7 +7,6 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Optional
 from collections import defaultdict
 from backend_worker.utils.logging import logger
 from backend_worker.utils.genre_yaml_loader import get_genre_loader

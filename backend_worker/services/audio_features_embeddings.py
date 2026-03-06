@@ -21,7 +21,7 @@ Auteur: SoniqueBay Team
 Version: 1.0.0
 """
 
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, List, Dict
 from dataclasses import dataclass
 import numpy as np
 
@@ -395,7 +395,7 @@ class AudioFeaturesEmbeddingService:
         Raises:
             ValueError: Si les features sont invalides
         """
-        logger.debug(f"[AudioFeaturesEmbedding] Conversion features en vecteur 64D")
+        logger.debug("[AudioFeaturesEmbedding] Conversion features en vecteur 64D")
         
         # Validation basique
         if features is None:

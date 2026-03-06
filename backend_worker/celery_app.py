@@ -4,12 +4,11 @@ from celery.signals import worker_init, task_prerun, task_postrun, worker_shutdo
 
 from backend_worker.utils.logging import logger
 from backend_worker.utils.celery_monitor import measure_celery_task_size, update_size_metrics, log_task_size_report, get_size_summary, auto_configure_celery_limits
-from backend_worker.utils.celery_retry_config import configure_celery_retries, DeadLetterQueueHandler
+from backend_worker.utils.celery_retry_config import configure_celery_retries
 import os
 import redis
 import socket
 import signal
-from kombu import Queue
 
 # === SIGNAL HANDLERS ===
 def handle_sigterm(signum, frame):
@@ -219,9 +218,9 @@ def configure_worker(sender=None, **kwargs):
     # === PUBLICATION DE LA CONFIGURATION CELERY DANS REDIS ===
     try:
         from backend_worker.utils.celery_config_publisher import publish_celery_config_to_redis
-        logger.info(f"[WORKER INIT] Publication de la configuration Celery dans Redis")
+        logger.info("[WORKER INIT] Publication de la configuration Celery dans Redis")
         publish_celery_config_to_redis()
-        logger.info(f"[WORKER INIT] Configuration Celery publiée avec succès")
+        logger.info("[WORKER INIT] Configuration Celery publiée avec succès")
     except Exception as e:
         logger.error(f"[WORKER INIT] Erreur lors de la publication de la configuration: {str(e)}")
         # Ne pas bloquer le démarrage du worker si la publication échoue

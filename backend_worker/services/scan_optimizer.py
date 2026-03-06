@@ -3,7 +3,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional, Callable, Any, Tuple
-from dataclasses import dataclass, field
 from pathlib import Path
 from backend_worker.utils.logging import logger
 from backend_worker.services.entity_manager import (
@@ -167,7 +166,7 @@ class ScanOptimizer:
                     logger.info(f"    Clés des tags: {list(tags.keys())[:10]}")
 
         # Envoyer les tâches Celery pour l'analyse audio
-        logger.info(f"🚀 Envoi des tâches Celery vers la queue 'audio_analysis'...")
+        logger.info("🚀 Envoi des tâches Celery vers la queue 'audio_analysis'...")
         for track_data in track_data_list:
             track_id = track_data.get('id')
             file_path = track_data.get('path')

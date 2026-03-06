@@ -7,14 +7,11 @@ Tests for the insert_batch_worker fixes:
 """
 
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, List
+from unittest.mock import AsyncMock
 
 # Import the functions to test
 from backend_worker.workers.insert.insert_batch_worker import (
-    resolve_track_artist_id,
-    resolve_album_for_track
+    resolve_track_artist_id
 )
 
 
@@ -251,8 +248,6 @@ class TestGraphQLValidation:
     def test_track_create_input_has_required_fields(self):
         """Verify TrackCreateInput schema requirements."""
         from backend.api.graphql.types.tracks_type import TrackCreateInput
-        import strawberry
-        import sys
         
         # Check that track_artist_id is required (not Optional)
         # In the schema, track_artist_id: int (not int | None)

@@ -10,7 +10,7 @@ import socket
 import httpx
 
 API_URL = os.getenv("API_URL", "http://library:8001")
-print(f"🔍 Test de connectivité à l'API")
+print("🔍 Test de connectivité à l'API")
 print(f"   API_URL: {API_URL}")
 
 # Extraire host et port
@@ -49,11 +49,11 @@ except httpx.ConnectError as e:
     print(f"   ❌ Connexion ÉCHEC: {e}")
     sys.exit(1)
 except httpx.TimeoutException:
-    print(f"   ⏱️  Timeout après 10s")
+    print("   ⏱️  Timeout après 10s")
     sys.exit(1)
 except Exception as e:
     print(f"   ❌ Erreur: {e}")
     sys.exit(1)
 
-print(f"\n✅ Tous les tests ont réussi!")
+print("\n✅ Tous les tests ont réussi!")
 print(f"   L'URL {API_URL} est correctement configurée et accessible.")

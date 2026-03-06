@@ -8,10 +8,9 @@ La clé doit être définie dans la variable d'environnement CELERY_ADMIN_API_KE
 
 from fastapi import APIRouter, HTTPException, Depends, Header, status
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 import redis
 import os
-from datetime import datetime
 
 from backend.api.utils.logging import logger
 from backend_worker.utils.celery_retry_config import DEFAULT_RETRY_CONFIG
@@ -42,7 +41,7 @@ def verify_admin_key(x_admin_key: str = Header(..., description="Clé API admin 
     
     # Constant-time comparison pour éviter les attaques timing
     if not _secure_compare(x_admin_key, expected_key):
-        logger.warning(f"[CELERY ADMIN] Tentative d'accès avec clé invalide")
+        logger.warning("[CELERY ADMIN] Tentative d'accès avec clé invalide")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Clé API admin invalide",

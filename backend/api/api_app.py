@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from contextlib import asynccontextmanager, AsyncExitStack
+from contextlib import asynccontextmanager
 from backend.api.utils import settings
 from strawberry.fastapi import GraphQLRouter, BaseContext
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -231,8 +231,6 @@ class TestMIRTaskLogging:
 
     def test_task_has_logger(self) -> None:
         """Vérifie que les tâches ont accès au logger."""
-        from backend_worker.tasks.mir_tasks import process_track_mir
-        import inspect
 
         # Le module devrait avoir un logger
         import backend_worker.tasks.mir_tasks as mir_tasks_module

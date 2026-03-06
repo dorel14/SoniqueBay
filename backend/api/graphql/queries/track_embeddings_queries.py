@@ -19,7 +19,6 @@ from __future__ import annotations
 from typing import Optional, List
 
 import strawberry
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.graphql.types.track_embeddings_type import (
     TrackEmbeddingsType,
@@ -27,7 +26,6 @@ from backend.api.graphql.types.track_embeddings_type import (
 )
 from backend.api.services.track_embeddings_service import TrackEmbeddingsService
 from backend.api.utils.database import get_async_session
-from backend.api.utils.logging import logger
 
 
 @strawberry.type
