@@ -8,13 +8,10 @@ Version: 1.0.1
 """
 
 import pytest
-import asyncio
-from unittest.mock import patch, MagicMock, AsyncMock
-from typing import List
+from unittest.mock import patch, MagicMock
 
 from backend_worker.services.vectorization_service import (
-    OptimizedVectorizationService,
-    VectorizationError
+    OptimizedVectorizationService
 )
 from backend_worker.services.ollama_embedding_service import (
     OllamaEmbeddingService,

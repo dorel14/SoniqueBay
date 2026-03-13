@@ -23,7 +23,7 @@ Auteur: SoniqueBay Team
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,10 +34,6 @@ from backend.api.services.mir_llm_service import MIRLLMService
 
 # Import des schémas MIR
 from backend.api.schemas.mir_schema import (
-    MIRRawPayload,
-    MIRNormalizedPayload,
-    MIRScoresPayload,
-    SyntheticTagPayload,
     MIRStoragePayload,
     MIRStorageResponse,
     MIRSummaryResponse,

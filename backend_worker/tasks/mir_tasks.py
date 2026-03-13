@@ -19,7 +19,6 @@ Auteur: SoniqueBay Team
 
 import os
 from typing import Dict, Any, Optional, List
-from datetime import datetime
 
 from celery import shared_task
 

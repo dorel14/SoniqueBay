@@ -12,9 +12,7 @@ from backend.api.models.genres_model import album_genres as album_genres
 from backend.api.models.genres_model import artist_genres as artist_genres
 from backend.api.models.scan_sessions_model import ScanSession as ScanSession
 from backend.api.models.tracks_model import Track as Track
-from backend.api.models.artist_embeddings_model import ArtistEmbedding, GMMModel
-from backend.api.models.artist_similar_model import ArtistSimilar
-from backend.api.models.agent_model import AgentModel
+from backend.api.models.artist_embeddings_model import ArtistEmbedding
 from backend.api.models.track_mir_raw_model import TrackMIRRaw as TrackMIRRaw
 from backend.api.models.track_mir_normalized_model import TrackMIRNormalized as TrackMIRNormalized
 from backend.api.models.track_mir_scores_model import TrackMIRScores as TrackMIRScores

@@ -1,12 +1,10 @@
 from nicegui import ui
 from frontend.config import sonique_bay_logo
-from nicegui import ui
 
 #from frontend.theme.layout import COMMON_LINK_CLASSES
 from frontend.services.artist_service import ArtistService
 from frontend.utils.logging import logger
 #from frontend.theme.layout import COMMON_LINK_CLASSES
-from frontend.services.artist_service import ArtistService
 
 
 async def get_artist_info(artist_id: int):

@@ -26,14 +26,6 @@ else:
 
 # Configuration des tâches planifiées
 celery.conf.beat_schedule = {
-    # ✅ Traitement des enrichissements (I/O modéré - toutes les 2 minutes)
-    'process-deferred-enrichment': {
-        'task': 'worker_deferred_enrichment.process_enrichment_batch',
-        'schedule': crontab(minute='*/2'),  # Toutes les 2 minutes
-        'args': (10,),  # Traiter 10 tâches par batch
-        'options': {'queue': 'deferred_enrichment'}  # Queue 'deferred_enrichment' pour cohérence
-    },
-
     # ✅ Retry des tâches échouées (toutes les 10 minutes)
     'retry-failed-enrichments': {
         'task': 'worker_deferred_enrichment.retry_failed_enrichments',

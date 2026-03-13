@@ -385,7 +385,7 @@ Sois concis, amical et utile. Réponds en français."""
             Description des recommandations
         """
         try:
-            from sqlalchemy import select, and_, func
+            from sqlalchemy import select, and_
             from backend.api.models.tracks_model import Track
             from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
 

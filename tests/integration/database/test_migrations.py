@@ -16,15 +16,12 @@ Marqueurs: pytest.mark.integration, pytest.mark.database, pytest.mark.migrations
 import pytest
 import logging
 import os
-from typing import Dict, Any, List
-from datetime import datetime
 from sqlalchemy import text, inspect
 from alembic.config import Config
 from alembic import command
 
 from tests.conftest import (
     test_db_engine,
-    db_session,
 )
 
 logger = logging.getLogger(__name__)

@@ -8,8 +8,6 @@ Version: 1.0.0
 """
 
 from types import SimpleNamespace
-from typing import Any
-from unittest.mock import patch
 
 import pytest
 

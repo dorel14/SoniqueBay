@@ -1,1 +1,0 @@
-# Worker d'indexation Whoosh pour la recherche full-text

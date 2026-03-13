@@ -165,7 +165,7 @@ services:
         env_file:
             - .env
         environment:
-            - API_URL=http://api:8001
+            - API_URL=http://library:8001
             - PUBLIC_API_URL=http://localhost:8001
             - ENCRYPTION_KEY=${ENCRYPTION_KEY}
             - TZ=${TZ}
@@ -205,7 +205,7 @@ services:
         command: >
             celery -A backend_worker.celery_app worker
             -E 
-            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance
+            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance,failed,audio_analysis,mir
             --concurrency=1
             --loglevel=INFO
             --hostname=celery-worker@%h
@@ -214,11 +214,14 @@ services:
             - music-share:/music:ro
             - ./logs:/app/logs
             - /etc/localtime:/etc/localtime:ro
+            - huggingface-cache:/root/.cache/huggingface
+            - api-data:/app/backend/data/
         environment:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - API_URL=http://api:8001
+            - API_URL=http://library:8001
             - HF_TOKEN=${HF_TOKEN}
+            - HF_HOME=/root/.cache/huggingface
             - MUSIC_PATH=/music
             - PLATFORM=docker
             - NAS_USER=${NAS_USER:-""}
@@ -332,6 +335,66 @@ services:
             celery-worker:
                 condition: service_started
 
+    # === FLOWER (CELERY MONITORING) ===
+    flower:
+        image: mher/flower:latest
+        container_name: soniquebay-flower
+        restart: unless-stopped
+        environment:
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - FLOWER_PORT=5555
+            - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH}
+            - FLOWER_MAX_TASKS=10000
+            - FLOWER_DB=/app/data/flower/flower.db
+            - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=true
+            - CELERY_BROKER_CONNECTION_MAX_RETRIES=10
+            - CELERY_BROKER_CONNECTION_RETRY_INTERVAL=5
+        ports:
+            - "5555:5555"
+        volumes:
+            - flower-data:/app/data/flower
+        depends_on:
+            redis:
+                condition: service_healthy
+            celery-worker:
+                condition: service_started
+        networks:
+            default:
+                aliases:
+                    - flower
+        healthcheck:
+            test: ["CMD-SHELL", "curl -f http://localhost:5555/healthcheck || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 60s
+        deploy:
+            resources:
+                limits:
+                    cpus: '0.25'
+                    memory: 256M
+                reservations:
+                    cpus: '0.1'
+                    memory: 128M
+
+    pgadmin:
+        image: dpage/pgadmin4:latest
+        container_name: soniquebay-pgadmin
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+            - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+        ports:
+            - "5050:80"
+        volumes:
+            - pgadmin-data:/var/lib/pgadmin
+        depends_on:
+            db:
+                condition: service_healthy
+
 volumes:
     redis-data:
         driver: local
@@ -362,6 +425,18 @@ volumes:
         driver_opts:
             type: none
             device: ${PWD}/data/flower_data
+            o: bind
+    huggingface-cache:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/huggingface_cache
+            o: bind
+    pgadmin-data:
+        driver: local
+        driver_opts:
+            type: none
+            device: ${PWD}/data/pgadmin_data
             o: bind
     logs:
         driver: local

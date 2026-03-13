@@ -16,9 +16,7 @@ Version: 1.0.0
 
 import logging
 import os
-import pathlib
 import queue
-import stat
 import sys
 from datetime import datetime
 from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler

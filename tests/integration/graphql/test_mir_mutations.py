@@ -11,8 +11,6 @@ Auteur: SoniqueBay Team
 
 import sys
 import os
-from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
 
 # Ajouter le chemin du projet pour les imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))

@@ -6,7 +6,6 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from backend.api.utils.database import Base, TimestampMixin
 from backend.api.models.covers_model import Cover
 from backend.api.models.tags_model import GenreTag, MoodTag
-from backend.api.utils.database import Base, TimestampMixin
 
 # Imports pour les relations vers les nouvelles tables
 from typing import TYPE_CHECKING
@@ -62,8 +61,8 @@ class Track(Base, TimestampMixin):
     artist: Mapped["Artist"] = relationship("Artist", back_populates="tracks") # type: ignore # noqa: F821
     album: Mapped["Album"] = relationship("Album", back_populates="tracks") # type: ignore # noqa: F821
     genres: Mapped[list["Genre"]] = relationship("Genre", secondary="track_genres", back_populates="tracks") # type: ignore # noqa: F821
-    mood_tags: Mapped[list["MoodTag"]] = relationship("MoodTag", secondary="track_mood_tags", back_populates="tracks") # type: ignore # noqa: F821
-    genre_tags: Mapped[list["GenreTag"]] = relationship("GenreTag", secondary="track_genre_tags", back_populates="tracks") # type: ignore # noqa: F821
+    mood_tags: Mapped[list["MoodTag"]] = relationship("MoodTag", secondary="track_mood_tags", back_populates="tracks", lazy="selectin") # type: ignore # noqa: F821
+    genre_tags: Mapped[list["GenreTag"]] = relationship("GenreTag", secondary="track_genre_tags", back_populates="tracks", lazy="selectin") # type: ignore # noqa: F821
     covers: Mapped[list["Cover"]] = relationship(
         "Cover",
         primaryjoin="and_(Cover.entity_type=='track', Track.id==Cover.entity_id)",

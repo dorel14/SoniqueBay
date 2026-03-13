@@ -150,8 +150,6 @@ class VectorSearchService:
         try:
             from sqlalchemy import text
 
-            from backend.api.models.track_embeddings_model import \
-                TrackEmbeddings
 
             # Use pgvector L2 distance
             query = text("""
@@ -655,8 +653,6 @@ class VectorSearchService:
             # Check TrackEmbeddings first
             from sqlalchemy import text
 
-            from backend.api.models.track_embeddings_model import \
-                TrackEmbeddings
 
             try:
                 te_count_result = self.db.execute(

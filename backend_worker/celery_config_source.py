@@ -46,6 +46,7 @@ def get_unified_queues():
         
         # === QUEUES NORMALES ===
         Queue('covers', routing_key='covers'),
+        Queue('deferred_covers', routing_key='deferred_covers'),  # FIX: Ajouté pour les tâches covers
         Queue('maintenance', routing_key='maintenance'),
         Queue('vectorization_monitoring', routing_key='vectorization_monitoring'),
         Queue('celery', routing_key='celery'),
@@ -54,7 +55,6 @@ def get_unified_queues():
         
         # === QUEUES DIFFÉRÉES (PRIORITÉ BASSE) ===
         Queue('deferred_vectors', routing_key='deferred_vectors'),
-        Queue('deferred_covers', routing_key='deferred_covers'),
         Queue('deferred_enrichment', routing_key='deferred_enrichment'),
         Queue('deferred', routing_key='deferred'),
     ]
@@ -72,9 +72,17 @@ def get_unified_task_routes():
         'batch.process_entities': {'queue': 'batch'},
         'insert.direct_batch': {'queue': 'insert'},
         'vectorization.calculate': {'queue': 'vectorization'},
-        'covers.extract_embedded': {'queue': 'deferred'},
-        'metadata.enrich_batch': {'queue': 'deferred'},
+        'vectorization.batch': {'queue': 'vectorization'},
+        'covers.extract_embedded': {'queue': 'deferred_covers'},
+        'metadata.enrich_batch': {'queue': 'deferred_enrichment'},
         'worker_deferred_enrichment.*': {'queue': 'deferred_enrichment'},
+        
+        # === TÂCHES COVERS (FIX: Ajout des routes manquantes) ===
+        'covers.process_artist_images': {'queue': 'deferred_covers'},
+        'covers.process_album_covers': {'queue': 'deferred_covers'},
+        'covers.process_track_covers_batch': {'queue': 'deferred_covers'},
+        'covers.process_artist_images_batch': {'queue': 'deferred_covers'},
+        'covers.extract_artist_images': {'queue': 'deferred_covers'},
         
         # === MONITORING VECTORISATION ===
         'monitor_tag_changes': {'queue': 'vectorization_monitoring'},
@@ -91,6 +99,43 @@ def get_unified_task_routes():
         'mir.reprocess_track': {'queue': 'mir'},
         'mir.calculate_scores': {'queue': 'mir'},
         'mir.generate_synthetic_tags': {'queue': 'mir'},
+        
+        # === TÂCHES GMM ===
+        'gmm.cluster_all_artists': {'queue': 'deferred'},
+        'gmm.cluster_artist': {'queue': 'deferred'},
+        'gmm.refresh_stale_clusters': {'queue': 'maintenance'},
+        'gmm.cleanup_old_clusters': {'queue': 'maintenance'},
+        
+        # === TÂCHES LASTFM ===
+        'lastfm.fetch_artist_info': {'queue': 'deferred'},
+        'lastfm.fetch_similar_artists': {'queue': 'deferred'},
+        
+        # === TÂCHES SYNONYMES ===
+        'synonym.generate_single': {'queue': 'deferred'},
+        'synonym.generate_batch': {'queue': 'deferred'},
+        'synonym.generate_chain': {'queue': 'deferred'},
+        'synonym.regenerate_all': {'queue': 'maintenance'},
+        'synonym.check_status': {'queue': 'maintenance'},
+        
+        # === TÂCHES MAINTENANCE ===
+        'backend_worker.tasks.maintenance_tasks.cleanup_expired_tasks_task': {'queue': 'maintenance'},
+        'backend_worker.tasks.maintenance_tasks.generate_daily_health_report_task': {'queue': 'maintenance'},
+        'backend_worker.tasks.maintenance_tasks.rebalance_queues_task': {'queue': 'maintenance'},
+        'backend_worker.tasks.maintenance_tasks.archive_old_logs_task': {'queue': 'maintenance'},
+        'backend_worker.tasks.maintenance_tasks.validate_system_integrity_task': {'queue': 'maintenance'},
+        
+        # === TÂCHES AUDIO ANALYSIS ===
+        'backend_worker.tasks.audio_analysis_tasks.analyze_track_audio_features': {'queue': 'audio_analysis'},
+        'backend_worker.tasks.audio_analysis_tasks.batch_analyze_tracks': {'queue': 'audio_analysis'},
+        
+        # === TÂCHES VECTORIZATION OPTIMIZED ===
+        'worker_vector_optimized.vectorize_track_optimized': {'queue': 'vectorization'},
+        'worker_vector_optimized.vectorize_tracks_batch_optimized': {'queue': 'vectorization'},
+        'worker_vector_optimized.train_vectorizer_optimized': {'queue': 'vectorization'},
+        'worker_vector_optimized.search_similar': {'queue': 'vectorization'},
+        'worker_vector_optimized.update_vectors': {'queue': 'vectorization'},
+        'worker_vector_optimized.validate_vectors_advanced': {'queue': 'vectorization'},
+        'worker_vector_optimized.rebuild_index_advanced': {'queue': 'vectorization'},
     }
 
 

@@ -3,9 +3,8 @@ Tests unitaires pour vérifier le comportement async du LLMService.
 Vérifie que les appels HTTP sont non-bloquants et que l'initialisation est lazy.
 """
 import pytest
-import httpx
 import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch
 from backend.api.services.llm_service import LLMService, get_llm_service, get_llm_service_sync
 
 
@@ -236,7 +235,6 @@ def test_import_no_blocking():
     """
     Test que l'import du module ne déclenche pas d'appels HTTP bloquants.
     """
-    import time
     
     with patch('httpx.get') as mock_get:
         start_time = time.time()

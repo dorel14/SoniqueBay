@@ -11,7 +11,6 @@ from contextlib import asynccontextmanager
 # Ajouter le répertoire parent au path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.utils.database import get_async_session
 from backend.api.models.agent_model import AgentModel
 from backend.api.utils.logging import logger
