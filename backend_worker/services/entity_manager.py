@@ -494,7 +494,7 @@ async def create_or_get_artists_batch(client: httpx.AsyncClient, artists_data: L
 
         for artist in cleaned_artists_data:
             cache_key = f"artist:{artist['name'].lower()}"
-            cached = await cache_service.get("lastfm", cache_key)
+            cached = cache_service.get("lastfm", cache_key)
             if cached:
                 cached_artists[artist['name'].lower()] = cached
                 logger.debug(f"[CACHE] Artiste trouvé en cache: {artist['name']}")
