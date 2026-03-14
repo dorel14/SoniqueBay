@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import strawberry
 from backend.api.graphql.types.artist_type import ArtistType, ArtistCreateInput, ArtistUpdateInput
-from starlette.concurrency import run_in_threadpool
 
 
 @strawberry.type
@@ -24,7 +23,7 @@ class ArtistMutations:
         }
         artist_create = ArtistCreate(**artist_data_dict)
 
-        artist = await run_in_threadpool(service.create_artist, artist_create)
+        artist = await service.create_artist(artist_create)
         return ArtistType(
             id=artist.id,
             name=artist.name,

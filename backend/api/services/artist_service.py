@@ -3,107 +3,82 @@ Service layer for Artist entity operations.
 
 This module provides business logic for artist-related operations,
 separating concerns from the API layer.
-
-Dependencies:
-    - SQLAlchemy: Database ORM operations
-    - backend.models: Artist model definition
-
-Author: SoniqueBay Team
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional, Union, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from backend.api.models import Album, Artist, Track
 from backend.api.schemas.artists_schema import ArtistCreate
 
+SessionType = Union[AsyncSession, Session]
+
 
 class ArtistService:
-    """
-    Service class for artist operations.
+    """Service class for artist operations (compatible sync/async session)."""
 
-    Encapsulates business logic for artist CRUD operations and queries,
-    providing a clean interface between the API and database layers.
-
-    Attributes:
-        db: AsyncSession instance for database operations
-    """
-
-    def __init__(self, db: AsyncSession):
-        """
-        Initialize the artist service.
-
-        Args:
-            db: Async SQLAlchemy session for database operations
-        """
+    def __init__(self, db: SessionType):
         self.db = db
 
+    def _is_async_session(self) -> bool:
+        return isinstance(self.db, AsyncSession)
+
+    async def _execute(self, stmt) -> Any:
+        if self._is_async_session():
+            async_db = cast(AsyncSession, self.db)
+            return await async_db.execute(stmt)
+        sync_db = cast(Session, self.db)
+        return sync_db.execute(stmt)
+
+    async def _commit(self) -> None:
+        if self._is_async_session():
+            async_db = cast(AsyncSession, self.db)
+            await async_db.commit()
+            return
+        sync_db = cast(Session, self.db)
+        sync_db.commit()
+
+    async def _refresh(self, instance: Any) -> None:
+        if self._is_async_session():
+            async_db = cast(AsyncSession, self.db)
+            await async_db.refresh(instance)
+            return
+        sync_db = cast(Session, self.db)
+        sync_db.refresh(instance)
+
+    async def _delete(self, instance: Any) -> None:
+        if self._is_async_session():
+            async_db = cast(AsyncSession, self.db)
+            await async_db.delete(instance)
+            return
+        sync_db = cast(Session, self.db)
+        sync_db.delete(instance)
+
     async def create_artist(self, artist_data: ArtistCreate) -> Artist:
-        """
-        Create a new artist.
-
-        Args:
-            artist_data: ArtistCreate Pydantic schema with name and musicbrainz_artistid
-
-        Returns:
-            Artist: Created artist instance
-        """
         artist = Artist(
             name=artist_data.name,
-            musicbrainz_artistid=artist_data.musicbrainz_artistid
+            musicbrainz_artistid=artist_data.musicbrainz_artistid,
         )
         self.db.add(artist)
-        await self.db.commit()
-        await self.db.refresh(artist)
+        await self._commit()
+        await self._refresh(artist)
         return artist
 
-    async def read_artists(
-        self, skip: int = 0, limit: int = 100
-    ) -> List[Artist]:
-        """
-        Retrieve a list of artists with pagination.
-
-        Args:
-            skip: Number of records to skip (offset)
-            limit: Maximum number of records to return
-
-        Returns:
-            List[Artist]: List of artist instances
-        """
-        result = await self.db.execute(
+    async def read_artists(self, skip: int = 0, limit: int = 100) -> List[Artist]:
+        result = await self._execute(
             select(Artist).order_by(Artist.name).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
 
     async def read_artist(self, artist_id: int) -> Optional[Artist]:
-        """
-        Retrieve a single artist by ID.
-
-        Args:
-            artist_id: Unique identifier for the artist
-
-        Returns:
-            Optional[Artist]: Artist instance if found, None otherwise
-        """
-        result = await self.db.execute(
-            select(Artist).where(Artist.id == artist_id)
-        )
+        result = await self._execute(select(Artist).where(Artist.id == artist_id))
         return result.scalar_one_or_none()
 
     async def read_artist_with_albums(self, artist_id: int) -> Optional[Artist]:
-        """
-        Retrieve a single artist by ID with albums eagerly loaded.
-
-        Args:
-            artist_id: Unique identifier for the artist
-
-        Returns:
-            Optional[Artist]: Artist instance with albums if found, None otherwise
-        """
-        result = await self.db.execute(
+        result = await self._execute(
             select(Artist)
             .where(Artist.id == artist_id)
             .options(selectinload(Artist.albums))
@@ -111,21 +86,10 @@ class ArtistService:
         return result.scalar_one_or_none()
 
     async def read_artist_with_relations(self, artist_id: int) -> Optional[Artist]:
-        """
-        Retrieve a single artist by ID with albums and tracks eagerly loaded.
-
-        Args:
-            artist_id: Unique identifier for the artist
-
-        Returns:
-            Optional[Artist]: Artist instance with all relations if found, None otherwise
-        """
-        result = await self.db.execute(
+        result = await self._execute(
             select(Artist)
             .where(Artist.id == artist_id)
-            .options(
-                selectinload(Artist.albums).selectinload(Album.tracks)
-            )
+            .options(selectinload(Artist.albums).selectinload(Album.tracks))
         )
         return result.scalar_one_or_none()
 
@@ -135,43 +99,27 @@ class ArtistService:
         name: Optional[str] = None,
         musicbrainz_artistid: Optional[str] = None,
     ) -> Optional[Artist]:
-        """
-        Update an existing artist.
-
-        Args:
-            artist_id: Unique identifier for the artist
-            name: Optional new name for the artist
-            musicbrainz_artistid: Optional MusicBrainz artist ID
-
-        Returns:
-            Optional[Artist]: Updated artist instance if found, None otherwise
-        """
         artist = await self.read_artist(artist_id)
-        if artist:
-            if name is not None:
-                artist.name = name
-            if musicbrainz_artistid is not None:
-                artist.musicbrainz_artistid = musicbrainz_artistid
-            await self.db.commit()
-            await self.db.refresh(artist)
+        if not artist:
+            return None
+
+        if name is not None:
+            artist.name = name
+        if musicbrainz_artistid is not None:
+            artist.musicbrainz_artistid = musicbrainz_artistid
+
+        await self._commit()
+        await self._refresh(artist)
         return artist
 
     async def delete_artist(self, artist_id: int) -> bool:
-        """
-        Delete an artist by ID.
-
-        Args:
-            artist_id: Unique identifier for the artist to delete
-
-        Returns:
-            bool: True if deleted, False if not found
-        """
         artist = await self.read_artist(artist_id)
-        if artist:
-            await self.db.delete(artist)
-            await self.db.commit()
-            return True
-        return False
+        if not artist:
+            return False
+
+        await self._delete(artist)
+        await self._commit()
+        return True
 
     async def search_artists(
         self,
@@ -179,79 +127,36 @@ class ArtistService:
         musicbrainz_artistid: Optional[str] = None,
         genre: Optional[str] = None,
         skip: int = 0,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
     ) -> List[Artist]:
-        """
-        Search artists by name, MusicBrainz ID, or genre.
-
-        Args:
-            name: Search string to match against artist names
-            musicbrainz_artistid: MusicBrainz Artist ID for exact matching
-            genre: Genre to filter by (not implemented yet)
-            skip: Number of records to skip (offset)
-            limit: Maximum number of results to return
-
-        Returns:
-            List[Artist]: List of matching artists
-        """
-
-        # Start building the query
         stmt = select(Artist)
 
-        # Apply filters
         if name:
-            search_pattern = f"%{name}%"
-            stmt = stmt.where(Artist.name.ilike(search_pattern))
-
+            stmt = stmt.where(Artist.name.ilike(f"%{name}%"))
         if musicbrainz_artistid:
             stmt = stmt.where(Artist.musicbrainz_artistid == musicbrainz_artistid)
 
-        # Note: genre filtering would require a join with tracks/albums
-        # For now, we ignore the genre parameter
-
-        # Apply ordering
         stmt = stmt.order_by(Artist.name)
 
-        # Apply pagination
         if skip:
             stmt = stmt.offset(skip)
         if limit:
             stmt = stmt.limit(limit)
 
-        result = await self.db.execute(stmt)
+        result = await self._execute(stmt)
         return list(result.scalars().all())
 
     async def count_artists(self) -> int:
-        """
-        Get total count of artists.
-
-        Returns:
-            int: Total number of artists in the database
-        """
-        result = await self.db.execute(select(func.count(Artist.id)))
+        result = await self._execute(select(func.count(Artist.id)))
         count = result.scalar()
-        return count if count is not None else 0
+        return int(count) if count is not None else 0
 
     async def get_artists_count(self) -> int:
-        """
-        Get total count of artists (alias for count_artists).
-
-        Returns:
-            int: Total number of artists in the database
-        """
         return await self.count_artists()
 
-    async def get_artists_paginated(self, skip: int = 0, limit: int = 100) -> tuple[List[Artist], int]:
-        """
-        Get artists with pagination and total count.
-
-        Args:
-            skip: Number of records to skip (offset)
-            limit: Maximum number of records to return
-
-        Returns:
-            tuple[List[Artist], int]: Tuple of (artists list, total count)
-        """
+    async def get_artists_paginated(
+        self, skip: int = 0, limit: int = 100
+    ) -> tuple[List[Artist], int]:
         artists = await self.read_artists(skip=skip, limit=limit)
         total_count = await self.count_artists()
         return artists, total_count
@@ -259,18 +164,7 @@ class ArtistService:
     async def get_artist_albums(
         self, artist_id: int, skip: int = 0, limit: int = 100
     ) -> List[Album]:
-        """
-        Get albums for a specific artist.
-
-        Args:
-            artist_id: Unique identifier for the artist
-            skip: Number of records to skip (offset)
-            limit: Maximum number of records to return
-
-        Returns:
-            List[Album]: List of album instances for the artist
-        """
-        result = await self.db.execute(
+        result = await self._execute(
             select(Album)
             .where(Album.album_artist_id == artist_id)
             .order_by(Album.title)
@@ -282,18 +176,7 @@ class ArtistService:
     async def get_artist_tracks(
         self, artist_id: int, skip: int = 0, limit: int = 100
     ) -> List[Track]:
-        """
-        Get tracks for a specific artist.
-
-        Args:
-            artist_id: Unique identifier for the artist
-            skip: Number of records to skip (offset)
-            limit: Maximum number of records to return
-
-        Returns:
-            List[Track]: List of track instances for the artist
-        """
-        result = await self.db.execute(
+        result = await self._execute(
             select(Track)
             .where(Track.track_artist_id == artist_id)
             .order_by(Track.title)
@@ -303,46 +186,20 @@ class ArtistService:
         return list(result.scalars().all())
 
     async def get_or_create_artist(self, name: str) -> Artist:
-        """
-        Get an existing artist by name or create a new one.
-
-        Args:
-            name: Artist name to search for or create
-
-        Returns:
-            Artist: Existing or newly created artist instance
-        """
-        # Normalize name for comparison
         normalized_name = name.strip()
-
-        result = await self.db.execute(
-            select(Artist).where(
-                func.lower(Artist.name) == func.lower(normalized_name)
-            )
+        result = await self._execute(
+            select(Artist).where(func.lower(Artist.name) == func.lower(normalized_name))
         )
         artist = result.scalar_one_or_none()
 
         if artist:
             return artist
 
-        # Create new artist if not found
         artist_data = ArtistCreate(name=normalized_name, musicbrainz_artistid=None)
         return await self.create_artist(artist_data)
 
-    async def bulk_create_artists(
-        self, artists_data: List[ArtistCreate]
-    ) -> List[Artist]:
-        """
-        Create multiple artists in a single transaction.
-
-        Args:
-            artists_data: List of ArtistCreate schemas containing artist data
-                Each schema should have: name (required), musicbrainz_artistid (optional)
-
-        Returns:
-            List[Artist]: List of created artist instances
-        """
-        artists = []
+    async def bulk_create_artists(self, artists_data: List[ArtistCreate]) -> List[Artist]:
+        artists: List[Artist] = []
         for data in artists_data:
             artist = Artist(
                 name=data.name,
@@ -351,28 +208,15 @@ class ArtistService:
             self.db.add(artist)
             artists.append(artist)
 
-        await self.db.commit()
-
-        # Refresh all artists to get their IDs
+        await self._commit()
         for artist in artists:
-            await self.db.refresh(artist)
+            await self._refresh(artist)
 
         return artists
 
     async def get_artists_with_stats(
         self, skip: int = 0, limit: int = 100
     ) -> List[dict]:
-        """
-        Get artists with album and track counts.
-
-        Args:
-            skip: Number of records to skip (offset)
-            limit: Maximum number of records to return
-
-        Returns:
-            List[dict]: List of dictionaries containing artist data with counts
-        """
-        # Build query with counts
         stmt = (
             select(
                 Artist,
@@ -387,18 +231,19 @@ class ArtistService:
             .limit(limit)
         )
 
-        result = await self.db.execute(stmt)
-        artists_with_stats = []
+        result = await self._execute(stmt)
+        artists_with_stats: List[dict] = []
 
         for row in result.all():
             artist = row[0]
-            stats = {
-                "id": artist.id,
-                "name": artist.name,
-                "musicbrainz_artistid": artist.musicbrainz_artistid,
-                "album_count": row[1],
-                "track_count": row[2],
-            }
-            artists_with_stats.append(stats)
+            artists_with_stats.append(
+                {
+                    "id": artist.id,
+                    "name": artist.name,
+                    "musicbrainz_artistid": artist.musicbrainz_artistid,
+                    "album_count": row[1],
+                    "track_count": row[2],
+                }
+            )
 
         return artists_with_stats

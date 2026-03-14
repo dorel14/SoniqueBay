@@ -23,10 +23,9 @@ from backend.api.models.covers_model import Cover
 from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.api.models.tracks_model import Track
-
-# Configuration pytest pour les tests asynchrones
-pytest_plugins = ("pytest_asyncio",)
-pytest_asyncio_default_mode = "auto"
+from sqlalchemy import Column, Integer, ForeignKey, String
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import JSONB
 
 # Configuration pytest pour les tests asynchrones
 pytest_plugins = ("pytest_asyncio",)
@@ -65,6 +64,37 @@ def test_db_engine():
     db_url = f"sqlite:///{temp_db.name}"
     os.environ['DATABASE_URL'] = db_url
     engine = create_engine(db_url)
+
+    # Définition minimale des tables manquantes pour satisfaire les FK en tests SQLite
+    # (Lot B: éviter NoReferencedTableError sur conversations.user_id -> users.id)
+    if "users" not in Base.metadata.tables:
+        class _TestUser(Base):
+            __tablename__ = "users"
+            id = Column(Integer, primary_key=True)
+            username = Column(String, nullable=True)
+
+    if "conversations" not in Base.metadata.tables:
+        class _TestConversation(Base):
+            __tablename__ = "conversations"
+            id = Column(String(64), primary_key=True)
+            user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Compat types PostgreSQL -> SQLite pour les tests d'intégration
+    from sqlalchemy.ext.compiler import compiles
+    from pgvector.sqlalchemy import Vector
+
+    @compiles(postgresql.TSVECTOR, "sqlite")
+    def _compile_tsvector_sqlite(_type, _compiler, **_kw):
+        return "TEXT"
+
+    @compiles(Vector, "sqlite")
+    def _compile_vector_sqlite(_type, _compiler, **_kw):
+        return "TEXT"
+
+    @compiles(JSONB, "sqlite")
+    def _compile_jsonb_sqlite(_type, _compiler, **_kw):
+        return "JSON"
+
     Base.metadata.create_all(bind=engine)
 
     # Create FTS tables for testing
@@ -321,6 +351,10 @@ def setup_test_environment():
     os.environ["API_URL"] = os.getenv("TEST_API_URL", "http://test-api:8001")
     os.environ["REDIS_HOST"] = os.getenv("TEST_REDIS_HOST", "test-redis")
     os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    os.environ["TEST_DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    os.environ["SKIP_STARTUP_MIGRATIONS"] = "1"
+    os.environ["SKIP_STARTUP_REDIS_INIT"] = "1"
+    os.environ["SKIP_STARTUP_SEED_AGENTS"] = "1"
     os.environ["TESTING"] = "true"
     
     # Configuration du logging pour les tests
@@ -330,7 +364,16 @@ def setup_test_environment():
     yield
     
     # Cleanup après les tests
-    test_env_vars = ["API_URL", "REDIS_HOST", "DATABASE_URL", "TESTING"]
+    test_env_vars = [
+        "API_URL",
+        "REDIS_HOST",
+        "DATABASE_URL",
+        "TEST_DATABASE_URL",
+        "TESTING",
+        "SKIP_STARTUP_MIGRATIONS",
+        "SKIP_STARTUP_REDIS_INIT",
+        "SKIP_STARTUP_SEED_AGENTS",
+    ]
     for var in test_env_vars:
         if var in os.environ:
             del os.environ[var]

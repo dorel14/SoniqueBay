@@ -69,60 +69,87 @@ async def lifespan(app: FastAPI):
     logger.info("Démarrage de l'API unifiée SoniqueBay...")
     await SettingsService().initialize_default_settings()
 
-    # Initialiser le cache Redis avec backend résilient
-    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-    redis_client = redis.from_url(redis_url)
-    resilient_backend = ResilientRedisBackend(
-        redis=redis_client,
-        max_retries=3,
-        retry_delay=1.0
+    testing_mode = (
+        os.getenv("TESTING", "").lower() in {"1", "true", "yes"}
+        or "PYTEST_CURRENT_TEST" in os.environ
     )
-    FastAPICache.init(resilient_backend, prefix="fastapi-cache")
-    logger.info(f"Cache Redis résilient initialisé avec URL: {redis_url} (max_retries=3, retry_delay=1.0s)")
+    skip_startup_migrations = (
+        os.getenv("SKIP_STARTUP_MIGRATIONS", "").lower() in {"1", "true", "yes"}
+        or testing_mode
+    )
+    skip_redis_init = (
+        os.getenv("SKIP_STARTUP_REDIS_INIT", "").lower() in {"1", "true", "yes"}
+        or testing_mode
+    )
+    skip_seed_agents = (
+        os.getenv("SKIP_STARTUP_SEED_AGENTS", "").lower() in {"1", "true", "yes"}
+        or testing_mode
+    )
 
-    # Exécuter les migrations Alembic automatiquement de manière bloquante
-    try:
-        logger.info("Exécution des migrations Alembic...")
-        # Créer un objet Config vide
-        alembic_cfg = Config()
-        # Configurer les chemins pour l'environnement local
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        alembic_cfg.set_main_option("script_location", os.path.join(project_root, "alembic"))
-        alembic_cfg.set_main_option("config_file", os.path.join(project_root, "alembic.ini"))
+    if not skip_redis_init:
+        # Initialiser le cache Redis avec backend résilient
+        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+        redis_client = redis.from_url(redis_url)
+        resilient_backend = ResilientRedisBackend(
+            redis=redis_client,
+            max_retries=3,
+            retry_delay=1.0
+        )
+        FastAPICache.init(resilient_backend, prefix="fastapi-cache")
+        logger.info(f"Cache Redis résilient initialisé avec URL: {redis_url} (max_retries=3, retry_delay=1.0s)")
+    else:
+        logger.info("Mode test/drapeau actif: initialisation Redis cache ignorée.")
 
+    if not skip_startup_migrations:
+        # Exécuter les migrations Alembic automatiquement de manière bloquante
         try:
-            # Exécuter la commande upgrade
-            command.upgrade(alembic_cfg, "head")
-            logger.info("Migrations Alembic appliquées avec succès.")
-        except Exception as migration_error:
-            # si plusieurs têtes existent on retente avec "heads", qui appliquera
-            # toutes les branches simultanément. Nous évitons d'importer des
-            # classes spécifiques d'Alembic parce que leur emplacement peut
-            # varier entre les versions.
-            msg = str(migration_error)
-            if "Multiple head revisions" in msg or "Multiple heads" in msg:
-                logger.warning("Têtes multiples détectées, tentative d'upgrade sur 'heads'...")
-                try:
-                    command.upgrade(alembic_cfg, "heads")
-                    logger.info("Migrations Alembic appliquées avec succès sur 'heads'.")
-                except Exception as e:
-                    logger.error(f"Nouvelle erreur pendant l'upgrade des heads: {e}")
-                    raise RuntimeError(f"Échec des migrations (heads): {e}")
-            else:
-                logger.error(f"Erreur pendant l'exécution des migrations: {msg}")
-                raise RuntimeError(f"Échec des migrations: {msg}")
+            logger.info("Exécution des migrations Alembic...")
+            # Créer un objet Config vide
+            alembic_cfg = Config()
+            # Configurer les chemins pour l'environnement local
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            alembic_cfg.set_main_option("script_location", os.path.join(project_root, "alembic"))
+            alembic_cfg.set_main_option("config_file", os.path.join(project_root, "alembic.ini"))
 
-    except Exception as config_error:
-        logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
-        raise RuntimeError(f"Échec de la configuration Alembic: {str(config_error)}")
-    # Insérer les agents par défaut dans la BDD
-    try:
-        logger.info("Insertion des agents par défaut dans la BDD...")
-        async with asynccontextmanager(get_async_session)() as async_session:
-            await seed_default_agents(async_session)
-        logger.info("Agents par défaut insérés avec succès.")
-    except Exception as e:
-        logger.error(f"Erreur lors de l'insertion des agents par défaut: {str(e)}")
+            try:
+                # Exécuter la commande upgrade
+                command.upgrade(alembic_cfg, "head")
+                logger.info("Migrations Alembic appliquées avec succès.")
+            except Exception as migration_error:
+                # si plusieurs têtes existent on retente avec "heads", qui appliquera
+                # toutes les branches simultanément. Nous évitons d'importer des
+                # classes spécifiques d'Alembic parce que leur emplacement peut
+                # varier entre les versions.
+                msg = str(migration_error)
+                if "Multiple head revisions" in msg or "Multiple heads" in msg:
+                    logger.warning("Têtes multiples détectées, tentative d'upgrade sur 'heads'...")
+                    try:
+                        command.upgrade(alembic_cfg, "heads")
+                        logger.info("Migrations Alembic appliquées avec succès sur 'heads'.")
+                    except Exception as e:
+                        logger.error(f"Nouvelle erreur pendant l'upgrade des heads: {e}")
+                        raise RuntimeError(f"Échec des migrations (heads): {e}")
+                else:
+                    logger.error(f"Erreur pendant l'exécution des migrations: {msg}")
+                    raise RuntimeError(f"Échec des migrations: {msg}")
+
+        except Exception as config_error:
+            logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
+            raise RuntimeError(f"Échec de la configuration Alembic: {str(config_error)}")
+    else:
+        logger.info("Mode test/drapeau actif: migrations Alembic ignorées.")
+
+    if not skip_seed_agents:
+        # Insérer les agents par défaut dans la BDD
+        try:
+            logger.info("Insertion des agents par défaut dans la BDD...")
+            async with asynccontextmanager(get_async_session)() as async_session:
+                await seed_default_agents(async_session)
+            logger.info("Agents par défaut insérés avec succès.")
+        except Exception as e:
+            logger.error(f"Erreur lors de l'insertion des agents par défaut: {str(e)}")
+    else:
+        logger.info("Mode test/drapeau actif: seed des agents ignoré.")
 
     # Log des routes enregistrées
     for route in app.routes:

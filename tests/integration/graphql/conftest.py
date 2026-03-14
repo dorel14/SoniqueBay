@@ -1,5 +1,6 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
+import asyncio
 import pytest
 from strawberry.types import ExecutionResult
 
@@ -15,8 +16,12 @@ class TestContext:
     def db(self):
         return self.session
 
+    @property
+    def async_db(self):
+        return self.session
+
     def __getitem__(self, key):
-        if key == "db":
+        if key in {"db", "async_db", "session"}:
             return self.session
         raise KeyError(f"Key '{key}' not found")
 
@@ -30,19 +35,16 @@ def graphql_context(db_session):
 @pytest.fixture
 def execute_graphql(graphql_context):
     """
-    Fixture to execute GraphQL queries or mutations synchronously.
-    
-    Args:
-        query: GraphQL query or mutation string.
-        variables: Optional dictionary of variables.
-    
-    Returns:
-        ExecutionResult from Strawberry.
+    Fixture to execute GraphQL queries or mutations en mode async
+    tout en conservant une API synchrone pour les tests existants.
     """
-    def _execute(query: str, variables: Dict[str, Any] = None) -> ExecutionResult:
-        return schema.execute_sync(
-            query,
-            variable_values=variables,
-            context_value=graphql_context
+    def _execute(query: str, variables: Optional[Dict[str, Any]] = None) -> ExecutionResult:
+        return asyncio.run(
+            schema.execute(
+                query,
+                variable_values=variables,
+                context_value=graphql_context,
+            )
         )
+
     return _execute

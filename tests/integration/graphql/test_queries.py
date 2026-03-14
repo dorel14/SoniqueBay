@@ -3,7 +3,7 @@
 import pytest
 from strawberry.types import ExecutionResult
 
-from .fixtures import (
+from tests.integration.graphql.fixtures import (
     QUERY_GET_ARTIST,
     QUERY_LIST_ARTISTS,
     QUERY_GET_ALBUM,

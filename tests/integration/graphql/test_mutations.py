@@ -2,7 +2,7 @@
 
 from strawberry.types import ExecutionResult
 
-from .fixtures import (
+from tests.integration.graphql.fixtures import (
     MUTATION_CREATE_ARTIST,
     MUTATION_CREATE_ARTISTS,
     MUTATION_CREATE_ALBUM,
