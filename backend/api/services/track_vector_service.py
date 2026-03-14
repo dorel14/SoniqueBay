@@ -4,17 +4,24 @@ Déplace toute la logique métier depuis track_vectors_api.py ici.
 Auteur : Kilo Code
 Dépendances : backend.api.models.track_vectors_model, backend.api.schemas.track_vectors_schema
 """
+
 from sqlalchemy.orm import Session as SQLAlchemySession
 from typing import List, Optional
+
 # TrackVectorVirtual removed - using PostgreSQL instead
-from backend.api.schemas.track_vectors_schema import TrackVectorCreate, TrackVectorResponse
+from backend.api.schemas.track_vectors_schema import (
+    TrackVectorCreate,
+    TrackVectorResponse,
+)
 
 
 class TrackVectorService:
     def __init__(self, db: Optional[SQLAlchemySession] = None):
         self.session = db
 
-    def create_or_update_vector(self, vector_data: TrackVectorCreate) -> TrackVectorResponse:
+    def create_or_update_vector(
+        self, vector_data: TrackVectorCreate
+    ) -> TrackVectorResponse:
         """
         Crée ou met à jour un vecteur pour une track.
 
@@ -62,7 +69,9 @@ class TrackVectorService:
         """
         raise NotImplementedError("Vectorisation gérée par les workers Celery")
 
-    def list_vectors(self, skip: int = 0, limit: int = 100) -> List[TrackVectorResponse]:
+    def list_vectors(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[TrackVectorResponse]:
         """
         Liste les vecteurs de tracks.
 

@@ -8,11 +8,10 @@ from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="/search", tags=["search"])
 
+
 @router.get("/typeahead")
 async def typeahead_search(
-    q: str = None,
-    limit: int = 10,
-    db: AsyncSession = Depends(get_async_session)
+    q: str = None, limit: int = 10, db: AsyncSession = Depends(get_async_session)
 ):
     """Recherche typeahead pour la barre de recherche."""
     try:
@@ -25,13 +24,14 @@ async def typeahead_search(
     except Exception as e:
         logger.error(f"Erreur recherche typeahead: {e}")
         from fastapi import HTTPException
-        raise HTTPException(status_code=500, detail=f"Typeahead search failed: {str(e)}")
+
+        raise HTTPException(
+            status_code=500, detail=f"Typeahead search failed: {str(e)}"
+        )
+
 
 @router.post("/", response_model=SearchResult)
-async def search(
-    query: SearchQuery,
-    db: AsyncSession = Depends(get_async_session)
-):
+async def search(query: SearchQuery, db: AsyncSession = Depends(get_async_session)):
     """Recherche principale avec scoring hybride."""
     try:
         # Validation basique
@@ -46,21 +46,28 @@ async def search(
     except Exception as e:
         logger.error(f"Erreur recherche principale: {e}")
         from fastapi import HTTPException
+
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
 
 @router.post("/indexing/update-all")
 async def update_all_search_indexes(
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_async_session)
+    background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_async_session)
 ):
     """Met à jour tous les index de recherche TSVECTOR."""
     try:
         # Lancer en arrière-plan pour éviter timeout
         background_tasks.add_task(SearchIndexingService.update_all_search_vectors, db)
-        return {"message": "Mise à jour des index lancée en arrière-plan", "status": "running"}
+        return {
+            "message": "Mise à jour des index lancée en arrière-plan",
+            "status": "running",
+        }
     except Exception as e:
         logger.error(f"Erreur lancement mise à jour index: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start indexing: {str(e)}"
+        )
+
 
 @router.post("/indexing/create-triggers")
 async def create_auto_indexing_triggers(db: AsyncSession = Depends(get_async_session)):
@@ -68,12 +75,18 @@ async def create_auto_indexing_triggers(db: AsyncSession = Depends(get_async_ses
     try:
         success = await SearchIndexingService.create_triggers_for_auto_indexing(db)
         if success:
-            return {"message": "Triggers d'indexation automatique créés", "status": "success"}
+            return {
+                "message": "Triggers d'indexation automatique créés",
+                "status": "success",
+            }
         else:
             raise HTTPException(status_code=500, detail="Échec création triggers")
     except Exception as e:
         logger.error(f"Erreur création triggers: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create triggers: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create triggers: {str(e)}"
+        )
+
 
 @router.post("/indexing/create-materialized-views")
 async def create_materialized_views(db: AsyncSession = Depends(get_async_session)):
@@ -83,10 +96,15 @@ async def create_materialized_views(db: AsyncSession = Depends(get_async_session
         if success:
             return {"message": "Vues matérialisées créées", "status": "success"}
         else:
-            raise HTTPException(status_code=500, detail="Échec création vues matérialisées")
+            raise HTTPException(
+                status_code=500, detail="Échec création vues matérialisées"
+            )
     except Exception as e:
         logger.error(f"Erreur création vues matérialisées: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to create materialized views: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create materialized views: {str(e)}"
+        )
+
 
 @router.post("/indexing/refresh-materialized-views")
 async def refresh_materialized_views(db: AsyncSession = Depends(get_async_session)):
@@ -96,54 +114,84 @@ async def refresh_materialized_views(db: AsyncSession = Depends(get_async_sessio
         if success:
             return {"message": "Vues matérialisées rafraîchies", "status": "success"}
         else:
-            raise HTTPException(status_code=500, detail="Échec rafraîchissement vues matérialisées")
+            raise HTTPException(
+                status_code=500, detail="Échec rafraîchissement vues matérialisées"
+            )
     except Exception as e:
         logger.error(f"Erreur rafraîchissement vues matérialisées: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to refresh materialized views: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to refresh materialized views: {str(e)}"
+        )
+
 
 @router.get("/cache/stats")
 async def get_cache_stats():
     """Récupère les statistiques du cache Redis."""
     try:
         from backend.api.services.redis_cache_service import redis_cache_service
+
         stats = redis_cache_service.get_cache_stats()
         return stats
     except Exception as e:
         logger.error(f"Erreur récupération stats cache: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get cache stats: {str(e)}"
+        )
+
 
 @router.delete("/cache/search")
 async def clear_search_cache():
     """Vide le cache de recherche."""
     try:
         from backend.api.services.redis_cache_service import redis_cache_service
+
         deleted_count = redis_cache_service.invalidate_search_cache()
-        return {"message": f"Cache de recherche vidé: {deleted_count} clés supprimées", "status": "success"}
+        return {
+            "message": f"Cache de recherche vidé: {deleted_count} clés supprimées",
+            "status": "success",
+        }
     except Exception as e:
         logger.error(f"Erreur vidage cache recherche: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear search cache: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to clear search cache: {str(e)}"
+        )
+
 
 @router.delete("/cache/facets")
 async def clear_facets_cache():
     """Vide le cache des facettes."""
     try:
         from backend.api.services.redis_cache_service import redis_cache_service
+
         success = redis_cache_service.invalidate_facets_cache()
-        return {"message": "Cache des facettes vidé", "status": "success" if success else "warning"}
+        return {
+            "message": "Cache des facettes vidé",
+            "status": "success" if success else "warning",
+        }
     except Exception as e:
         logger.error(f"Erreur vidage cache facettes: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear facets cache: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to clear facets cache: {str(e)}"
+        )
+
 
 @router.delete("/cache/all")
 async def clear_all_cache():
     """Vide complètement le cache Redis."""
     try:
         from backend.api.services.redis_cache_service import redis_cache_service
+
         success = redis_cache_service.clear_all_cache()
-        return {"message": "Cache complètement vidé", "status": "success" if success else "warning"}
+        return {
+            "message": "Cache complètement vidé",
+            "status": "success" if success else "warning",
+        }
     except Exception as e:
         logger.error(f"Erreur vidage cache complet: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to clear all cache: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to clear all cache: {str(e)}"
+        )
+
 
 @router.get("/indexing/stats")
 async def get_indexing_stats(db: AsyncSession = Depends(get_async_session)):
@@ -155,12 +203,14 @@ async def get_indexing_stats(db: AsyncSession = Depends(get_async_session)):
         logger.error(f"Erreur récupération stats indexation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
+
 # Endpoints dépréciés - maintenus pour compatibilité
 @router.post("/index")
 async def api_get_or_create_index(index_dir: str = None):
     """Endpoint déprécié - PostgreSQL gère automatiquement l'indexation."""
     logger.warning("Endpoint /index déprécié - utiliser PostgreSQL TSVECTOR")
     return {"message": "Indexation automatique via PostgreSQL", "deprecated": True}
+
 
 @router.post("/add")
 async def api_add_to_index():

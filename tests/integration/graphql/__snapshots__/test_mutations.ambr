@@ -67,3 +67,51 @@
     }),
   })
 # ---
+# name: TestTrackMutations.test_create_track
+  dict({
+    'createTrack': dict({
+      'albumId': 1,
+      'id': 1,
+      'path': '/path/to/test.mp3',
+      'title': 'Test Track',
+      'trackArtistId': 1,
+    }),
+  })
+# ---
+# name: TestTrackMutations.test_create_tracks_batch
+  dict({
+    'createTracks': list([
+      dict({
+        'albumId': 1,
+        'bpm': None,
+        'genre': 'Rock',
+        'id': 1,
+        'key': None,
+        'path': '/batch/path1.mp3',
+        'scale': None,
+        'title': 'Batch Track 1',
+        'trackArtistId': 1,
+      }),
+      dict({
+        'albumId': 1,
+        'bpm': None,
+        'genre': 'Pop',
+        'id': 2,
+        'key': None,
+        'path': '/batch/path2.mp3',
+        'scale': None,
+        'title': 'Batch Track 2',
+        'trackArtistId': 1,
+      }),
+    ]),
+  })
+# ---
+# name: TestTrackMutations.test_upsert_track
+  dict({
+    'upsertTrack': dict({
+      'id': 1,
+      'title': 'Upsert Test Track',
+      'trackArtistId': 1,
+    }),
+  })
+# ---

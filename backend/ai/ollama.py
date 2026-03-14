@@ -1,8 +1,8 @@
-
 """
 Module Ollama - Fournit l'accès aux modèles LLM via le service unifié.
 Supporte Ollama et KoboldCPP (natif ou OpenAI-compatible).
 """
+
 import os
 from typing import TYPE_CHECKING
 
@@ -43,9 +43,7 @@ def get_kobold_model(
     effective_url = base_url or os.getenv(
         "KOBOLDCPP_BASE_URL", "http://llm-service:5001"
     )
-    effective_model = model_name or os.getenv(
-        "AGENT_MODEL", "kobold-local"
-    )
+    effective_model = model_name or os.getenv("AGENT_MODEL", "kobold-local")
 
     logger.debug(
         f"[ollama] Création KoboldNativeModel: model={effective_model}, url={effective_url}"

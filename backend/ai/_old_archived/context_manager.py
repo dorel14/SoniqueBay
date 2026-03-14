@@ -17,19 +17,21 @@ class ConversationContext:
         self.messages: List[Dict[str, str]] = []  # [{'user': '...', 'agent': '...'}]
         self.mood: str | None = None
         self.last_intent: str | None = None
-        self.action_history: List[Dict[str, Any]] = []  # {'action':..., 'params':..., 'result':...}
+        self.action_history: List[Dict[str, Any]] = (
+            []
+        )  # {'action':..., 'params':..., 'result':...}
 
     # --- Gestion des messages -------------------------------------
     def add_user_message(self, message: str):
-        self.messages.append({'user': message})
+        self.messages.append({"user": message})
 
     def add_agent_message(self, agent_name: str, message: str):
-        self.messages.append({'agent': agent_name, 'message': message})
+        self.messages.append({"agent": agent_name, "message": message})
 
     def get_last_user_message(self) -> str | None:
         for msg in reversed(self.messages):
-            if 'user' in msg:
-                return msg['user']
+            if "user" in msg:
+                return msg["user"]
         return None
 
     # --- Gestion du mood -----------------------------------------
@@ -41,11 +43,9 @@ class ConversationContext:
 
     # --- Gestion des actions --------------------------------------
     def add_action(self, action: str, params: Dict[str, Any], result: Any):
-        self.action_history.append({
-            'action': action,
-            'params': params,
-            'result': result
-        })
+        self.action_history.append(
+            {"action": action, "params": params, "result": result}
+        )
 
     def get_last_action(self) -> Dict[str, Any] | None:
         if self.action_history:

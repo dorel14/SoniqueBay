@@ -1,4 +1,3 @@
-
 import strawberry
 
 from backend.api.graphql.queries.mutations import Mutation

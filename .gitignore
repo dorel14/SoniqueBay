@@ -59,3 +59,4 @@ celerybeat-schedule.db
 # Logs
 tests/backend/logs.log
 .opencode
+...

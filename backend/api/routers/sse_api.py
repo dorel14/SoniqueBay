@@ -7,6 +7,7 @@ from backend.api.utils.logging import logger
 
 router = APIRouter(prefix="", tags=["sse"])
 
+
 @router.get("/events")
 async def sse_endpoint(request: Request):
     """
@@ -15,6 +16,7 @@ async def sse_endpoint(request: Request):
     Écoute les canaux Redis "notifications" et "progress" et retransmet
     les événements SSE aux clients connectés. Gère les déconnexions Redis de manière robuste.
     """
+
     async def event_generator():
         redis_client = None
         pubsub = None
@@ -23,8 +25,12 @@ async def sse_endpoint(request: Request):
 
         while retry_count < max_retries:
             try:
-                logger.info(f"SSE attempting Redis connection (attempt {retry_count + 1}/{max_retries})")
-                redis_client = await redis.from_url("redis://redis:6379", max_connections=5, retry_on_timeout=True)
+                logger.info(
+                    f"SSE attempting Redis connection (attempt {retry_count + 1}/{max_retries})"
+                )
+                redis_client = await redis.from_url(
+                    "redis://redis:6379", max_connections=5, retry_on_timeout=True
+                )
                 pubsub = redis_client.pubsub()
                 await pubsub.subscribe("notifications", "progress")
 
@@ -35,11 +41,11 @@ async def sse_endpoint(request: Request):
 
                 async for message in pubsub.listen():
                     logger.debug(f"SSE received message: {message}")
-                    if message['type'] == 'message':
-                        data = message['data']
+                    if message["type"] == "message":
+                        data = message["data"]
                         if isinstance(data, bytes):
                             try:
-                                decoded_data = data.decode('utf-8')
+                                decoded_data = data.decode("utf-8")
                                 logger.debug(f"SSE sending data: {decoded_data}")
                                 # Format SSE: data: <json>\n\n
                                 yield f"data: {decoded_data}\n\n"
@@ -48,7 +54,9 @@ async def sse_endpoint(request: Request):
                                 break
 
             except redis.ConnectionError as e:
-                logger.warning(f"Redis connection failed (attempt {retry_count + 1}): {e}")
+                logger.warning(
+                    f"Redis connection failed (attempt {retry_count + 1}): {e}"
+                )
                 retry_count += 1
                 if retry_count < max_retries:
                     # Send retry message to client
@@ -83,5 +91,5 @@ async def sse_endpoint(request: Request):
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",  # Adjust for production
             "Access-Control-Allow-Headers": "Cache-Control",
-        }
+        },
     )

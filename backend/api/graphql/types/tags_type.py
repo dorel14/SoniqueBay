@@ -10,6 +10,7 @@ class GenreTagType:
     id: int
     name: str
 
+
 @strawberry.type
 class MoodTagType:
     id: int

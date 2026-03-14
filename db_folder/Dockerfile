@@ -37,6 +37,12 @@ RUN apt-get remove --purge -y git build-essential postgresql-server-dev-17 && \
 
 # Copier les scripts d'initialisation
 COPY db_folder/db_init/ /docker-entrypoint-initdb.d/
+RUN mkdir /sql
+
+# Copier l'entrypoint et tes scripts
+COPY db_folder/db_init/custom-entrypoint.sh /usr/local/bin/custom-entrypoint.sh
+RUN chmod +x /usr/local/bin/custom-entrypoint.sh
+COPY db_folder/sql /sql
 
 # Exposer le port PostgreSQL
 EXPOSE 5432
@@ -50,3 +56,6 @@ LABEL org.opencontainers.image.source="https://github.com/dorel14/SoniqueBay-app
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.title="SoniqueBay PostgreSQL Image" \
       org.opencontainers.image.description="Image de base de donnée pour SoniqueBay"
+
+# Utiliser l'entrypoint personnalisé
+ENTRYPOINT ["/usr/local/bin/custom-entrypoint.sh"]

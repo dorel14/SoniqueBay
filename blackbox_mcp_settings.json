@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "github.com/contextstream/mcp-server": {
+      "command": "C:\\Program Files\\nodejs\\npx.cmd",
+      "args": [
+        "-y",
+        "@contextstream/mcp-server"
+      ],
+      "env": {}
+    }
+  }
+}

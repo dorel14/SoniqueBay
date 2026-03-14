@@ -99,7 +99,9 @@ async def search_synonyms(
                     tag_value=r.get("tag_value", ""),
                     synonyms=r.get("synonyms", {}),
                     fts_score=r.get("fts_score", r.get("hybrid_score", 0.0) * 0.3),
-                    vector_score=r.get("vector_score", r.get("hybrid_score", 0.0) * 0.7),
+                    vector_score=r.get(
+                        "vector_score", r.get("hybrid_score", 0.0) * 0.7
+                    ),
                     hybrid_score=r.get("hybrid_score", 0.0),
                 )
             )
@@ -193,9 +195,7 @@ async def create_synonyms(
         HTTPException: Si une erreur survient
     """
     try:
-        logger.info(
-            f"[SYNONYMS] POST create {request.tag_type}/{request.tag_value}"
-        )
+        logger.info(f"[SYNONYMS] POST create {request.tag_type}/{request.tag_value}")
 
         # Valider la structure synonyms
         if not request.synonyms:
@@ -253,9 +253,7 @@ async def deactivate_synonyms(
         Confirmation de la désactivation
     """
     try:
-        logger.info(
-            f"[SYNONYMS] DELETE {tag_type}/{tag_value}"
-        )
+        logger.info(f"[SYNONYMS] DELETE {tag_type}/{tag_value}")
 
         service = MIRSynonymService(db)
         success = await service.deactivate_synonyms(tag_type, tag_value)
@@ -329,9 +327,7 @@ async def trigger_synonym_generation(
         )
 
     except Exception as e:
-        logger.error(
-            f"[SYNONYMS] Erreur lors du déclenchement de la génération: {e}"
-        )
+        logger.error(f"[SYNONYMS] Erreur lors du déclenchement de la génération: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Erreur lors du déclenchement: {str(e)}",
@@ -382,9 +378,7 @@ async def trigger_batch_synonym_generation(
         )
 
     except Exception as e:
-        logger.error(
-            f"[SYNONYMS] Erreur lors du déclenchement batch: {e}"
-        )
+        logger.error(f"[SYNONYMS] Erreur lors du déclenchement batch: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Erreur lors du déclenchement: {str(e)}",

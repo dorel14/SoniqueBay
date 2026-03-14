@@ -16,7 +16,7 @@ class AlbumQueries:
     async def album(self, info: strawberry.types.Info, id: int) -> Optional[AlbumType]:
         from backend.api.utils.cache_utils import graphql_cache
 
-        cache_params = {'id': id}
+        cache_params = {"id": id}
         cached_data = graphql_cache.get("album_v2", **cache_params)
         if cached_data is not None:
             return AlbumType(**cached_data)
@@ -33,11 +33,11 @@ class AlbumQueries:
             # Extract only the fields that exist in AlbumType
             # Note: covers is a resolver method, not an attribute
             data = {
-                'id': album_data.get('id'),
-                'title': album_data.get('title'),
-                'album_artist_id': album_data.get('album_artist_id'),
-                'release_year': album_data.get('release_year'),
-                'musicbrainz_albumid': album_data.get('musicbrainz_albumid')
+                "id": album_data.get("id"),
+                "title": album_data.get("title"),
+                "album_artist_id": album_data.get("album_artist_id"),
+                "release_year": album_data.get("release_year"),
+                "musicbrainz_albumid": album_data.get("musicbrainz_albumid"),
             }
 
             graphql_cache.set("album_v2", data, 300, **cache_params)
@@ -45,10 +45,12 @@ class AlbumQueries:
         return None
 
     @strawberry.field
-    async def albums(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[AlbumType]:
+    async def albums(
+        self, info: strawberry.types.Info, skip: int = 0, limit: int = 100
+    ) -> list[AlbumType]:
         from backend.api.utils.cache_utils import graphql_cache
 
-        cache_params = {'skip': skip, 'limit': limit}
+        cache_params = {"skip": skip, "limit": limit}
         cached_data = graphql_cache.get("albums_v2", **cache_params)
         if cached_data is not None:
             return [AlbumType(**d) for d in cached_data]
@@ -66,11 +68,11 @@ class AlbumQueries:
             # Extract only the fields that exist in AlbumType
             # Note: covers is a resolver method, not an attribute
             data = {
-                'id': album_data.get('id'),
-                'title': album_data.get('title'),
-                'album_artist_id': album_data.get('album_artist_id'),
-                'release_year': album_data.get('release_year'),
-                'musicbrainz_albumid': album_data.get('musicbrainz_albumid')
+                "id": album_data.get("id"),
+                "title": album_data.get("title"),
+                "album_artist_id": album_data.get("album_artist_id"),
+                "release_year": album_data.get("release_year"),
+                "musicbrainz_albumid": album_data.get("musicbrainz_albumid"),
             }
 
             data_list.append(data)

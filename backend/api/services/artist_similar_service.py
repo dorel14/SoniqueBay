@@ -26,7 +26,13 @@ class ArtistSimilarService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def create_similar_relationship(self, artist_id: int, similar_artist_id: int, weight: float, source: str = "lastfm") -> ArtistSimilarModel:
+    async def create_similar_relationship(
+        self,
+        artist_id: int,
+        similar_artist_id: int,
+        weight: float,
+        source: str = "lastfm",
+    ) -> ArtistSimilarModel:
         """
         Create a new artist similarity relationship.
 
@@ -61,15 +67,23 @@ class ArtistSimilarService:
             result = await self.db.execute(
                 select(ArtistSimilarModel).where(
                     or_(
-                        and_(ArtistSimilarModel.artist_id == artist_id, ArtistSimilarModel.similar_artist_id == similar_artist_id),
-                        and_(ArtistSimilarModel.artist_id == similar_artist_id, ArtistSimilarModel.similar_artist_id == artist_id)
+                        and_(
+                            ArtistSimilarModel.artist_id == artist_id,
+                            ArtistSimilarModel.similar_artist_id == similar_artist_id,
+                        ),
+                        and_(
+                            ArtistSimilarModel.artist_id == similar_artist_id,
+                            ArtistSimilarModel.similar_artist_id == artist_id,
+                        ),
                     )
                 )
             )
             existing = result.scalars().first()
 
             if existing:
-                logger.warning(f"Similarity relationship already exists between {artist_id} and {similar_artist_id}")
+                logger.warning(
+                    f"Similarity relationship already exists between {artist_id} and {similar_artist_id}"
+                )
                 return existing
 
             # Create new relationship
@@ -77,14 +91,16 @@ class ArtistSimilarService:
                 artist_id=artist_id,
                 similar_artist_id=similar_artist_id,
                 weight=weight,
-                source=source
+                source=source,
             )
 
             self.db.add(relationship)
             await self.db.commit()
             await self.db.refresh(relationship)
 
-            logger.info(f"Created similarity relationship: {artist_id} -> {similar_artist_id} (weight: {weight})")
+            logger.info(
+                f"Created similarity relationship: {artist_id} -> {similar_artist_id} (weight: {weight})"
+            )
             return relationship
 
         except IntegrityError as e:
@@ -96,7 +112,9 @@ class ArtistSimilarService:
             logger.error(f"Error creating similarity relationship: {str(e)}")
             raise Exception(f"Error creating similarity: {str(e)}")
 
-    async def get_similar_artists(self, artist_id: int, limit: int = 10) -> List[ArtistSimilarModel]:
+    async def get_similar_artists(
+        self, artist_id: int, limit: int = 10
+    ) -> List[ArtistSimilarModel]:
         """
         Get similar artists for a given artist.
 
@@ -121,7 +139,9 @@ class ArtistSimilarService:
             logger.error(f"Error fetching similar artists for {artist_id}: {str(e)}")
             raise Exception(f"Error fetching similar artists: {str(e)}")
 
-    async def get_similar_artists_with_details(self, artist_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+    async def get_similar_artists_with_details(
+        self, artist_id: int, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Get similar artists with artist names and details.
 
@@ -143,23 +163,36 @@ class ArtistSimilarService:
                 similar_artist = artist_result.scalars().first()
 
                 if similar_artist:
-                    result.append({
-                        "id": rel.id,
-                        "artist_id": rel.artist_id,
-                        "similar_artist_id": rel.similar_artist_id,
-                        "similar_artist_name": similar_artist.name,
-                        "weight": rel.weight,
-                        "source": rel.source,
-                        "created_at": rel.date_added.isoformat() if rel.date_added else None,
-                        "updated_at": rel.date_modified.isoformat() if rel.date_modified else None
-                    })
+                    result.append(
+                        {
+                            "id": rel.id,
+                            "artist_id": rel.artist_id,
+                            "similar_artist_id": rel.similar_artist_id,
+                            "similar_artist_name": similar_artist.name,
+                            "weight": rel.weight,
+                            "source": rel.source,
+                            "created_at": (
+                                rel.date_added.isoformat() if rel.date_added else None
+                            ),
+                            "updated_at": (
+                                rel.date_modified.isoformat()
+                                if rel.date_modified
+                                else None
+                            ),
+                        }
+                    )
 
             return result
         except Exception as e:
             logger.error(f"Error fetching similar artists with details: {str(e)}")
             raise Exception(f"Error fetching similar artists with details: {str(e)}")
 
-    async def update_similar_relationship(self, relationship_id: int, weight: Optional[float] = None, source: Optional[str] = None) -> ArtistSimilarModel:
+    async def update_similar_relationship(
+        self,
+        relationship_id: int,
+        weight: Optional[float] = None,
+        source: Optional[str] = None,
+    ) -> ArtistSimilarModel:
         """
         Update an existing artist similarity relationship.
 
@@ -176,7 +209,9 @@ class ArtistSimilarService:
         """
         try:
             result = await self.db.execute(
-                select(ArtistSimilarModel).where(ArtistSimilarModel.id == relationship_id)
+                select(ArtistSimilarModel).where(
+                    ArtistSimilarModel.id == relationship_id
+                )
             )
             relationship = result.scalars().first()
 
@@ -192,12 +227,16 @@ class ArtistSimilarService:
             await self.db.commit()
             await self.db.refresh(relationship)
 
-            logger.info(f"Updated similarity relationship {relationship_id}: weight={weight}, source={source}")
+            logger.info(
+                f"Updated similarity relationship {relationship_id}: weight={weight}, source={source}"
+            )
             return relationship
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error updating similarity relationship {relationship_id}: {str(e)}")
+            logger.error(
+                f"Error updating similarity relationship {relationship_id}: {str(e)}"
+            )
             raise Exception(f"Error updating similarity: {str(e)}")
 
     async def delete_similar_relationship(self, relationship_id: int) -> bool:
@@ -212,7 +251,9 @@ class ArtistSimilarService:
         """
         try:
             result = await self.db.execute(
-                select(ArtistSimilarModel).where(ArtistSimilarModel.id == relationship_id)
+                select(ArtistSimilarModel).where(
+                    ArtistSimilarModel.id == relationship_id
+                )
             )
             relationship = result.scalars().first()
 
@@ -227,10 +268,14 @@ class ArtistSimilarService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error deleting similarity relationship {relationship_id}: {str(e)}")
+            logger.error(
+                f"Error deleting similarity relationship {relationship_id}: {str(e)}"
+            )
             raise Exception(f"Error deleting similarity: {str(e)}")
 
-    async def get_all_relationships_paginated(self, skip: int = 0, limit: int = 100) -> tuple[List[ArtistSimilarModel], int]:
+    async def get_all_relationships_paginated(
+        self, skip: int = 0, limit: int = 100
+    ) -> tuple[List[ArtistSimilarModel], int]:
         """
         Get all artist similarity relationships with pagination.
 
@@ -260,7 +305,9 @@ class ArtistSimilarService:
             logger.error(f"Error fetching paginated relationships: {str(e)}")
             raise Exception(f"Error fetching relationships: {str(e)}")
 
-    async def find_similar_artists_by_name(self, artist_name: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def find_similar_artists_by_name(
+        self, artist_name: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Find similar artists by artist name.
 
@@ -286,10 +333,14 @@ class ArtistSimilarService:
             return await self.get_similar_artists_with_details(artist.id, limit)
 
         except Exception as e:
-            logger.error(f"Error finding similar artists by name {artist_name}: {str(e)}")
+            logger.error(
+                f"Error finding similar artists by name {artist_name}: {str(e)}"
+            )
             raise Exception(f"Error finding similar artists: {str(e)}")
 
-    async def get_relationship_by_ids(self, artist_id: int, similar_artist_id: int) -> Optional[ArtistSimilarModel]:
+    async def get_relationship_by_ids(
+        self, artist_id: int, similar_artist_id: int
+    ) -> Optional[ArtistSimilarModel]:
         """
         Get a specific relationship by artist IDs.
 
@@ -304,10 +355,12 @@ class ArtistSimilarService:
             result = await self.db.execute(
                 select(ArtistSimilarModel).where(
                     ArtistSimilarModel.artist_id == artist_id,
-                    ArtistSimilarModel.similar_artist_id == similar_artist_id
+                    ArtistSimilarModel.similar_artist_id == similar_artist_id,
                 )
             )
             return result.scalars().first()
         except Exception as e:
-            logger.error(f"Error fetching relationship {artist_id}->{similar_artist_id}: {str(e)}")
+            logger.error(
+                f"Error fetching relationship {artist_id}->{similar_artist_id}: {str(e)}"
+            )
             raise Exception(f"Error fetching relationship: {str(e)}")

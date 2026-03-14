@@ -1,5 +1,6 @@
 from typing import Dict
 
+
 class PathVariables:
     # Définition des variables disponibles avec leurs descriptions
     VARIABLES = {
@@ -7,7 +8,6 @@ class PathVariables:
         "{artist}": "Nom de l'artiste principal",
         "{artist_id}": "ID de l'artiste dans la base de données",
         "{musicbrainz_artist_id}": "ID MusicBrainz de l'artiste",
-        
         # Variables d'album
         "{album}": "Titre de l'album",
         "{album_artist}": "Artiste de l'album",
@@ -15,7 +15,6 @@ class PathVariables:
         "{album_id}": "ID de l'album dans la base de données",
         "{musicbrainz_album_id}": "ID MusicBrainz de l'album",
         "{album_genre}": "Genre principal de l'album",
-        
         # Variables de piste
         "{title}": "Titre de la piste",
         "{track_number}": "Numéro de piste",
@@ -23,11 +22,10 @@ class PathVariables:
         "{genre}": "Genre de la piste",
         "{musicbrainz_track_id}": "ID MusicBrainz de la piste",
         "{bpm}": "Tempo en BPM",
-        
         # Variables spéciales
         "{disc_track}": "Combinaison disque-piste (ex: 1-01)",
         "{first_letter}": "Première lettre de l'artiste",
-        "{decade}": "Décennie (ex: 1980)"
+        "{decade}": "Décennie (ex: 1980)",
     }
 
     # Mapping des variables vers les champs de la base de données
@@ -58,5 +56,6 @@ class PathVariables:
     def validate_path_template(cls, template: str) -> bool:
         """Vérifie si le template utilise des variables valides."""
         import re
-        variables = re.findall(r'\{([^}]+)\}', template)
+
+        variables = re.findall(r"\{([^}]+)\}", template)
         return all(f"{{{var}}}" in cls.VARIABLES for var in variables)

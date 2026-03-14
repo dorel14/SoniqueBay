@@ -19,7 +19,9 @@ class SearchIndexingService:
     """Service pour maintenir les index de recherche PostgreSQL et TrackEmbeddings."""
 
     @staticmethod
-    def update_track_search_vectors(db: Optional[Session] = None, track_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+    def update_track_search_vectors(
+        db: Optional[Session] = None, track_ids: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
         """
         Met à jour les vecteurs de recherche TSVECTOR pour les tracks.
 
@@ -39,7 +41,8 @@ class SearchIndexingService:
             # Requête pour mettre à jour les TSVECTOR
             if track_ids:
                 # Tracks spécifiques
-                query = text("""
+                query = text(
+                    """
                     UPDATE tracks
                     SET search = to_tsvector('english',
                         COALESCE(title, '') || ' ' ||
@@ -53,12 +56,14 @@ class SearchIndexingService:
                       AND tracks.album_id = albums.id
                       AND tracks.id = ANY(:track_ids)
                       AND (tracks.title IS NOT NULL OR artists.name IS NOT NULL)
-                """)
+                """
+                )
                 result = db.execute(query, {"track_ids": track_ids})
                 updated_count = result.rowcount
             else:
                 # Tous les tracks
-                query = text("""
+                query = text(
+                    """
                     UPDATE tracks
                     SET search = to_tsvector('english',
                         COALESCE(title, '') || ' ' ||
@@ -71,18 +76,15 @@ class SearchIndexingService:
                     WHERE tracks.track_artist_id = artists.id
                       AND tracks.album_id = albums.id
                       AND (tracks.title IS NOT NULL OR artists.name IS NOT NULL)
-                """)
+                """
+                )
                 result = db.execute(query)
                 updated_count = result.rowcount
 
             db.commit()
             logger.info(f"[SEARCH INDEXING] Mis à jour {updated_count} tracks TSVECTOR")
 
-            return {
-                "success": True,
-                "tracks_updated": updated_count,
-                "type": "tracks"
-            }
+            return {"success": True, "tracks_updated": updated_count, "type": "tracks"}
 
         except Exception as e:
             db.rollback()
@@ -91,17 +93,17 @@ class SearchIndexingService:
                 "success": False,
                 "error": str(e),
                 "tracks_updated": 0,
-                "type": "tracks"
+                "type": "tracks",
             }
 
     @staticmethod
     async def index_track(
         track_id: int,
         embedding: Optional[List[float]] = None,
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """
         Indexe une track avec TSVECTOR et optionnellement un embedding.
@@ -125,9 +127,11 @@ class SearchIndexingService:
             # Mise à jour du TSVECTOR
             if not db:
                 from backend.api.utils.database import get_async_db
+
                 db = await get_async_db().__anext__()
 
-            search_query = text("""
+            search_query = text(
+                """
                 UPDATE tracks
                 SET search = to_tsvector('english',
                     COALESCE(title, '') || ' ' ||
@@ -137,7 +141,8 @@ class SearchIndexingService:
                     COALESCE((SELECT title FROM albums WHERE id = album_id), '')
                 )
                 WHERE id = :track_id
-            """)
+            """
+            )
             await db.execute(search_query, {"track_id": track_id})
             await db.commit()
 
@@ -150,7 +155,7 @@ class SearchIndexingService:
                     embedding_type=embedding_type,
                     embedding_source=embedding_source,
                     embedding_model=embedding_model,
-                    db=db
+                    db=db,
                 )
 
             logger.info(f"[SEARCH INDEXING] Track {track_id} indexé avec succès")
@@ -158,33 +163,31 @@ class SearchIndexingService:
                 "success": True,
                 "track_id": track_id,
                 "search_updated": True,
-                "embedding": embedding_result
+                "embedding": embedding_result,
             }
 
         except Exception as e:
             logger.error(f"[SEARCH INDEXING] Erreur indexation track {track_id}: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "track_id": track_id
-            }
+            return {"success": False, "error": str(e), "track_id": track_id}
 
     @staticmethod
     async def _create_embedding(
         track_id: int,
         embedding: List[float],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """Crée un embedding dans TrackEmbeddings."""
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not db:
                 from backend.api.utils.database import get_async_db
+
                 db = await get_async_db().__anext__()
 
             service = TrackEmbeddingsService(db)
@@ -193,7 +196,7 @@ class SearchIndexingService:
                 vector=embedding,
                 embedding_type=embedding_type,
                 embedding_source=embedding_source,
-                embedding_model=embedding_model
+                embedding_model=embedding_model,
             )
 
             logger.debug(f"[SEARCH INDEXING] Embedding créé pour track {track_id}")
@@ -203,13 +206,14 @@ class SearchIndexingService:
             logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
             return {"created": False, "error": "Service non disponible"}
         except Exception as e:
-            logger.error(f"[SEARCH INDEXING] Erreur création embedding pour track {track_id}: {e}")
+            logger.error(
+                f"[SEARCH INDEXING] Erreur création embedding pour track {track_id}: {e}"
+            )
             return {"created": False, "error": str(e)}
 
     @staticmethod
     async def remove_track_from_index(
-        track_id: int,
-        db: Optional[AsyncSession] = None
+        track_id: int, db: Optional[AsyncSession] = None
     ) -> Dict[str, Any]:
         """
         Supprime une track de l'index de recherche.
@@ -228,40 +232,40 @@ class SearchIndexingService:
 
             if not db:
                 from backend.api.utils.database import get_async_db
+
                 db = await get_async_db().__anext__()
 
             # Supprimer l'embedding de TrackEmbeddings
             try:
-                from backend.api.services.track_embeddings_service import \
-                    TrackEmbeddingsService
+                from backend.api.services.track_embeddings_service import (
+                    TrackEmbeddingsService,
+                )
 
                 service = TrackEmbeddingsService(db)
                 await service.delete(track_id)
-                logger.debug(f"[SEARCH INDEXING] Embedding supprimé pour track {track_id}")
+                logger.debug(
+                    f"[SEARCH INDEXING] Embedding supprimé pour track {track_id}"
+                )
 
             except ImportError:
-                logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
+                logger.warning(
+                    "[SEARCH INDEXING] TrackEmbeddingsService non disponible"
+                )
             except Exception as e:
                 logger.warning(f"[SEARCH INDEXING] Erreur suppression embedding: {e}")
 
             # Le TSVECTOR n'est pas supprimé, la track reste en base
             logger.info(f"[SEARCH INDEXING] Track {track_id} retiré de l'index")
-            return {
-                "success": True,
-                "track_id": track_id,
-                "embedding_deleted": True
-            }
+            return {"success": True, "track_id": track_id, "embedding_deleted": True}
 
         except Exception as e:
             logger.error(f"[SEARCH INDEXING] Erreur suppression track {track_id}: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "track_id": track_id
-            }
+            return {"success": False, "error": str(e), "track_id": track_id}
 
     @staticmethod
-    def update_artist_search_vectors(db: Optional[Session] = None, artist_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+    def update_artist_search_vectors(
+        db: Optional[Session] = None, artist_ids: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
         """
         Met à jour les vecteurs de recherche TSVECTOR pour les artists.
 
@@ -280,29 +284,35 @@ class SearchIndexingService:
 
             # Requête pour mettre à jour les TSVECTOR des artists
             if artist_ids:
-                query = text("""
+                query = text(
+                    """
                     UPDATE artists
                     SET search = to_tsvector('english', COALESCE(name, ''))
                     WHERE id = ANY(:artist_ids) AND name IS NOT NULL
-                """)
+                """
+                )
                 result = db.execute(query, {"artist_ids": artist_ids})
                 updated_count = result.rowcount
             else:
-                query = text("""
+                query = text(
+                    """
                     UPDATE artists
                     SET search = to_tsvector('english', COALESCE(name, ''))
                     WHERE name IS NOT NULL
-                """)
+                """
+                )
                 result = db.execute(query)
                 updated_count = result.rowcount
 
             db.commit()
-            logger.info(f"[SEARCH INDEXING] Mis à jour {updated_count} artists TSVECTOR")
+            logger.info(
+                f"[SEARCH INDEXING] Mis à jour {updated_count} artists TSVECTOR"
+            )
 
             return {
                 "success": True,
                 "artists_updated": updated_count,
-                "type": "artists"
+                "type": "artists",
             }
 
         except Exception as e:
@@ -312,7 +322,7 @@ class SearchIndexingService:
                 "success": False,
                 "error": str(e),
                 "artists_updated": 0,
-                "type": "artists"
+                "type": "artists",
             }
 
     @staticmethod
@@ -338,17 +348,21 @@ class SearchIndexingService:
         track_result = SearchIndexingService.update_track_search_vectors(db)
 
         total_success = artist_result["success"] and track_result["success"]
-        total_updated = artist_result.get("artists_updated", 0) + track_result.get("tracks_updated", 0)
+        total_updated = artist_result.get("artists_updated", 0) + track_result.get(
+            "tracks_updated", 0
+        )
 
         result = {
             "success": total_success,
             "total_updated": total_updated,
             "artists": artist_result,
-            "tracks": track_result
+            "tracks": track_result,
         }
 
         if total_success:
-            logger.info(f"[SEARCH INDEXING] Mise à jour complète réussie: {total_updated} éléments")
+            logger.info(
+                f"[SEARCH INDEXING] Mise à jour complète réussie: {total_updated} éléments"
+            )
         else:
             logger.error("[SEARCH INDEXING] Mise à jour complète partiellement échouée")
 
@@ -370,7 +384,9 @@ class SearchIndexingService:
 
         try:
             # Stats tracks TSVECTOR
-            track_stats = db.execute(text("""
+            track_stats = db.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total_tracks,
                     COUNT(search) as indexed_tracks,
@@ -378,10 +394,14 @@ class SearchIndexingService:
                         COUNT(search)::numeric / NULLIF(COUNT(*), 0) * 100, 2
                     ) as indexing_percentage
                 FROM tracks
-            """)).fetchone()
+            """
+                )
+            ).fetchone()
 
             # Stats artists
-            artist_stats = db.execute(text("""
+            artist_stats = db.execute(
+                text(
+                    """
                 SELECT
                     COUNT(*) as total_artists,
                     COUNT(search) as indexed_artists,
@@ -389,20 +409,26 @@ class SearchIndexingService:
                         COUNT(search)::numeric / NULLIF(COUNT(*), 0) * 100, 2
                     ) as indexing_percentage
                 FROM artists
-            """)).fetchone()
+            """
+                )
+            ).fetchone()
 
             # Stats TrackEmbeddings
             try:
-                te_stats = db.execute(text("""
+                te_stats = db.execute(
+                    text(
+                        """
                     SELECT
                         COUNT(*) as total_embeddings,
                         COUNT(DISTINCT track_id) as tracks_with_embeddings
                     FROM track_embeddings
                     WHERE embedding_type = 'semantic'
-                """)).fetchone()
+                """
+                    )
+                ).fetchone()
                 embedding_stats = {
                     "total": te_stats.total_embeddings or 0,
-                    "tracks_with_embeddings": te_stats.tracks_with_embeddings or 0
+                    "tracks_with_embeddings": te_stats.tracks_with_embeddings or 0,
                 }
             except Exception:
                 embedding_stats = {"total": 0, "tracks_with_embeddings": 0}
@@ -411,14 +437,14 @@ class SearchIndexingService:
                 "tracks": {
                     "total": track_stats.total_tracks,
                     "indexed": track_stats.indexed_tracks,
-                    "percentage": track_stats.indexing_percentage
+                    "percentage": track_stats.indexing_percentage,
                 },
                 "artists": {
                     "total": artist_stats.total_artists,
                     "indexed": artist_stats.indexed_artists,
-                    "percentage": artist_stats.indexing_percentage
+                    "percentage": artist_stats.indexing_percentage,
                 },
-                "embeddings": embedding_stats
+                "embeddings": embedding_stats,
             }
 
         except Exception as e:
@@ -443,7 +469,9 @@ class SearchIndexingService:
             logger.info("[SEARCH INDEXING] Création triggers auto-indexation")
 
             # Trigger pour tracks
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 CREATE OR REPLACE FUNCTION update_track_search_vector()
                 RETURNS TRIGGER AS $$
                 BEGIN
@@ -457,17 +485,25 @@ class SearchIndexingService:
                     RETURN NEW;
                 END;
                 $$ LANGUAGE plpgsql;
-            """))
+            """
+                )
+            )
 
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 DROP TRIGGER IF EXISTS trigger_update_track_search ON tracks;
                 CREATE TRIGGER trigger_update_track_search
                     BEFORE INSERT OR UPDATE ON tracks
                     FOR EACH ROW EXECUTE FUNCTION update_track_search_vector();
-            """))
+            """
+                )
+            )
 
             # Trigger pour artists
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 CREATE OR REPLACE FUNCTION update_artist_search_vector()
                 RETURNS TRIGGER AS $$
                 BEGIN
@@ -475,14 +511,20 @@ class SearchIndexingService:
                     RETURN NEW;
                 END;
                 $$ LANGUAGE plpgsql;
-            """))
+            """
+                )
+            )
 
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 DROP TRIGGER IF EXISTS trigger_update_artist_search ON artists;
                 CREATE TRIGGER trigger_update_artist_search
                     BEFORE INSERT OR UPDATE ON artists
                     FOR EACH ROW EXECUTE FUNCTION update_artist_search_vector();
-            """))
+            """
+                )
+            )
 
             db.commit()
             logger.info("[SEARCH INDEXING] Triggers auto-indexation créés")
@@ -511,7 +553,9 @@ class SearchIndexingService:
             logger.info("[SEARCH INDEXING] Création vues matérialisées pour facettes")
 
             # Vue matérialisée pour les genres
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 DROP MATERIALIZED VIEW IF EXISTS mv_genre_facets;
                 CREATE MATERIALIZED VIEW mv_genre_facets AS
                 SELECT
@@ -522,10 +566,14 @@ class SearchIndexingService:
                 WHERE genre IS NOT NULL AND genre != ''
                 GROUP BY genre
                 ORDER BY count DESC;
-            """))
+            """
+                )
+            )
 
             # Vue matérialisée pour les artistes
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 DROP MATERIALIZED VIEW IF EXISTS mv_artist_facets;
                 CREATE MATERIALIZED VIEW mv_artist_facets AS
                 SELECT
@@ -536,10 +584,14 @@ class SearchIndexingService:
                 JOIN tracks t ON a.id = t.track_artist_id
                 GROUP BY a.id, a.name
                 ORDER BY track_count DESC;
-            """))
+            """
+                )
+            )
 
             # Vue matérialisée pour les décennies
-            db.execute(text("""
+            db.execute(
+                text(
+                    """
                 DROP MATERIALIZED VIEW IF EXISTS mv_decade_facets;
                 CREATE MATERIALIZED VIEW mv_decade_facets AS
                 SELECT
@@ -554,12 +606,26 @@ class SearchIndexingService:
                 GROUP BY decade
                 HAVING decade IS NOT NULL
                 ORDER BY count DESC;
-            """))
+            """
+                )
+            )
 
             # Index sur les vues matérialisées
-            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_genre_facets_genre ON mv_genre_facets(genre);"))
-            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_artist_facets_name ON mv_artist_facets(artist_name);"))
-            db.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_decade_facets_decade ON mv_decade_facets(decade);"))
+            db.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_genre_facets_genre ON mv_genre_facets(genre);"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_artist_facets_name ON mv_artist_facets(artist_name);"
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_decade_facets_decade ON mv_decade_facets(decade);"
+                )
+            )
 
             db.commit()
             logger.info("[SEARCH INDEXING] Vues matérialisées créées")
@@ -597,17 +663,19 @@ class SearchIndexingService:
 
         except Exception as e:
             db.rollback()
-            logger.error(f"[SEARCH INDEXING] Erreur rafraîchissement vues matérialisées: {e}")
+            logger.error(
+                f"[SEARCH INDEXING] Erreur rafraîchissement vues matérialisées: {e}"
+            )
             return False
 
     @staticmethod
     async def vectorize_track(
         track_id: int,
         embedding: List[float],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """
         Crée ou met à jour un embedding pour une track via TrackEmbeddingsService.
@@ -624,11 +692,13 @@ class SearchIndexingService:
             Résultat de l'opération
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not db:
                 from backend.api.utils.database import get_async_db
+
                 db = await get_async_db().__anext__()
 
             service = TrackEmbeddingsService(db)
@@ -637,35 +707,33 @@ class SearchIndexingService:
                 vector=embedding,
                 embedding_type=embedding_type,
                 embedding_source=embedding_source,
-                embedding_model=embedding_model
+                embedding_model=embedding_model,
             )
 
-            logger.info(f"[SEARCH INDEXING] Vectorisation track {track_id}: {embedding_type}")
+            logger.info(
+                f"[SEARCH INDEXING] Vectorisation track {track_id}: {embedding_type}"
+            )
             return {
                 "success": True,
                 "track_id": track_id,
                 "embedding_type": embedding_type,
-                "embedding_id": result.id if result else None
+                "embedding_id": result.id if result else None,
             }
 
         except ImportError:
             logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
-            return {
-                "success": False,
-                "error": "Service non disponible"
-            }
+            return {"success": False, "error": "Service non disponible"}
         except Exception as e:
-            logger.error(f"[SEARCH INDEXING] Erreur vectorisation track {track_id}: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(
+                f"[SEARCH INDEXING] Erreur vectorisation track {track_id}: {e}"
+            )
+            return {"success": False, "error": str(e)}
 
     @staticmethod
     async def delete_track_embedding(
         track_id: int,
         embedding_type: Optional[str] = None,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession] = None,
     ) -> Dict[str, Any]:
         """
         Supprime les embeddings d'une track via TrackEmbeddingsService.
@@ -679,11 +747,13 @@ class SearchIndexingService:
             Résultat de l'opération
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             if not db:
                 from backend.api.utils.database import get_async_db
+
                 db = await get_async_db().__anext__()
 
             service = TrackEmbeddingsService(db)
@@ -693,18 +763,14 @@ class SearchIndexingService:
             return {
                 "success": result,
                 "track_id": track_id,
-                "embedding_type": embedding_type or "all"
+                "embedding_type": embedding_type or "all",
             }
 
         except ImportError:
             logger.warning("[SEARCH INDEXING] TrackEmbeddingsService non disponible")
-            return {
-                "success": False,
-                "error": "Service non disponible"
-            }
+            return {"success": False, "error": "Service non disponible"}
         except Exception as e:
-            logger.error(f"[SEARCH INDEXING] Erreur suppression embedding track {track_id}: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            logger.error(
+                f"[SEARCH INDEXING] Erreur suppression embedding track {track_id}: {e}"
+            )
+            return {"success": False, "error": str(e)}

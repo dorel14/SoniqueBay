@@ -12,6 +12,7 @@ from backend.api.utils.logging import logger
 # EXEMPLE 1: Outil de recherche musicale - Version décorée
 # ============================================================================
 
+
 @ai_tool(
     name="search_tracks",
     description="Recherche des pistes musicales selon divers critères",
@@ -19,7 +20,7 @@ from backend.api.utils.logging import logger
     timeout=15,
     version="2.0",
     priority="normal",
-    cache_strategy="redis"
+    cache_strategy="redis",
 )
 async def search_tracks(
     query: str,
@@ -27,11 +28,11 @@ async def search_tracks(
     year_min: Optional[int] = None,
     year_max: Optional[int] = None,
     limit: int = 25,
-    session = None
+    session=None,
 ) -> Dict[str, Any]:
     """
     Recherche des pistes musicales avec filtres avancés
-    
+
     Args:
         query: Terme de recherche principal
         genre: Genre musical à filtrer (optionnel)
@@ -39,13 +40,13 @@ async def search_tracks(
         year_max: Année maximum (optionnel)
         limit: Nombre maximum de résultats (défaut: 25)
         session: Session de base de données injectée automatiquement
-        
+
     Returns:
         Dict contenant les résultats de recherche avec métadonnées
     """
     try:
         logger.info(f"Recherche de pistes: '{query}' (limite: {limit})")
-        
+
         # Simulation de recherche (remplacer par vraie logique)
         results = {
             "query": query,
@@ -58,23 +59,25 @@ async def search_tracks(
                     "album": "Example Album",
                     "year": 2020,
                     "genre": genre or "Unknown",
-                    "score": 0.95
+                    "score": 0.95,
                 }
             ],
             "filters_applied": {
                 "genre": genre,
-                "year_range": f"{year_min}-{year_max}" if year_min and year_max else None
+                "year_range": (
+                    f"{year_min}-{year_max}" if year_min and year_max else None
+                ),
             },
             "search_metadata": {
                 "execution_time": "0.123s",
                 "cache_hit": False,
-                "agents_used": ["search_agent"]
-            }
+                "agents_used": ["search_agent"],
+            },
         }
-        
+
         logger.info(f"Recherche terminée: {results['total_found']} pistes trouvées")
         return results
-        
+
     except Exception as e:
         logger.error(f"Erreur lors de la recherche: {e}")
         raise
@@ -84,6 +87,7 @@ async def search_tracks(
 # EXEMPLE 2: Outil de génération de playlist - Version décorée
 # ============================================================================
 
+
 @ai_tool(
     name="generate_playlist",
     description="Génère une playlist personnalisée basée sur des critères",
@@ -91,7 +95,7 @@ async def search_tracks(
     timeout=30,
     version="2.0",
     priority="high",
-    cache_strategy="none"
+    cache_strategy="none",
 )
 async def generate_playlist(
     mood: str,
@@ -100,11 +104,11 @@ async def generate_playlist(
     energy_level: str = "medium",
     exclude_recent: bool = True,
     max_tracks: int = 20,
-    session = None
+    session=None,
 ) -> Dict[str, Any]:
     """
     Génère une playlist selon les préférences utilisateur
-    
+
     Args:
         mood: Ambiance souhaitée (énergique, calme, motivé, etc.)
         genre: Genre musical principal
@@ -113,13 +117,13 @@ async def generate_playlist(
         exclude_recent: Éviter les morceaux récemment joués
         max_tracks: Nombre maximum de pistes
         session: Session DB injectée automatiquement
-        
+
     Returns:
         Dict contenant la playlist générée avec métadonnées
     """
     try:
         logger.info(f"Génération de playlist: {mood} / {genre} ({duration_minutes}min)")
-        
+
         # Simulation de génération (remplacer par vraie logique)
         playlist = {
             "playlist_id": "generated_123",
@@ -131,7 +135,7 @@ async def generate_playlist(
                 "mood": mood,
                 "genre": genre,
                 "energy_level": energy_level,
-                "exclude_recent": exclude_recent
+                "exclude_recent": exclude_recent,
             },
             "tracks": [
                 {
@@ -140,20 +144,20 @@ async def generate_playlist(
                     "artist": "Test Artist",
                     "duration": 240,
                     "position": 1,
-                    "selection_reason": "Correspond à l'ambiance énergique"
+                    "selection_reason": "Correspond à l'ambiance énergique",
                 }
             ],
             "generation_metadata": {
                 "algorithm_version": "2.0",
                 "confidence_score": 0.87,
                 "generation_time": "0.456s",
-                "cache_applied": False
-            }
+                "cache_applied": False,
+            },
         }
-        
+
         logger.info(f"Playlist générée: {playlist['track_count']} pistes")
         return playlist
-        
+
     except Exception as e:
         logger.error(f"Erreur lors de la génération de playlist: {e}")
         raise
@@ -163,6 +167,7 @@ async def generate_playlist(
 # EXEMPLE 3: Outil d'action système - Version décorée
 # ============================================================================
 
+
 @ai_tool(
     name="scan_library",
     description="Lance un scan de la bibliothèque musicale",
@@ -170,29 +175,29 @@ async def generate_playlist(
     timeout=300,  # 5 minutes pour les gros scans
     version="2.0",
     priority="low",
-    cache_strategy="none"
+    cache_strategy="none",
 )
 async def scan_library(
     force_rescan: bool = False,
     update_metadata: bool = True,
     parallel_processes: int = 4,
-    session = None
+    session=None,
 ) -> Dict[str, Any]:
     """
     Lance un scan complet de la bibliothèque musicale
-    
+
     Args:
         force_rescan: Forcer le re-scan même pour les fichiers inchangés
         update_metadata: Mettre à jour les métadonnées manquantes
         parallel_processes: Nombre de processus parallèles (max: 8)
         session: Session DB injectée automatiquement
-        
+
     Returns:
         Dict avec les résultats du scan et statistiques
     """
     try:
         logger.info(f"Lancement du scan de bibliothèque (force: {force_rescan})")
-        
+
         # Simulation de scan (remplacer par vraie logique)
         scan_result = {
             "scan_id": "scan_456",
@@ -206,25 +211,27 @@ async def scan_library(
                 "new_files": 23,
                 "updated_files": 45,
                 "errors": 2,
-                "skipped_files": 8
+                "skipped_files": 8,
             },
             "actions_taken": {
                 "metadata_extracted": True,
                 "covers_downloaded": True,
                 "vectors_generated": True,
-                "indexes_updated": True
+                "indexes_updated": True,
             },
             "performance": {
                 "files_per_second": 3.78,
                 "average_file_processing": "0.26s",
                 "memory_peak": "512MB",
-                "cpu_usage": "45%"
-            }
+                "cpu_usage": "45%",
+            },
         }
-        
-        logger.info(f"Scan terminé: {scan_result['statistics']['files_found']} fichiers traités")
+
+        logger.info(
+            f"Scan terminé: {scan_result['statistics']['files_found']} fichiers traités"
+        )
         return scan_result
-        
+
     except Exception as e:
         logger.error(f"Erreur lors du scan: {e}")
         raise
@@ -234,6 +241,7 @@ async def scan_library(
 # EXEMPLE 4: Outil de smalltalk avec analyse de mood
 # ============================================================================
 
+
 @ai_tool(
     name="analyze_mood",
     description="Analyse l'humeur de l'utilisateur à partir de son message",
@@ -241,27 +249,25 @@ async def scan_library(
     timeout=5,
     version="2.0",
     priority="normal",
-    cache_strategy="memory"
+    cache_strategy="memory",
 )
 async def analyze_mood(
-    message: str,
-    conversation_context: Optional[Dict[str, Any]] = None,
-    session = None
+    message: str, conversation_context: Optional[Dict[str, Any]] = None, session=None
 ) -> Dict[str, Any]:
     """
     Analyse l'humeur de l'utilisateur dans son message
-    
+
     Args:
         message: Message de l'utilisateur à analyser
         conversation_context: Contexte de la conversation (optionnel)
         session: Session DB injectée automatiquement
-        
+
     Returns:
         Dict avec l'humeur détectée et score de confiance
     """
     try:
         logger.info(f"Analyse d'humeur pour message: '{message[:50]}...'")
-        
+
         # Simulation d'analyse (remplacer par vraie logique ML)
         mood_analysis = {
             "detected_mood": "joyeux",
@@ -271,25 +277,27 @@ async def analyze_mood(
                 "secondary_emotion": "enthousiasme",
                 "intensity": "medium",
                 "valence": 0.7,  # -1 à 1 (négatif à positif)
-                "arousal": 0.6   # 0 à 1 (calme à excité)
+                "arousal": 0.6,  # 0 à 1 (calme à excité)
             },
             "linguistic_features": {
                 "positive_words": 3,
                 "exclamation_marks": 2,
                 "capital_letters": 1,
-                "smileys": 1
+                "smileys": 1,
             },
             "context_considered": conversation_context is not None,
             "analysis_metadata": {
                 "model_version": "mood_analyzer_v2.1",
                 "processing_time": "0.045s",
-                "cache_hit": True
-            }
+                "cache_hit": True,
+            },
         }
-        
-        logger.info(f"Humeur détectée: {mood_analysis['detected_mood']} (confiance: {mood_analysis['confidence_score']})")
+
+        logger.info(
+            f"Humeur détectée: {mood_analysis['detected_mood']} (confiance: {mood_analysis['confidence_score']})"
+        )
         return mood_analysis
-        
+
     except Exception as e:
         logger.error(f"Erreur lors de l'analyse d'humeur: {e}")
         raise
@@ -299,6 +307,7 @@ async def analyze_mood(
 # EXEMPLE 5: Tool validator pour validation de configuration
 # ============================================================================
 
+
 # Exemple de validation personnalisée pour les outils critiques
 def validate_search_params(query: str, limit: int) -> bool:
     """Validation personnalisée pour l'outil de recherche"""
@@ -307,6 +316,7 @@ def validate_search_params(query: str, limit: int) -> bool:
     if limit < 1 or limit > 100:
         raise ValueError("La limite doit être entre 1 et 100")
     return True
+
 
 # Application de la validation à l'outil search_tracks
 search_tracks = validate_tool_config(validate_search_params)(search_tracks)
@@ -319,9 +329,4 @@ search_tracks = validate_tool_config(validate_search_params)(search_tracks)
 # Ces outils seront automatiquement enregistrés lors de l'import
 # grâce au mécanisme __init__.py dans le package tools/
 
-__all__ = [
-    "search_tracks",
-    "generate_playlist", 
-    "scan_library",
-    "analyze_mood"
-]
+__all__ = ["search_tracks", "generate_playlist", "scan_library", "analyze_mood"]

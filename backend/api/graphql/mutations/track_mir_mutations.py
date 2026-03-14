@@ -75,9 +75,13 @@ class TrackMIRMutation:
             try:
                 llm_service = MIRLLMService(session)
                 await llm_service.analyze_track(track_id)
-                logger.info(f"[MIR Mutation] Re-traitement terminé pour track_id={track_id}")
+                logger.info(
+                    f"[MIR Mutation] Re-traitement terminé pour track_id={track_id}"
+                )
             except Exception as e:
-                logger.error(f"[MIR Mutation] Erreur re-traitement pour track_id={track_id}: {e}")
+                logger.error(
+                    f"[MIR Mutation] Erreur re-traitement pour track_id={track_id}: {e}"
+                )
 
             # Retourner un objet minimal
             return TrackType(
@@ -117,7 +121,9 @@ class TrackMIRMutation:
         Returns:
             Résultat du traitement batch avec compteurs de succès/échecs
         """
-        logger.info(f"[MIR Mutation] Batch re-traitement MIR pour {len(track_ids)} tracks")
+        logger.info(
+            f"[MIR Mutation] Batch re-traitement MIR pour {len(track_ids)} tracks"
+        )
 
         successful: List[int] = []
         failed: List[int] = []
@@ -137,7 +143,9 @@ class TrackMIRMutation:
                     successful.append(track_id)
 
                 except Exception as e:
-                    logger.error(f"[MIR Mutation] Erreur batch pour track_id={track_id}: {e}")
+                    logger.error(
+                        f"[MIR Mutation] Erreur batch pour track_id={track_id}: {e}"
+                    )
                     failed.append(track_id)
                     errors.append(f"track_id={track_id}: {str(e)}")
 
@@ -212,7 +220,9 @@ class TrackMIRMutation:
                 )
 
             except Exception as e:
-                logger.error(f"[MIR Mutation] Erreur création MIR raw pour track_id={track_id}: {e}")
+                logger.error(
+                    f"[MIR Mutation] Erreur création MIR raw pour track_id={track_id}: {e}"
+                )
                 raise
 
     @strawberry.mutation
@@ -398,7 +408,9 @@ class TrackMIRMutation:
                 mir_service = TrackMIRService(session)
                 await mir_service.delete_all_mir(track_id)
 
-                logger.info(f"[MIR Mutation] Données MIR supprimées pour track_id={track_id}")
+                logger.info(
+                    f"[MIR Mutation] Données MIR supprimées pour track_id={track_id}"
+                )
                 return True
 
             except Exception as e:

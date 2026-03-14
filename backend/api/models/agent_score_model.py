@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Float, UniqueConstraint
 from backend.api.utils.database import Base
 
+
 class AgentScore(Base):
     __tablename__ = "agent_scores"
 
@@ -12,6 +13,4 @@ class AgentScore(Base):
     usage_count = Column(Integer, default=0)
     success_count = Column(Integer, default=0)
 
-    __table_args__ = (
-        UniqueConstraint("agent_name", "intent", name="uq_agent_intent"),
-    )
+    __table_args__ = (UniqueConstraint("agent_name", "intent", name="uq_agent_intent"),)

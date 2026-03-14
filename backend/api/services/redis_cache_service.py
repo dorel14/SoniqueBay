@@ -17,7 +17,7 @@ class RedisCacheService:
 
     def __init__(self, redis_url: str = None):
         if redis_url is None:
-            redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+            redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
         self.redis_url = redis_url
         self.redis_client = None
         self._connect()
@@ -32,14 +32,16 @@ class RedisCacheService:
             logger.warning(f"[REDIS CACHE] Connexion échouée: {e}")
             self.redis_client = None
 
-    def _get_cache_key(self, query: str, page: int, page_size: int, filters: Optional[Dict] = None) -> str:
+    def _get_cache_key(
+        self, query: str, page: int, page_size: int, filters: Optional[Dict] = None
+    ) -> str:
         """Génère une clé de cache unique pour une requête."""
         # Créer un hash des paramètres pour la clé
         params = {
             "query": query,
             "page": page,
             "page_size": page_size,
-            "filters": filters or {}
+            "filters": filters or {},
         }
         params_str = json.dumps(params, sort_keys=True)
         params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
@@ -49,7 +51,9 @@ class RedisCacheService:
         """Clé de cache pour les facettes."""
         return "facets:latest"
 
-    def get_cached_search_result(self, query: str, page: int, page_size: int, filters: Optional[Dict] = None) -> Optional[Dict]:
+    def get_cached_search_result(
+        self, query: str, page: int, page_size: int, filters: Optional[Dict] = None
+    ) -> Optional[Dict]:
         """
         Récupère un résultat de recherche depuis le cache.
 
@@ -80,7 +84,15 @@ class RedisCacheService:
             logger.warning(f"[REDIS CACHE] Erreur récupération cache: {e}")
             return None
 
-    def cache_search_result(self, query: str, page: int, page_size: int, filters: Optional[Dict], result: Dict, ttl: int = 300) -> bool:
+    def cache_search_result(
+        self,
+        query: str,
+        page: int,
+        page_size: int,
+        filters: Optional[Dict],
+        result: Dict,
+        ttl: int = 300,
+    ) -> bool:
         """
         Met en cache un résultat de recherche.
 
@@ -179,7 +191,9 @@ class RedisCacheService:
             keys = self.redis_client.keys(pattern)
             if keys:
                 deleted_count = self.redis_client.delete(*keys)
-                logger.info(f"[REDIS CACHE] {deleted_count} clés supprimées (pattern: {pattern})")
+                logger.info(
+                    f"[REDIS CACHE] {deleted_count} clés supprimées (pattern: {pattern})"
+                )
                 return deleted_count
             return 0
 
@@ -228,7 +242,7 @@ class RedisCacheService:
                 "connected_clients": info.get("connected_clients", 0),
                 "search_cache_keys": search_keys,
                 "facets_cache_keys": facets_keys,
-                "total_cache_keys": search_keys + facets_keys
+                "total_cache_keys": search_keys + facets_keys,
             }
 
         except Exception as e:

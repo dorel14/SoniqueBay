@@ -10,8 +10,8 @@ from backend.api.graphql.types.covers_type import CoverType
 class ArtistType:
     id: int
     name: str
-    musicbrainz_artistid: str | None    
-    
+    musicbrainz_artistid: str | None
+
     @strawberry.field
     async def albums(self, info: strawberry.types.Info) -> list[AlbumType]:
         """Get all albums for this artist."""
@@ -20,7 +20,10 @@ class ArtistType:
     @strawberry.field
     async def covers(self, info: strawberry.types.Info) -> list[CoverType]:
         """Get all covers for this artist."""
-        return await info.context.loaders.covers_by_entity_id(self.id, entity_type='artist')
+        return await info.context.loaders.covers_by_entity_id(
+            self.id, entity_type="artist"
+        )
+
 
 @strawberry.input
 class ArtistCreateInput:

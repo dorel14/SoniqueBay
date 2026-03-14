@@ -21,12 +21,12 @@ class WebSocketManager:
             "chat": [],
             "playqueue": [],
             "system": [],
-            "progress": []
+            "progress": [],
         }
-        
+
         # Callbacks pour les événements
         self.message_handlers: Dict[str, List[Callable]] = {}
-        
+
         # Connexion WebSocket globale (pour compatibilité)
         self.global_connection: Optional[WebSocket] = None
         # Lock pour protéger les modifications de active_connections
@@ -35,13 +35,13 @@ class WebSocketManager:
     async def connect(self, websocket: WebSocket, channel: Optional[str] = None):
         """
         Établit une connexion WebSocket.
-        
+
         Args:
             websocket: Objet WebSocket
             channel: Canal spécifique (None pour connexion globale)
         """
         await websocket.accept()
-        
+
         async with self._lock:
             if channel:
                 if channel not in self.active_connections:
@@ -55,7 +55,7 @@ class WebSocketManager:
     async def disconnect(self, websocket: WebSocket, channel: Optional[str] = None):
         """
         Ferme une connexion WebSocket.
-        
+
         Args:
             websocket: Objet WebSocket à déconnecter
             channel: Canal spécifique (None pour connexion globale)
@@ -69,10 +69,12 @@ class WebSocketManager:
                 self.global_connection = None
                 logger.info("Connexion WebSocket globale déconnectée")
 
-    async def send_message(self, message: Any, channel: Optional[str] = None, global_send: bool = False):
+    async def send_message(
+        self, message: Any, channel: Optional[str] = None, global_send: bool = False
+    ):
         """
         Envoie un message à un canal spécifique ou à toutes les connexions.
-        
+
         Args:
             message: Message à envoyer (sera converti en JSON)
             channel: Canal spécifique (None pour envoyer à tous les canaux)
@@ -115,10 +117,12 @@ class WebSocketManager:
         if tasks:
             await asyncio.gather(*tasks)
 
-    async def broadcast(self, message: Any, exclude_channels: Optional[List[str]] = None):
+    async def broadcast(
+        self, message: Any, exclude_channels: Optional[List[str]] = None
+    ):
         """
         Diffuse un message à tous les canaux sauf ceux exclus.
-        
+
         Args:
             message: Message à diffuser
             exclude_channels: Liste des canaux à exclure
@@ -137,15 +141,19 @@ class WebSocketManager:
             for channel, connections in self.active_connections.items():
                 if channel not in exclude_channels:
                     for connection in list(connections):
+
                         async def _s(c=connection, ch=channel):
                             try:
                                 await c.send_text(message_str)
                             except Exception as e:
-                                logger.error(f"Erreur de broadcast sur le canal '{ch}': {e}")
+                                logger.error(
+                                    f"Erreur de broadcast sur le canal '{ch}': {e}"
+                                )
                                 try:
                                     await self.disconnect(c, ch)
                                 except Exception:
                                     pass
+
                         tasks.append(_s())
 
         if tasks:
@@ -154,7 +162,7 @@ class WebSocketManager:
     def register_message_handler(self, channel: str, handler: Callable):
         """
         Enregistre un gestionnaire de messages pour un canal spécifique.
-        
+
         Args:
             channel: Canal à surveiller
             handler: Fonction async qui prend (websocket, message) en paramètres
@@ -163,10 +171,12 @@ class WebSocketManager:
             self.message_handlers[channel] = []
         self.message_handlers[channel].append(handler)
 
-    async def handle_incoming_message(self, websocket: WebSocket, message: str, channel: Optional[str] = None):
+    async def handle_incoming_message(
+        self, websocket: WebSocket, message: str, channel: Optional[str] = None
+    ):
         """
         Traite un message entrant.
-        
+
         Args:
             websocket: Objet WebSocket
             message: Message reçu
@@ -176,12 +186,14 @@ class WebSocketManager:
             # Essayer d'analyser le message JSON
             try:
                 message_data = json.loads(message)
-                target_channel = message_data.get('channel', channel)
+                target_channel = message_data.get("channel", channel)
             except json.JSONDecodeError:
                 # Si le message n'est pas du JSON, on le traite comme texte brut
                 # et on le convertit en structure attendue par les handlers : {'message': <text>}
-                logger.debug(f"Message non-JSON reçu sur le canal '{channel}': {message}")
-                message_data = {'data': {'message': message}}
+                logger.debug(
+                    f"Message non-JSON reçu sur le canal '{channel}': {message}"
+                )
+                message_data = {"data": {"message": message}}
                 target_channel = channel
 
             # Logger le message reçu pour le débogage
@@ -191,14 +203,20 @@ class WebSocketManager:
             if target_channel and target_channel in self.message_handlers:
                 for handler in self.message_handlers[target_channel]:
                     try:
-                        await handler(websocket, message_data.get('data', {}))
-                        logger.info(f"Message traité avec succès par le gestionnaire du canal '{target_channel}'")
+                        await handler(websocket, message_data.get("data", {}))
+                        logger.info(
+                            f"Message traité avec succès par le gestionnaire du canal '{target_channel}'"
+                        )
                     except Exception as e:
-                        logger.error(f"Erreur dans le gestionnaire pour le canal '{target_channel}': {e}")
+                        logger.error(
+                            f"Erreur dans le gestionnaire pour le canal '{target_channel}': {e}"
+                        )
 
             # Si aucun gestionnaire trouvé, logger l'information
             if not target_channel or target_channel not in self.message_handlers:
-                logger.warning(f"Message reçu sur le canal '{target_channel}' sans gestionnaire: {message_data}")
+                logger.warning(
+                    f"Message reçu sur le canal '{target_channel}' sans gestionnaire: {message_data}"
+                )
 
         except Exception as e:
             logger.error(f"Erreur lors du traitement du message: {e}")
@@ -206,23 +224,23 @@ class WebSocketManager:
     def get_connection_count(self, channel: Optional[str] = None) -> int:
         """
         Retourne le nombre de connexions actives.
-        
+
         Args:
             channel: Canal spécifique (None pour toutes les connexions)
-        
+
         Returns:
             Nombre de connexions
         """
         if channel and channel in self.active_connections:
             return len(self.active_connections[channel])
-        
+
         count = 0
         for connections in self.active_connections.values():
             count += len(connections)
-        
+
         if self.global_connection:
             count += 1
-            
+
         return count
 
     async def close_all(self):
@@ -233,14 +251,18 @@ class WebSocketManager:
                     try:
                         await connection.close()
                     except Exception as e:
-                        logger.error(f"Erreur lors de la fermeture de la connexion sur le canal '{channel}': {e}")
+                        logger.error(
+                            f"Erreur lors de la fermeture de la connexion sur le canal '{channel}': {e}"
+                        )
                 self.active_connections[channel] = []
 
             if self.global_connection:
                 try:
                     await self.global_connection.close()
                 except Exception as e:
-                    logger.error(f"Erreur lors de la fermeture de la connexion globale: {e}")
+                    logger.error(
+                        f"Erreur lors de la fermeture de la connexion globale: {e}"
+                    )
                 self.global_connection = None
 
 

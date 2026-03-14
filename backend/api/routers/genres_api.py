@@ -15,22 +15,30 @@ async def search_genres(
     name: Optional[str] = Query(None, description="Nom du genre à rechercher"),
     skip: int = Query(0, ge=0),
     limit: Optional[int] = Query(None, ge=1, le=1000),
-    exact_match: Optional[bool] = Query(None, description="Recherche exacte (true) ou partielle (false)"),
-    db: AsyncSession = Depends(get_async_session)
+    exact_match: Optional[bool] = Query(
+        None, description="Recherche exacte (true) ou partielle (false)"
+    ),
+    db: AsyncSession = Depends(get_async_session),
 ):
     """Recherche des genres par nom."""
     service = GenreService(db)
     try:
-        genres = await service.search_genres(name, skip, limit, exact_match=exact_match or False)
+        genres = await service.search_genres(
+            name, skip, limit, exact_match=exact_match or False
+        )
         # Always return 200 with results (even if empty list)
         return [Genre.model_validate(genre) for genre in genres]
     except Exception as e:
         logger.error(f"Erreur lors de la recherche de genres: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la recherche: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erreur lors de la recherche: {str(e)}"
+        )
 
 
 @router.post("/", response_model=Genre, status_code=status.HTTP_201_CREATED)
-async def create_genre(genre: GenreCreate, db: AsyncSession = Depends(get_async_session)):
+async def create_genre(
+    genre: GenreCreate, db: AsyncSession = Depends(get_async_session)
+):
     """Crée un nouveau genre."""
     service = GenreService(db)
     try:
@@ -38,11 +46,15 @@ async def create_genre(genre: GenreCreate, db: AsyncSession = Depends(get_async_
         return Genre.model_validate(created_genre)
     except Exception as e:
         logger.error(f"Erreur lors de la création du genre: {e}")
-        raise HTTPException(status_code=400, detail=f"Erreur lors de la création: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Erreur lors de la création: {str(e)}"
+        )
 
 
 @router.get("/", response_model=List[Genre])
-async def read_genres(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)):
+async def read_genres(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)
+):
     """Récupère la liste des genres."""
     service = GenreService(db)
     try:
@@ -50,7 +62,9 @@ async def read_genres(skip: int = 0, limit: int = 100, db: AsyncSession = Depend
         return [Genre.model_validate(genre) for genre in genres]
     except Exception as e:
         logger.error(f"Erreur lors de la récupération des genres: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erreur lors de la récupération: {str(e)}"
+        )
 
 
 @router.get("/{genre_id}", response_model=GenreWithRelations)
@@ -66,11 +80,15 @@ async def read_genre(genre_id: int, db: AsyncSession = Depends(get_async_session
         raise
     except Exception as e:
         logger.error(f"Erreur lors de la récupération du genre {genre_id}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Erreur lors de la récupération: {str(e)}"
+        )
 
 
 @router.put("/{genre_id}", response_model=Genre)
-async def update_genre(genre_id: int, genre: GenreCreate, db: AsyncSession = Depends(get_async_session)):
+async def update_genre(
+    genre_id: int, genre: GenreCreate, db: AsyncSession = Depends(get_async_session)
+):
     """Met à jour un genre existant."""
     service = GenreService(db)
     try:
@@ -82,7 +100,9 @@ async def update_genre(genre_id: int, genre: GenreCreate, db: AsyncSession = Dep
         raise
     except Exception as e:
         logger.error(f"Erreur lors de la mise à jour du genre {genre_id}: {e}")
-        raise HTTPException(status_code=400, detail=f"Erreur lors de la mise à jour: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Erreur lors de la mise à jour: {str(e)}"
+        )
 
 
 @router.delete("/{genre_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -98,4 +118,6 @@ async def delete_genre(genre_id: int, db: AsyncSession = Depends(get_async_sessi
         raise
     except Exception as e:
         logger.error(f"Erreur lors de la suppression du genre {genre_id}: {e}")
-        raise HTTPException(status_code=400, detail=f"Erreur lors de la suppression: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Erreur lors de la suppression: {str(e)}"
+        )

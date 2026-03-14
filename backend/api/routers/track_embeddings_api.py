@@ -103,7 +103,9 @@ class SimilaritySearchByTrackRequest(BaseModel):
 )
 async def get_track_embeddings(
     track_id: int,
-    embedding_type: Optional[str] = Query(None, description="Filtrer par type d'embedding"),
+    embedding_type: Optional[str] = Query(
+        None, description="Filtrer par type d'embedding"
+    ),
     db: AsyncSession = Depends(get_async_session),
 ) -> List[TrackEmbeddings]:
     """
@@ -166,7 +168,9 @@ async def get_track_embedding_by_type(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur récupération embedding pour track {track_id}, type {embedding_type}: {e}")
+        logger.error(
+            f"Erreur récupération embedding pour track {track_id}, type {embedding_type}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération de l'embedding: {str(e)}",
@@ -266,7 +270,10 @@ async def update_track_embedding(
             )
 
         # Vérifier que le type correspond si fourni
-        if embedding.embedding_type is not None and embedding.embedding_type != embedding_type:
+        if (
+            embedding.embedding_type is not None
+            and embedding.embedding_type != embedding_type
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Le type d'embedding dans l'URL ({embedding_type}) ne correspond pas à celui dans le body ({embedding.embedding_type})",
@@ -293,7 +300,9 @@ async def update_track_embedding(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur mise à jour embedding pour track {track_id}, type {embedding_type}: {e}")
+        logger.error(
+            f"Erreur mise à jour embedding pour track {track_id}, type {embedding_type}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la mise à jour de l'embedding: {str(e)}",
@@ -333,7 +342,9 @@ async def delete_track_embedding(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur suppression embedding pour track {track_id}, type {embedding_type}: {e}")
+        logger.error(
+            f"Erreur suppression embedding pour track {track_id}, type {embedding_type}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la suppression de l'embedding: {str(e)}",

@@ -77,7 +77,9 @@ async def get_track_audio_features(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur récupération caractéristiques audio pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur récupération caractéristiques audio pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération des caractéristiques audio: {str(e)}",
@@ -148,7 +150,9 @@ async def create_track_audio_features(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur création caractéristiques audio pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur création caractéristiques audio pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la création des caractéristiques audio: {str(e)}",
@@ -215,7 +219,9 @@ async def update_track_audio_features(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur mise à jour caractéristiques audio pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur mise à jour caractéristiques audio pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la mise à jour des caractéristiques audio: {str(e)}",
@@ -253,7 +259,9 @@ async def delete_track_audio_features(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur suppression caractéristiques audio pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur suppression caractéristiques audio pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la suppression des caractéristiques audio: {str(e)}",
@@ -272,10 +280,18 @@ async def search_audio_features(
     key: Optional[str] = Query(None, description="Tonalité (C, C#, D, etc.)"),
     scale: Optional[str] = Query(None, description="Mode (major/minor)"),
     camelot_key: Optional[str] = Query(None, description="Clé Camelot (ex: 8A, 12B)"),
-    happy_min: Optional[float] = Query(None, ge=0, le=1, description="Score minimum mood happy"),
-    relaxed_min: Optional[float] = Query(None, ge=0, le=1, description="Score minimum mood relaxed"),
-    party_min: Optional[float] = Query(None, ge=0, le=1, description="Score minimum mood party"),
-    aggressive_max: Optional[float] = Query(None, ge=0, le=1, description="Score maximum mood aggressive"),
+    happy_min: Optional[float] = Query(
+        None, ge=0, le=1, description="Score minimum mood happy"
+    ),
+    relaxed_min: Optional[float] = Query(
+        None, ge=0, le=1, description="Score minimum mood relaxed"
+    ),
+    party_min: Optional[float] = Query(
+        None, ge=0, le=1, description="Score minimum mood party"
+    ),
+    aggressive_max: Optional[float] = Query(
+        None, ge=0, le=1, description="Score maximum mood aggressive"
+    ),
     skip: int = Query(0, ge=0, description="Nombre de résultats à ignorer"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre maximum de résultats"),
     db: AsyncSession = Depends(get_async_session),
@@ -306,18 +322,24 @@ async def search_audio_features(
 
         # Recherche par plage de BPM si spécifiée
         if min_bpm is not None and max_bpm is not None:
-            bpm_results = await service.search_by_bpm_range(min_bpm, max_bpm, skip, limit)
+            bpm_results = await service.search_by_bpm_range(
+                min_bpm, max_bpm, skip, limit
+            )
             results.extend(bpm_results)
         # Recherche par clé Camelot
         elif camelot_key is not None:
-            camelot_results = await service.search_by_camelot_key(camelot_key, skip, limit)
+            camelot_results = await service.search_by_camelot_key(
+                camelot_key, skip, limit
+            )
             results.extend(camelot_results)
         # Recherche par tonalité
         elif key is not None:
             key_results = await service.search_by_key(key, scale, skip, limit)
             results.extend(key_results)
         # Recherche par mood
-        elif any(x is not None for x in [happy_min, relaxed_min, party_min, aggressive_max]):
+        elif any(
+            x is not None for x in [happy_min, relaxed_min, party_min, aggressive_max]
+        ):
             mood_results = await service.search_by_mood(
                 happy_min=happy_min,
                 relaxed_min=relaxed_min,
@@ -383,8 +405,12 @@ async def get_audio_features_statistics(
 )
 async def get_similar_tracks_by_features(
     track_id: int,
-    bpm_tolerance: float = Query(5.0, ge=0.5, le=20.0, description="Tolérance de BPM (±)"),
-    use_compatible_keys: bool = Query(True, description="Utiliser les tonalités harmoniquement compatibles"),
+    bpm_tolerance: float = Query(
+        5.0, ge=0.5, le=20.0, description="Tolérance de BPM (±)"
+    ),
+    use_compatible_keys: bool = Query(
+        True, description="Utiliser les tonalités harmoniquement compatibles"
+    ),
     limit: int = Query(20, ge=1, le=100, description="Nombre maximum de résultats"),
     db: AsyncSession = Depends(get_async_session),
 ) -> List[TrackAudioFeaturesCompact]:

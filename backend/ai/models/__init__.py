@@ -8,6 +8,7 @@ Exports :
     KoboldNativeModel : Modèle natif KoboldCPP (API /api/v1/generate)
     KoboldStreamedResponse : Réponse streamée SSE native KoboldCPP
 """
+
 from backend.ai.models.kobold_model import KoboldNativeModel, KoboldStreamedResponse
 
 __all__ = [

@@ -26,6 +26,7 @@ from backend.ai.utils.registry import ToolRegistry
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
+
 @router.post("/", response_model=AgentOut)
 async def api_create_agent(payload: AgentCreate):
     existing = await get_agent_by_name(payload.name)
@@ -34,10 +35,12 @@ async def api_create_agent(payload: AgentCreate):
     obj = await create_agent(payload)
     return AgentOut.from_orm(obj)
 
+
 @router.get("/", response_model=List[AgentOut])
 async def api_list_agents():
     rows = await list_agents()
     return [AgentOut.from_orm(r) for r in rows]
+
 
 @router.get("/{name}", response_model=AgentOut)
 async def api_get_agent(name: str):
@@ -46,12 +49,14 @@ async def api_get_agent(name: str):
         raise HTTPException(404, "Not found")
     return AgentOut.from_orm(obj)
 
+
 @router.put("/{name}", response_model=AgentOut)
 async def api_update_agent(name: str, payload: AgentUpdate):
     obj = await update_agent(name, payload)
     if not obj:
         raise HTTPException(404, "Not found")
     return AgentOut.from_orm(obj)
+
 
 @router.delete("/{name}")
 async def api_delete_agent(name: str):
@@ -60,6 +65,7 @@ async def api_delete_agent(name: str):
         raise HTTPException(404, "Not found")
     return {"status": "deleted"}
 
+
 @router.get("/ai/tools")
 def list_tools():
     return [
@@ -67,7 +73,7 @@ def list_tools():
             "name": t.name,
             "description": t.description,
             "expose": t.expose,
-            "signature": str(t.signature)
+            "signature": str(t.signature),
         }
         for t in ToolRegistry.values()
     ]
@@ -101,7 +107,9 @@ async def api_list_agent_scores(
 ):
     """Liste les scores d'agents avec pagination."""
     scores, total = await list_agent_scores(agent_name, intent, limit, offset)
-    return AgentScoreListResponse(count=total, results=[AgentScore.from_orm(s) for s in scores])
+    return AgentScoreListResponse(
+        count=total, results=[AgentScore.from_orm(s) for s in scores]
+    )
 
 
 @router.put("/scores/{agent_name}/{intent}", response_model=AgentScore)
@@ -143,5 +151,7 @@ async def api_get_agent_scores_with_metrics(
     offset: int = Query(0, ge=0, description="Décalage pour pagination"),
 ):
     """Récupère les scores avec métriques calculées (taux de succès, etc.)."""
-    scores, total = await get_agent_scores_with_metrics(agent_name, intent, limit, offset)
+    scores, total = await get_agent_scores_with_metrics(
+        agent_name, intent, limit, offset
+    )
     return AgentScoreListResponse(count=total, results=scores)

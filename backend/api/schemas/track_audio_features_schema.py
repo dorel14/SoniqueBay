@@ -77,9 +77,7 @@ class TrackAudioFeaturesBase(BaseModel):
     acoustic: Optional[float] = Field(
         None, ge=0, le=1, description="Score acoustique (0-1)"
     )
-    tonal: Optional[float] = Field(
-        None, ge=0, le=1, description="Score tonal (0-1)"
-    )
+    tonal: Optional[float] = Field(None, ge=0, le=1, description="Score tonal (0-1)")
 
     # Classification et métadonnées d'analyse
     genre_main: Optional[str] = Field(
@@ -93,9 +91,7 @@ class TrackAudioFeaturesBase(BaseModel):
     analysis_source: Optional[str] = Field(
         None, max_length=50, description="Source d'analyse: librosa, acoustid, tags"
     )
-    analyzed_at: Optional[datetime] = Field(
-        None, description="Date de l'analyse audio"
-    )
+    analyzed_at: Optional[datetime] = Field(None, description="Date de l'analyse audio")
 
 
 class TrackAudioFeaturesCreate(TrackAudioFeaturesBase):
@@ -105,6 +101,7 @@ class TrackAudioFeaturesCreate(TrackAudioFeaturesBase):
     Hérite de TrackAudioFeaturesBase sans modification.
     Le track_id est obligatoire.
     """
+
     pass
 
 
@@ -115,9 +112,7 @@ class TrackAudioFeaturesUpdate(BaseModel):
     Tous les champs sont optionnels pour permettre les mises à jour partielles.
     """
 
-    track_id: Optional[int] = Field(
-        None, description="ID de la piste associée"
-    )
+    track_id: Optional[int] = Field(None, description="ID de la piste associée")
 
     # Caractéristiques audio
     bpm: Optional[float] = Field(None, ge=0, le=300)
@@ -157,7 +152,7 @@ class TrackAudioFeatures(TrackAudioFeaturesBase, TimestampedSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator('analyzed_at', mode='before')
+    @field_validator("analyzed_at", mode="before")
     @classmethod
     def convert_analyzed_at(cls, value):
         """Convertit les chaînes ISO en datetime si nécessaire."""
@@ -167,7 +162,7 @@ class TrackAudioFeatures(TrackAudioFeaturesBase, TimestampedSchema):
             return value
         if isinstance(value, str):
             try:
-                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
                 return None
         return None

@@ -27,7 +27,9 @@ class AlbumMutations:
         album = await service.create_album(
             title=data.title,
             artist_id=data.album_artist_id,
-            release_year=int(data.release_year) if data.release_year is not None else None,
+            release_year=(
+                int(data.release_year) if data.release_year is not None else None
+            ),
         )
 
         return AlbumType(
@@ -39,7 +41,9 @@ class AlbumMutations:
         )
 
     @strawberry.mutation
-    async def create_albums(self, data: List[AlbumCreateInput], info: Info) -> List[AlbumType]:
+    async def create_albums(
+        self, data: List[AlbumCreateInput], info: Info
+    ) -> List[AlbumType]:
         """Create multiple albums in batch."""
         from backend.api.schemas.albums_schema import AlbumCreate
         from backend.api.services.album_service import AlbumService
@@ -81,7 +85,9 @@ class AlbumMutations:
         album = await service.update_album(
             album_id=data.id,
             title=data.title,
-            release_year=int(data.release_year) if data.release_year is not None else None,
+            release_year=(
+                int(data.release_year) if data.release_year is not None else None
+            ),
         )
         if not album:
             raise ValueError(f"Album with id {data.id} not found")
@@ -105,7 +111,9 @@ class AlbumMutations:
         album = await service.get_or_create_album(
             title=data.title,
             artist_id=data.album_artist_id,
-            release_year=int(data.release_year) if data.release_year is not None else None,
+            release_year=(
+                int(data.release_year) if data.release_year is not None else None
+            ),
         )
 
         return AlbumType(
@@ -117,7 +125,9 @@ class AlbumMutations:
         )
 
     @strawberry.mutation
-    async def update_albums(self, filter: str, data: str, info: Info) -> List[AlbumType]:
+    async def update_albums(
+        self, filter: str, data: str, info: Info
+    ) -> List[AlbumType]:
         """Update multiple albums by title filter."""
         from backend.api.services.album_service import AlbumService
 

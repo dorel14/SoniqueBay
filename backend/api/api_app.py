@@ -26,8 +26,9 @@ from backend.api.utils.redis_cache_backend import ResilientRedisBackend
 
 # Importer les routes avant toute autre initialisation
 from backend.api import api_router  # noqa: E402
-from backend.api.graphql.queries.schema import schema # noqa: E402
+from backend.api.graphql.queries.schema import schema  # noqa: E402
 from backend.api.graphql.dataloader.dataloaders import CatalogLoaders
+
 
 @dataclass
 class AppContext(BaseContext):
@@ -46,21 +47,22 @@ class AppContext(BaseContext):
         """Alias for session to maintain compatibility."""
         return self.session
 
+
 async def get_context():
     """Context passed to all GraphQL functions. Give database access"""
     # Use async with to properly manage the async generator lifecycle
     async with asynccontextmanager(get_async_session)() as session:
         lock = asyncio.Lock()
         loaders = CatalogLoaders(session)
-        yield AppContext(settings=settings, _session=session, loaders=loaders, lock=lock)
+        yield AppContext(
+            settings=settings, _session=session, loaders=loaders, lock=lock
+        )
         # Session will be properly closed by the context manager
 
+
 # Créer le router GraphQL standard (cache géré par FastAPICache)
-graphql_app = GraphQLRouter(
-    schema,
-    graphql_ide="graphiql",
-    context_getter=get_context
-)
+graphql_app = GraphQLRouter(schema, graphql_ide="graphiql", context_getter=get_context)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -91,12 +93,12 @@ async def lifespan(app: FastAPI):
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
         redis_client = redis.from_url(redis_url)
         resilient_backend = ResilientRedisBackend(
-            redis=redis_client,
-            max_retries=3,
-            retry_delay=1.0
+            redis=redis_client, max_retries=3, retry_delay=1.0
         )
         FastAPICache.init(resilient_backend, prefix="fastapi-cache")
-        logger.info(f"Cache Redis résilient initialisé avec URL: {redis_url} (max_retries=3, retry_delay=1.0s)")
+        logger.info(
+            f"Cache Redis résilient initialisé avec URL: {redis_url} (max_retries=3, retry_delay=1.0s)"
+        )
     else:
         logger.info("Mode test/drapeau actif: initialisation Redis cache ignorée.")
 
@@ -107,9 +109,15 @@ async def lifespan(app: FastAPI):
             # Créer un objet Config vide
             alembic_cfg = Config()
             # Configurer les chemins pour l'environnement local
-            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            alembic_cfg.set_main_option("script_location", os.path.join(project_root, "alembic"))
-            alembic_cfg.set_main_option("config_file", os.path.join(project_root, "alembic.ini"))
+            project_root = os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+            alembic_cfg.set_main_option(
+                "script_location", os.path.join(project_root, "alembic")
+            )
+            alembic_cfg.set_main_option(
+                "config_file", os.path.join(project_root, "alembic.ini")
+            )
 
             try:
                 # Exécuter la commande upgrade
@@ -122,12 +130,18 @@ async def lifespan(app: FastAPI):
                 # varier entre les versions.
                 msg = str(migration_error)
                 if "Multiple head revisions" in msg or "Multiple heads" in msg:
-                    logger.warning("Têtes multiples détectées, tentative d'upgrade sur 'heads'...")
+                    logger.warning(
+                        "Têtes multiples détectées, tentative d'upgrade sur 'heads'..."
+                    )
                     try:
                         command.upgrade(alembic_cfg, "heads")
-                        logger.info("Migrations Alembic appliquées avec succès sur 'heads'.")
+                        logger.info(
+                            "Migrations Alembic appliquées avec succès sur 'heads'."
+                        )
                     except Exception as e:
-                        logger.error(f"Nouvelle erreur pendant l'upgrade des heads: {e}")
+                        logger.error(
+                            f"Nouvelle erreur pendant l'upgrade des heads: {e}"
+                        )
                         raise RuntimeError(f"Échec des migrations (heads): {e}")
                 else:
                     logger.error(f"Erreur pendant l'exécution des migrations: {msg}")
@@ -135,7 +149,9 @@ async def lifespan(app: FastAPI):
 
         except Exception as config_error:
             logger.error(f"Erreur de configuration Alembic: {str(config_error)}")
-            raise RuntimeError(f"Échec de la configuration Alembic: {str(config_error)}")
+            raise RuntimeError(
+                f"Échec de la configuration Alembic: {str(config_error)}"
+            )
     else:
         logger.info("Mode test/drapeau actif: migrations Alembic ignorées.")
 
@@ -154,21 +170,28 @@ async def lifespan(app: FastAPI):
     # Log des routes enregistrées
     for route in app.routes:
         if hasattr(route, "methods"):
-            logger.info(f"Route enregistrée: {route.path} [{route.methods}] - Handler: {route.endpoint}")
+            logger.info(
+                f"Route enregistrée: {route.path} [{route.methods}] - Handler: {route.endpoint}"
+            )
         else:
-            logger.info(f"WebSocket route enregistrée: {route.path} - Handler: {route.endpoint}")
+            logger.info(
+                f"WebSocket route enregistrée: {route.path} - Handler: {route.endpoint}"
+            )
     yield
     # Code de nettoyage (shutdown) si nécessaire
     pass
 
+
 # Créer l'application FastAPI
-app = FastAPI(title="SoniqueBay API Unifiée",
-            redirect_slashes=False,
-            version="1.0.0",
-            docs_url="/api/docs",
-            openapi_url="/api/openapi.json",
-            lifespan=lifespan,
-            reload=True)
+app = FastAPI(
+    title="SoniqueBay API Unifiée",
+    redirect_slashes=False,
+    version="1.0.0",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    lifespan=lifespan,
+    reload=True,
+)
 
 # Configuration CORS avec allow_all_origins pour permettre les connexions WebSocket sans Origin
 app.add_middleware(
@@ -178,6 +201,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -190,11 +214,14 @@ async def log_requests(request: Request, call_next):
 
     # Log des réponses pour déboguer les erreurs 307
     if response.status_code == 307:
-        logger.warning(f"⚠️ REDIRECT 307: {request.url} -> {response.headers.get('location')}")
+        logger.warning(
+            f"⚠️ REDIRECT 307: {request.url} -> {response.headers.get('location')}"
+        )
     elif response.status_code >= 400:
         logger.error(f"❌ ERROR {response.status_code}: {request.url}")
 
     return response
+
 
 @app.middleware("http")
 async def handle_trailing_slashes(request: Request, call_next):
@@ -205,9 +232,11 @@ async def handle_trailing_slashes(request: Request, call_next):
     logger.debug(f"[MIDDLEWARE] Requête entrante: {request.method} {request.url.path}")
 
     # Vérifier si l'URL commence par /api et ne se termine pas par un slash
-    if (request.url.path.startswith("/api/") and
-        not request.url.path.endswith("/") and
-        not request.url.path.endswith("/api")):
+    if (
+        request.url.path.startswith("/api/")
+        and not request.url.path.endswith("/")
+        and not request.url.path.endswith("/api")
+    ):
 
         logger.debug(f"[MIDDLEWARE] URL sans slash détectée: {request.url.path}")
 
@@ -216,45 +245,59 @@ async def handle_trailing_slashes(request: Request, call_next):
 
         # Vérifier si la route existe avec slash final
         from backend.api import api_router
+
         for route in api_router.routes:
-            if hasattr(route, 'path'):
+            if hasattr(route, "path"):
                 # Comparer les chemins en tenant compte du préfixe /api
                 # route.path est relatif (ex: /artists/), request.url.path est absolu (ex: /api/artists)
                 # On doit comparer route.path (sans slash final) avec request.url.path sans le préfixe /api
-                route_path_no_slash = route.path.rstrip('/')
+                route_path_no_slash = route.path.rstrip("/")
                 request_path_no_api = request.url.path.replace("/api", "")
-                logger.debug(f"[MIDDLEWARE] Comparaison: route.path='{route.path}' -> '{route_path_no_slash}', request='{request_path_no_api}'")
+                logger.debug(
+                    f"[MIDDLEWARE] Comparaison: route.path='{route.path}' -> '{route_path_no_slash}', request='{request_path_no_api}'"
+                )
 
                 if route_path_no_slash == request_path_no_api:
                     logger.debug(f"[MIDDLEWARE] Route trouvée: {route.path}")
-                    
+
                     # Vérifier si la route accepte les paramètres de requête
                     # Si la route a des paramètres, ne pas rediriger
-                    if hasattr(route, 'app') and hasattr(route.app, 'dependency_overrides'):
+                    if hasattr(route, "app") and hasattr(
+                        route.app, "dependency_overrides"
+                    ):
                         # Route avec dépendances (a des paramètres)
                         # Ne pas rediriger pour éviter de perdre les paramètres
-                        logger.debug("[MIDDLEWARE] Route avec dépendances détectée, pas de redirection")
+                        logger.debug(
+                            "[MIDDLEWARE] Route avec dépendances détectée, pas de redirection"
+                        )
                         pass
                     else:
                         # CORRECTION : Ne rediriger que si la route définie a un slash final
-                        if route.path.endswith('/'):
-                            logger.warning(f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}")
+                        if route.path.endswith("/"):
+                            logger.warning(
+                                f"[MIDDLEWARE] ⚠️ REDIRECTION 307: {request.url.path} -> {new_url}"
+                            )
                             from fastapi.responses import RedirectResponse
+
                             return RedirectResponse(url=new_url, status_code=307)
                         else:
                             # La route existe sans slash, et on est sans slash. Pas de redirection.
-                            logger.debug("[MIDDLEWARE] Route sans slash final détectée, pas de redirection")
+                            logger.debug(
+                                "[MIDDLEWARE] Route sans slash final détectée, pas de redirection"
+                            )
                             pass
 
     return await call_next(request)
+
 
 # Inclure le router AVANT de créer le service
 app.include_router(api_router, prefix="/api")
 app.include_router(graphql_app, prefix="/api/graphql", tags=["GraphQL"])
 
-@app.get('/api/healthcheck', status_code=status.HTTP_200_OK, tags=["health"])
+
+@app.get("/api/healthcheck", status_code=status.HTTP_200_OK, tags=["health"])
 def perform_healthcheck():
-    '''
+    """
     Simple route for the GitHub Actions to healthcheck on.
     More info is available at:
     https://github.com/akhileshns/heroku-deploy#health-check
@@ -267,7 +310,7 @@ def perform_healthcheck():
     {
         'healtcheck': 'Everything OK!'
     }
-    '''
+    """
     return {"status": "healthy"}
 
 
@@ -277,6 +320,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content=jsonable_encoder({"detail": exc.errors(), "body": exc.body}),
     )
+
 
 def create_api():
     """

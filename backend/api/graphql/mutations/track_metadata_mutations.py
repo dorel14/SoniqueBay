@@ -241,9 +241,7 @@ class TrackMetadataMutation:
             return result
 
     @strawberry.mutation
-    async def delete_track_metadata_by_id(
-        self, metadata_id: int
-    ) -> bool:
+    async def delete_track_metadata_by_id(self, metadata_id: int) -> bool:
         """
         Supprime une métadonnée par son ID.
 

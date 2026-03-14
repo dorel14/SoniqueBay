@@ -30,11 +30,13 @@ class SynonymRequest(BaseModel):
     synonyms: dict = Field(
         ...,
         description="Structure JSONB contenant les synonyms",
-        example={
-            "search_terms": ["rock", "hard rock"],
-            "related_tags": ["energetic", "guitar"],
-            "usage_context": ["party", "workout"],
-            "translations": {"en": ["rock"], "fr": ["rock"]},
+        json_schema_extra={
+            "example": {
+                "search_terms": ["rock", "hard rock"],
+                "related_tags": ["energetic", "guitar"],
+                "usage_context": ["party", "workout"],
+                "translations": {"en": ["rock"], "fr": ["rock"]},
+            }
         },
     )
     confidence: float = Field(
@@ -49,9 +51,13 @@ class SynonymResponse(BaseModel):
     tag_type: str = Field(..., description="Type de tag")
     tag_value: str = Field(..., description="Valeur du tag")
     synonyms: dict = Field(..., description="Structure JSONB des synonyms")
-    search_terms: list[str] = Field(default_factory=list, description="Termes de recherche")
+    search_terms: list[str] = Field(
+        default_factory=list, description="Termes de recherche"
+    )
     related_tags: list[str] = Field(default_factory=list, description="Tags liés")
-    usage_contexts: list[str] = Field(default_factory=list, description="Contextes d'usage")
+    usage_contexts: list[str] = Field(
+        default_factory=list, description="Contextes d'usage"
+    )
     translations: dict = Field(default_factory=dict, description="Traductions")
     source: str = Field(default="ollama", description="Source de génération")
     confidence: float = Field(..., description="Score de confiance")

@@ -2,26 +2,50 @@
 import pytest
 from fastapi.testclient import TestClient
 from backend.api.api_app import create_api
+from backend.api.utils.database import get_db, get_session, get_async_session
 
 
-@pytest.fixture(scope="module")
-def client():
-    """Client de test pour l'API."""
+@pytest.fixture
+def client(db_session):
+    """Client de test pour l'API agents avec DB de test."""
     app = create_api()
-    with TestClient(app) as c:
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    def override_get_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    async def override_get_async_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_async_session] = override_get_async_session
+
+    with TestClient(app, base_url="http://test") as c:
         yield c
 
 
-def test_create_agent(client: TestClient):
+
+def test_create_agent(client: TestClient, db_session):
     """Tester la création d'un agent."""
     payload = {
         "name": "test_agent_create",
         "model": "gpt-4",
-        "system_prompt": "You are a helpful assistant",
+        "role": "assistant",
+        "task": "help users",
         "rules": "Follow instructions",
         "tools": [],
-        "ui_blocks": [],
-        "response_schema": None,
         "enabled": True,
     }
     
@@ -33,16 +57,15 @@ def test_create_agent(client: TestClient):
     assert "id" in data
 
 
-def test_create_agent_duplicate(client: TestClient):
+def test_create_agent_duplicate(client: TestClient, db_session):
     """Tester la création d'un agent en double."""
     payload = {
         "name": "test_agent_duplicate",
         "model": "gpt-4",
-        "system_prompt": "You are a helpful assistant",
+        "role": "assistant",
+        "task": "help users",
         "rules": "Follow instructions",
         "tools": [],
-        "ui_blocks": [],
-        "response_schema": None,
         "enabled": True,
     }
     
@@ -55,7 +78,9 @@ def test_create_agent_duplicate(client: TestClient):
     assert "exists" in response.json()["detail"].lower()
 
 
-def test_list_agents(client: TestClient):
+
+
+def test_list_agents(client: TestClient, db_session):
     """Tester la liste des agents."""
     response = client.get("/api/agents/")
     assert response.status_code == 200
@@ -65,17 +90,16 @@ def test_list_agents(client: TestClient):
     assert len(data) >= 2
 
 
-def test_get_agent(client: TestClient):
+def test_get_agent(client: TestClient, db_session):
     """Tester la récupération d'un agent."""
     # Créer un agent d'abord
     payload = {
         "name": "test_agent_get",
         "model": "gpt-4",
-        "system_prompt": "You are a helpful assistant",
+        "role": "assistant",
+        "task": "help users",
         "rules": "Follow instructions",
         "tools": [],
-        "ui_blocks": [],
-        "response_schema": None,
         "enabled": True,
     }
     client.post("/api/agents/", json=payload)
@@ -100,11 +124,10 @@ def test_update_agent(client: TestClient):
     payload = {
         "name": "test_agent_update",
         "model": "gpt-4",
-        "system_prompt": "You are a helpful assistant",
+        "role": "assistant",
+        "task": "help users",
         "rules": "Follow instructions",
         "tools": [],
-        "ui_blocks": [],
-        "response_schema": None,
         "enabled": True,
     }
     client.post("/api/agents/", json=payload)
@@ -112,14 +135,14 @@ def test_update_agent(client: TestClient):
     # Mettre à jour l'agent
     update_payload = {
         "model": "gpt-4.5",
-        "system_prompt": "You are a very helpful assistant",
+        "task": "be a very helpful assistant",
         "enabled": False,
     }
     response = client.put("/api/agents/test_agent_update", json=update_payload)
     assert response.status_code == 200
     data = response.json()
     assert data["model"] == "gpt-4.5"
-    assert data["system_prompt"] == "You are a very helpful assistant"
+    assert data["task"] == "be a very helpful assistant"
     assert data["enabled"] is False
 
 
@@ -127,7 +150,7 @@ def test_update_agent_not_found(client: TestClient):
     """Tester la mise à jour d'un agent inexistant."""
     update_payload = {
         "model": "gpt-4.5",
-        "system_prompt": "You are a very helpful assistant",
+        "task": "be a very helpful assistant",
     }
     response = client.put("/api/agents/nonexistent_agent", json=update_payload)
     assert response.status_code == 404
@@ -139,11 +162,10 @@ def test_delete_agent(client: TestClient):
     payload = {
         "name": "test_agent_delete",
         "model": "gpt-4",
-        "system_prompt": "You are a helpful assistant",
+        "role": "assistant",
+        "task": "help users",
         "rules": "Follow instructions",
         "tools": [],
-        "ui_blocks": [],
-        "response_schema": None,
         "enabled": True,
     }
     client.post("/api/agents/", json=payload)

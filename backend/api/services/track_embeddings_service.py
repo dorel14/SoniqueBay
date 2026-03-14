@@ -69,9 +69,7 @@ class TrackEmbeddingsService:
         return result.scalars().first()
 
     async def get_by_track_id(
-        self,
-        track_id: int,
-        embedding_type: Optional[str] = None
+        self, track_id: int, embedding_type: Optional[str] = None
     ) -> List[TrackEmbeddings]:
         """
         Récupère les embeddings d'une piste.
@@ -83,22 +81,16 @@ class TrackEmbeddingsService:
         Returns:
             Liste des embeddings de la piste
         """
-        query = select(TrackEmbeddings).where(
-            TrackEmbeddings.track_id == track_id
-        )
+        query = select(TrackEmbeddings).where(TrackEmbeddings.track_id == track_id)
 
         if embedding_type:
-            query = query.where(
-                TrackEmbeddings.embedding_type == embedding_type
-            )
+            query = query.where(TrackEmbeddings.embedding_type == embedding_type)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
     async def get_by_track_ids(
-        self,
-        track_ids: List[int],
-        embedding_type: Optional[str] = None
+        self, track_ids: List[int], embedding_type: Optional[str] = None
     ) -> List[TrackEmbeddings]:
         """
         Récupère les embeddings pour plusieurs pistes.
@@ -113,22 +105,16 @@ class TrackEmbeddingsService:
         if not track_ids:
             return []
 
-        query = select(TrackEmbeddings).where(
-            TrackEmbeddings.track_id.in_(track_ids)
-        )
+        query = select(TrackEmbeddings).where(TrackEmbeddings.track_id.in_(track_ids))
 
         if embedding_type:
-            query = query.where(
-                TrackEmbeddings.embedding_type == embedding_type
-            )
+            query = query.where(TrackEmbeddings.embedding_type == embedding_type)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
     async def get_single_by_track_id(
-        self,
-        track_id: int,
-        embedding_type: str = 'semantic'
+        self, track_id: int, embedding_type: str = "semantic"
     ) -> Optional[TrackEmbeddings]:
         """
         Récupère un embedding unique d'une piste par type.
@@ -141,11 +127,10 @@ class TrackEmbeddingsService:
             L'embedding ou None si non trouvé
         """
         result = await self.session.execute(
-            select(TrackEmbeddings)
-            .where(
+            select(TrackEmbeddings).where(
                 and_(
                     TrackEmbeddings.track_id == track_id,
-                    TrackEmbeddings.embedding_type == embedding_type
+                    TrackEmbeddings.embedding_type == embedding_type,
                 )
             )
         )
@@ -155,7 +140,7 @@ class TrackEmbeddingsService:
         self,
         track_id: int,
         vector: List[float],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
     ) -> TrackEmbeddings:
@@ -190,24 +175,22 @@ class TrackEmbeddingsService:
 
         try:
             self.session.add(embedding)
-            await self.session.commit()
-            await self.session.refresh(embedding)
+            await self._commit()
+            await self._refresh(embedding)
             logger.info(
                 f"[EMBEDDINGS] Créé pour track_id={track_id}, type={embedding_type}"
             )
             return embedding
         except IntegrityError as e:
-            await self.session.rollback()
-            logger.error(
-                f"[EMBEDDINGS] Erreur création pour track_id={track_id}: {e}"
-            )
+            await self._rollback()
+            logger.error(f"[EMBEDDINGS] Erreur création pour track_id={track_id}: {e}")
             raise
 
     async def create_or_update(
         self,
         track_id: int,
         vector: List[float],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
     ) -> TrackEmbeddings:
@@ -288,18 +271,14 @@ class TrackEmbeddingsService:
         embedding.created_at = datetime.utcnow()
         embedding.date_modified = func.now()
 
-        await self.session.commit()
-        await self.session.refresh(embedding)
+        await self._commit()
+        await self._refresh(embedding)
         logger.info(
             f"[EMBEDDINGS] Mis à jour pour track_id={track_id}, type={embedding_type}"
         )
         return embedding
 
-    async def delete(
-        self,
-        track_id: int,
-        embedding_type: Optional[str] = None
-    ) -> bool:
+    async def delete(self, track_id: int, embedding_type: Optional[str] = None) -> bool:
         """
         Supprime les embeddings d'une piste.
 
@@ -310,14 +289,10 @@ class TrackEmbeddingsService:
         Returns:
             True si supprimé, False si non trouvé
         """
-        query = select(TrackEmbeddings).where(
-            TrackEmbeddings.track_id == track_id
-        )
+        query = select(TrackEmbeddings).where(TrackEmbeddings.track_id == track_id)
 
         if embedding_type:
-            query = query.where(
-                TrackEmbeddings.embedding_type == embedding_type
-            )
+            query = query.where(TrackEmbeddings.embedding_type == embedding_type)
 
         result = await self.session.execute(query)
         embeddings = result.scalars().all()
@@ -349,15 +324,15 @@ class TrackEmbeddingsService:
         if not embedding:
             return False
 
-        await self.session.delete(embedding)
-        await self.session.commit()
+        await self._delete(embedding)
+        await self._commit()
         logger.info(f"[EMBEDDINGS] Supprimé id={embedding_id}")
         return True
 
     async def find_similar(
         self,
         query_vector: List[float],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         limit: int = 10,
         min_similarity: Optional[float] = None,
         exclude_track_ids: Optional[List[int]] = None,
@@ -387,35 +362,28 @@ class TrackEmbeddingsService:
         # pgvector utilise l'opérateur <-> pour la distance L2
         query = select(
             TrackEmbeddings,
-            TrackEmbeddings.vector.l2_distance(query_vector).label('distance')
-        ).where(
-            TrackEmbeddings.embedding_type == embedding_type
-        )
+            TrackEmbeddings.vector.l2_distance(query_vector).label("distance"),
+        ).where(TrackEmbeddings.embedding_type == embedding_type)
 
         if exclude_track_ids:
-            query = query.where(
-                ~TrackEmbeddings.track_id.in_(exclude_track_ids)
-            )
+            query = query.where(~TrackEmbeddings.track_id.in_(exclude_track_ids))
 
         # Ordonner par distance croissante (plus proche d'abord)
-        query = query.order_by('distance').limit(limit)
+        query = query.order_by("distance").limit(limit)
 
         result = await self.session.execute(query)
         results = result.all()
 
         # Filtrer par similarité minimale si spécifiée
         if min_similarity is not None:
-            results = [
-                (emb, dist) for emb, dist in results
-                if dist <= min_similarity
-            ]
+            results = [(emb, dist) for emb, dist in results if dist <= min_similarity]
 
         return results
 
     async def find_similar_by_track_id(
         self,
         track_id: int,
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         limit: int = 10,
         exclude_self: bool = True,
     ) -> List[Tuple[TrackEmbeddings, float]]:
@@ -451,7 +419,7 @@ class TrackEmbeddingsService:
     async def find_similar_batch(
         self,
         query_vectors: List[List[float]],
-        embedding_type: str = 'semantic',
+        embedding_type: str = "semantic",
         limit_per_query: int = 5,
     ) -> List[List[Tuple[TrackEmbeddings, float]]]:
         """
@@ -476,9 +444,7 @@ class TrackEmbeddingsService:
         return results
 
     async def get_tracks_without_embeddings(
-        self,
-        embedding_type: str = 'semantic',
-        limit: int = 100
+        self, embedding_type: str = "semantic", limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         Récupère les IDs des pistes sans embeddings d'un type donné.
@@ -501,12 +467,10 @@ class TrackEmbeddingsService:
 
         # Requête principale pour les pistes sans cet embedding
         result = await self.session.execute(
-            select(Track.id)
-            .where(~Track.id.in_(subquery))
-            .limit(limit)
+            select(Track.id).where(~Track.id.in_(subquery)).limit(limit)
         )
 
-        return [{'track_id': row[0]} for row in result.all()]
+        return [{"track_id": row[0]} for row in result.all()]
 
     async def get_embedding_types_count(self) -> Dict[str, int]:
         """
@@ -517,8 +481,7 @@ class TrackEmbeddingsService:
         """
         result = await self.session.execute(
             select(
-                TrackEmbeddings.embedding_type,
-                func.count(TrackEmbeddings.id)
+                TrackEmbeddings.embedding_type, func.count(TrackEmbeddings.id)
             ).group_by(TrackEmbeddings.embedding_type)
         )
 
@@ -534,32 +497,28 @@ class TrackEmbeddingsService:
         stats = {}
 
         # Nombre total d'embeddings
-        total_result = await self.session.execute(
-            select(func.count(TrackEmbeddings.id))
-        )
-        stats['total_embeddings'] = total_result.scalar() or 0
+        total_result = await self._execute(select(func.count(TrackEmbeddings.id)))
+        stats["total_embeddings"] = total_result.scalar() or 0
 
         # Par type
-        stats['by_type'] = await self.get_embedding_types_count()
+        stats["by_type"] = await self.get_embedding_types_count()
 
         # Par modèle et source
-        model_result = await self.session.execute(
+        model_result = await self._execute(
             select(
                 TrackEmbeddings.embedding_model,
                 TrackEmbeddings.embedding_source,
-                func.count(TrackEmbeddings.id)
-            )
-            .group_by(
-                TrackEmbeddings.embedding_model,
-                TrackEmbeddings.embedding_source
+                func.count(TrackEmbeddings.id),
+            ).group_by(
+                TrackEmbeddings.embedding_model, TrackEmbeddings.embedding_source
             )
         )
 
-        stats['by_model_source'] = [
+        stats["by_model_source"] = [
             {
-                'model': row[0] or 'unknown',
-                'source': row[1] or 'unknown',
-                'count': row[2]
+                "model": row[0] or "unknown",
+                "source": row[1] or "unknown",
+                "count": row[2],
             }
             for row in model_result.all()
         ]
@@ -567,9 +526,7 @@ class TrackEmbeddingsService:
         return stats
 
     async def get_average_vector(
-        self,
-        track_ids: List[int],
-        embedding_type: str = 'semantic'
+        self, track_ids: List[int], embedding_type: str = "semantic"
     ) -> Optional[List[float]]:
         """
         Calcule le vecteur moyen pour un ensemble de pistes.
@@ -589,13 +546,10 @@ class TrackEmbeddingsService:
 
         # Utiliser SQL pour calculer la moyenne des vecteurs
         result = await self.session.execute(
-            select(
-                func.avg(TrackEmbeddings.vector).label('avg_vector')
-            )
-            .where(
+            select(func.avg(TrackEmbeddings.vector).label("avg_vector")).where(
                 and_(
                     TrackEmbeddings.track_id.in_(track_ids),
-                    TrackEmbeddings.embedding_type == embedding_type
+                    TrackEmbeddings.embedding_type == embedding_type,
                 )
             )
         )
@@ -607,8 +561,8 @@ class TrackEmbeddingsService:
         self,
         center_vector: List[float],
         radius: float,
-        embedding_type: str = 'semantic',
-        limit: int = 100
+        embedding_type: str = "semantic",
+        limit: int = 100,
     ) -> List[TrackEmbeddings]:
         """
         Trouve tous les embeddings dans une sphère de rayon donné.
@@ -628,12 +582,16 @@ class TrackEmbeddingsService:
             )
 
         # Requête avec filtre de distance
-        query = select(TrackEmbeddings).where(
-            and_(
-                TrackEmbeddings.embedding_type == embedding_type,
-                TrackEmbeddings.vector.l2_distance(center_vector) <= radius
+        query = (
+            select(TrackEmbeddings)
+            .where(
+                and_(
+                    TrackEmbeddings.embedding_type == embedding_type,
+                    TrackEmbeddings.vector.l2_distance(center_vector) <= radius,
+                )
             )
-        ).limit(limit)
+            .limit(limit)
+        )
 
         result = await self.session.execute(query)
         return list(result.scalars().all())

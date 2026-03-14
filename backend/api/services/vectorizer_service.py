@@ -21,6 +21,7 @@ from typing import Dict, Any
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 class VectorizerService:
     """
     Service ARCHIVÉ - NE PLUS UTILISER.
@@ -34,15 +35,19 @@ class VectorizerService:
         warnings.warn(
             "VectorizerService est ARCHIVÉ. Utiliser backend_worker.services.vectorization_service",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
     async def generate_embedding(self, track_data: Dict[str, Any]) -> list:
         """ARCHIVÉ - Utiliser worker Celery"""
-        warnings.warn("generate_embedding est ARCHIVÉ", DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "generate_embedding est ARCHIVÉ", DeprecationWarning, stacklevel=2
+        )
         return []
 
-    async def store_vector(self, track_id: str, vector: list, version: str = None) -> bool:
+    async def store_vector(
+        self, track_id: str, vector: list, version: str = None
+    ) -> bool:
         """ARCHIVÉ - Utiliser TrackVectorVirtual"""
         warnings.warn("store_vector est ARCHIVÉ", DeprecationWarning, stacklevel=2)
         return False
@@ -57,7 +62,11 @@ class VectorizerService:
         warnings.warn("retrain est ARCHIVÉ", DeprecationWarning, stacklevel=2)
         return {"status": "archived", "message": "Utiliser train_vectorizer_task"}
 
-    async def migrate_embeddings(self, from_version: str, to_version: str) -> Dict[str, Any]:
+    async def migrate_embeddings(
+        self, from_version: str, to_version: str
+    ) -> Dict[str, Any]:
         """ARCHIVÉ - Migration automatique via sqlite-vec"""
-        warnings.warn("migrate_embeddings est ARCHIVÉ", DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "migrate_embeddings est ARCHIVÉ", DeprecationWarning, stacklevel=2
+        )
         return {"status": "archived", "message": "Migration automatique"}

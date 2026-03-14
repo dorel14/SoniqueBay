@@ -1,7 +1,10 @@
 from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
 import os
+
 DEFAULT_MODEL = os.getenv("AGENT_MODEL", "koboldcpp/qwen2.5-3b-instruct-q4_k_m")
+
+
 class AgentCreate(BaseModel):
     name: str
     model: str = DEFAULT_MODEL
@@ -20,6 +23,7 @@ class AgentCreate(BaseModel):
     top_p: float = 0.9
     num_ctx: int = 2048
 
+
 class AgentUpdate(BaseModel):
     name: Optional[str] = None
     model: Optional[str] = None
@@ -37,6 +41,7 @@ class AgentUpdate(BaseModel):
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     num_ctx: Optional[int] = None
+
 
 class AgentOut(BaseModel):
     id: int

@@ -57,16 +57,16 @@ class TrackAudioFeatures(Base, TimestampMixin):
         analyzed_at: Date de l'analyse
     """
 
-    __tablename__ = 'track_audio_features'
+    __tablename__ = "track_audio_features"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Clé étrangère vers Track avec contrainte UNIQUE (relation 1:1)
     track_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey('tracks.id', ondelete='CASCADE'),
+        ForeignKey("tracks.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True
+        unique=True,
     )
 
     # Caractéristiques audio
@@ -86,36 +86,34 @@ class TrackAudioFeatures(Base, TimestampMixin):
 
     # Traçabilité de l'analyse
     analysis_source: Mapped[str] = mapped_column(
-        String,
-        nullable=True,
-        doc="Source d'analyse: librosa, acoustid, tags"
+        String, nullable=True, doc="Source d'analyse: librosa, acoustid, tags"
     )
     analyzed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        doc="Date de l'analyse audio"
+        DateTime(timezone=True), nullable=True, doc="Date de l'analyse audio"
     )
 
     # Relations
     track: Mapped["Track"] = relationship(
-        "Track",
-        back_populates="audio_features",
-        lazy="selectin"
+        "Track", back_populates="audio_features", lazy="selectin"
     )
 
     __table_args__ = (
         # Index UNIQUE sur track_id (déjà défini dans mapped_column)
-        Index('idx_track_audio_features_track_id', 'track_id', unique=True),
+        Index("idx_track_audio_features_track_id", "track_id", unique=True),
         # Index pour les recherches par BPM (recommandations par tempo)
-        Index('idx_track_audio_features_bpm', 'bpm'),
+        Index("idx_track_audio_features_bpm", "bpm"),
         # Index pour les recherches par tonalité
-        Index('idx_track_audio_features_key', 'key'),
+        Index("idx_track_audio_features_key", "key"),
         # Index pour les recherches par clé Camelot (mix DJ)
-        Index('idx_track_audio_features_camelot_key', 'camelot_key'),
+        Index("idx_track_audio_features_camelot_key", "camelot_key"),
         # Index composite pour les filtres mood
-        Index('idx_track_audio_features_mood', 'mood_happy', 'mood_relaxed', 'mood_party'),
+        Index(
+            "idx_track_audio_features_mood", "mood_happy", "mood_relaxed", "mood_party"
+        ),
         # Index pour les pistes sans analyse (tâches d'analyse)
-        Index('idx_track_audio_features_missing', 'bpm', postgresql_where='bpm IS NULL'),
+        Index(
+            "idx_track_audio_features_missing", "bpm", postgresql_where="bpm IS NULL"
+        ),
     )
 
     def __repr__(self) -> str:
@@ -127,23 +125,25 @@ class TrackAudioFeatures(Base, TimestampMixin):
     def to_dict(self) -> dict:
         """Convertit l'objet en dictionnaire pour sérialisation."""
         return {
-            'id': self.id,
-            'track_id': self.track_id,
-            'bpm': self.bpm,
-            'key': self.key,
-            'scale': self.scale,
-            'danceability': self.danceability,
-            'mood_happy': self.mood_happy,
-            'mood_aggressive': self.mood_aggressive,
-            'mood_party': self.mood_party,
-            'mood_relaxed': self.mood_relaxed,
-            'instrumental': self.instrumental,
-            'acoustic': self.acoustic,
-            'tonal': self.tonal,
-            'genre_main': self.genre_main,
-            'camelot_key': self.camelot_key,
-            'analysis_source': self.analysis_source,
-            'analyzed_at': self.analyzed_at.isoformat() if self.analyzed_at else None,
-            'date_added': self.date_added.isoformat() if self.date_added else None,
-            'date_modified': self.date_modified.isoformat() if self.date_modified else None,
+            "id": self.id,
+            "track_id": self.track_id,
+            "bpm": self.bpm,
+            "key": self.key,
+            "scale": self.scale,
+            "danceability": self.danceability,
+            "mood_happy": self.mood_happy,
+            "mood_aggressive": self.mood_aggressive,
+            "mood_party": self.mood_party,
+            "mood_relaxed": self.mood_relaxed,
+            "instrumental": self.instrumental,
+            "acoustic": self.acoustic,
+            "tonal": self.tonal,
+            "genre_main": self.genre_main,
+            "camelot_key": self.camelot_key,
+            "analysis_source": self.analysis_source,
+            "analyzed_at": self.analyzed_at.isoformat() if self.analyzed_at else None,
+            "date_added": self.date_added.isoformat() if self.date_added else None,
+            "date_modified": (
+                self.date_modified.isoformat() if self.date_modified else None
+            ),
         }

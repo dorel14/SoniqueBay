@@ -3,6 +3,7 @@ Service de chat IA pour SoniqueBay.
 Gère les interactions avec l'assistant IA musical via LLM (Ollama/KoboldCPP).
 Auteur : Kilo Code
 """
+
 import uuid
 import asyncio
 from typing import List, Optional
@@ -41,10 +42,7 @@ class ChatService:
             # Sauvegarder la réponse IA
             await ChatService._save_message(db, session_id, "assistant", ai_response)
 
-            response = ChatResponse(
-                response=ai_response,
-                session_id=session_id
-            )
+            response = ChatResponse(response=ai_response, session_id=session_id)
 
             logger.info(f"Chat response generated for session {session_id}")
             return response
@@ -54,7 +52,7 @@ class ChatService:
             # Retourner une réponse d'erreur
             return ChatResponse(
                 response="Désolé, une erreur s'est produite. Veuillez réessayer.",
-                session_id=message.session_id or str(uuid.uuid4())
+                session_id=message.session_id or str(uuid.uuid4()),
             )
 
     @staticmethod
@@ -68,23 +66,20 @@ class ChatService:
             system_prompt = """Tu es l'assistant musical de SoniqueBay, une application de gestion musicale.
 Tu aides les utilisateurs à découvrir de la musique, chercher des artistes, et obtenir des recommandations.
 Sois concis, amical et utile. Réponds en français."""
-            
+
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
+                {"role": "user", "content": user_message},
             ]
-            
+
             # Générer la réponse via le service LLM
             llm_service = await get_llm_service()
             response = await llm_service.generate_chat_response(
-                messages=messages,
-                temperature=0.7,
-                max_tokens=1024,
-                stream=False
+                messages=messages, temperature=0.7, max_tokens=1024, stream=False
             )
-            
+
             return response.get("content", "Désolé, je n'ai pas pu générer de réponse.")
-            
+
         except Exception as e:
             logger.error(f"[CHAT] Erreur génération réponse LLM: {e}")
             # Fallback sur la logique simple en cas d'erreur
@@ -102,7 +97,9 @@ Sois concis, amical et utile. Réponds en français."""
         elif "cherche" in message_lower or "trouve" in message_lower:
             return "Je peux vous aider à chercher dans votre bibliothèque musicale. Que cherchez-vous ?"
         elif "joue" in message_lower or "écoute" in message_lower:
-            return "Pour écouter de la musique, utilisez le player intégré de SoniqueBay."
+            return (
+                "Pour écouter de la musique, utilisez le player intégré de SoniqueBay."
+            )
         elif "artiste" in message_lower:
             return await ChatService._get_artist_info(db)
         else:
@@ -113,14 +110,17 @@ Sois concis, amical et utile. Réponds en français."""
         """Génère des recommandations musicales depuis la DB."""
         try:
             from sqlalchemy import text
-            query = text("""
+
+            query = text(
+                """
                 SELECT t.title, a.name as artist, al.title as album
                 FROM tracks t
                 LEFT JOIN artists a ON t.track_artist_id = a.id
                 LEFT JOIN albums al ON t.album_id = al.id
                 ORDER BY RANDOM()
                 LIMIT 3
-            """)
+            """
+            )
 
             results = db.execute(query).fetchall()
 
@@ -129,27 +129,35 @@ Sois concis, amical et utile. Réponds en français."""
                 for row in results:
                     recommendations.append(f"• {row.title} - {row.artist}")
 
-                return "Voici quelques suggestions de votre bibliothèque :\n" + "\n".join(recommendations)
+                return (
+                    "Voici quelques suggestions de votre bibliothèque :\n"
+                    + "\n".join(recommendations)
+                )
             else:
                 return "Votre bibliothèque semble vide. Essayez de scanner vos fichiers audio d'abord."
 
         except Exception as e:
             logger.error(f"Erreur génération recommandations: {e}")
-            return "Désolé, je n'arrive pas à accéder à votre bibliothèque pour le moment."
+            return (
+                "Désolé, je n'arrive pas à accéder à votre bibliothèque pour le moment."
+            )
 
     @staticmethod
     async def _get_artist_info(db: Session) -> str:
         """Fournit des informations sur les artistes."""
         try:
             from sqlalchemy import text
-            query = text("""
+
+            query = text(
+                """
                 SELECT a.name, COUNT(t.id) as track_count
                 FROM artists a
                 LEFT JOIN tracks t ON a.id = t.track_artist_id
                 GROUP BY a.id, a.name
                 ORDER BY track_count DESC
                 LIMIT 5
-            """)
+            """
+            )
 
             results = db.execute(query).fetchall()
 
@@ -167,14 +175,18 @@ Sois concis, amical et utile. Réponds en français."""
             return "Désolé, je n'arrive pas à accéder aux informations des artistes."
 
     @staticmethod
-    async def _save_message(db: Session, session_id: str, role: str, content: str) -> None:
+    async def _save_message(
+        db: Session, session_id: str, role: str, content: str
+    ) -> None:
         """
         Sauvegarde un message dans l'historique (table à créer plus tard).
         Pour l'instant, juste log pour développement.
         """
         try:
             # TODO: Créer table chat_messages et implémenter sauvegarde
-            logger.debug(f"Saving message - Session: {session_id}, Role: {role}, Content: {content[:50]}...")
+            logger.debug(
+                f"Saving message - Session: {session_id}, Role: {role}, Content: {content[:50]}..."
+            )
 
             # Placeholder pour insertion en DB
             # insert_query = text("""
@@ -220,7 +232,9 @@ Sois concis, amical et utile. Réponds en français."""
             await ChatService._save_message(db, session_id, "user", message.message)
 
             # Générer réponse en chunks
-            response_chunks = await ChatService._generate_streaming_response(message.message, db)
+            response_chunks = await ChatService._generate_streaming_response(
+                message.message, db
+            )
 
             full_response = ""
             for chunk in response_chunks:
@@ -229,7 +243,7 @@ Sois concis, amical et utile. Réponds en français."""
                     "type": "chat_chunk",
                     "session_id": session_id,
                     "chunk": chunk,
-                    "finished": False
+                    "finished": False,
                 }
 
             # Signal de fin
@@ -237,7 +251,7 @@ Sois concis, amical et utile. Réponds en français."""
                 "type": "chat_chunk",
                 "session_id": session_id,
                 "chunk": "",
-                "finished": True
+                "finished": True,
             }
 
             # Sauvegarder réponse complète
@@ -247,7 +261,7 @@ Sois concis, amical et utile. Réponds en français."""
             logger.error(f"Erreur streaming réponse: {e}")
             yield {
                 "type": "error",
-                "message": "Erreur lors de la génération de la réponse"
+                "message": "Erreur lors de la génération de la réponse",
             }
 
     @staticmethod
@@ -261,21 +275,18 @@ Sois concis, amical et utile. Réponds en français."""
             system_prompt = """Tu es l'assistant musical de SoniqueBay, une application de gestion musicale.
 Tu aides les utilisateurs à découvrir de la musique, chercher des artistes, et obtenir des recommandations.
 Sois concis, amical et utile. Réponds en français."""
-            
+
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
+                {"role": "user", "content": user_message},
             ]
-            
+
             # Générer la réponse en streaming via le service LLM
             llm_service = await get_llm_service()
             stream_iterator = await llm_service.generate_chat_response(
-                messages=messages,
-                temperature=0.7,
-                max_tokens=1024,
-                stream=True
+                messages=messages, temperature=0.7, max_tokens=1024, stream=True
             )
-            
+
             # Traiter le stream de réponse de manière asynchrone non-bloquante
             chunks = []
             try:
@@ -285,7 +296,9 @@ Sois concis, amical et utile. Réponds en français."""
             except Exception as e:
                 logger.error(f"[CHAT] Erreur lors du streaming: {e}")
                 # Fallback: utiliser la méthode non-streaming
-                full_response = await ChatService._generate_ai_response(user_message, db)
+                full_response = await ChatService._generate_ai_response(
+                    user_message, db
+                )
                 words = full_response.split()
                 current_chunk = ""
                 for word in words:
@@ -296,13 +309,15 @@ Sois concis, amical et utile. Réponds en français."""
                         await asyncio.sleep(0.05)
                 if current_chunk:
                     chunks.append(current_chunk)
-            
+
             return chunks if chunks else ["Désolé, je n'ai pas pu générer de réponse."]
-            
+
         except Exception as e:
             logger.error(f"[CHAT] Erreur streaming LLM: {e}")
             # Fallback sur la méthode non-streaming
-            base_response = await ChatService._generate_fallback_response(user_message, db)
+            base_response = await ChatService._generate_fallback_response(
+                user_message, db
+            )
             words = base_response.split()
             chunks = []
             current_chunk = ""
@@ -400,15 +415,15 @@ Sois concis, amical et utile. Réponds en français."""
             if energy_min is not None:
                 # Chercher dans TrackMIRScores pour energy_score
                 from backend.api.models.track_mir_scores_model import TrackMIRScores
+
                 conditions.append(TrackMIRScores.energy_score >= energy_min)
 
             if genre:
                 conditions.append(TrackMIRNormalized.genre_main.ilike(genre))
 
             # Requête de base
-            query = (
-                select(Track, TrackMIRNormalized)
-                .join(TrackMIRNormalized, Track.id == TrackMIRNormalized.track_id)
+            query = select(Track, TrackMIRNormalized).join(
+                TrackMIRNormalized, Track.id == TrackMIRNormalized.track_id
             )
 
             if conditions:

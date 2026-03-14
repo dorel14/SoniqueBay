@@ -55,4 +55,3 @@
 #     foreign_keys=[Cover.entity_id],
 #     viewonly=True
 # )
-

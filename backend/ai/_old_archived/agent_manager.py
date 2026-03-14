@@ -9,10 +9,13 @@ from pydantic_ai import Agent as PydanticAgent
 # cache in-memory of built agents
 AGENT_CACHE: Dict[str, PydanticAgent] = {}
 
+
 def build_system_prompt(db_agent: AgentModel) -> str:
     # assemble RTCROS style prompt from fields
     rules_text = "\n".join(f"- {r}" for r in (db_agent.rules or []))
-    tools_text = "\n".join(f"* {t.get('name')}: {t.get('description','')}" for t in (db_agent.tools or []))
+    tools_text = "\n".join(
+        f"* {t.get('name')}: {t.get('description','')}" for t in (db_agent.tools or [])
+    )
     ui_blocks = json.dumps([b for b in (db_agent.ui_blocks or [])], indent=2)
     return f"""ROLE:
 You are {db_agent.name}.
@@ -33,6 +36,7 @@ OUTPUT_SCHEMA:
 {json.dumps(db_agent.response_schema or {}, indent=2)}
 """
 
+
 async def ensure_agent(name: str) -> Optional[PydanticAgent]:
     if name in AGENT_CACHE:
         return AGENT_CACHE[name]
@@ -44,9 +48,15 @@ async def ensure_agent(name: str) -> Optional[PydanticAgent]:
     ollama_model = OllamaStreamModel(db_agent.model)
     # If pydantic_ai accepts a Pydantic model/class as response_format, you can pass the JSON schema.
     response_format = db_agent.response_schema
-    agent = PydanticAgent(name=db_agent.name, model=ollama_model, system_prompt=system_prompt, response_format=response_format)
+    agent = PydanticAgent(
+        name=db_agent.name,
+        model=ollama_model,
+        system_prompt=system_prompt,
+        response_format=response_format,
+    )
     AGENT_CACHE[name] = agent
     return agent
+
 
 async def ensure_all_agents():
     rows = await list_agents()

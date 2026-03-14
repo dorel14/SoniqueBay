@@ -149,9 +149,7 @@ class MIRSynonymService:
             )
 
             # Vérifier le cache Redis
-            cache_key = self._get_cache_key(
-                "search", query, tag_type, str(limit)
-            )
+            cache_key = self._get_cache_key("search", query, tag_type, str(limit))
             cached_result = await self._get_cached_result(cache_key)
             if cached_result:
                 logger.debug(f"[MIR_SYNONYM] Cache hit pour {cache_key}")
@@ -180,15 +178,11 @@ class MIRSynonymService:
             )
 
             # Fusionner les résultats avec pondération
-            merged_results = self._merge_results(
-                fts_results, vector_results, limit
-            )
+            merged_results = self._merge_results(fts_results, vector_results, limit)
 
             await self._cache_result(cache_key, merged_results)
 
-            logger.info(
-                f"[MIR_SYNONYM] {len(merged_results)} résultats pour '{query}'"
-            )
+            logger.info(f"[MIR_SYNONYM] {len(merged_results)} résultats pour '{query}'")
 
             return merged_results
 
@@ -218,9 +212,7 @@ class MIRSynonymService:
             Dictionnaire représentant le synonym créé/mis à jour
         """
         try:
-            logger.info(
-                f"[MIR_SYNONYM] Création/mise à jour {tag_type}:{tag_value}"
-            )
+            logger.info(f"[MIR_SYNONYM] Création/mise à jour {tag_type}:{tag_value}")
 
             # Vérifier si le synonym existe déjà
             existing = await self.get_synonyms(tag_type, tag_value)
@@ -281,9 +273,7 @@ class MIRSynonymService:
             await self.db.rollback()
             raise
 
-    async def deactivate_synonyms(
-        self, tag_type: str, tag_value: str
-    ) -> bool:
+    async def deactivate_synonyms(self, tag_type: str, tag_value: str) -> bool:
         """
         Désactive les synonyms pour un tag (soft delete).
 
@@ -445,9 +435,7 @@ class MIRSynonymService:
 
         return " ".join(parts)
 
-    async def _generate_embedding(
-        self, text: str
-    ) -> Optional[list[float]]:
+    async def _generate_embedding(self, text: str) -> Optional[list[float]]:
         """
         Génère un embedding via le backend_worker.
 
@@ -462,16 +450,12 @@ class MIRSynonymService:
         """
         try:
             # URL du backend_worker (port 8003 par défaut)
-            worker_url = os.getenv(
-                'BACKEND_WORKER_URL',
-                'http://backend_worker:8003'
-            )
+            worker_url = os.getenv("BACKEND_WORKER_URL", "http://backend_worker:8003")
 
             # Appeler l'API d'embedding du worker
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{worker_url}/api/vectorization/embed",
-                    json={"text": text}
+                    f"{worker_url}/api/vectorization/embed", json={"text": text}
                 )
 
                 if response.status_code == 200:

@@ -3,6 +3,7 @@ from sqlalchemy import select
 from backend.api.models.agent_score_model import AgentScore
 import math
 
+
 class IntentRouter:
 
     def __init__(self):
@@ -75,7 +76,7 @@ class IntentRouter:
             row.success_count += 1
 
         await session.commit()
-    
+
     async def has_scores(self, session, intent: str) -> bool:
         from sqlalchemy import select
         from backend.api.models.agent_score_model import AgentScore

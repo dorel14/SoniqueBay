@@ -62,86 +62,74 @@ class MIRSynonym(Base):
         ... )
     """
 
-    __tablename__ = 'mir_synonyms'
+    __tablename__ = "mir_synonyms"
 
     # Colonnes principales
     id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        doc="Identifiant unique du synonym"
+        Integer, primary_key=True, doc="Identifiant unique du synonym"
     )
 
     # Type de tag ('genre' ou 'mood')
     tag_type: Mapped[str] = mapped_column(
-        String(20),
-        nullable=False,
-        doc="Type de tag : 'genre' ou 'mood'"
+        String(20), nullable=False, doc="Type de tag : 'genre' ou 'mood'"
     )
 
     # Valeur du tag (nom du genre ou mood)
     tag_value: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False,
-        doc="Nom du genre ou mood"
+        String(100), nullable=False, doc="Nom du genre ou mood"
     )
 
     # Synonyms générés (JSONB)
     synonyms: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
-        doc="Structure JSONB contenant les synonymes et termes associés"
+        doc="Structure JSONB contenant les synonymes et termes associés",
     )
 
     # Embedding sémantique via Ollama nomic-embed-text (768 dimensions)
     embedding: Mapped[Optional[list[float]]] = mapped_column(
         Vector(768),
         nullable=True,
-        doc="Embedding sémantique via Ollama nomic-embed-text (768 dimensions)"
+        doc="Embedding sémantique via Ollama nomic-embed-text (768 dimensions)",
     )
 
     # Métadonnées de traçabilité
     source: Mapped[str] = mapped_column(
-        String(50),
-        default='ollama',
-        doc="Source de génération du synonym"
+        String(50), default="ollama", doc="Source de génération du synonym"
     )
 
     confidence: Mapped[float] = mapped_column(
-        Float,
-        default=1.0,
-        doc="Score de confiance de la génération (0.0 à 1.0)"
+        Float, default=1.0, doc="Score de confiance de la génération (0.0 à 1.0)"
     )
 
     is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True,
-        doc="Drapeau d'activation pour les requêtes"
+        Boolean, default=True, doc="Drapeau d'activation pour les requêtes"
     )
 
     # Définition des index
     __table_args__ = (
         # Index pgvector pour recherche sémantique (IVFFlat)
         Index(
-            'idx_mir_synonyms_embedding',
-            'embedding',
-            postgresql_using='ivfflat',
+            "idx_mir_synonyms_embedding",
+            "embedding",
+            postgresql_using="ivfflat",
         ),
         # Index composite sur tag_type + tag_value
         Index(
-            'idx_mir_synonyms_type_value',
-            'tag_type',
-            'tag_value',
+            "idx_mir_synonyms_type_value",
+            "tag_type",
+            "tag_value",
         ),
         # Index sur is_active pour filtrer les enregistrements actifs
         Index(
-            'idx_mir_synonyms_active',
-            'is_active',
+            "idx_mir_synonyms_active",
+            "is_active",
         ),
         # Contrainte d'unicité sur tag_type + tag_value
         Index(
-            'uq_mir_synonyms_type_value',
-            'tag_type',
-            'tag_value',
+            "uq_mir_synonyms_type_value",
+            "tag_type",
+            "tag_value",
             unique=True,
             postgresql_where=is_active.is_(True),
         ),
@@ -165,7 +153,7 @@ class MIRSynonym(Base):
         Returns:
             Liste des termes de recherche associés au tag.
         """
-        return self.synonyms.get('search_terms', [])
+        return self.synonyms.get("search_terms", [])
 
     @property
     def related_tags(self) -> list[str]:
@@ -175,7 +163,7 @@ class MIRSynonym(Base):
         Returns:
             Liste des tags liés au tag principal.
         """
-        return self.synonyms.get('related_tags', [])
+        return self.synonyms.get("related_tags", [])
 
     @property
     def usage_contexts(self) -> list[str]:
@@ -185,7 +173,7 @@ class MIRSynonym(Base):
         Returns:
             Liste des contextes d'usage pour ce tag.
         """
-        return self.synonyms.get('usage_context', [])
+        return self.synonyms.get("usage_context", [])
 
     @property
     def translations(self) -> dict[str, list[str]]:
@@ -195,4 +183,4 @@ class MIRSynonym(Base):
         Returns:
             Dictionnaire des traductions par langue.
         """
-        return self.synonyms.get('translations', {})
+        return self.synonyms.get("translations", {})

@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 from backend.ai.utils.registry import TOOL_REGISTRY
 from backend.api.models.agent_model import AgentModel
 
+
 class AgentLoader:
 
     def __init__(self, session):
@@ -21,7 +22,7 @@ class AgentLoader:
                 name=row.name,
                 model=f"ollama:{row.model}",
                 system_prompt=row.system_prompt,
-                tools=tools
+                tools=tools,
             )
 
         return agents

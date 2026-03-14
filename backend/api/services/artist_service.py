@@ -198,7 +198,9 @@ class ArtistService:
         artist_data = ArtistCreate(name=normalized_name, musicbrainz_artistid=None)
         return await self.create_artist(artist_data)
 
-    async def bulk_create_artists(self, artists_data: List[ArtistCreate]) -> List[Artist]:
+    async def bulk_create_artists(
+        self, artists_data: List[ArtistCreate]
+    ) -> List[Artist]:
         artists: List[Artist] = []
         for data in artists_data:
             artist = Artist(

@@ -8,8 +8,13 @@ sur Raspberry Pi 4.
 
 import inspect
 import json
+from collections.abc import Iterable
+from typing import Any, Optional, cast
+
 import redis
-from typing import Any, Optional
+from redis.backoff import ExponentialBackoff
+from redis.retry import Retry
+
 from backend.api.utils.logging import logger
 
 
@@ -22,7 +27,7 @@ class GraphQLCache:
     pour les listes paginées.
     """
 
-    def __init__(self, host: str = 'redis', port: int = 6379, db: int = 0):
+    def __init__(self, host: str = "redis", port: int = 6379, db: int = 0):
         """
         Initialise la connexion Redis.
 
@@ -39,8 +44,8 @@ class GraphQLCache:
                 decode_responses=True,
                 socket_timeout=5.0,
                 socket_connect_timeout=5.0,
-                retry_on_timeout=True,
-                max_connections=5
+                retry=Retry(ExponentialBackoff(), retries=3),
+                max_connections=5,
             )
             # Test de connexion
             self.redis_client.ping()
@@ -128,7 +133,7 @@ class GraphQLCache:
         except Exception as e:
             logger.warning(f"[CACHE] Erreur invalidation cache {query_type}: {e}")
 
-    def invalidate_pattern(self, pattern: str):
+    def invalidate_pattern(self, pattern: str) -> None:
         """
         Invalide toutes les entrées correspondant à un pattern.
 
@@ -139,10 +144,13 @@ class GraphQLCache:
             return
 
         try:
-            keys = self.redis_client.keys(pattern)
-            if keys:
-                self.redis_client.delete(*keys)
-                logger.debug(f"[CACHE] Invalidé {len(keys)} clés pour pattern {pattern}")
+            keys = cast(Iterable[Any], self.redis_client.keys(pattern))
+            keys_list = list(keys)
+            if keys_list:
+                self.redis_client.delete(*keys_list)
+                logger.debug(
+                    f"[CACHE] Invalidé {len(keys_list)} clés pour pattern {pattern}"
+                )
         except Exception as e:
             logger.warning(f"[CACHE] Erreur invalidation pattern {pattern}: {e}")
 
@@ -162,29 +170,41 @@ def cached_graphql_query(query_type: str, ttl: int = 300):
     Returns:
         Fonction décorée avec cache
     """
+
     def decorator(func):
-        logger.info(f"[CACHE] Applying cache decorator to {func.__name__} with query_type={query_type}, ttl={ttl}")
-        def wrapper(*args, **kwargs):
+        logger.info(
+            f"[CACHE] Applying cache decorator to {func.__name__} with query_type={query_type}, ttl={ttl}"
+        )
+
+        async def wrapper(*args, **kwargs):
             # Générer les params pour la clé de cache
             # Pour les queries Strawberry, les params sont dans kwargs
-            cache_params = {k: v for k, v in kwargs.items() if k not in ['info', 'self']}
+            cache_params = {
+                k: v for k, v in kwargs.items() if k not in ["info", "self"]
+            }
 
             # Essayer de récupérer du cache
             cached_result = graphql_cache.get(query_type, **cache_params)
             if cached_result is not None:
                 return cached_result
 
-            # Sinon, exécuter la fonction
+            # Exécuter la fonction (sync ou async)
             result = func(*args, **kwargs)
+            if inspect.isawaitable(result):
+                result = await result
 
             # Cacher le résultat
             if result is not None:
                 graphql_cache.set(query_type, result, ttl, **cache_params)
 
             return result
+
         # Préserver la signature et les annotations pour Strawberry
         wrapper.__signature__ = inspect.signature(func)
-        wrapper.__annotations__ = func.__annotations__
-        logger.info(f"[CACHE] Decorator applied to {func.__name__}, signature preserved")
+        wrapper.__annotations__ = getattr(func, "__annotations__", {})
+        logger.info(
+            f"[CACHE] Decorator applied to {func.__name__}, signature preserved"
+        )
         return wrapper
+
     return decorator

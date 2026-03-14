@@ -20,7 +20,6 @@ from typing import Optional
 import strawberry
 
 
-
 @strawberry.type
 class TrackMIRRawType:
     """

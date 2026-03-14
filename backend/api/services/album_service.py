@@ -82,11 +82,13 @@ class AlbumService:
         artist_id: int,
         release_year: Optional[int] = None,
         cover_url: Optional[str] = None,
+        musicbrainz_albumid: Optional[str] = None,
     ) -> Album:
         album = Album(
             title=title,
             album_artist_id=artist_id,
             release_year=str(release_year) if release_year is not None else None,
+            musicbrainz_albumid=musicbrainz_albumid,
         )
         self.db.add(album)
         await self._commit()
@@ -127,6 +129,7 @@ class AlbumService:
         title: Optional[str] = None,
         release_year: Optional[int] = None,
         cover_url: Optional[str] = None,
+        musicbrainz_albumid: Optional[str] = None,
     ) -> Optional[Album]:
         album = await self.read_album(album_id)
         if not album:
@@ -136,6 +139,8 @@ class AlbumService:
             album.title = title
         if release_year is not None:
             album.release_year = str(release_year)
+        if musicbrainz_albumid is not None:
+            album.musicbrainz_albumid = musicbrainz_albumid
 
         await self._commit()
         await self._refresh(album)
@@ -192,6 +197,20 @@ class AlbumService:
         )
         result = await self._execute(stmt)
         return list(result.scalars().all())
+
+    async def read_album_tracks(
+        self, album_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Track]:
+        """Compatibilité API: alias historique vers get_album_tracks."""
+        return await self.get_album_tracks(album_id=album_id, skip=skip, limit=limit)
+
+    async def read_artist_albums(
+        self, artist_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Album]:
+        """Compatibilité API: alias historique vers get_albums_by_artist."""
+        return await self.get_albums_by_artist(
+            artist_id=artist_id, skip=skip, limit=limit
+        )
 
     async def get_or_create_album(
         self,

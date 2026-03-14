@@ -1,22 +1,10 @@
 """Tests pour les endpoints de scores d'agents."""
 import pytest
 from fastapi.testclient import TestClient
-from backend.api.api_app import create_api
+from backend.api.utils.database import get_db, get_session, get_async_session
 
 
-@pytest.fixture(scope="module")
-def client():
-    """Client de test pour l'API."""
-    app = create_api()
-    with TestClient(app) as c:
-        yield c
 
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_test_data():
-    """Configurer les données de test."""
-    # Les données seront créées via les endpoints
-    pass
 
 
 def test_create_agent_score(client: TestClient):

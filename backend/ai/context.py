@@ -60,6 +60,7 @@ class ConversationContext:
             return
 
         from backend.api.models.conversation_model import ConversationModel
+
         stmt = select(ConversationModel).where(
             ConversationModel.session_id == self.session_id
         )
@@ -97,7 +98,10 @@ class ConversationContext:
             return False
 
         from backend.api.models.conversation_model import ConversationModel
-        stmt = select(ConversationModel).where(ConversationModel.session_id == session_id)
+
+        stmt = select(ConversationModel).where(
+            ConversationModel.session_id == session_id
+        )
         result = await self.session.execute(stmt)
         conversation = result.scalar_one_or_none()
         if conversation is None:

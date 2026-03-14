@@ -4,8 +4,12 @@ Utilise PostgreSQL au lieu de TinyDB pour la persistance.
 Auteur : Kilo Code
 Dépendances : backend.api.schemas.playqueue_schema, backend.api.models.playqueue_model, backend.api.utils.database
 """
+
 from backend.api.schemas.playqueue_schema import PlayQueue, QueueTrack, QueueOperation
-from backend.api.models.playqueue_model import PlayQueueTrack, PlayQueue as PlayQueueModel
+from backend.api.models.playqueue_model import (
+    PlayQueueTrack,
+    PlayQueue as PlayQueueModel,
+)
 from backend.api.models.tracks_model import Track
 from backend.api.utils.database import get_async_session
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,13 +53,13 @@ class PlayQueueService:
                     artist=track.artist.name if track.artist else "Unknown",
                     album=track.album.title if track.album else "Unknown",
                     duration=track.duration,
-                    position=pq_track.position
+                    position=pq_track.position,
                 )
                 tracks.append(queue_track)
 
         return PlayQueue(
             tracks=sorted(tracks, key=lambda t: t.position),
-            last_updated=playqueue.last_updated
+            last_updated=playqueue.last_updated,
         )
 
     @staticmethod
@@ -97,9 +101,7 @@ class PlayQueueService:
         new_position = (max_position[0] + 1) if max_position else 0
 
         pq_track = PlayQueueTrack(
-            track_id=track.id,
-            position=new_position,
-            playqueue_id=playqueue.id
+            track_id=track.id, position=new_position, playqueue_id=playqueue.id
         )
         db.add(pq_track)
 
@@ -144,14 +146,18 @@ class PlayQueueService:
         return await PlayQueueService._get_queue_internal(db)
 
     @staticmethod
-    async def move_track(operation: QueueOperation, db: AsyncSession = None) -> PlayQueue:
+    async def move_track(
+        operation: QueueOperation, db: AsyncSession = None
+    ) -> PlayQueue:
         if db is None:
             async with get_async_session() as db:
                 return await PlayQueueService._move_track_internal(operation, db)
         return await PlayQueueService._move_track_internal(operation, db)
 
     @staticmethod
-    async def _move_track_internal(operation: QueueOperation, db: AsyncSession) -> PlayQueue:
+    async def _move_track_internal(
+        operation: QueueOperation, db: AsyncSession
+    ) -> PlayQueue:
         """Internal method to move track with an active session."""
         if operation.new_position is None:
             raise ValueError("Nouvelle position requise")
