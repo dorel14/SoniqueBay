@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import datetime
 import os
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager
 from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
-from sqlalchemy import DateTime, MetaData, create_engine, text
+from sqlalchemy import DateTime, MetaData, text, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from backend.api.utils.logging import logger
 
@@ -46,34 +46,6 @@ class TimestampMixin:
     )
 
 
-def get_database_url() -> str:
-    """Retourne l'URL de base de données avec credentials encodés pour utilisation avec SQLAlchemy."""
-    # Priorité test : utiliser DATABASE_URL si disponible
-    db_url = os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
-    if db_url:
-        return db_url
-
-    # Fallback production PostgreSQL
-    user = quote_plus(os.getenv("POSTGRES_USER", "postgres"))
-    password = quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
-    host = os.getenv(
-        "POSTGRES_HOST", "localhost"
-    )  # localhost au lieu de 'db' pour éviter DNS local
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "musicdb")
-    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
-
-
-def get_database_url_raw() -> str:
-    """Retourne l'URL de base de données SANS encodage des credentials pour utilisation directe avec le dialecte."""
-    user = os.getenv("POSTGRES_USER", "postgres")
-    password = os.getenv("POSTGRES_PASSWORD", "")
-    host = os.getenv("POSTGRES_HOST", "db")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "musicdb")
-    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
-
-
 def get_async_database_url() -> str:
     """Retourne l'URL de base de données async avec credentials encodés."""
     # Priorité test : utiliser DATABASE_URL si SQLite (aiosqlite compatible)
@@ -90,16 +62,28 @@ def get_async_database_url() -> str:
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 
-# Créer l'engine après la définition de l'URL
+def get_database_url() -> str:
+    """Retourne l'URL de base de données synchrone avec credentials encodés."""
+    # Priorité test : utiliser DATABASE_URL si SQLite
+    db_url = os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
+    if db_url and db_url.startswith("sqlite"):
+        return db_url  # SQLite synchrone utilise le même URL
+
+    # Fallback production PostgreSQL synchrone
+    user = quote_plus(os.getenv("POSTGRES_USER", "postgres"))
+    password = quote_plus(os.getenv("POSTGRES_PASSWORD", ""))
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "musicdb")
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
+# Créer l'engine async après la définition de l'URL
 # TEST MODE: lazy engines pour éviter connexion persistante hors test
 if os.getenv("TESTING") == "true":
-    engine = None
     asyncEngine = None
-    SessionLocal = None
     AsyncSessionLocal = None
 else:
-    engine = create_engine(get_database_url(), pool_pre_ping=True, pool_recycle=300)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     asyncEngine = create_async_engine(
         get_async_database_url(), future=True, echo=False, pool_pre_ping=True
     )
@@ -108,24 +92,22 @@ else:
     )
 
 
-def get_db():
-    if os.getenv("TESTING") == "true":
-        raise RuntimeError("get_db() disabled in test mode - use conftest fixtures")
-    if SessionLocal is None:
-        raise RuntimeError("get_db() disabled - SessionLocal is None")
-    db = SessionLocal()  # type: ignore[reportOptionalCall]
-    try:
-        yield db
-    finally:
-        db.close()
+# Créer l'engine synchrone après la définition de l'URL
+# TEST MODE: lazy engines pour éviter connexion persistante hors test
+if os.getenv("TESTING") == "true":
+    syncEngine = None
+    SessionLocal = None
+else:
+    syncEngine = create_engine(
+        get_database_url(), future=True, echo=False, pool_pre_ping=True
+    )
+    SessionLocal = sessionmaker(
+        syncEngine, autocommit=False, autoflush=False
+    )
 
 
-def get_session():
-    with Session(engine) as session:
-        yield session
-
-
-async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
+@asynccontextmanager
+async def get_async_session():
     if os.getenv("TESTING") == "true":
         raise RuntimeError(
             "get_async_session() disabled in test mode - use conftest fixtures"
@@ -134,25 +116,42 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     if AsyncSessionLocal is None:
         raise RuntimeError("get_async_session() disabled - AsyncSessionLocal is None")
 
-    # Création explicite de session pour éviter warning __aexit__
-    session = AsyncSessionLocal()  # type: ignore[reportOptionalCall]
+    session = AsyncSessionLocal()
     try:
         yield session
     finally:
         await session.close()
 
 
+def get_db():
+    """Fournit une session de base de données synchrone (generator)."""
+    if os.getenv("TESTING") == "true":
+        raise RuntimeError(
+            "get_db() disabled in test mode - use conftest fixtures"
+        )
+    if SessionLocal is None:
+        raise RuntimeError("get_db() disabled - SessionLocal is None")
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Alias for get_db (synchronous session)
+get_session = get_db
+
+
 # Exporter les éléments nécessaires
 __all__ = [
     "Base",
     "TimestampMixin",
-    "SessionLocal",
     "AsyncSessionLocal",
     "AsyncSession",
-    "get_db",
-    "engine",
     "asyncEngine",
-    "get_session",
     "get_async_session",
-    "get_database_url_raw",
+    "get_session",  # Alias pour get_async_session
+    "syncEngine",
+    "SessionLocal",
+    "get_db",
 ]

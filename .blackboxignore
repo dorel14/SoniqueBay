@@ -1,0 +1,17 @@
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+data/
+*.egg-info
+.continue/
+.pytest_cache/
+.ruff_cache/
+.nicegui/
+*.*db
+*.sqlite
+*.sqlite3
+pg_db/
+pg_db_old/
+llm-service/models/

@@ -66,17 +66,27 @@ class AgentScore(AgentScoreBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AgentScoreWithMetrics(AgentScore):
+class AgentScoreWithMetrics(BaseModel):
     """
     Schéma étendu avec des métriques calculées.
 
     Inclut des champs dérivés pour faciliter l'analyse.
     """
 
+    id: int = Field(..., description="Identifiant unique du score")
+    agent_name: str = Field(..., description="Nom de l'agent")
+    intent: str = Field(..., description="Intention ou tâche de l'agent")
+    score: float = Field(
+        1.0, ge=0.0, le=10.0, description="Score de performance (0.0 à 10.0)"
+    )
+    usage_count: int = Field(0, ge=0, description="Nombre d'utilisations")
+    success_count: int = Field(0, ge=0, description="Nombre de succès")
     success_rate: Optional[float] = Field(
         None, description="Taux de succès (success_count/usage_count)"
     )
     last_used: Optional[str] = Field(None, description="Dernière date d'utilisation")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AgentScoreListResponse(BaseModel):
@@ -88,3 +98,14 @@ class AgentScoreListResponse(BaseModel):
 
     count: int = Field(..., description="Nombre total de scores")
     results: list[AgentScore] = Field(..., description="Liste des scores")
+
+
+class AgentScoreWithMetricsListResponse(BaseModel):
+    """
+    Schéma de réponse pour la liste des scores d'agents avec métriques.
+
+    Utilisé pour paginer et structurer les résultats avec métriques calculées.
+    """
+
+    count: int = Field(..., description="Nombre total de scores")
+    results: list[AgentScoreWithMetrics] = Field(..., description="Liste des scores avec métriques")

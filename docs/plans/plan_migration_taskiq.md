@@ -120,6 +120,7 @@ Recommandation: implémenter Option B progressivement sur tâches à fort volume
 **Livrables**
 - Runtime unique TaskIQ.
 - Documentation à jour.
+- Plans de test dans  `/tests` mis à jour pour la prise en charge de cette nouvelle architecture 
 
 ---
 

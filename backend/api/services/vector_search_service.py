@@ -21,10 +21,10 @@ from backend.api.utils.logging import logger
 class VectorSearchService:
     """Service for vector similarity searches using pgvector."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def add_track_embedding(self, track_id: int, embedding: List[float]) -> bool:
+    async def add_track_embedding(self, track_id: int, embedding: List[float]) -> bool:
         """
         Add or update a track embedding in the vector database.
         Falls back to legacy Track.vector if TrackEmbeddingsService is not available.
@@ -39,13 +39,13 @@ class VectorSearchService:
         try:
             # Update the track's vector column (legacy support)
             stmt = update(Track).where(Track.id == track_id).values(vector=embedding)
-            self.db.execute(stmt)
-            self.db.commit()
+            await self.db.execute(stmt)
+            await self.db.commit()
             logger.debug(f"Added track embedding for track_id: {track_id} (legacy)")
             return True
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error adding track embedding for {track_id}: {e}")
             return False
 
@@ -96,7 +96,7 @@ class VectorSearchService:
             logger.error(f"Error adding track embedding async for {track_id}: {e}")
             return False
 
-    def add_artist_embedding(self, artist_name: str, embedding: List[float]) -> bool:
+    async def add_artist_embedding(self, artist_name: str, embedding: List[float]) -> bool:
         """
         Add or update an artist embedding in the vector database.
 
@@ -114,17 +114,17 @@ class VectorSearchService:
                 .where(Artist.name == artist_name)
                 .values(vector=embedding)
             )
-            self.db.execute(stmt)
-            self.db.commit()
+            await self.db.execute(stmt)
+            await self.db.commit()
             logger.debug(f"Added artist embedding for artist: {artist_name}")
             return True
 
         except Exception as e:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(f"Error adding artist embedding for {artist_name}: {e}")
             return False
 
-    def find_similar_tracks(
+    async def find_similar_tracks(
         self, query_embedding: List[float], limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
@@ -139,14 +139,14 @@ class VectorSearchService:
             List of similar tracks with distances
         """
         # Try using TrackEmbeddings first
-        results = self._find_similar_tracks_new(query_embedding, limit)
+        results = await self._find_similar_tracks_new(query_embedding, limit)
         if results:
             return results
 
         # Fall back to legacy Track.vector
         return self._find_similar_tracks_legacy(query_embedding, limit)
 
-    def _find_similar_tracks_new(
+    async def _find_similar_tracks_new(
         self, query_embedding: List[float], limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Find similar tracks using TrackEmbeddings table."""
@@ -166,7 +166,7 @@ class VectorSearchService:
             """
             )
 
-            result = self.db.execute(
+            result = await self.db.execute(
                 query, {"embedding": query_embedding, "limit": limit}
             )
             rows = result.fetchall()
@@ -195,7 +195,7 @@ class VectorSearchService:
             logger.debug(f"TrackEmbeddings search not available: {e}")
             return []
 
-    def _find_similar_tracks_legacy(
+    async def _find_similar_tracks_legacy(
         self, query_embedding: List[float], limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Find similar tracks using legacy Track.vector column."""
@@ -212,7 +212,7 @@ class VectorSearchService:
             )
 
             results = []
-            for row in self.db.execute(stmt).fetchall():
+            for row in await self.db.execute(stmt):
                 track_id, distance = row
                 results.append(
                     {
@@ -275,7 +275,7 @@ class VectorSearchService:
             logger.error(f"Error finding similar tracks async: {e}")
             return []
 
-    def find_similar_artists(
+    async def find_similar_artists(
         self, query_embedding: List[float], limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
@@ -301,7 +301,7 @@ class VectorSearchService:
             )
 
             results = []
-            for row in self.db.execute(stmt).fetchall():
+            for row in await self.db.execute(stmt):
                 artist_name, distance = row
                 results.append(
                     {
@@ -320,7 +320,7 @@ class VectorSearchService:
             logger.error(f"Error finding similar artists: {e}")
             return []
 
-    def get_track_embedding(self, track_id: int) -> Optional[List[float]]:
+    async def get_track_embedding(self, track_id: int) -> Optional[List[float]]:
         """
         Retrieve a track embedding from the vector database.
         Tries TrackEmbeddings first, falls back to legacy Track.vector.
@@ -332,19 +332,19 @@ class VectorSearchService:
             Embedding vector or None if not found
         """
         # Try TrackEmbeddings first
-        embedding = self._get_track_embedding_new(track_id)
+        embedding = await self._get_track_embedding_new(track_id)
         if embedding is not None:
             return embedding
 
         # Fall back to legacy Track.vector
-        return self._get_track_embedding_legacy(track_id)
+        return await self._get_track_embedding_legacy(track_id)
 
-    def _get_track_embedding_new(self, track_id: int) -> Optional[List[float]]:
+    async def _get_track_embedding_new(self, track_id: int) -> Optional[List[float]]:
         """Get track embedding from TrackEmbeddings table."""
         try:
             from backend.api.models.track_embeddings_model import TrackEmbeddings
 
-            result = self.db.execute(
+            result = await self.db.execute(
                 select(TrackEmbeddings)
                 .where(
                     TrackEmbeddings.track_id == track_id,
@@ -359,10 +359,10 @@ class VectorSearchService:
             logger.debug(f"TrackEmbeddings lookup failed: {e}")
             return None
 
-    def _get_track_embedding_legacy(self, track_id: int) -> Optional[List[float]]:
+    async def _get_track_embedding_legacy(self, track_id: int) -> Optional[List[float]]:
         """Get track embedding from legacy Track.vector column."""
         try:
-            track = self.db.query(Track).filter(Track.id == track_id).first()
+            track = await self.db.execute(select(Track).filter(Track.id == track_id).first())
             if track and track.vector:
                 return track.vector
             return None
@@ -401,7 +401,7 @@ class VectorSearchService:
             logger.error(f"Error retrieving track embedding async for {track_id}: {e}")
             return None
 
-    def get_artist_embedding(self, artist_name: str) -> Optional[List[float]]:
+    async def get_artist_embedding(self, artist_name: str) -> Optional[List[float]]:
         """
         Retrieve an artist embedding from the vector database.
 
@@ -412,7 +412,7 @@ class VectorSearchService:
             Embedding vector or None if not found
         """
         try:
-            artist = self.db.query(Artist).filter(Artist.name == artist_name).first()
+            artist = await self.db.execute(select(Artist).filter(Artist.name == artist_name).first())
             if artist and artist.vector:
                 return artist.vector
             return None
@@ -421,7 +421,7 @@ class VectorSearchService:
             logger.error(f"Error retrieving artist embedding for {artist_name}: {e}")
             return None
 
-    def create_embedding(
+    async def create_embedding(
         self,
         track_id: int,
         embedding: List[float],
@@ -447,7 +447,7 @@ class VectorSearchService:
         logger.debug(
             f"create_embedding called for track_id: {track_id} (use async version for actual creation)"
         )
-        return self.add_track_embedding(track_id, embedding)
+        return await self.add_track_embedding_async(track_id, embedding)
 
     async def create_embedding_async(
         self,
@@ -477,24 +477,6 @@ class VectorSearchService:
             embedding_source=embedding_source,
             embedding_model=embedding_model,
         )
-
-    def delete_embedding(
-        self, track_id: int, embedding_type: Optional[str] = None
-    ) -> bool:
-        """
-        Delete embeddings for a track.
-        Wrapper method for backward compatibility.
-
-        Args:
-            track_id: Track ID
-            embedding_type: Specific type to delete (None = all)
-
-        Returns:
-            Success status
-        """
-        # Legacy support - just log that deletion was requested
-        logger.debug(f"delete_embedding called for track_id: {track_id}")
-        return True
 
     async def delete_embedding_async(
         self, track_id: int, embedding_type: Optional[str] = None
@@ -529,7 +511,7 @@ class VectorSearchService:
             logger.error(f"Error deleting embedding for {track_id}: {e}")
             return False
 
-    def batch_add_track_embeddings(
+    async def batch_add_track_embeddings(
         self, embeddings_data: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """

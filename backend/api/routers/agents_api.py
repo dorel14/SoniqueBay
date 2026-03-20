@@ -6,6 +6,7 @@ from backend.api.schemas.agent_score_schema import (
     AgentScoreUpdate,
     AgentScore,
     AgentScoreListResponse,
+    AgentScoreWithMetricsListResponse,
 )
 from backend.api.services.agent_services import (
     create_agent,
@@ -67,13 +68,13 @@ async def api_delete_agent(name: str):
 
 
 @router.get("/ai/tools")
-def list_tools():
+async def list_tools():
     return [
         {
             "name": t.name,
             "description": t.description,
-            "expose": t.expose,
-            "signature": str(t.signature),
+            "expose": True,  # All registered tools are exposed
+            "signature": t.function_signature,
         }
         for t in ToolRegistry.values()
     ]
@@ -143,7 +144,7 @@ async def api_delete_agent_score(agent_name: str, intent: str):
     return {"status": "deleted"}
 
 
-@router.get("/scores/metrics", response_model=AgentScoreListResponse)
+@router.get("/scores/metrics", response_model=AgentScoreWithMetricsListResponse)
 async def api_get_agent_scores_with_metrics(
     agent_name: Optional[str] = Query(None, description="Filtrer par nom d'agent"),
     intent: Optional[str] = Query(None, description="Filtrer par intention"),
@@ -154,4 +155,4 @@ async def api_get_agent_scores_with_metrics(
     scores, total = await get_agent_scores_with_metrics(
         agent_name, intent, limit, offset
     )
-    return AgentScoreListResponse(count=total, results=scores)
+    return AgentScoreWithMetricsListResponse(count=total, results=scores)

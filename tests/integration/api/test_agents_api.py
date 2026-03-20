@@ -5,37 +5,6 @@ from backend.api.api_app import create_api
 from backend.api.utils.database import get_db, get_session, get_async_session
 
 
-@pytest.fixture
-def client(db_session):
-    """Client de test pour l'API agents avec DB de test."""
-    app = create_api()
-
-    def override_get_db():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    def override_get_session():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    async def override_get_async_session():
-        try:
-            yield db_session
-        finally:
-            pass
-
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_session] = override_get_session
-    app.dependency_overrides[get_async_session] = override_get_async_session
-
-    with TestClient(app, base_url="http://test") as c:
-        yield c
-
-
 
 def test_create_agent(client: TestClient, db_session):
     """Tester la création d'un agent."""
@@ -82,6 +51,28 @@ def test_create_agent_duplicate(client: TestClient, db_session):
 
 def test_list_agents(client: TestClient, db_session):
     """Tester la liste des agents."""
+    # Create two agents first to ensure we have at least two
+    payload1 = {
+        "name": "test_agent_1",
+        "model": "gpt-4",
+        "role": "assistant",
+        "task": "help users",
+        "rules": "Follow instructions",
+        "tools": [],
+        "enabled": True,
+    }
+    payload2 = {
+        "name": "test_agent_2",
+        "model": "gpt-4",
+        "role": "assistant",
+        "task": "help users",
+        "rules": "Follow instructions",
+        "tools": [],
+        "enabled": True,
+    }
+    client.post("/api/agents/", json=payload1)
+    client.post("/api/agents/", json=payload2)
+
     response = client.get("/api/agents/")
     assert response.status_code == 200
     data = response.json()
@@ -254,11 +245,12 @@ def test_list_agent_scores(client: TestClient):
             "intent": "common_intent",
             "score": float(i + 5),
         }
-        client.post("/api/agents/scores", json=payload)
+        response = client.post("/api/agents/scores", json=payload)
+        assert response.status_code == 200, f"Failed to create score: {response.text}"
     
     # Lister les scores
     response = client.get("/api/agents/scores")
-    assert response.status_code == 200
+    assert response.status_code == 200, f"Failed to list scores: {response.text}"
     data = response.json()
     assert "count" in data
     assert "results" in data

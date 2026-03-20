@@ -11,6 +11,7 @@ from backend.api.schemas.agent_score_schema import (
     AgentScoreListResponse,
     AgentScoreUpdate,
     AgentScoreWithMetrics,
+    AgentScoreWithMetricsListResponse,
 )
 
 # Imports des schémas
@@ -154,6 +155,7 @@ __all__ = [
     "AgentScore",
     "AgentScoreWithMetrics",
     "AgentScoreListResponse",
+    "AgentScoreWithMetricsListResponse",
     "TrackVectorCreate",
     "TrackVectorResponse",
     "ArtistEmbeddingCreate",

@@ -460,7 +460,7 @@ def client(db_session):
             pass
 
     # FIX: Override AsyncSessionLocal pour agent_services.py _get_session()
-    from backend.api.utils.database import AsyncSessionLocal
+    from backend.api.utils.database import get_async_session
     
     class MockAsyncSessionManager:
         """Mock async context manager pour AsyncSessionLocal() dans tests."""
@@ -480,15 +480,14 @@ def client(db_session):
     app.dependency_overrides[get_session] = override_get_session
     app.dependency_overrides[get_async_session] = override_get_async_session
 
-    app.dependency_overrides[AsyncSessionLocal] = mock_async_session_local
+    app.dependency_overrides[get_async_session] = mock_async_session_local
     
-    # PATCH _get_session dans agent_services.py (import module-level)
+    # PATCH get_async_session dans agent_services.py (import module-level)
     from unittest.mock import patch, MagicMock
-    from backend.api.services.agent_services import _get_session as original_get_session
+    from backend.api.services.agent_services import get_async_session as original_get_session
     
-
     class MockGetSession:
-        """Async context manager mock pour _get_session()."""
+        """Async context manager mock pour get_async_session()."""
         def __init__(self, session):
             self.session = session
         
@@ -499,11 +498,11 @@ def client(db_session):
             return False
     
     def mock_get_session():
-        """Mock _get_session retourne async context manager."""
+        """Mock get_async_session retourne async context manager."""
         return MockGetSession(db_session)
     
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr('backend.api.services.agent_services._get_session', mock_get_session)
+    monkeypatch.setattr('backend.api.services.agent_services.get_async_session', mock_get_session)
 
 
     with TestClient(app, base_url="http://test") as test_client:

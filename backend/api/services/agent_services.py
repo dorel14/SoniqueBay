@@ -1,6 +1,6 @@
 # backend/repos/agent_repo.py
-from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, List, Optional, cast
+
+from typing import List, Optional, cast
 
 from sqlalchemy import func, select
 
@@ -15,21 +15,11 @@ from backend.api.schemas.agent_score_schema import (
 from backend.api.utils.database import get_async_session
 
 
-@asynccontextmanager
-async def _get_session() -> AsyncIterator[Any]:
-    """
-    Fournit une session async SQLAlchemy.
 
-    NOTE tests:
-    - En runtime normal: utilise get_async_session() (PostgreSQL).
-    - En tests: lève erreur explicite, utiliser conftest fixtures.
-    """
-    async with get_async_session() as session:
-        yield session
 
 
 async def create_agent(data: AgentCreate) -> AgentModel:
-    async with _get_session() as session:
+    async with get_async_session() as session:
         obj = AgentModel(
             name=data.name,
             model=data.model,
@@ -55,19 +45,19 @@ async def create_agent(data: AgentCreate) -> AgentModel:
 
 
 async def get_agent_by_name(name: str) -> Optional[AgentModel]:
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(select(AgentModel).where(AgentModel.name == name))
         return q.scalars().first()
 
 
 async def list_agents() -> List[AgentModel]:
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(select(AgentModel))
         return list(q.scalars().all())
 
 
 async def update_agent(name: str, data: AgentUpdate) -> Optional[AgentModel]:
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(select(AgentModel).where(AgentModel.name == name))
         obj = q.scalars().first()
         if not obj:
@@ -83,7 +73,7 @@ async def update_agent(name: str, data: AgentUpdate) -> Optional[AgentModel]:
 
 
 async def delete_agent(name: str) -> bool:
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(select(AgentModel).where(AgentModel.name == name))
         obj = q.scalars().first()
         if not obj:
@@ -98,7 +88,7 @@ async def delete_agent(name: str) -> bool:
 
 async def create_agent_score(data: AgentScoreCreate) -> AgentScoreModel:
     """Crée un nouveau score pour un agent."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         obj = AgentScoreModel(
             agent_name=data.agent_name,
             intent=data.intent,
@@ -114,7 +104,7 @@ async def create_agent_score(data: AgentScoreCreate) -> AgentScoreModel:
 
 async def get_agent_score(agent_name: str, intent: str) -> Optional[AgentScoreModel]:
     """Récupère un score d'agent par nom et intention."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(
             select(AgentScoreModel).where(
                 (AgentScoreModel.agent_name == agent_name)
@@ -131,7 +121,7 @@ async def list_agent_scores(
     offset: int = 0,
 ) -> tuple[List[AgentScoreModel], int]:
     """Liste les scores d'agents avec pagination."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = select(AgentScoreModel)
 
         if agent_name:
@@ -155,7 +145,7 @@ async def update_agent_score(
     agent_name: str, intent: str, data: AgentScoreUpdate
 ) -> Optional[AgentScoreModel]:
     """Met à jour un score d'agent existant."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(
             select(AgentScoreModel).where(
                 (AgentScoreModel.agent_name == agent_name)
@@ -180,7 +170,7 @@ async def increment_agent_score_usage(
     agent_name: str, intent: str, success: bool = True
 ) -> Optional[AgentScoreModel]:
     """Incrémente le compteur d'utilisation et de succès."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(
             select(AgentScoreModel).where(
                 (AgentScoreModel.agent_name == agent_name)
@@ -209,7 +199,7 @@ async def increment_agent_score_usage(
 
 async def delete_agent_score(agent_name: str, intent: str) -> bool:
     """Supprime un score d'agent."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = await session.execute(
             select(AgentScoreModel).where(
                 (AgentScoreModel.agent_name == agent_name)
@@ -231,7 +221,7 @@ async def get_agent_scores_with_metrics(
     offset: int = 0,
 ) -> tuple[List[AgentScoreWithMetrics], int]:
     """Récupère les scores avec métriques calculées."""
-    async with _get_session() as session:
+    async with get_async_session() as session:
         q = select(AgentScoreModel)
 
         if agent_name:
