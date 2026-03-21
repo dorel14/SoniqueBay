@@ -2,7 +2,7 @@
 
 Coexiste avec celery_app.py pendant la migration.
 """
-from taskiq import TaskiqState
+from taskiq import TaskiqEvents
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 from backend_worker.utils.logging import logger
 import os
@@ -17,10 +17,20 @@ result_backend = RedisAsyncResultBackend(
     redis_url=os.getenv('TASKIQ_RESULT_BACKEND', 'redis://redis:6379/1')
 )
 
-@broker.on_event(TaskiqState.EVENT_PRE_SEND)
-async def pre_send_handler(task_name: str, **kwargs):
-    logger.info(f"[TASKIQ] Envoi tâche: {task_name}")
+# Event handlers using available TaskIQ events
+@broker.on_event(TaskiqEvents.WORKER_STARTUP)
+async def worker_startup_handler():
+    logger.info("[TASKIQ] Worker démarré")
 
-@broker.on_event(TaskiqState.EVENT_POST_EXECUTE)
-async def post_execute_handler(task_name: str, result, **kwargs):
-    logger.info(f"[TASKIQ] Tâche terminée: {task_name}")
+@broker.on_event(TaskiqEvents.WORKER_SHUTDOWN)
+async def worker_shutdown_handler():
+    logger.info("[TASKIQ] Worker arrêté")
+
+# Client events for task sending/receiving
+@broker.on_event(TaskiqEvents.CLIENT_STARTUP)
+async def client_startup_handler():
+    logger.info("[TASKIQ] Client démarré")
+
+@broker.on_event(TaskiqEvents.CLIENT_SHUTDOWN)
+async def client_shutdown_handler():
+    logger.info("[TASKIQ] Client arrêté")

@@ -1,0 +1,49 @@
+# Baseline Tests Intégration Workers — SoniqueBay
+
+## 📋 Résumé
+
+**Date** : 2026-03-20  
+**Phase** : 0 (Audit et Préparation)  
+**Objectif** : Référence pour les tests de non-régression lors de la migration TaskIQ
+
+---
+
+## Tests Intégration Workers Identifiés
+
+### Tests Intégration Workers
+- `test_artist_gmm_integration.py` — Tests intégration GMM artistes
+- `test_celery_communication.py` — Tests communication Celery
+- `test_cover_extraction_integration.py` — Tests intégration extraction covers
+- `test_optimized_scan_integration.py` — Tests intégration scan optimisé
+- `test_tag_monitoring_refactor.py` — Tests refactor monitoring tags
+- `test_vectorization_flow.py` — Tests flux vectorisation
+
+---
+
+## Statistiques
+
+| Catégorie | Nombre de Tests |
+|-----------|-----------------|
+| Intégration Workers | 6 |
+| **TOTAL** | **6** |
+
+---
+
+## Points d'Attention pour la Migration
+
+1. **Communication Celery** : Le test `test_celery_communication.py` valide les échanges entre workers. Il doit être adapté pour TaskIQ.
+2. **Flux Complets** : Les tests d'intégration valident des scénarios end-to-end (scan → extraction → insertion).
+3. **Redis** : Ces tests utilisent Redis pour la communication inter-services.
+
+---
+
+## Notes
+
+1. **Environnement** : Ces tests nécessitent un environnement Docker complet (API, Redis, PostgreSQL).
+2. **Isolation** : Chaque test doit être isolé pour éviter les effets de bord.
+3. **Rollback** : En cas d'échec, les données de test doivent être nettoyées.
+
+---
+
+*Dernière mise à jour : 2026-03-20*
+*Phase : 0 (Audit et Préparation)*

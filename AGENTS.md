@@ -12,6 +12,7 @@ Avant de committer ou pousser du code, vérifie :
 * [ ] Tu fais un revoew à chaque implémentation de nouveau code ou corrections de bugs
 * [ ] Les commits suivent le format standard (`feat`, `fix`, etc.).
 * [ ] Aucun fichier sensible ou généré n’est committé (`.env`, cache, DB locale, etc.).
+* [ ] Nous développons en environnement windows ,  les commandes doivent donc se faire en powershell
 
 ---
 
@@ -29,7 +30,6 @@ Avant de committer ou pousser du code, vérifie :
 Le projet fonctionne sous **Docker Compose** avec **3 conteneurs** principaux :
 
 * **library_api** : API FastAPI + endpoints GraphQL pour la gestion de la librairie.
-* **recommender_api** : API FastAPI pour la gestion des vecteurs et de la base de données des outils de recommandation musicales.
 * **backend_worker** : worker Celery (tâches asynchrones).
 * **frontend** : interface utilisateur NiceGUI.
 
@@ -88,7 +88,7 @@ docker-compose build && docker-compose up
   * des index si nécessaire,
   * une migration associée (si Alembic est utilisé).
 
-* Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets.
+* Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets à l'exception du cadre du projet de migration vers taskiq
 
 ---
 
@@ -97,6 +97,7 @@ docker-compose build && docker-compose up
 * Tester le projet en mode local avec pytest,  on indiquera en fin de commande -n auto pour la lib pytest-xdist
 * Tester le projet **dans Docker** (pas seulement en local “nu”).
 * Tous les tests doivent être écrits dans les sous répertoires 'tests' des dossiers principaux 
+* Si il y a besoin d'accéder à une bdd ,  il est possible de créer une bdd temporaire à base d'aiosqlite ,  pas de wrapper dans le code actuel pour passer en  mode sync 
 * Ajouter des **tests unitaires** pour la logique non triviale.
 * Vérifier avant commit :
 

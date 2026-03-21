@@ -279,53 +279,53 @@ services:
                 reservations:
                     cpus: '0.1'
                     memory: 128M
-
-    # === TASKIQ WORKER (NOUVEAU - Migration progressive depuis Celery) ===
-    taskiq-worker:
-        build:
-            context: .
-            dockerfile: backend_worker/Dockerfile
-        container_name: soniquebay-taskiq-worker
-        restart: unless-stopped
-        command: ["python", "-m", "backend_worker.taskiq_worker"]
-        volumes:
-            - ./backend_worker:/app/backend_worker
-            - music-share:/music:ro
-            - ./logs:/app/logs
-            - /etc/localtime:/etc/localtime:ro
-            - huggingface-cache:/root/.cache/huggingface
-            - api-data:/app/backend/data/
-        environment:
-            - TASKIQ_BROKER_URL=redis://redis:6379/1
-            - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
-            - API_URL=http://library:8001
-            - HF_TOKEN=${HF_TOKEN}
-            - HF_HOME=/root/.cache/huggingface
-            - MUSIC_PATH=/music
-            - PLATFORM=docker
-            - NAS_USER=${NAS_USER:-""}
-            - NAS_PASS=${NAS_PASS:-""}
-        depends_on:
-            redis:
-                condition: service_healthy
-            timesync:
-                condition: service_started
-            api-service:
-                condition: service_healthy
-        networks:
-            default:
-                aliases:
-                    - taskiq-worker
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.5'
-                    memory: 512M
-                reservations:
-                    cpus: '0.25'
-                    memory: 256M
-
-    # === LLM SERVICE (KOBOLDCPP) ===
+        
+            # === TASKIQ WORKER (NOUVEAU - Migration progressive depuis Celery) ===
+            taskiq-worker:
+                build:
+                    context: .
+                    dockerfile: backend_worker/Dockerfile
+                container_name: soniquebay-taskiq-worker
+                restart: unless-stopped
+                command: ["python", "-m", "backend_worker.taskiq_worker"]
+                volumes:
+                    - ./backend_worker:/app/backend_worker
+                    - music-share:/music:ro
+                    - ./logs:/app/logs
+                    - /etc/localtime:/etc/localtime:ro
+                    - huggingface-cache:/root/.cache/huggingface
+                    - api-data:/app/backend/data/
+                environment:
+                    - TASKIQ_BROKER_URL=redis://redis:6379/1
+                    - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+                    - API_URL=http://library:8001
+                    - HF_TOKEN=${HF_TOKEN}
+                    - HF_HOME=/root/.cache/huggingface
+                    - MUSIC_PATH=/music
+                    - PLATFORM=docker
+                    - NAS_USER=${NAS_USER:-""}
+                    - NAS_PASS=${NAS_PASS:-""}
+                depends_on:
+                    redis:
+                        condition: service_healthy
+                    timesync:
+                        condition: service_started
+                    api-service:
+                        condition: service_healthy
+                networks:
+                    default:
+                        aliases:
+                            - taskiq-worker
+                deploy:
+                    resources:
+                        limits:
+                            cpus: '0.5'
+                            memory: 512M
+                        reservations:
+                            cpus: '0.25'
+                            memory: 256M
+        
+            # === LLM SERVICE (KOBOLDCPP) ===
     llm-service:
         image: koboldai/koboldcpp:latest
         container_name: llm-service

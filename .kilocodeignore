@@ -15,3 +15,5 @@ data/
 pg_db/
 pg_db_old/
 llm-service/models/
+.vscode/
+logs/
