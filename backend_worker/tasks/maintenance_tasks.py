@@ -3,9 +3,13 @@ Tâches de maintenance pour les workers - Nettoyage et monitoring
 Utilisé principalement par Celery Beat pour les tâches planifiées.
 """
 
+import os
 from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 from backend_worker.services.deferred_queue_service import deferred_queue_service
+
+# Feature flags pour la migration TaskIQ
+USE_TASKIQ_FOR_MAINTENANCE = os.getenv('USE_TASKIQ_FOR_MAINTENANCE', 'false').lower() == 'true'
 
 
 @celery.task(name="backend_worker.tasks.maintenance_tasks.cleanup_expired_tasks_task")
@@ -19,6 +23,27 @@ def cleanup_expired_tasks_task(max_age_seconds: int = 86400) -> dict:
     Returns:
         Statistiques du nettoyage
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info(f"[CELERY→TASKIQ] Délégation à TaskIQ pour cleanup_expired_tasks_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import cleanup_expired_tasks_task as taskiq_task
+        from backend_worker.taskiq_utils import run_taskiq_sync
+        
+        try:
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = run_taskiq_sync(taskiq_task, max_age_seconds=max_age_seconds)
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info(f"[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info(f"[MAINTENANCE] Démarrage nettoyage tâches expirées (> {max_age_seconds}s)")
 
@@ -148,6 +173,27 @@ def archive_old_logs_task(days_to_keep: int = 30) -> dict:
     Returns:
         Résultats de l'archivage
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info(f"[CELERY→TASKIQ] Délégation à TaskIQ pour archive_old_logs_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import archive_old_logs_task as taskiq_task
+        from backend_worker.taskiq_utils import run_taskiq_sync
+        
+        try:
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = run_taskiq_sync(taskiq_task, days_to_keep=days_to_keep)
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info(f"[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info(f"[MAINTENANCE] Démarrage archivage logs (> {days_to_keep} jours)")
 
