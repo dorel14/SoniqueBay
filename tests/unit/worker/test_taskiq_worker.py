@@ -1,8 +1,12 @@
+"""Tests unitaires pour le worker TaskIQ.
+
+Vérifie que le worker TaskIQ est fonctionnel et importable.
+"""
 import pytest
 import asyncio
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 
 @pytest.mark.asyncio

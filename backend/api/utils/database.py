@@ -46,6 +46,22 @@ class TimestampMixin:
     )
 
 
+def get_database_url_raw() -> str:
+    """Retourne l'URL de base de données brute (sans encodage des credentials)."""
+    # Priorité test : utiliser DATABASE_URL si SQLite
+    db_url = os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
+    if db_url and db_url.startswith("sqlite"):
+        return db_url  # SQLite utilise le même URL
+
+    # Fallback production PostgreSQL brute
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "musicdb")
+    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
+
 def get_async_database_url() -> str:
     """Retourne l'URL de base de données async avec credentials encodés."""
     # Priorité test : utiliser DATABASE_URL si SQLite (aiosqlite compatible)

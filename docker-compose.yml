@@ -95,6 +95,7 @@ services:
         command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001","--factory"]
         volumes:
             - ./backend:/app/backend
+            - ./backend_worker:/app/backend_worker
             - api-data:/app/backend/data/
             - music-share:/music:ro
             - ./logs:/app/logs
