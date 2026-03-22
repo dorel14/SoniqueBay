@@ -1,5 +1,5 @@
 """Repository pour les tracks avec accès direct DB."""
-from sqlalchemy import select, insert, update
+from sqlalchemy import select, insert
 from backend_worker.models.tracks_model import Track
 from backend_worker.db.repositories.base import BaseRepository
 
