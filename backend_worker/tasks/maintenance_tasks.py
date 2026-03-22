@@ -29,11 +29,17 @@ def cleanup_expired_tasks_task(max_age_seconds: int = 86400) -> dict:
         
         # Déléguer à TaskIQ
         from backend_worker.taskiq_tasks.maintenance import cleanup_expired_tasks_task as taskiq_task
-        from backend_worker.taskiq_utils import run_taskiq_sync
+        import asyncio
         
         try:
-            # Exécuter la tâche TaskIQ de manière synchrone
-            result = run_taskiq_sync(taskiq_task, max_age_seconds=max_age_seconds)
+            # Exécuter la tâche TaskIQ de manière synchrone depuis le contexte Celery
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(taskiq_task(max_age_seconds=max_age_seconds))
             
             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
             return result
@@ -46,17 +52,17 @@ def cleanup_expired_tasks_task(max_age_seconds: int = 86400) -> dict:
     # Code Celery existant (ne pas modifier)
     try:
         logger.info(f"[MAINTENANCE] Démarrage nettoyage tâches expirées (> {max_age_seconds}s)")
-
+        
         result = deferred_queue_service.cleanup_expired_tasks(max_age_seconds)
-
+        
         if isinstance(result, dict) and "error" not in result:
             total_cleaned = sum(result.values())
             logger.info(f"[MAINTENANCE] Nettoyage terminé: {total_cleaned} tâches supprimées")
         else:
             logger.warning(f"[MAINTENANCE] Erreur nettoyage: {result}")
-
+        
         return result
-
+    
     except Exception as e:
         logger.error(f"[MAINTENANCE] Exception nettoyage: {str(e)}")
         return {"error": str(e)}
@@ -70,6 +76,33 @@ def generate_daily_health_report_task() -> dict:
     Returns:
         Rapport de santé détaillé
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info(f"[CELERY→TASKIQ] Délégation à TaskIQ pour generate_daily_health_report_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import generate_daily_health_report_task as taskiq_task
+        import asyncio
+        
+        try:
+            # Exécuter la tâche TaskIQ de manière synchrone depuis le contexte Celery
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(taskiq_task())
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info(f"[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info("[MAINTENANCE] Génération rapport santé quotidien")
 
@@ -143,6 +176,33 @@ def rebalance_queues_task() -> dict:
     Returns:
         Résultats du rééquilibrage
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info(f"[CELERY→TASKIQ] Délégation à TaskIQ pour rebalance_queues_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import rebalance_queues_task as taskiq_task
+        import asyncio
+        
+        try:
+            # Exécuter la tâche TaskIQ de manière synchrone depuis le contexte Celery
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(taskiq_task())
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info(f"[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info("[MAINTENANCE] Démarrage rééquilibrage queues")
 
@@ -179,11 +239,17 @@ def archive_old_logs_task(days_to_keep: int = 30) -> dict:
         
         # Déléguer à TaskIQ
         from backend_worker.taskiq_tasks.maintenance import archive_old_logs_task as taskiq_task
-        from backend_worker.taskiq_utils import run_taskiq_sync
+        import asyncio
         
         try:
-            # Exécuter la tâche TaskIQ de manière synchrone
-            result = run_taskiq_sync(taskiq_task, days_to_keep=days_to_keep)
+            # Exécuter la tâche TaskIQ de manière synchrone depuis le contexte Celery
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(taskiq_task(days_to_keep=days_to_keep))
             
             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
             return result
@@ -222,6 +288,33 @@ def validate_system_integrity_task() -> dict:
     Returns:
         Résultats de la validation
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info(f"[CELERY→TASKIQ] Délégation à TaskIQ pour validate_system_integrity_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import validate_system_integrity_task as taskiq_task
+        import asyncio
+        
+        try:
+            # Exécuter la tâche TaskIQ de manière synchrone depuis le contexte Celery
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            result = loop.run_until_complete(taskiq_task())
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info(f"[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info("[MAINTENANCE] Démarrage validation intégrité système")
 
