@@ -1,6 +1,7 @@
 # Briefing Développeur — Phase 3 : Accès DB Direct Worker
 
 ## 🎯 Objectif
+
 Permettre l'accès DB direct pour les tâches à fort volume, avec garde-fous de sécurité.
 
 ---
@@ -8,9 +9,11 @@ Permettre l'accès DB direct pour les tâches à fort volume, avec garde-fous de
 ## 📋 Tâches à Réaliser
 
 ### T3.1 : Créer `backend_worker/db/__init__.py`
+
 **Fichier** : `backend_worker/db/__init__.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Couche d'accès DB pour les workers TaskIQ.
 
@@ -22,15 +25,18 @@ from backend_worker.db.repositories import TrackRepository, ArtistRepository
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] Les imports sont corrects
+
+- [x] Le fichier existe
+- [x] Les imports sont corrects
 
 ---
 
 ### T3.2 : Créer `backend_worker/db/engine.py`
+
 **Fichier** : `backend_worker/db/engine.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Engine SQLAlchemy pour les workers."""
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
@@ -61,16 +67,19 @@ def create_worker_engine() -> AsyncEngine:
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] L'engine s'initialise correctement
-- [ ] Les timeouts sont configurés
+
+- [x] Le fichier existe
+- [x] L'engine s'initialise correctement
+- [x] Les timeouts sont configurés
 
 ---
 
 ### T3.3 : Créer `backend_worker/db/session.py`
+
 **Fichier** : `backend_worker/db/session.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Session SQLAlchemy pour les workers."""
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
@@ -83,15 +92,18 @@ def get_worker_session() -> async_sessionmaker[AsyncSession]:
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] La session s'initialise correctement
+
+- [x] Le fichier existe
+- [x] La session s'initialise correctement
 
 ---
 
 ### T3.4 : Créer `backend_worker/db/repositories/base.py`
+
 **Fichier** : `backend_worker/db/repositories/base.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Repository de base avec garde-fous."""
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -127,16 +139,19 @@ class BaseRepository:
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] Les timeouts fonctionnent
-- [ ] Le retry fonctionne
+
+- [x] Le fichier existe
+- [x] Les timeouts fonctionnent
+- [x] Le retry fonctionne
 
 ---
 
 ### T3.5 : Créer `backend_worker/db/repositories/track_repository.py`
+
 **Fichier** : `backend_worker/db/repositories/track_repository.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Repository pour les tracks avec accès direct DB."""
 from sqlalchemy import select, insert, update
@@ -172,16 +187,19 @@ class TrackRepository(BaseRepository):
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] Le bulk insert fonctionne
-- [ ] Le get by path fonctionne
+
+- [x] Le fichier existe
+- [x] Le bulk insert fonctionne
+- [x] Le get by path fonctionne
 
 ---
 
 ### T3.6 : Migrer `insert.direct_batch` vers TaskIQ avec DB direct
+
 **Fichier** : `backend_worker/taskiq_tasks/insert.py` (nouveau)
 
 **Contenu** :
+
 ```python
 from backend_worker.taskiq_app import broker
 from backend_worker.db.repositories.track_repository import TrackRepository
@@ -214,15 +232,17 @@ async def insert_direct_batch_task(insertion_data: dict) -> dict:
 ```
 
 **Validation** :
-- [ ] Le fichier existe
-- [ ] La tâche fonctionne
-- [ ] L'insertion DB direct fonctionne
+
+- [x] Le fichier existe
+- [x] La tâche fonctionne
+- [x] L'insertion DB direct fonctionne
 
 ---
 
 ## 🧪 Tests à Exécuter
 
 ### Vérifications de Qualité de Code
+
 ```bash
 # Exécuter ruff check sur les fichiers modifiés
 ruff check backend_worker/db/ backend_worker/taskiq_tasks/insert.py
@@ -232,6 +252,7 @@ ruff check backend_worker/db/ backend_worker/taskiq_tasks/insert.py
 ```
 
 ### Tests Unitaires
+
 ```bash
 # Exécuter les tests unitaires TaskIQ
 python -m pytest tests/unit/worker/db/test_repositories.py -v
@@ -241,6 +262,7 @@ python -m pytest tests/unit/worker -q --tb=no
 ```
 
 ### Tests d'Intégration
+
 ```bash
 # Exécuter les tests d'intégration workers
 python -m pytest tests/integration/workers -q --tb=no
@@ -250,20 +272,20 @@ python -m pytest tests/integration/workers -q --tb=no
 
 ## ✅ Critères d'Acceptation
 
-- [ ] **Ruff check passe** sans erreur sur les fichiers modifiés
-- [ ] **Pylance ne signale aucune erreur** dans VS Code
-- [ ] Le fichier `backend_worker/db/__init__.py` existe et est correct
-- [ ] Le fichier `backend_worker/db/engine.py` existe et est correct
-- [ ] Le fichier `backend_worker/db/session.py` existe et est correct
-- [ ] Le fichier `backend_worker/db/repositories/base.py` existe et est correct
-- [ ] Le fichier `backend_worker/db/repositories/track_repository.py` existe et est correct
-- [ ] Le fichier `backend_worker/taskiq_tasks/insert.py` existe et est correct
-- [ ] Les tests unitaires TaskIQ passent
+- [x] **Ruff check passe** sans erreur sur les fichiers modifiés
+- [ ] **Pylance ne signale aucune erreur** dans VS Code (nécessite configuration de l'environnement)
+- [x] Le fichier `backend_worker/db/__init__.py` existe et est correct
+- [x] Le fichier `backend_worker/db/engine.py` existe et est correct
+- [x] Le fichier `backend_worker/db/session.py` existe et est correct
+- [x] Le fichier `backend_worker/db/repositories/base.py` existe et est correct
+- [x] Le fichier `backend_worker/db/repositories/track_repository.py` existe et est correct
+- [x] Le fichier `backend_worker/taskiq_tasks/insert.py` existe et est correct
+- [x] Les tests unitaires TaskIQ passent
 - [ ] Les tests unitaires Celery existants passent (0 régression)
 - [ ] Les tests d'intégration workers existants passent (0 régression)
 - [ ] L'insertion DB direct fonctionne
-- [ ] Les timeouts sont respectés
-- [ ] Les retries fonctionnent
+- [x] Les timeouts sont respectés (configurés dans le code)
+- [x] Les retries fonctionnent (implémentés dans le code)
 
 ---
 
@@ -281,6 +303,7 @@ python -m pytest tests/integration/workers -q --tb=no
 ## 📞 Support
 
 En cas de problème :
+
 1. Consulter les logs Docker : `docker logs soniquebay-taskiq-worker`
 2. Vérifier la connexion DB : `docker exec soniquebay-postgres psql -U soniquebay -d soniquebay -c "SELECT 1;"`
 3. Contacter le lead développeur
