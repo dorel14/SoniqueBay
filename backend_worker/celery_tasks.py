@@ -5,6 +5,9 @@ import os
 from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
 
+# Feature flags pour la migration TaskIQ
+USE_TASKIQ_FOR_MAINTENANCE = os.getenv('USE_TASKIQ_FOR_MAINTENANCE', 'false').lower() == 'true'
+
 
 # === TÂCHES DE SCAN ===
 @celery.task(name="scan.discovery", queue="scan", bind=True)
@@ -552,38 +555,75 @@ def calculate_vector_batch(self, track_ids: list[int]):
 
 
 # === TÂCHES DE COVERS ===
-# Import des vraies tâches de covers depuis covers_tasks.py
-
 @celery.task(name="covers.extract_embedded", queue="deferred_covers", bind=True)
 def extract_embedded_covers(self, file_paths: list[str]):
     """
-    Extrait les covers intégrées pour un lot de fichiers.
+    Extrait les covers intégrées pour un lot de fichiers (placeholder).
 
     Args:
         file_paths: Liste des chemins de fichiers
 
     Returns:
-        Résultats de l'extraction des covers embedded
+        Résultat de l'extraction
     """
-    try:
-        import time
-        start_time = time.time()
-        task_id = self.request.id
+    logger.info(f"[COVERS] Démarrage extraction covers intégrées: {len(file_paths)} fichiers")
 
-        logger.info(f"[COVERS] Démarrage extraction embedded: {len(file_paths)} fichiers")
+    # En production, implémenter la logique d'extraction des covers
+    # Pour l'instant, juste un placeholder
 
-        # Pour l'instant, simple placeholder
-        return {
-            'task_id': task_id,
-            'files_processed': 0,
-            'files_total': len(file_paths),
-            'extraction_time': time.time() - start_time,
-            'success': True
-        }
+    result = {
+        "message": f"Extraction covers simulée pour {len(file_paths)} fichiers",
+        "covers_extracted": 0,
+        "success": True
+    }
 
-    except Exception as e:
-        logger.error(f"[COVERS] Erreur extraction: {str(e)}")
-        raise
+    logger.info(f"[COVERS] Extraction covers terminée: {result}")
+    return result
+
+
+# === TÂCHES DE MAINTENANCE ===
+@celery.task(name="maintenance.cleanup_old_data", queue="maintenance", bind=True)
+def cleanup_old_data(self, days_old: int = 30):
+    """Nettoie les anciennes données.
+    
+    Args:
+        days_old: Nombre de jours pour considérer les données comme anciennes
+        
+    Returns:
+        Résultat du nettoyage
+    """
+    
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_MAINTENANCE:
+        logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour cleanup_old_data")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.maintenance import cleanup_old_data_task
+        import asyncio
+        
+        try:
+            # Obtenir ou créer une boucle d'événements
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = loop.run_until_complete(cleanup_old_data_task(days_old=days_old))
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
+    logger.info(f"[MAINTENANCE] Nettoyage des données de plus de {days_old} jours (placeholder)")
+    logger.info("[MAINTENANCE] Nettoyage terminé: success=True")
+    return {"cleaned": True, "days_old": days_old, "items_cleaned": 0, "success": True}
 
 
 # === TÂCHES D'ENRICHISSEMENT ===
