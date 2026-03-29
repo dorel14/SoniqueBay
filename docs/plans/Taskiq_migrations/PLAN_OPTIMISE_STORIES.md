@@ -176,6 +176,45 @@ Créer un wrapper pour appeler des tâches TaskIQ depuis du code synchrone.
 python -m pytest tests/unit/worker/test_taskiq_utils.py -v
 ```
 
+> ⚠️ **Ce wrapper est un FALLBACK TEMPORAIRE**. L'objectif est de convertir
+> toutes les fonctions en async. Ce wrapper ne doit être utilisé que pendant
+> la phase de transition. Voir DEV-15 pour la stratégie de conversion.
+
+---
+
+### Story DEV-15 : Conversion Async des Fonctions Sync
+**Rôle** : Développeur
+**Durée** : 1.5 jours
+**Dépendances** : DEV-2
+
+#### Objectif
+Convertir les fonctions sync critiques en async pour éviter les wrappers.
+
+#### Tâches
+- [ ] Auditer les fonctions sync appelées par les tâches à migrer
+- [ ] Créer `backend_worker/utils/async_helpers.py`
+  - `async_get(url)` : wrapper async pour GET HTTP
+  - `async_post(url, data)` : wrapper async pour POST HTTP
+  - `async_read_file(path)` : wrapper async pour lecture fichiers
+  - `run_cpu_bound(func, *args)` : wrapper pour CPU-bound via `asyncio.to_thread()`
+- [ ] Convertir les helpers sync les plus utilisés
+  - `call_library_api` → `async_call_library_api` (synonym_worker.py)
+  - `scan_music_files` → async (scan_worker.py)
+  - `extract_single_file_metadata` → async split (enrichment_worker.py)
+- [ ] Ajouter les tests unitaires pour les helpers async
+
+#### Critères d'Acceptation
+- [ ] Helpers async fonctionnels
+- [ ] Tests unitaires passent
+- [ ] Aucune régression sur les tests existants
+- [ ] `httpx` et `aiofiles` ajoutés aux dépendances
+
+#### Validation
+```bash
+python -m pytest tests/unit/worker/test_async_helpers.py -v
+python -m pytest tests/unit/worker -q --tb=no
+```
+
 ---
 
 ### Story DEV-6 : Tâche Maintenance (Pilote)
@@ -196,6 +235,7 @@ Migrer la tâche `maintenance.cleanup_old_data` vers TaskIQ (non critique).
   - Wrapper vers TaskIQ si flag=true
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Tâche fonctionne en mode Celery (flag=false)
 - [ ] Tâche fonctionne en mode TaskIQ (flag=true)
 - [ ] Logs différenciés `[CELERY]` vs `[TASKIQ]`
@@ -227,6 +267,7 @@ Migrer la tâche `covers.extract_embedded` vers TaskIQ.
   - Ajouter le feature flag `USE_TASKIQ_FOR_COVERS`
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Tâche fonctionne en mode Celery
 - [ ] Tâche fonctionne en mode TaskIQ
 - [ ] Tests existants passent
@@ -251,6 +292,7 @@ Créer la couche d'accès DB pour les workers TaskIQ.
   - Factory de sessions
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Engine s'initialise
 - [ ] Sessions fonctionnelles
 - [ ] Pas de fuite de connexions
@@ -280,6 +322,7 @@ Créer le repository pour les tracks avec accès direct DB.
   - `get_track_by_path()`
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Insertion en masse fonctionnelle
 - [ ] Timeout respecté
 - [ ] Tests unitaires passent
@@ -302,6 +345,7 @@ Migrer `insert.direct_batch` avec accès DB direct.
 - [ ] Ajouter le flag `WORKER_DIRECT_DB_ENABLED`
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Insertion via API (fallback)
 - [ ] Insertion via DB direct (flag)
 - [ ] Performance DB direct ≥ API
@@ -324,6 +368,7 @@ Migrer les tâches de vectorisation vers TaskIQ.
 - [ ] Ajouter le feature flag `USE_TASKIQ_FOR_VECTORIZATION`
 
 #### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
 - [ ] Vectorisation fonctionne en mode Celery
 - [ ] Vectorisation fonctionne en mode TaskIQ
 - [ ] Performance comparable
@@ -344,6 +389,12 @@ Migrer les tâches de métadonnées vers TaskIQ.
   - `enrich_batch_task`
 - [ ] Ajouter le feature flag `USE_TASKIQ_FOR_METADATA`
 
+#### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
+- [ ] Métadonnées fonctionnent en mode Celery
+- [ ] Métadonnées fonctionnent en mode TaskIQ
+- [ ] Tests existants passent
+
 ---
 
 ### Story DEV-13 : Migration Progressive (Lot 3)
@@ -360,6 +411,12 @@ Migrer les tâches de batch et scan vers TaskIQ.
 - [ ] Créer `backend_worker/taskiq_tasks/scan.py`
   - `discovery_task`
 - [ ] Ajouter les feature flags
+
+#### Critères d'Acceptation
+- [ ] **Toutes les fonctions de la tâche sont `async def`** (pas de wrapper sync)
+- [ ] Batch et scan fonctionnent en mode Celery
+- [ ] Batch et scan fonctionnent en mode TaskIQ
+- [ ] Tests existants passent
 
 ---
 
@@ -599,21 +656,22 @@ Fusionner les services Docker après décommission Celery.
 
 ---
 
-### Sprint 2 (3 jours) — Feature Flags & Wrapper
+### Sprint 2 (4.5 jours) — Feature Flags, Wrapper & Async Conversion
 | Story | Rôle | Durée | Dépendances |
 |-------|------|-------|-------------|
 | DEV-4 | Dev | 0.5j | DEV-2 |
 | DEV-5 | Dev | 0.5j | DEV-2 |
+| DEV-15 | Dev | 1.5j | DEV-2 |
 | DEVOPS-2 | DevOps | 0.25j | DEV-4 |
 
-**Livrable** : Système de feature flags opérationnel
+**Livrable** : Système de feature flags opérationnel + helpers async
 
 ---
 
 ### Sprint 3 (3 jours) — Migration Pilote
 | Story | Rôle | Durée | Dépendances |
 |-------|------|-------|-------------|
-| DEV-6 | Dev | 1j | DEV-4, DEV-5 |
+| DEV-6 | Dev | 1j | DEV-4, DEV-5, DEV-15 |
 | DEV-7 | Dev | 1j | DEV-6 |
 | TEST-2 | Test | 0.5j | DEV-6 |
 | TEST-3 | Test | 1j | TEST-2 |

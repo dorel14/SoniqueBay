@@ -8,11 +8,25 @@ Auteur : Kilo Code
 """
 
 import os
-import pwd
-import grp
 from pathlib import Path
 from typing import Dict, Any
-from backend_worker.utils.logging import logger
+
+# Try to import logger with fallback
+try:
+    from ..utils.logging import logger
+except ImportError:
+    import logging
+    logger = logging.getLogger(__name__)
+
+# Try to import pwd and grp (Unix-specific modules)
+try:
+    import pwd
+    import grp
+    HAS_PWD_GRP = True
+except ImportError:
+    pwd = None
+    grp = None
+    HAS_PWD_GRP = False
 
 
 class DataDirectoryInitializer:
@@ -35,22 +49,52 @@ class DataDirectoryInitializer:
     
     def _get_current_user(self) -> Dict[str, Any]:
         """Récupère les informations sur l'utilisateur courant."""
-        try:
-            uid = os.getuid()
-            gid = os.getgid()
-            user = pwd.getpwuid(uid)
-            group = grp.getgrgid(gid)
-            
+        if HAS_PWD_GRP and os.name == 'posix':
+            try:
+                # Check if we're on a Unix-like system where these functions exist
+                if hasattr(os, 'getuid') and hasattr(os, 'getgid'):
+                    uid = os.getuid()
+                    gid = os.getgid()
+                    
+                    if pwd is not None and hasattr(pwd, 'getpwuid'):
+                        user = pwd.getpwuid(uid)
+                    else:
+                        # Create a mock user object
+                        class MockUser:
+                            pw_name = "unknown"
+                            pw_dir = ""
+                        user = MockUser()
+                    
+                    if grp is not None and hasattr(grp, 'getgrgid'):
+                        group = grp.getgrgid(gid)
+                    else:
+                        # Create a mock group object
+                        class MockGroup:
+                            gr_name = "unknown"
+                        group = MockGroup()
+                    
+                    return {
+                        "uid": uid,
+                        "gid": gid,
+                        "username": user.pw_name,
+                        "groupname": group.gr_name,
+                        "home": user.pw_dir
+                    }
+                else:
+                    # Fallback for systems where these functions don't exist (like Windows)
+                    return {"username": "unknown", "uid": -1, "gid": -1}
+            except Exception as e:
+                logger.warning(f"Impossible de récupérer les informations utilisateur: {e}")
+                return {"username": "unknown", "uid": -1, "gid": -1}
+        else:
+            # Windows fallback
+            username = os.getenv("USERNAME", "unknown")
             return {
-                "uid": uid,
-                "gid": gid,
-                "username": user.pw_name,
-                "groupname": group.gr_name,
-                "home": user.pw_dir
+                "username": username,
+                "uid": -1,
+                "gid": -1,
+                "home": os.getenv("USERPROFILE", "")
             }
-        except Exception as e:
-            logger.warning(f"Impossible de récupérer les informations utilisateur: {e}")
-            return {"username": "unknown", "uid": -1, "gid": -1}
     
     def check_directory_permissions(self, directory_path: str) -> Dict[str, Any]:
         """Vérifie les permissions d'un répertoire."""
@@ -78,8 +122,31 @@ class DataDirectoryInitializer:
                 result["executable"] = os.access(path, os.X_OK)
                 
                 stat_info = path.stat()
-                result["owner"] = pwd.getpwuid(stat_info.st_uid).pw_name
-                result["group"] = grp.getgrgid(stat_info.st_gid).gr_name
+                if HAS_PWD_GRP:
+                    # Check if the functions exist before calling them
+                    getpwuid_fn = getattr(pwd, 'getpwuid', None)
+                    if getpwuid_fn and callable(getpwuid_fn):
+                        user_info = getpwuid_fn(stat_info.st_uid)
+                        if hasattr(user_info, 'pw_name'):
+                            result["owner"] = user_info.pw_name
+                        else:
+                            result["owner"] = "unknown"
+                    else:
+                        result["owner"] = "unknown"
+                    
+                    getgrgid_fn = getattr(grp, 'getgrgid', None)
+                    if getgrgid_fn and callable(getgrgid_fn):
+                        group_info = getgrgid_fn(stat_info.st_gid)
+                        if hasattr(group_info, 'gr_name'):
+                            result["group"] = group_info.gr_name
+                        else:
+                            result["group"] = "unknown"
+                    else:
+                        result["group"] = "unknown"
+                else:
+                    # On Windows, we can't get the username from uid easily, so we use the current user
+                    result["owner"] = self.current_user.get("username", "unknown")
+                    result["group"] = self.current_user.get("username", "unknown")
                 result["permissions"] = oct(stat_info.st_mode)[-3:]
             
             # Vérifier le répertoire parent
@@ -131,9 +198,17 @@ class DataDirectoryInitializer:
             
             # Définir la ownership si possible (utilisateur courant)
             try:
-                if self.current_user["uid"] != -1:
-                    os.chown(path, self.current_user["uid"], self.current_user["gid"])
-                    result["ownership_set"] = True
+                if HAS_PWD_GRP and self.current_user["uid"] != -1:
+                    # Check if chown exists before calling it
+                    if hasattr(os, 'chown'):
+                        os.chown(path, self.current_user["uid"], self.current_user["gid"])
+                        result["ownership_set"] = True
+                    else:
+                        logger.warning(f"os.chown not available on this platform")
+                elif not HAS_PWD_GRP:
+                    # On Windows, ownership is not typically changed in the same way
+                    # We'll skip ownership setting on Windows
+                    pass
             except Exception as e:
                 result["warnings"].append(f"Impossible de définir la ownership: {e}")
                 logger.warning(f"Impossible de définir la ownership pour {directory_path}: {e}")
@@ -310,16 +385,16 @@ def validate_data_access() -> bool:
 
 if __name__ == "__main__":
     """Test du service d'initialisation."""
-    print("=== TEST SERVICE D'INITIALISATION ===")
+    logger.info("=== TEST SERVICE D'INITIALISATION ===")
     
     # Test d'initialisation
-    print("\n1. Test d'initialisation...")
+    logger.info("\n1. Test d'initialisation...")
     init_result = initialize_data_directories(force=True)
-    print(f"Résultat: {'Succès' if init_result else 'Échec'}")
+    logger.info(f"Résultat: {'Succès' if init_result else 'Échec'}")
     
     # Test de validation
-    print("\n2. Test de validation...")
+    logger.info("\n2. Test de validation...")
     validate_result = validate_data_access()
-    print(f"Résultat: {'Succès' if validate_result else 'Échec'}")
+    logger.info(f"Résultat: {'Succès' if validate_result else 'Échec'}")
     
-    print("\n=== TESTS TERMINÉS ===")
+    logger.info("\n=== TESTS TERMINÉS ===")

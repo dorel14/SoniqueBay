@@ -745,19 +745,19 @@ if __name__ == "__main__":
     
     def test_tasks():
         """Test des tâches Celery."""
-        print("=== TEST TÂCHES CELERY OPTIMISÉES ===")
+        logger.info("=== TEST TÂCHES CELERY OPTIMISÉES ===")
         
         # Test tâche unique
-        print("\n1. Test vectorisation track unique...")
+        logger.info("\n1. Test vectorisation track unique...")
         result = vectorize_track_optimized.delay(1)  # Track ID 1
-        print(f"Tâche soumise: {result.id}")
+        logger.info(f"Tâche soumise: {result.id}")
         
         # Test tâche batch (avec track IDs factices)
-        print("\n2. Test vectorisation batch...")
+        logger.info("\n2. Test vectorisation batch...")
         batch_result = vectorize_tracks_batch_optimized.delay([1, 2, 3, 4, 5])
-        print(f"Batch soumis: {batch_result.id}")
+        logger.info(f"Batch soumis: {batch_result.id}")
         
-        print("\n=== TÂCHES SOUMISES ===")
+        logger.info("\n=== TÂCHES SOUMISES ===")
     
     # Exécuter les tests
     test_tasks()

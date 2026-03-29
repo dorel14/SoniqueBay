@@ -468,16 +468,16 @@ def publish_vectorization_sse(event_type: str, data: Dict[str, Any]):
 
 if __name__ == "__main__":
     """Test des tâches Celery."""
-    print("=== TEST TÂCHES CELERY VECTORISATION ===")
+    logger.info("=== TEST TÂCHES CELERY VECTORISATION ===")
     
     # Test monitoring
-    print("\n1. Test monitoring tags...")
+    logger.info("\n1. Test monitoring tags...")
     result = monitor_tag_changes_task.apply()
-    print(f"Monitoring résultat: {result.result}")
+    logger.info(f"Monitoring résultat: {result.result}")
     
     # Test santé modèles
-    print("\n2. Test santé modèles...")
+    logger.info("\n2. Test santé modèles...")
     health_result = check_model_health_task.apply()
-    print(f"Health résultat: {health_result.result}")
+    logger.info(f"Health résultat: {health_result.result}")
     
-    print("\n=== TESTS TERMINÉS ===")
+    logger.info("\n=== TESTS TERMINÉS ===")

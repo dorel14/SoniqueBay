@@ -6,6 +6,7 @@ eventlet>=0.33.0
 # TaskIQ - Migration progressive depuis Celery
 taskiq-redis>=1.2.2
 taskiq-fastapi>=0.4.0
+taskiq-postgres>=0.7.0
 # Gestion des fichiers audio et métadonnées
 mutagen>=1.46.0
 librosa>=0.10.0
@@ -25,6 +26,7 @@ pgvector>=0.2.4  # PostgreSQL vector extension
 
 # HTTP et WebSocket
 httpx>=0.24.0
+joblib>=1.3.0
 websockets>=11.0.3
 
 # Stockage et Index de recherche

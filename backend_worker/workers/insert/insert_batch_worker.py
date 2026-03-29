@@ -45,7 +45,7 @@ from backend_worker.services.entity_manager import (
     on_tracks_inserted_callback,
 )
 from backend_worker.services.deferred_queue_service import deferred_queue_service
-
+from backend_worker.feature_flags import USE_TASKIQ_FOR_INSERT, WORKER_DIRECT_DB_ENABLED
 
 # Import pour déclenchement de l'enrichissement à la fin de l'insertion
 from backend_worker.workers.deferred.deferred_enrichment_worker import process_enrichment_batch_task
@@ -54,6 +54,34 @@ from backend_worker.workers.deferred.deferred_enrichment_worker import process_e
 @celery.task(name="insert.direct_batch", queue="insert", bind=True)
 def insert_batch_direct(self, insertion_data: Dict[str, Any]):
     """Insère en base de données via l'API HTTP uniquement."""
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_INSERT:
+        logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour insert_direct_batch")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.insert import insert_direct_batch_task
+        import asyncio
+        
+        try:
+            # Obtenir ou créer une boucle d'événements
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = loop.run_until_complete(insert_direct_batch_task.kiq(insertion_data=insertion_data))
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     task_id = self.request.id
     logger.info(f"[INSERT TASK] Démarrage tâche insert.direct_batch - Task ID: {task_id}")
     logger.info(f"[INSERT TASK] Données reçues: {len(insertion_data.get('artists', []))} artistes, {len(insertion_data.get('albums', []))} albums, {len(insertion_data.get('tracks', []))} tracks")

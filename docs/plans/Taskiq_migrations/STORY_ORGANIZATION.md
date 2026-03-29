@@ -13,7 +13,7 @@ Ce document organise les **45+ stories** de la migration TaskIQ par rôle (Déve
 
 | Rôle | Nombre Stories | Responsabilités |
 |------|----------------|-----------------|
-| **Développeur** | 29 stories | Implémentation, tests unitaires, documentation technique |
+| **Développeur** | 30 stories | Implémentation, tests unitaires, documentation technique |
 | **Testeur** | 16 stories | Validation tests, détection régressions, rapports |
 | **DevOps** | 5 stories | Configuration Docker, monitoring, CI/CD |
 
@@ -21,7 +21,7 @@ Ce document organise les **45+ stories** de la migration TaskIQ par rôle (Déve
 
 ## 📦 Matrice des Stories par Rôle
 
-### 🔧 Développeur (29 stories)
+### 🔧 Développeur (30 stories)
 
 #### Phase 1 — Socle TaskIQ Minimal (5 stories)
 
@@ -33,15 +33,16 @@ Ce document organise les **45+ stories** de la migration TaskIQ par rôle (Déve
 | **DEV-4** | Ajouter variables d'environnement dans `.env.example` | DEV-2 | Variables documentées |
 | **DEV-5** | Créer tests unitaires `test_taskiq_app.py` | DEV-2 | Tests passent, couverture >80% |
 
-#### Phase 2 — Migration Pilote (5 stories)
+#### Phase 2 — Migration Pilote (6 stories)
 
 | Story | Tâches | Dépendances | Critères d'Acceptation |
 |-------|--------|-------------|------------------------|
 | **DEV-6** | Créer package `taskiq_tasks/` | Phase 1 | Package importable |
 | **DEV-7** | Migrer tâche `cleanup_old_data` | DEV-6 | Tâche fonctionne mode Celery et TaskIQ |
 | **DEV-8** | Ajouter feature flag `USE_TASKIQ_FOR_MAINTENANCE` | DEV-7 | Flag opérationnel |
-| **DEV-9** | Créer wrapper sync/async `taskiq_utils.py` | Phase 1 | Wrapper fonctionnel |
+| **DEV-9** | Créer wrapper sync/async FALLBACK `taskiq_utils.py` | Phase 1 | Wrapper fonctionnel (temporaire) |
 | **DEV-10** | Ajouter logging différencié | DEV-7 | Logs `[TASKIQ]` visibles |
+| **DEV-30** | Convertir helpers sync → async | DEV-2 | Helpers async fonctionnels |
 
 #### Phase 3 — Accès DB Direct Worker (5 stories)
 
@@ -197,6 +198,9 @@ graph TD
         DEV-6 --> DEV-7
         DEV-7 --> DEV-8
         DEV-7 --> DEV-10
+        DEV-2 --> DEV-30
+        DEV-30 --> DEV-7
+        DEV-30 --> DEV-16
         DEV-7 --> DEVOPS-3
         DEV-7 --> TEST-3
         TEST-3 --> TEST-4
@@ -311,6 +315,7 @@ graph TD
 | DEV-8 | Dev | 0.5j | DEV-7 | ⬜ |
 | DEV-9 | Dev | 0.5j | Phase 1 | ⬜ |
 | DEV-10 | Dev | 0.25j | DEV-7 | ⬜ |
+| DEV-30 | Dev | 1.5j | DEV-2 | ⬜ |
 | DEVOPS-3 | DevOps | 0.5j | DEV-7 | ⬜ |
 | TEST-3 | Test | 0.5j | DEV-7 | ⬜ |
 | TEST-4 | Test | 1j | TEST-3 | ⬜ |
@@ -396,6 +401,7 @@ graph TD
 ### Phase 1 — Socle TaskIQ Minimal
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 1
 - [ ] Vérifier que Redis est accessible (DB 0 et DB 1)
 - [ ] Préparer l'environnement de développement
@@ -403,6 +409,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-1-socle-taskiq`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 1
 - [ ] Exécuter la baseline des tests (31 unitaires + 6 intégration)
 - [ ] Sauvegarder les résultats dans `docs/plans/taskiq_migrations/audit/`
@@ -410,12 +417,14 @@ graph TD
 - [ ] Vérifier que pytest est fonctionnel
 
 #### Préparation DevOps
+
 - [ ] Vérifier que Docker est fonctionnel
 - [ ] Vérifier que `docker-compose.yml` est valide
 - [ ] Préparer les variables d'environnement
 - [ ] Vérifier les limites de ressources RPi4
 
 #### Critères de Démarrage
+
 - [ ] Phase 0 (Audit) terminée et validée
 - [ ] Baseline des tests établie
 - [ ] Configuration Redis documentée
@@ -426,6 +435,7 @@ graph TD
 ### Phase 2 — Migration Pilote
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 2
 - [ ] Vérifier que Phase 1 est validée (tag `phase-1-complete`)
 - [ ] Analyser les tâches Celery existantes (`celery_tasks.py`)
@@ -433,6 +443,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-2-migration-pilote`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 2
 - [ ] Exécuter les tests Phase 1 (non-régression)
 - [ ] Préparer les tests unitaires maintenance
@@ -440,12 +451,14 @@ graph TD
 - [ ] Vérifier que les feature flags sont testables
 
 #### Préparation DevOps
+
 - [ ] Vérifier que le service TaskIQ fonctionne
 - [ ] Préparer le monitoring TaskIQ
 - [ ] Vérifier les logs structurés
 - [ ] Préparer les variables d'environnement feature flags
 
 #### Critères de Démarrage
+
 - [ ] Phase 1 validée (tag `phase-1-complete`)
 - [ ] Tests Phase 1 passent (0 régression)
 - [ ] Service TaskIQ opérationnel
@@ -456,6 +469,7 @@ graph TD
 ### Phase 3 — Accès DB Direct Worker
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 3
 - [ ] Vérifier que Phase 2 est validée (tag `phase-2-complete`)
 - [ ] Analyser les besoins d'accès DB direct
@@ -463,6 +477,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-3-db-direct`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 3
 - [ ] Exécuter les tests Phase 2 (non-régression)
 - [ ] Préparer les tests unitaires repositories
@@ -470,12 +485,14 @@ graph TD
 - [ ] Préparer les tests de performance
 
 #### Préparation DevOps
+
 - [ ] Vérifier la connexion PostgreSQL
 - [ ] Préparer la variable `WORKER_DATABASE_URL`
 - [ ] Vérifier les timeouts de connexion
 - [ ] Préparer le monitoring DB
 
 #### Critères de Démarrage
+
 - [ ] Phase 2 validée (tag `phase-2-complete`)
 - [ ] Tests Phase 2 passent (0 régression)
 - [ ] Tâche maintenance migrée et fonctionnelle
@@ -486,6 +503,7 @@ graph TD
 ### Phase 4 — Migration Progressive du Cœur
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 4
 - [ ] Vérifier que Phase 3 est validée (tag `phase-3-complete`)
 - [ ] Analyser les tâches par lot (criticité croissante)
@@ -493,6 +511,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-4-migration-progressive`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 4
 - [ ] Exécuter les tests Phase 3 (non-régression)
 - [ ] Préparer les tests unitaires par lot
@@ -500,12 +519,14 @@ graph TD
 - [ ] Préparer les tests de feature flags
 
 #### Préparation DevOps
+
 - [ ] Vérifier que Docker est optimisé pour RPi4
 - [ ] Préparer le monitoring des tâches migrées
 - [ ] Vérifier les limites de mémoire
 - [ ] Préparer les variables d'environnement par lot
 
 #### Critères de Démarrage
+
 - [ ] Phase 3 validée (tag `phase-3-complete`)
 - [ ] Tests Phase 3 passent (0 régression)
 - [ ] Insertion DB direct opérationnelle
@@ -516,6 +537,7 @@ graph TD
 ### Phase 5 — Décommission Celery
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 5
 - [ ] Vérifier que Phase 4 est validée (tag `phase-4-complete`)
 - [ ] Vérifier que 2 semaines sans incident se sont écoulées
@@ -523,6 +545,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-5-decommission-celery`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 5
 - [ ] Exécuter la suite complète de tests
 - [ ] Préparer la vérification des imports Celery
@@ -530,12 +553,14 @@ graph TD
 - [ ] Préparer les tests de toutes les tâches TaskIQ
 
 #### Préparation DevOps
+
 - [ ] Vérifier que toutes les tâches fonctionnent via TaskIQ
 - [ ] Préparer la suppression des services Celery
 - [ ] Préparer la mise à jour des Dockerfiles
 - [ ] Préparer le nettoyage Docker
 
 #### Critères de Démarrage
+
 - [ ] Phase 4 validée (tag `phase-4-complete`)
 - [ ] 2 semaines sans incident majeur
 - [ ] Tous les tests passent
@@ -547,6 +572,7 @@ graph TD
 ### Phase 6 — Fusion Backend / Backend Worker
 
 #### Préparation Développeur
+
 - [ ] Lire le briefing développeur Phase 6
 - [ ] Vérifier que Phase 5 est validée (tag `phase-5-complete`)
 - [ ] Auditer les duplications entre `backend/` et `backend_worker/`
@@ -554,6 +580,7 @@ graph TD
 - [ ] Créer une branche `feat/phase-6-fusion-backend`
 
 #### Préparation Testeur
+
 - [ ] Lire le briefing testeur Phase 6
 - [ ] Exécuter la suite complète de tests
 - [ ] Préparer la vérification des imports `backend_worker`
@@ -561,12 +588,14 @@ graph TD
 - [ ] Préparer les tests de toutes les tâches TaskIQ
 
 #### Préparation DevOps
+
 - [ ] Vérifier que toutes les tâches fonctionnent via TaskIQ
 - [ ] Préparer la mise à jour Docker Compose
 - [ ] Préparer la mise à jour des Dockerfiles
 - [ ] Préparer la suppression de `backend_worker/`
 
 #### Critères de Démarrage
+
 - [ ] Phase 5 validée (tag `phase-5-complete`)
 - [ ] Tous les tests passent
 - [ ] Aucun import Celery ne reste
@@ -582,12 +611,12 @@ graph TD
 | Phase | Stories Dev | Stories Test | Stories DevOps | Total | Durée Estimée |
 |-------|-------------|--------------|----------------|-------|---------------|
 | 1 (Socle) | 5 | 2 | 2 | 9 | 2-3 jours |
-| 2 (Pilote) | 5 | 3 | 1 | 9 | 2-4 jours |
+| 2 (Pilote) | 6 | 3 | 1 | 10 | 2-4 jours |
 | 3 (DB Direct) | 5 | 3 | 1 | 9 | 3-5 jours |
 | 4 (Migration) | 4 | 3 | 1 | 8 | 5-10 jours |
 | 5 (Décommission) | 5 | 2 | 2 | 9 | 2-3 jours |
 | 6 (Fusion) | 5 | 2 | 2 | 9 | 5-8 jours |
-| **Total** | **29** | **16** | **9** | **54** | **19-33 jours** |
+| **Total** | **30** | **16** | **9** | **55** | **19-33 jours** |
 
 ### Métriques de Qualité
 
@@ -742,6 +771,7 @@ docs/plans/taskiq_migrations/
 ## 📞 Contacts et Responsabilités
 
 ### Lead Développeur
+
 - **Responsabilités** :
   - Validation globale
   - Revue de code
@@ -750,6 +780,7 @@ docs/plans/taskiq_migrations/
   - Création des tags Git
 
 ### Développeur
+
 - **Responsabilités** :
   - Implémentation des stories DEV
   - Tests unitaires locaux
@@ -758,6 +789,7 @@ docs/plans/taskiq_migrations/
   - Commits atomiques
 
 ### Testeur
+
 - **Responsabilités** :
   - Validation des stories TEST
   - Détection des régressions
@@ -766,6 +798,7 @@ docs/plans/taskiq_migrations/
   - Vérification Docker
 
 ### DevOps
+
 - **Responsabilités** :
   - Configuration Docker
   - Monitoring

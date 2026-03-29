@@ -1,6 +1,7 @@
 # Briefing Testeur — Phase 3 : Accès DB Direct Worker
 
 ## 🎯 Objectif
+
 Valider que l'accès DB direct fonctionne correctement et n'introduit aucune régression.
 
 ---
@@ -8,6 +9,7 @@ Valider que l'accès DB direct fonctionne correctement et n'introduit aucune ré
 ## 📋 Tâches à Réaliser
 
 ### T3.7 : Créer `tests/unit/worker/db/test_repositories.py`
+
 **Fichier** : `tests/unit/worker/db/test_repositories.py` (nouveau)
 
 **Contenu** :
@@ -40,6 +42,7 @@ async def test_track_repository_bulk_insert():
 ```
 
 **Validation** :
+
 - [x] Le fichier existe
 - [x] Les tests passent
 - [x] Les assertions sont correctes
@@ -47,9 +50,11 @@ async def test_track_repository_bulk_insert():
 ---
 
 ### T3.8 : Créer `tests/integration/workers/test_taskiq_insert_integration.py`
+
 **Fichier** : `tests/integration/workers/test_taskiq_insert_integration.py` (nouveau)
 
 **Contenu** :
+
 ```python
 """Tests d'intégration pour l'insertion TaskIQ avec DB direct."""
 import pytest
@@ -65,6 +70,7 @@ async def test_insert_direct_batch_taskiq():
 ```
 
 **Validation** :
+
 - [x] Le fichier existe
 - [x] Les tests passent
 - [x] Les assertions sont correctes
@@ -74,34 +80,41 @@ async def test_insert_direct_batch_taskiq():
 ### T3.9 : Exécuter les tests de comparaison
 
 **Étape 1 : Exécuter les tests unitaires TaskIQ**
+
 ```bash
 python -m pytest tests/unit/worker/db/test_repositories.py -v
 ```
 
 **Résultat** :
+
 - ✅ Tous les tests passent
 - ✅ Aucune erreur d'import
 - ✅ Aucune erreur d'exécution
 
 **Étape 2 : Exécuter les tests unitaires Celery existants**
+
 ```bash
 python -m pytest tests/unit/worker -q --tb=no
 ```
 
 **Attendu** :
+
 - Tous les tests passent (0 régression)
 - Aucune erreur liée à TaskIQ
 
 **Étape 3 : Exécuter les tests d'intégration workers**
+
 ```bash
 python -m pytest tests/integration/workers -q --tb=no
 ```
 
 **Attendu** :
+
 - Tous les tests passent
 - Aucune erreur liée à TaskIQ
 
 **Étape 4 : Comparer avec la baseline**
+
 ```bash
 # Sauvegarder les résultats
 python -m pytest tests/unit/worker -q --tb=no > docs/plans/taskiq_migrations/phase_3/resultats_tests_unitaires.txt
@@ -113,6 +126,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 ```
 
 **Attendu** :
+
 - Aucune différence (0 régression)
 
 ---
@@ -120,6 +134,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 ## 📊 Rapport de Tests
 
 ### Format du Rapport
+
 ```markdown
 # Rapport de Tests — Phase 3 : Accès DB Direct Worker
 
@@ -190,6 +205,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 ### Si un test existant échoue après ajout DB direct
 
 1. **Identifier le test échoué**
+
    ```bash
    python -m pytest tests/unit/worker/test_<nom_test>.py -v
    ```
@@ -202,6 +218,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 3. **Documenter l'anomalie**
    - Fichier : `docs/plans/taskiq_migrations/phase_3/anomalies.md`
    - Format :
+
      ```markdown
      ## Anomalie [NUMÉRO]
      - **Test** : [NOM DU TEST]
@@ -225,6 +242,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 ## 📞 Support
 
 En cas de problème :
+
 1. Consulter les logs Docker : `docker logs soniquebay-taskiq-worker`
 2. Vérifier la connexion DB : `docker exec soniquebay-postgres psql -U soniquebay -d soniquebay -c "SELECT 1;"`
 3. Contacter le lead développeur

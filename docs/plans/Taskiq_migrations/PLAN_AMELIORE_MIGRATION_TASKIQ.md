@@ -660,6 +660,161 @@ Migrer les tâches critiques par lots.
 - [ ] Performance stable ou meilleure
 - [ ] Mémoire maîtrisée (profil RPi)
 
+## 🔄 Stratégie de Conversion Async
+
+### Principe
+
+**Toutes les fonctions métier migrées vers TaskIQ doivent être converties en `async def`.**
+
+Le wrapper `run_taskiq_sync()` est un **fallback temporaire** pendant la migration,
+pas une solution cible. L'objectif est d'avoir des tâches TaskIQ 100% async.
+
+### Règles de Conversion
+
+#### Règle 1 : Fonctions métier → async def
+Toute fonction appelée par une tâche TaskIQ doit être `async def`.
+
+#### Règle 2 : I/O → await avec librairies async
+- HTTP : `requests.get()` → `httpx.AsyncClient().get()`
+- Fichiers : `open()` → `aiofiles.open()`
+- DB : `session.query()` → `await session.execute()`
+
+#### Règle 3 : CPU-bound → asyncio.to_thread()
+Pour les opérations CPU-intensives (Librosa, sentence-transformers) :
+```python
+result = await asyncio.to_thread(cpu_heavy_function, arg1, arg2)
+```
+
+#### Règle 4 : Appels API existants → httpx.AsyncClient
+Remplacer `requests` par `httpx` dans les helpers :
+```python
+# AVANT (sync)
+import requests
+response = requests.get(f"{API_URL}/api/tracks/{track_id}")
+
+# APRÈS (async)
+import httpx
+async with httpx.AsyncClient() as client:
+    response = await client.get(f"{API_URL}/api/tracks/{track_id}")
+```
+
+### Patterns de Conversion
+
+#### Pattern A : Fonction pure I/O (HTTP, DB)
+```python
+# AVANT
+def get_track_by_path(path: str) -> dict | None:
+    response = requests.get(f"{API_URL}/api/tracks?path={path}")
+    return response.json()
+
+# APRÈS
+async def get_track_by_path(path: str) -> dict | None:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{API_URL}/api/tracks?path={path}")
+        return response.json()
+```
+
+#### Pattern B : Fonction CPU-bound (Librosa, ML)
+```python
+# AVANT
+def extract_audio_features(file_path: str) -> dict:
+    y, sr = librosa.load(file_path)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr)
+    return {"mfcc": mfcc.tolist()}
+
+# APRÈS
+async def extract_audio_features(file_path: str) -> dict:
+    return await asyncio.to_thread(_extract_audio_features_sync, file_path)
+
+def _extract_audio_features_sync(file_path: str) -> dict:
+    y, sr = librosa.load(file_path)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr)
+    return {"mfcc": mfcc.tolist()}
+```
+
+#### Pattern C : Fonction mixte (I/O + CPU)
+```python
+# AVANT
+def process_track(track_id: int) -> dict:
+    track = requests.get(f"{API_URL}/api/tracks/{track_id}").json()
+    features = extract_audio_features(track["path"])
+    requests.post(f"{API_URL}/api/tracks/{track_id}/features", json=features)
+    return {"success": True}
+
+# APRÈS
+async def process_track(track_id: int) -> dict:
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{API_URL}/api/tracks/{track_id}")
+        track = response.json()
+
+    features = await asyncio.to_thread(extract_audio_features_sync, track["path"])
+
+    async with httpx.AsyncClient() as client:
+        await client.post(f"{API_URL}/api/tracks/{track_id}/features", json=features)
+
+    return {"success": True}
+```
+
+### Matrice de Conversion par Lot
+
+#### Lot 1 : Maintenance (non critique)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `celery_tasks.py` | `cleanup_old_data` | A (I/O via API) | Facile |
+| `maintenance_tasks.py` | `cleanup_expired_tasks_task` | A (Redis) | Facile |
+| `maintenance_tasks.py` | `rebalance_queues_task` | A (Redis) | Facile |
+| `maintenance_tasks.py` | `archive_old_logs_task` | A (Fichiers) | Facile |
+| `maintenance_tasks.py` | `validate_system_integrity_task` | A (Redis + API) | Facile |
+| `maintenance_tasks.py` | `generate_daily_health_report_task` | A (Redis) | Facile |
+
+#### Lot 2 : Covers (faible criticité)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `covers_tasks.py` | `process_artist_images` | A (API) | Moyenne |
+| `covers_tasks.py` | `process_album_covers` | A (API) | Moyenne |
+| `covers_tasks.py` | `process_track_covers_batch` | A (API + I/O fichiers) | Moyenne |
+| `covers_tasks.py` | `extract_embedded` | B (CPU: Pillow) | Moyenne |
+
+#### Lot 3 : Metadata (critique moyenne)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `celery_tasks.py` | `extract_metadata_batch` | C (I/O + CPU mutagen) | Difficile |
+| `enrichment_worker.py` | `process_enrichment_batch_task` | A (API) | Moyenne |
+
+#### Lot 4 : Batch + Insert (critique)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `process_entities_worker.py` | `batch_entities` | A (API) | Moyenne |
+| `insert_batch_worker.py` | `insert_batch_direct` | C (I/O + déjà async interne) | Moyenne |
+
+#### Lot 5 : Scan (très critique)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `celery_tasks.py` | `discovery` | A (I/O fichiers + API) | Difficile |
+| `scan_worker.py` | `scan_music_files` | A (I/O fichiers) | Moyenne |
+
+#### Lot 6 : Vectorization (critique)
+| Fichier | Fonction | Pattern | Difficulté |
+|---------|----------|---------|------------|
+| `vectorization_worker.py` | `vectorize_track_optimized` | B (CPU: sentence-transformers) | Difficile |
+| `vectorization_worker.py` | `vectorize_tracks_batch_optimized` | B (CPU) | Difficile |
+| `monitoring_worker.py` | `monitor_tag_changes_task` | A (API) | Moyenne |
+
+### Dépendances à Ajouter
+
+```txt
+# backend_worker/requirements.txt
+httpx>=0.25.0      # Déjà présent ? Vérifier
+aiofiles>=23.0.0   # Pour I/O fichiers async
+```
+
+### Critères de Passage Phase 4 (async)
+
+Ajouter dans les critères de validation :
+- [ ] **Toutes les tâches migrées sont `async def`** (pas de wrapper sync)
+- [ ] **Aucun `run_taskiq_sync()`** dans les tâches migrées
+- [ ] **Librairies async utilisées** (httpx, aiofiles) où applicable
+
 ---
 
 ## Phase 5 — Décommission Celery (2-3 jours)
