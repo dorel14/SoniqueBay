@@ -14,17 +14,17 @@ from backend.ai.tools import (
     scan_library,
     get_recommendations,
 )
-from backend.api.models.tracks_model import TrackModel
-from backend.api.models.artists_model import ArtistModel
-from backend.api.models.albums_model import AlbumModel
-from backend.api.models.playqueue_model import PlayqueueModel
+from backend.api.models.tracks_model import Track
+from backend.api.models.artists_model import Artist
+from backend.api.models.albums_model import Album
+from backend.api.models.playqueue_model import PlayQueue
 
 
 @pytest.mark.asyncio
 async def test_search_tracks(session: AsyncSession):
     """Tester la recherche de morceaux."""
     # Créer un morceau de test
-    track = TrackModel(
+    track = Track(
         title="Test Track",
         artist_name="Test Artist",
         album_name="Test Album",
@@ -45,7 +45,7 @@ async def test_search_tracks(session: AsyncSession):
 async def test_search_artists(session: AsyncSession):
     """Tester la recherche d'artistes."""
     # Créer un artiste de test
-    artist = ArtistModel(
+    artist = Artist(
         name="Test Artist",
         track_count=5,
         album_count=3,
@@ -65,7 +65,7 @@ async def test_search_artists(session: AsyncSession):
 async def test_search_albums(session: AsyncSession):
     """Tester la recherche d'albums."""
     # Créer un album de test
-    album = AlbumModel(
+    album = Album(
         title="Test Album",
         artist_name="Test Artist",
         track_count=10,
@@ -86,13 +86,13 @@ async def test_search_albums(session: AsyncSession):
 async def test_create_playlist(session: AsyncSession):
     """Tester la création de playlist."""
     # Créer des morceaux de test
-    track1 = TrackModel(
+    track1 = Track(
         title="Track 1",
         artist_name="Artist 1",
         album_name="Album 1",
         duration=180,
     )
-    track2 = TrackModel(
+    track2 = Track(
         title="Track 2",
         artist_name="Artist 2",
         album_name="Album 2",
@@ -119,7 +119,7 @@ async def test_create_playlist(session: AsyncSession):
 async def test_play_track(session: AsyncSession):
     """Tester la lecture d'un morceau."""
     # Créer un morceau de test
-    track = TrackModel(
+    track = Track(
         title="Test Track",
         artist_name="Test Artist",
         album_name="Test Album",
@@ -140,7 +140,7 @@ async def test_play_track(session: AsyncSession):
 async def test_add_to_playqueue(session: AsyncSession):
     """Tester l'ajout à la file de lecture."""
     # Créer un morceau de test
-    track = TrackModel(
+    track = Track(
         title="Test Track",
         artist_name="Test Artist",
         album_name="Test Album",
@@ -160,14 +160,14 @@ async def test_add_to_playqueue(session: AsyncSession):
 async def test_get_playqueue(session: AsyncSession):
     """Tester l'obtention de la file de lecture."""
     # Créer des morceaux dans la file de lecture
-    track1 = PlayqueueModel(
+    track1 = PlayQueue(
         track_id=1,
         track_title="Track 1",
         track_artist="Artist 1",
         track_album="Album 1",
         position=1,
     )
-    track2 = PlayqueueModel(
+    track2 = PlayQueue(
         track_id=2,
         track_title="Track 2",
         track_artist="Artist 2",
@@ -198,13 +198,13 @@ async def test_scan_library(session: AsyncSession):
 async def test_get_recommendations(session: AsyncSession):
     """Tester l'obtention de recommandations."""
     # Créer des morceaux de test
-    track1 = TrackModel(
+    track1 = Track(
         title="Track 1",
         artist_name="Artist 1",
         album_name="Album 1",
         duration=180,
     )
-    track2 = TrackModel(
+    track2 = Track(
         title="Track 2",
         artist_name="Artist 2",
         album_name="Album 2",

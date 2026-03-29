@@ -8,8 +8,8 @@ from backend.api.services.covers_service import CoverService
 from backend.api.models.covers_model import EntityCoverType
 from backend.api.utils.logging import logger
 from backend_worker.taskiq_tasks.covers import (
-    process_artist_images_task,
-    process_album_covers_task,
+    process_artist_images,
+    process_album_covers,
     extract_embedded_task
 )
 import base64

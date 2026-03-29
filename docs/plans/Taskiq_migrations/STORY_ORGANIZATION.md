@@ -306,7 +306,7 @@ graph TD
 
 ---
 
-### Sprint 2 (3 jours) — Phase 2 : Migration Pilote
+### Sprint 2 (4 jours) — Phase 2 : Migration Pilote
 
 | Story | Rôle | Durée | Dépendances | Statut |
 |-------|------|-------|-------------|--------|

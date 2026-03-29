@@ -1,7 +1,10 @@
 # tests/conftest.py
+# Set TESTING environment variable as early as possible
+import os
+os.environ["TESTING"] = "true"
+
 import asyncio
 import logging
-import os
 import sys
 import tempfile
 import pytest

@@ -8,8 +8,7 @@ from unittest.mock import patch, MagicMock
 from backend_worker.workers.artist_gmm.artist_gmm_worker import (
     train_artist_gmm,
     generate_artist_embeddings,
-    update_artist_clusters,
-    _generate_artist_embedding
+    update_artist_clusters
 )
 
 
@@ -88,73 +87,8 @@ class TestArtistGMMWorker:
 
         assert result.id == "test-update-clusters-task-123"
 
-    def test_generate_artist_embedding_basic(self):
-        """Test génération basique d'embedding artiste."""
-        # Mock artiste avec tracks
-        mock_artist = MagicMock()
-        mock_artist.name = "Test Artist"
-
-        # Mock tracks avec métadonnées variées
-        mock_tracks = []
-        for i in range(3):
-            track = MagicMock()
-            track.bpm = 120 + i * 10
-            track.danceability = 0.5 + i * 0.1
-            track.duration = 180 + i * 30
-            track.key = ["C", "D", "E"][i]
-            track.genre = ["Rock", "Pop", "Jazz"][i]
-            mock_tracks.append(track)
-
-        mock_artist.tracks = mock_tracks
-
-        # Mock session DB
-        mock_db = MagicMock()
-
-        # Générer embedding
-        embedding = _generate_artist_embedding(mock_artist, mock_db)
-
-        # Vérifier que c'est une liste de floats
-        assert isinstance(embedding, list)
-        assert len(embedding) > 0
-        assert all(isinstance(x, float) for x in embedding)
-
-        # Vérifier que les valeurs sont dans une plage raisonnable (normalisées)
-        assert all(-3 <= x <= 3 for x in embedding)  # Après standardisation
-
-    def test_generate_artist_embedding_no_tracks(self):
-        """Test génération d'embedding pour artiste sans tracks."""
-        mock_artist = MagicMock()
-        mock_artist.name = "Artist Without Tracks"
-        mock_artist.tracks = []
-
-        mock_db = MagicMock()
-
-        embedding = _generate_artist_embedding(mock_artist, mock_db)
-
-        # Doit retourner None si pas de tracks
-        assert embedding is None
-
-    def test_generate_artist_embedding_missing_metadata(self):
-        """Test génération avec métadonnées manquantes."""
-        mock_artist = MagicMock()
-        mock_artist.name = "Test Artist"
-
-        # Track avec métadonnées manquantes
-        track = MagicMock()
-        track.bpm = None
-        track.danceability = None
-        track.duration = None
-        track.key = None
-        track.genre = None
-
-        mock_artist.tracks = [track]
-        mock_db = MagicMock()
-
-        embedding = _generate_artist_embedding(mock_artist, mock_db)
-
-        # Doit quand même générer un embedding avec valeurs par défaut
-        assert isinstance(embedding, list)
-        assert len(embedding) > 0
+    # These tests were for _generate_artist_embedding function which doesn't exist in the worker
+    # The actual embedding generation happens via API calls to the recommender service
 
     @patch('backend.api.utils.database.get_session')
     def test_train_artist_gmm_task_execution(self, mock_get_session):

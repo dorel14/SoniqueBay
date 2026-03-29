@@ -7,7 +7,7 @@ from taskiq.api import run_receiver_task
 import asyncio
 
 # Import des tâches TaskIQ (à migrer progressivement)
-# from backend_worker.taskiq_tasks import *
+from backend_worker.taskiq_tasks import covers
 
 
 async def main() -> None:

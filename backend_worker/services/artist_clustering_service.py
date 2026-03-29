@@ -69,7 +69,7 @@ class ArtistClusteringService:
     Example:
         >>> service = ArtistClusteringService(api_base_url="http://library_api:8000")
         >>> result = await service.cluster_all_artists(force_refresh=False)
-        >>> print(f"Clustering terminé: {result['artists_clustered']} artistes")
+        >>> logger.info(f"Clustering terminé: {result['artists_clustered']} artistes")
     """
     
     # Configuration Redis

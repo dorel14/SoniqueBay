@@ -300,21 +300,21 @@ if __name__ == "__main__":
 
     async def test_service():
         """Test du service de vectorisation local."""
-        print("=== TEST VECTORIZATION ===")
+        logger.info("=== TEST VECTORIZATION ===")
 
         service = OptimizedVectorizationService()
 
         # Vérifier disponibilité du modèle
-        print("\n1. Vérification modèle...")
+        logger.info("\n1. Vérification modèle...")
         available = service.is_model_available()
-        print(f"Modèle disponible: {available}")
+        logger.info(f"Modèle disponible: {available}")
 
         if not available:
-            print("Note: modèle d'embedding non disponible")
+            logger.info("Note: modèle d'embedding non disponible")
             return
 
         # Test avec données fictives
-        print("\n2. Test vectorisation...")
+        logger.info("\n2. Test vectorisation...")
         test_data = {
             'title': 'Bohemian Rhapsody',
             'artist_name': 'Queen',
@@ -326,10 +326,10 @@ if __name__ == "__main__":
         }
 
         embedding = await service.vectorize_single_track(test_data)
-        print(f"Embedding généré: {len(embedding)} dimensions")
-        print(f"Premières valeurs: {embedding[:5]}")
+        logger.info(f"Embedding généré: {len(embedding)} dimensions")
+        logger.info(f"Premières valeurs: {embedding[:5]}")
 
-        print("\n=== TESTS TERMINÉS ===")
+        logger.info("\n=== TESTS TERMINÉS ===")
 
     # Exécuter les tests
     asyncio.run(test_service())

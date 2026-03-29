@@ -9,6 +9,7 @@ Ce plan amélioré intègre des **garde-fous anti-régression** basés sur l'aud
 ## 🔍 Analyse des Risques Identifiés
 
 ### Points d'Attention Critiques
+
 1. **Configuration Celery unifiée** : `celery_config_source.py` et `celery_config_publisher.py` synchronisent la config via Redis
 2. **Queues et priorités** : 13 queues configurées avec priorités strictes (scan=0, deferred=9)
 3. **Tâches bind=True** : Utilisation de `self.request.id` pour le tracking
@@ -16,6 +17,7 @@ Ce plan amélioré intègre des **garde-fous anti-régression** basés sur l'aud
 5. **Tests existants** : 15+ tests unitaires worker, 6 tests intégration workers
 
 ### Fichiers Sensibles à Ne Pas Casser
+
 - [`backend_worker/celery_app.py`](backend_worker/celery_app.py) - Configuration principale
 - [`backend_worker/celery_tasks.py`](backend_worker/celery_tasks.py) - Tâches centralisées
 - [`backend_worker/celery_config_source.py`](backend_worker/celery_config_source.py) - Config unifiée
@@ -27,6 +29,7 @@ Ce plan amélioré intègre des **garde-fous anti-régression** basés sur l'aud
 ## 🛡️ Stratégie Anti-Régression
 
 ### 1. Mode Coexistence (Phase 1-2)
+
 ```
 Celery Worker (existant) ←→ Redis ←→ TaskIQ Worker (nouveau)
          ↓                           ↓
@@ -34,6 +37,7 @@ Celery Worker (existant) ←→ Redis ←→ TaskIQ Worker (nouveau)
 ```
 
 ### 2. Feature Flags par Tâche
+
 ```python
 # .env
 USE_TASKIQ_FOR_SCAN=false
@@ -45,11 +49,13 @@ ENABLE_CELERY_FALLBACK=true
 ```
 
 ### 3. Shadow Mode (Phase 2)
+
 - Exécution simultanée Celery + TaskIQ
 - Comparaison des résultats
 - Logs différenciés `[CELERY]` vs `[TASKIQ]`
 
 ### 4. Tests de Non-Régression
+
 - Avant chaque phase : baseline des tests existants
 - Après chaque phase : comparaison des résultats
 - Critère : 0 régression sur les tests existants
@@ -61,9 +67,11 @@ ENABLE_CELERY_FALLBACK=true
 ## Phase 0 — Audit et Préparation (1-2 jours) ✅ TERMINÉE
 
 ### Objectif
+
 Cartographier l'existant sans modifier le code.
 
 ### Tâches
+
 - [x] **T0.1** : Lister toutes les tâches Celery avec leurs signatures
   - Fichier : [`docs/plans/taskiq_migrations/audit/taches_celery.md`](docs/plans/taskiq_migrations/audit/taches_celery.md)
   - Format : nom, queue, priorité, payload, idempotence, criticité
@@ -84,16 +92,19 @@ Cartographier l'existant sans modifier le code.
   - **Résultat** : Configuration complète (URLs, clés, queues, optimisations)
 
 ### Livrables
+
 - [x] Matrice des tâches avec priorité de migration
 - [x] Baseline des tests (référence pour non-régression)
 - [x] Documentation des flux inter-tâches
 - [x] Configuration Redis documentée
 
 ### Validation
+
 - [x] Tous les tests existants passent (référence établie)
 - [x] Documentation complète et revue
 
 ### Résultats Détaillés
+
 - Voir : [`docs/plans/taskiq_migrations/phase_0/resultats_audit.md`](docs/plans/taskiq_migrations/phase_0/resultats_audit.md)
 
 ---
@@ -101,6 +112,7 @@ Cartographier l'existant sans modifier le code.
 ## Phase 1 — Socle TaskIQ Minimal (2-3 jours)
 
 ### Objectif
+
 Ajouter TaskIQ sans impacter Celery existant.
 
 ### Tâches Développeur
@@ -111,6 +123,7 @@ Ajouter TaskIQ sans impacter Celery existant.
   - **NE PAS SUPPRIMER** les dépendances Celery
 
 - [ ] **T1.2** : Créer `backend_worker/taskiq_app.py`
+
   ```python
   """Configuration TaskIQ pour SoniqueBay.
   
@@ -141,6 +154,7 @@ Ajouter TaskIQ sans impacter Celery existant.
   ```
 
 - [ ] **T1.3** : Créer `backend_worker/taskiq_worker.py`
+
   ```python
   """Worker TaskIQ pour SoniqueBay.
   
@@ -162,6 +176,7 @@ Ajouter TaskIQ sans impacter Celery existant.
   ```
 
 - [ ] **T1.4** : Ajouter le service TaskIQ dans `docker-compose.yml`
+
   ```yaml
   taskiq-worker:
       build:
@@ -202,6 +217,7 @@ Ajouter TaskIQ sans impacter Celery existant.
 ### Tâches Testeur
 
 - [ ] **T1.6** : Créer `tests/unit/worker/test_taskiq_app.py`
+
   ```python
   """Tests unitaires pour la configuration TaskIQ.
   
@@ -227,6 +243,7 @@ Ajouter TaskIQ sans impacter Celery existant.
   ```
 
 - [ ] **T1.7** : Exécuter les tests de non-régression
+
   ```bash
   python -m pytest tests/unit/worker/test_taskiq_app.py -v
   python -m pytest tests/unit/worker -q --tb=no
@@ -234,12 +251,14 @@ Ajouter TaskIQ sans impacter Celery existant.
   ```
 
 ### Livrables
+
 - Worker TaskIQ démarre en parallèle de Celery
 - Aucune tâche métier migrée
 - Tests unitaires TaskIQ passent
 - Tests existants Celery toujours verts
 
 ### Validation
+
 - [ ] `docker-compose up` démarre les 4 conteneurs (api, celery-worker, taskiq-worker, frontend)
 - [ ] Logs TaskIQ visibles sans erreurs
 - [ ] Tests unitaires TaskIQ passent
@@ -250,14 +269,17 @@ Ajouter TaskIQ sans impacter Celery existant.
 ## Phase 2 — Migration Pilote (2-4 jours)
 
 ### Objectif
+
 Migrer 1-2 tâches non critiques avec shadow mode.
 
 ### Sélection Tâche Pilote
+
 **Recommandation** : `maintenance.cleanup_old_data` (non critique, idempotente)
 
 ### Tâches Développeur
 
 - [ ] **T2.1** : Créer `backend_worker/taskiq_tasks/maintenance.py`
+
   ```python
   """Tâches TaskIQ de maintenance.
   
@@ -283,6 +305,7 @@ Migrer 1-2 tâches non critiques avec shadow mode.
   ```
 
 - [ ] **T2.2** : Ajouter le feature flag dans `backend_worker/celery_tasks.py`
+
   ```python
   # En haut du fichier
   import os
@@ -313,6 +336,7 @@ Migrer 1-2 tâches non critiques avec shadow mode.
   - Fonction : `run_taskiq_sync(task_func, *args, **kwargs)`
 
 - [ ] **T2.4** : Ajouter le logging différencié
+
   ```python
   # Dans les tâches migrées
   logger.info(f"[TASKIQ|CELERY] Tâche {task_name} exécutée via {engine}")
@@ -321,6 +345,7 @@ Migrer 1-2 tâches non critiques avec shadow mode.
 ### Tâches Testeur
 
 - [ ] **T2.5** : Créer `tests/unit/worker/test_taskiq_maintenance.py`
+
   ```python
   """Tests pour la tâche maintenance migrée vers TaskIQ."""
   import pytest
@@ -347,6 +372,7 @@ Migrer 1-2 tâches non critiques avec shadow mode.
   ```
 
 - [ ] **T2.6** : Créer `tests/integration/workers/test_taskiq_maintenance_integration.py`
+
   ```python
   """Tests d'intégration pour la maintenance TaskIQ."""
   import pytest
@@ -362,6 +388,7 @@ Migrer 1-2 tâches non critiques avec shadow mode.
   ```
 
 - [ ] **T2.7** : Exécuter les tests de comparaison
+
   ```bash
   # Mode Celery
   USE_TASKIQ_FOR_MAINTENANCE=false python -m pytest tests/unit/worker/test_taskiq_maintenance.py -v
@@ -373,12 +400,14 @@ Migrer 1-2 tâches non critiques avec shadow mode.
   ```
 
 ### Livrables
+
 - Tâche maintenance migrée et fonctionnelle
 - Feature flag opérationnel
 - Tests unitaires et intégration passent
 - Rapport comparatif Celery vs TaskIQ
 
 ### Validation
+
 - [ ] Tâche fonctionne en mode Celery (flag=false)
 - [ ] Tâche fonctionne en mode TaskIQ (flag=true)
 - [ ] Logs différenciés visibles
@@ -390,15 +419,18 @@ Migrer 1-2 tâches non critiques avec shadow mode.
 ## Phase 3 — Accès DB Direct Worker (Option B) (3-5 jours)
 
 ### Objectif
+
 Permettre l'accès DB direct pour les tâches à fort volume.
 
 ### Prérequis
+
 - Phase 2 validée
 - Feature flag `WORKER_DIRECT_DB_ENABLED` opérationnel
 
 ### Tâches Développeur
 
 - [ ] **T3.1** : Créer `backend_worker/db/__init__.py`
+
   ```python
   """Couche d'accès DB pour les workers TaskIQ.
   
@@ -410,6 +442,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.2** : Créer `backend_worker/db/engine.py`
+
   ```python
   """Engine SQLAlchemy pour les workers."""
   from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
@@ -440,6 +473,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.3** : Créer `backend_worker/db/session.py`
+
   ```python
   """Session SQLAlchemy pour les workers."""
   from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
@@ -452,6 +486,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.4** : Créer `backend_worker/db/repositories/base.py`
+
   ```python
   """Repository de base avec garde-fous."""
   from sqlalchemy.ext.asyncio import AsyncSession
@@ -487,6 +522,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.5** : Créer `backend_worker/db/repositories/track_repository.py`
+
   ```python
   """Repository pour les tracks avec accès direct DB."""
   from sqlalchemy import select, insert, update
@@ -522,6 +558,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.6** : Migrer `insert.direct_batch` vers TaskIQ avec DB direct
+
   ```python
   # backend_worker/taskiq_tasks/insert.py
   from backend_worker.taskiq_app import broker
@@ -557,6 +594,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
 ### Tâches Testeur
 
 - [ ] **T3.7** : Créer `tests/unit/worker/db/test_repositories.py`
+
   ```python
   """Tests unitaires pour les repositories workers."""
   import pytest
@@ -586,6 +624,7 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.8** : Créer `tests/integration/workers/test_taskiq_insert_integration.py`
+
   ```python
   """Tests d'intégration pour l'insertion TaskIQ avec DB direct."""
   import pytest
@@ -601,18 +640,21 @@ Permettre l'accès DB direct pour les tâches à fort volume.
   ```
 
 - [ ] **T3.9** : Exécuter les tests de performance
+
   ```bash
   # Comparer les performances Celery vs TaskIQ vs DB direct
   python -m pytest tests/performance/benchmarks/test_insert_performance.py -v
   ```
 
 ### Livrables
+
 - Couche DB worker opérationnelle
 - Tâche insert migrée avec DB direct
 - Tests unitaires et intégration passent
 - Rapport de performance
 
 ### Validation
+
 - [ ] Insertion fonctionne via API (fallback)
 - [ ] Insertion fonctionne via DB direct (feature flag)
 - [ ] Performance DB direct ≥ Performance API
@@ -624,9 +666,11 @@ Permettre l'accès DB direct pour les tâches à fort volume.
 ## Phase 4 — Migration Progressive du Cœur (5-10 jours)
 
 ### Objectif
+
 Migrer les tâches critiques par lots.
 
 ### Ordre de Migration (par criticité croissante)
+
 1. **Lot 1** : `maintenance.*` (non critique)
 2. **Lot 2** : `covers.*` (faible criticité)
 3. **Lot 3** : `metadata.*` (critique moyenne)
@@ -637,24 +681,28 @@ Migrer les tâches critiques par lots.
 ### Pour Chaque Lot
 
 #### Tâches Développeur
+
 - [ ] Créer le module TaskIQ correspondant
 - [ ] Ajouter le feature flag
 - [ ] Implémenter le wrapper sync/async si nécessaire
 - [ ] Ajouter les logs différenciés
 
 #### Tâches Testeur
+
 - [ ] Créer les tests unitaires
 - [ ] Créer les tests d'intégration
 - [ ] Exécuter les tests de non-régression
 - [ ] Comparer les performances
 
 ### Livrables par Lot
+
 - Tâche migrée et fonctionnelle
 - Feature flag opérationnel
 - Tests passent
 - Rapport de validation
 
 ### Validation Globale Phase 4
+
 - [ ] >80% tâches sur TaskIQ
 - [ ] Tous les tests existants passent
 - [ ] Performance stable ou meilleure
@@ -672,21 +720,27 @@ pas une solution cible. L'objectif est d'avoir des tâches TaskIQ 100% async.
 ### Règles de Conversion
 
 #### Règle 1 : Fonctions métier → async def
+
 Toute fonction appelée par une tâche TaskIQ doit être `async def`.
 
 #### Règle 2 : I/O → await avec librairies async
+
 - HTTP : `requests.get()` → `httpx.AsyncClient().get()`
 - Fichiers : `open()` → `aiofiles.open()`
 - DB : `session.query()` → `await session.execute()`
 
 #### Règle 3 : CPU-bound → asyncio.to_thread()
+
 Pour les opérations CPU-intensives (Librosa, sentence-transformers) :
+
 ```python
 result = await asyncio.to_thread(cpu_heavy_function, arg1, arg2)
 ```
 
 #### Règle 4 : Appels API existants → httpx.AsyncClient
+
 Remplacer `requests` par `httpx` dans les helpers :
+
 ```python
 # AVANT (sync)
 import requests
@@ -701,6 +755,7 @@ async with httpx.AsyncClient() as client:
 ### Patterns de Conversion
 
 #### Pattern A : Fonction pure I/O (HTTP, DB)
+
 ```python
 # AVANT
 def get_track_by_path(path: str) -> dict | None:
@@ -715,6 +770,7 @@ async def get_track_by_path(path: str) -> dict | None:
 ```
 
 #### Pattern B : Fonction CPU-bound (Librosa, ML)
+
 ```python
 # AVANT
 def extract_audio_features(file_path: str) -> dict:
@@ -733,6 +789,7 @@ def _extract_audio_features_sync(file_path: str) -> dict:
 ```
 
 #### Pattern C : Fonction mixte (I/O + CPU)
+
 ```python
 # AVANT
 def process_track(track_id: int) -> dict:
@@ -758,6 +815,7 @@ async def process_track(track_id: int) -> dict:
 ### Matrice de Conversion par Lot
 
 #### Lot 1 : Maintenance (non critique)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `celery_tasks.py` | `cleanup_old_data` | A (I/O via API) | Facile |
@@ -768,6 +826,7 @@ async def process_track(track_id: int) -> dict:
 | `maintenance_tasks.py` | `generate_daily_health_report_task` | A (Redis) | Facile |
 
 #### Lot 2 : Covers (faible criticité)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `covers_tasks.py` | `process_artist_images` | A (API) | Moyenne |
@@ -776,24 +835,28 @@ async def process_track(track_id: int) -> dict:
 | `covers_tasks.py` | `extract_embedded` | B (CPU: Pillow) | Moyenne |
 
 #### Lot 3 : Metadata (critique moyenne)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `celery_tasks.py` | `extract_metadata_batch` | C (I/O + CPU mutagen) | Difficile |
 | `enrichment_worker.py` | `process_enrichment_batch_task` | A (API) | Moyenne |
 
 #### Lot 4 : Batch + Insert (critique)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `process_entities_worker.py` | `batch_entities` | A (API) | Moyenne |
 | `insert_batch_worker.py` | `insert_batch_direct` | C (I/O + déjà async interne) | Moyenne |
 
 #### Lot 5 : Scan (très critique)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `celery_tasks.py` | `discovery` | A (I/O fichiers + API) | Difficile |
 | `scan_worker.py` | `scan_music_files` | A (I/O fichiers) | Moyenne |
 
 #### Lot 6 : Vectorization (critique)
+
 | Fichier | Fonction | Pattern | Difficulté |
 |---------|----------|---------|------------|
 | `vectorization_worker.py` | `vectorize_track_optimized` | B (CPU: sentence-transformers) | Difficile |
@@ -811,6 +874,7 @@ aiofiles>=23.0.0   # Pour I/O fichiers async
 ### Critères de Passage Phase 4 (async)
 
 Ajouter dans les critères de validation :
+
 - [ ] **Toutes les tâches migrées sont `async def`** (pas de wrapper sync)
 - [ ] **Aucun `run_taskiq_sync()`** dans les tâches migrées
 - [ ] **Librairies async utilisées** (httpx, aiofiles) où applicable
@@ -820,9 +884,11 @@ Ajouter dans les critères de validation :
 ## Phase 5 — Décommission Celery (2-3 jours)
 
 ### Objectif
+
 Supprimer Celery après validation complète.
 
 ### Prérequis
+
 - Phase 4 validée
 - 2 semaines sans incident majeur
 - Tous les tests passent
@@ -853,16 +919,19 @@ Supprimer Celery après validation complète.
 ### Tâches Testeur
 
 - [ ] **T5.7** : Exécuter la suite complète de tests
+
   ```bash
   python -m pytest tests/ -q --tb=no
   ```
 
 - [ ] **T5.8** : Vérifier qu'aucun import Celery ne reste
+
   ```bash
   grep -r "from celery" backend/ backend_worker/ || echo "Aucun import Celery trouvé"
   ```
 
 - [ ] **T5.9** : Vérifier que Docker démarre correctement
+
   ```bash
   docker-compose build
   docker-compose up -d
@@ -870,11 +939,13 @@ Supprimer Celery après validation complète.
   ```
 
 ### Livrables
+
 - Runtime unique TaskIQ
 - Documentation à jour
 - Tests mis à jour et passent
 
 ### Validation
+
 - [ ] `docker-compose up` démarre sans Celery
 - [ ] Toutes les tâches fonctionnent via TaskIQ
 - [ ] Tests existants passent (0 régression)
@@ -885,19 +956,23 @@ Supprimer Celery après validation complète.
 ## Phase 6 — Fusion Backend / Backend Worker (5-8 jours)
 
 ### Objectif
+
 Fusionner les répertoires `backend/` et `backend_worker/` pour réunir toute la logique métier en un seul lieu, éliminant la duplication de code.
 
 ### Prérequis
+
 - Phase 5 validée (Celery décommissionné)
 - Runtime TaskIQ stable depuis 2 semaines
 - Tous les tests passent
 
 ### Problématique Actuelle
+
 - Duplication de logique entre `backend/services/` et `backend_worker/services/`
 - Contrats de données implicites entre les deux modules
 - Maintenance complexe avec code réparti
 
 ### Architecture Cible
+
 ```
 backend/
 ├── api/                    # API FastAPI + GraphQL (inchangé)
@@ -978,17 +1053,20 @@ backend/
 ### Tâches Testeur
 
 - [ ] **T6.9** : Exécuter la suite complète de tests
+
   ```bash
   python -m pytest tests/ -q --tb=no
   ```
 
 - [ ] **T6.10** : Vérifier qu'aucun import `backend_worker` ne reste
+
   ```bash
   grep -r "from backend_worker" backend/ tests/ || echo "Aucun import backend_worker trouvé"
   grep -r "import backend_worker" backend/ tests/ || echo "Aucun import backend_worker trouvé"
   ```
 
 - [ ] **T6.11** : Vérifier que Docker démarre correctement
+
   ```bash
   docker-compose build
   docker-compose up -d
@@ -1001,6 +1079,7 @@ backend/
   - Valider les résultats
 
 ### Livrables
+
 - Répertoire `backend/` unifié avec toute la logique métier
 - Répertoire `backend_worker/` supprimé
 - Tous les imports mis à jour
@@ -1008,6 +1087,7 @@ backend/
 - Tests passent sans régression
 
 ### Validation
+
 - [ ] `docker-compose up` démarre avec la nouvelle structure
 - [ ] Toutes les tâches TaskIQ fonctionnent
 - [ ] Aucun import `backend_worker` ne reste
@@ -1063,6 +1143,7 @@ backend/
 ### Stratégie de Commits par Phase
 
 #### Phase 0 — Audit
+
 ```bash
 git add docs/plans/taskiq_migrations/audit/
 git commit -m "docs(taskiq): audit complet des tâches Celery et baseline tests"
@@ -1070,6 +1151,7 @@ git tag phase-0-complete
 ```
 
 #### Phase 1 — Socle TaskIQ
+
 ```bash
 # Sous-tâche T1.1 : Dépendances
 git add backend_worker/requirements.txt
@@ -1100,6 +1182,7 @@ git tag phase-1-complete
 ```
 
 #### Phase 2 — Migration Pilote
+
 ```bash
 # Sous-tâche T2.1 : Package tâches TaskIQ
 git add backend_worker/taskiq_tasks/__init__.py
@@ -1130,6 +1213,7 @@ git tag phase-2-complete
 ```
 
 #### Phase 3 — Accès DB Direct
+
 ```bash
 # Sous-tâche T3.1 : Package DB
 git add backend_worker/db/__init__.py
@@ -1168,6 +1252,7 @@ git tag phase-3-complete
 ```
 
 #### Phase 4 — Migration Progressive
+
 ```bash
 # Pour chaque lot de migration
 git add backend_worker/taskiq_tasks/<module>.py
@@ -1184,6 +1269,7 @@ git tag phase-4-complete
 ```
 
 #### Phase 5 — Décommission Celery
+
 ```bash
 # Suppression progressive
 git rm backend_worker/celery_app.py
@@ -1208,6 +1294,7 @@ git tag phase-5-complete
 ```
 
 #### Phase 6 — Fusion Backend / Backend Worker
+
 ```bash
 # Sous-tâche T6.1 : Audit des duplications
 git add docs/plans/taskiq_migrations/audit/duplications_services.md
@@ -1252,6 +1339,7 @@ git tag taskiq-migration-complete
 ### Procédure de Rollback par Phase
 
 #### Rollback Phase 1
+
 ```bash
 # Revenir à l'état avant Phase 1
 git checkout phase-0-complete
@@ -1263,6 +1351,7 @@ git tag phase-1-rollback
 ```
 
 #### Rollback Phase 2
+
 ```bash
 # Revenir à l'état avant Phase 2
 git checkout phase-1-complete
@@ -1276,6 +1365,7 @@ git tag phase-2-rollback
 ```
 
 #### Rollback Phase 3
+
 ```bash
 # Revenir à l'état avant Phase 3
 git checkout phase-2-complete
@@ -1289,6 +1379,7 @@ git tag phase-3-rollback
 ```
 
 #### Rollback Phase 4
+
 ```bash
 # Revenir à l'état avant Phase 4
 git checkout phase-3-complete
@@ -1306,6 +1397,7 @@ git tag phase-4-rollback
 ```
 
 #### Rollback Phase 5
+
 ```bash
 # Revenir à l'état avant Phase 5
 git checkout phase-4-complete
@@ -1323,6 +1415,7 @@ git tag phase-5-rollback
 ```
 
 #### Rollback Phase 6
+
 ```bash
 # Revenir à l'état avant Phase 6
 git checkout phase-5-complete
@@ -1399,6 +1492,7 @@ docs/plans/taskiq_migrations/
 ### Si Régression Détectée
 
 1. **Immédiatement** :
+
    ```bash
    # Désactiver le feature flag
    export USE_TASKIQ_FOR_<TACHE>=false
@@ -1422,11 +1516,13 @@ docs/plans/taskiq_migrations/
 ## 📝 Checklist de Validation Finale
 
 ### Avant Chaque Phase
+
 - [ ] Baseline des tests exécutée
 - [ ] Feature flags configurés
 - [ ] Documentation à jour
 
 ### Après Chaque Phase
+
 - [ ] Tests unitaires passent
 - [ ] Tests d'intégration passent
 - [ ] Tests existants passent (0 régression)
@@ -1435,6 +1531,7 @@ docs/plans/taskiq_migrations/
 - [ ] Documentation à jour
 
 ### Avant Phase 5 (Décommission)
+
 - [ ] 2 semaines sans incident
 - [ ] Tous les tests passent
 - [ ] Performance validée

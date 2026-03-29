@@ -1,15 +1,37 @@
 """Tâches Celery centralisées pour le backend worker."""
 
 import os
+import asyncio
+from typing import List
 
 from backend_worker.utils.logging import logger
 from backend_worker.celery_app import celery
+from backend_worker.services.cover_orchestrator_service import cover_orchestrator_service
+from backend_worker.services.cover_types import CoverProcessingContext, ImageType, TaskType
+
+
+def get_or_create_event_loop():
+    """Get current event loop or create a new one if none exists."""
+    try:
+        return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
 
 # Feature flags pour la migration TaskIQ
 USE_TASKIQ_FOR_MAINTENANCE = os.getenv('USE_TASKIQ_FOR_MAINTENANCE', 'false').lower() == 'true'
+USE_TASKIQ_FOR_COVERS = os.getenv('USE_TASKIQ_FOR_COVERS', 'false').lower() == 'true'
+USE_TASKIQ_FOR_PROCESS_ARTIST_IMAGES = os.getenv('USE_TASKIQ_FOR_PROCESS_ARTIST_IMAGES', 'false').lower() == 'true'
+USE_TASKIQ_FOR_PROCESS_ALBUM_COVERS = os.getenv('USE_TASKIQ_FOR_PROCESS_ALBUM_COVERS', 'false').lower() == 'true'
+USE_TASKIQ_FOR_METADATA = os.getenv('USE_TASKIQ_FOR_METADATA', 'false').lower() == 'true'
+USE_TASKIQ_FOR_BATCH = os.getenv('USE_TASKIQ_FOR_BATCH', 'false').lower() == 'true'
+USE_TASKIQ_FOR_INSERT = os.getenv('USE_TASKIQ_FOR_INSERT', 'false').lower() == 'true'
+USE_TASKIQ_FOR_SCAN = os.getenv('USE_TASKIQ_FOR_SCAN', 'false').lower() == 'true'
+USE_TASKIQ_FOR_VECTORIZATION = os.getenv('USE_TASKIQ_FOR_VECTORIZATION', 'false').lower() == 'true'
 
 
-# === TÂCHES DE SCAN ===
+     # === TÂCHES DE SCAN ===
 @celery.task(name="scan.discovery", queue="scan", bind=True)
 def discovery(self, directory: str, progress_callback=None):
     """Découverte de fichiers musicaux et lancement de la pipeline complète.
@@ -23,6 +45,29 @@ def discovery(self, directory: str, progress_callback=None):
     Returns:
         Résultat de la découverte et lancement de la pipeline
     """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_SCAN:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour scan.discovery")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.scan import discovery_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(discovery_task.kiq(directory=directory, progress_callback=progress_callback))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         from pathlib import Path
         import time
@@ -30,16 +75,16 @@ def discovery(self, directory: str, progress_callback=None):
         
         start_time = time.time()
         task_id = self.request.id
-
+        
         logger.info(f"[SCAN] Démarrage discovery: {directory}")
-
+        
         # Extensions musicales supportées
         music_extensions = {'.mp3', '.flac', '.m4a', '.ogg', '.wav'}
-
+        
         # Découverte des fichiers
         discovered_files = []
         base_path = Path(directory)
-
+        
         def scan_recursive(current_path: Path):
             """Scan récursif simple pour discovery."""
             try:
@@ -48,12 +93,12 @@ def discovery(self, directory: str, progress_callback=None):
                         discovered_files.append(str(file_path))
             except (OSError, PermissionError) as e:
                 logger.warning(f"[SCAN] Erreur accès {current_path}: {e}")
-
+        
         scan_recursive(base_path)
-
+        
         total_files = len(discovered_files)
         logger.info(f"[SCAN] Discovery terminée: {total_files} fichiers trouvés")
-
+        
         # Publier la progression
         if progress_callback:
             progress_callback({
@@ -63,7 +108,7 @@ def discovery(self, directory: str, progress_callback=None):
                 "step": "Discovery terminée",
                 "files_discovered": total_files
             })
-
+        
         # Publier progression pour SSE
         publish_event("progress", {
             "type": "progress",
@@ -74,7 +119,7 @@ def discovery(self, directory: str, progress_callback=None):
             "percent": 100,
             "files_discovered": total_files
         }, channel="progress")
-
+        
         # Si des fichiers ont été trouvés, lancer la pipeline complète
         if discovered_files:
             logger.info(f"[SCAN] Lancement de la pipeline d'extraction pour {total_files} fichiers")
@@ -96,7 +141,7 @@ def discovery(self, directory: str, progress_callback=None):
                     queue='extract',
                     priority=5
                 )
-
+        
         result = {
             "directory": directory,
             "files_discovered": total_files,
@@ -105,10 +150,10 @@ def discovery(self, directory: str, progress_callback=None):
             "batches_created": len(batches) if discovered_files else 0,
             "success": True
         }
-
+        
         logger.info(f"[SCAN] Discovery et pipeline lancée: {result}")
         return result
-
+    
     except Exception as e:
         error_time = time.time() - start_time
         logger.error(f"[SCAN] Erreur discovery après {error_time:.2f}s: {str(e)}")
@@ -137,6 +182,29 @@ def extract_metadata_batch(self, file_paths: list[str], batch_id: str = None):
     Returns:
         Liste des métadonnées extraites
     """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_METADATA:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour extract_metadata_batch")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.metadata import extract_metadata_batch_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(extract_metadata_batch_task.kiq(file_paths=file_paths, batch_id=batch_id))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         from concurrent.futures import ThreadPoolExecutor
         from backend_worker.workers.metadata.enrichment_worker import extract_single_file_metadata
@@ -217,6 +285,29 @@ def batch_entities(self, metadata_list: list[dict], batch_id: str = None):
     Returns:
         Données groupées prêtes pour insertion
     """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_BATCH:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour batch_entities")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.batch import process_entities_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(process_entities_task.kiq(metadata_list=metadata_list, batch_id=batch_id))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         from collections import defaultdict
         from pathlib import Path
@@ -362,6 +453,29 @@ def calculate_vector(self, track_id: int, metadata: dict = None):
     Returns:
         Résultat du calcul avec statut et métadonnées
     """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_VECTORIZATION:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour vectorization.calculate")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.vectorization import calculate_vector_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(calculate_vector_task.kiq(track_id=track_id, metadata=metadata))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     import time
     
     start_time = time.time()
@@ -461,6 +575,29 @@ def calculate_vector_batch(self, track_ids: list[int]):
     Returns:
         Résultat du calcul batch
     """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_VECTORIZATION:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour vectorization.batch")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.vectorization import calculate_vector_batch_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(calculate_vector_batch_task.kiq(track_ids=track_ids))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     import time
     
     start_time = time.time()
@@ -566,7 +703,30 @@ def extract_embedded_covers(self, file_paths: list[str]):
     Returns:
         Résultat de l'extraction
     """
-    logger.info(f"[COVERS] Démarrage extraction covers intégrées: {len(file_paths)} fichiers")
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_COVERS:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour extract_embedded_covers")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.covers import extract_embedded_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(extract_embedded_task.kiq(file_paths=file_paths))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
+    logger.info(f"[COVERS] Début extraction covers intégrées: {len(file_paths)} fichiers")
 
     # En production, implémenter la logique d'extraction des covers
     # Pour l'instant, juste un placeholder
@@ -579,6 +739,277 @@ def extract_embedded_covers(self, file_paths: list[str]):
 
     logger.info(f"[COVERS] Extraction covers terminée: {result}")
     return result
+
+
+@celery.task(name="covers.process_album_covers", queue="deferred_covers", bind=True)
+def process_album_covers(self, album_ids: List[int], priority: str = "normal"):
+    """
+    Traite les covers d'albums en utilisant le CoverOrchestratorService.
+
+    Utilise tous les services spécialisés pour un traitement optimisé :
+    - Recherche dans les dossiers locaux (ImageService)
+    - API Cover Art Archive (CoverArtService)
+    - Cache Redis intelligent (ImageCacheService)
+    - Priorisation basée sur la popularité (ImagePriorityService)
+    - Traitement/redimensionnement optimisé (ImageProcessingService)
+    """
+     # Vérifier le feature flag
+     if USE_TASKIQ_FOR_PROCESS_ALBUM_COVERS:
+         logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour process_album_covers")
+         
+         # Déléguer à TaskIQ
+         from backend_worker.taskiq_tasks.covers import process_album_covers_task
+         
+         try:
+             # Obtenir ou créer une boucle d'événements
+             loop = get_or_create_event_loop()
+             
+             # Exécuter la tâche TaskIQ de manière synchrone
+             result = loop.run_until_complete(process_album_covers_task.kiq(album_ids=album_ids, priority=priority))
+             
+             logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+             return result
+             
+         except Exception as e:
+             logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+             # Fallback vers Celery
+             logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
+    try:
+        logger.info(f"[COVERS] Début traitement covers albums: {len(album_ids)} albums")
+
+        # Récupérer les informations des albums depuis la base de données via l'API
+        import httpx
+        import os
+        # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
+        api_url = os.getenv("API_URL", "http://localhost:8001")
+        logger.info(f"[COVERS] API URL utilisée pour albums: {api_url}")
+        album_infos = []
+        
+        for album_id in album_ids:
+            try:
+                # Récupérer les informations de l'album via l'API REST
+                logger.info(f"[COVERS] Récupération infos album {album_id} depuis {api_url}/api/albums/{album_id}")
+                response = httpx.get(f"{api_url}/api/albums/{album_id}", timeout=10)
+                if response.status_code == 200:
+                    album_data = response.json()
+                    logger.info(f"[COVERS] Données album {album_id} récupérées: {album_data.get('title')}")
+                    album_infos.append(album_data)
+                else:
+                    logger.warning(f"[COVERS] Impossible de récupérer les informations de l'album {album_id}")
+            except Exception as e:
+                logger.warning(f"[COVERS] Erreur lors de la récupération des infos de l'album {album_id}: {str(e)}")
+                continue
+
+        logger.info(f"[COVERS] Informations récupérées pour {len(album_infos)} albums")
+
+        # Création des contextes de traitement
+        contexts = []
+        for album_info in album_infos:
+            album_id = album_info.get("id")
+            album_title = album_info.get("title")
+            
+            # Tentative de détermination du chemin de l'album (basé sur les tracks)
+            album_path = None
+            try:
+                # Récupérer les tracks de l'album pour déterminer le chemin
+                tracks_response = httpx.get(f"{api_url}/api/albums/{album_id}/tracks", timeout=10)
+                if tracks_response.status_code == 200:
+                    tracks = tracks_response.json()
+                    if tracks:
+                        from pathlib import Path
+                        track_path = tracks[0].get("path")
+                        if track_path:
+                            album_path = str(Path(track_path).parent)
+                            logger.debug(f"[COVERS] Chemin album déduit pour {album_title}: {album_path}")
+            except Exception as e:
+                logger.debug(f"[COVERS] Impossible de déterminer le chemin de l'album {album_id}: {str(e)}")
+
+            context = CoverProcessingContext(
+                image_type=ImageType.ALBUM_COVER,
+                entity_id=album_id,
+                entity_path=album_path,
+                task_type=TaskType.BATCH_PROCESSING,
+                priority=priority,
+                metadata={
+                    "source": "batch_processing",
+                    "entity_type": "album",
+                    "batch_size": len(album_ids),
+                    "album_title": album_title,
+                    "artist_name": album_info.get("album_artist_name"),
+                    "musicbrainz_albumid": album_info.get("musicbrainz_albumid")
+                }
+            )
+            contexts.append(context)
+
+        logger.info(f"[COVERS] Contextes créés: {len(contexts)}")
+
+        # Traitement via l'orchestrateur (à implémenter)
+        # TODO: Utiliser le CoverOrchestratorService quand il sera disponible
+        # Pour l'instant, implémentation simplifiée
+        result = {
+            "processed": len(album_ids),
+            "success": True,
+            "message": f"Traitement de {len(album_ids)} covers d'albums effectué (placeholder)"
+        }
+
+        logger.info(f"[COVERS] Traitement covers albums terminé: {result}")
+        return {
+            "success": True,
+            "albums_processed": len(album_ids),
+            "results": result,
+            "services_used": [
+                "CoverOrchestratorService",
+                "ImageProcessingService",
+                "ImagePriorityService",
+                "ImageCacheService",
+                "CoverArtService",
+                "ImageService"
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"[COVERS] Erreur traitement covers albums: {str(e)}")
+        return {"success": False, "error": str(e), "albums_processed": 0}
+
+
+
+# === TÂCHES DE COVERS (Suite) ===
+@celery.task(name="covers.process_artist_images", queue="deferred_covers", bind=True)
+def process_artist_images(self, artist_ids: List[int], priority: str = "normal"):
+    """
+    Traite les images d'artistes en utilisant le CoverOrchestratorService.
+
+    Utilise tous les services spécialisés :
+    - CoverOrchestratorService (coordination)
+    - ImageProcessingService (traitement/redimensionnement)
+    - ImagePriorityService (priorisation intelligente)
+    - ImageCacheService (cache Redis)
+    - CoverArtService (API externes)
+    - ImageService (extraction fichiers locaux)
+    """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_PROCESS_ARTIST_IMAGES:
+        logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour process_artist_images")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.covers import process_artist_images_task
+        
+        try:
+            # Obtenir ou créer une boucle d'événements
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = loop.run_until_complete(process_artist_images_task.kiq(artist_ids=artist_ids, priority=priority))
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
+    try:
+        logger.info(f"[COVERS] Début traitement images artistes: {len(artist_ids)} artistes")
+        logger.info(f"[COVERS] Artist IDs à traiter: {artist_ids}")
+
+        # Récupérer les informations des artistes depuis la base de données via l'API
+        import httpx
+        import os
+        # Utiliser l'URL de l'API depuis les variables d'environnement ou localhost en dev
+        api_url = os.getenv("API_URL", "http://localhost:8001")
+        logger.info(f"[COVERS] API URL utilisée: {api_url}")
+        artist_infos = []
+        
+        for artist_id in artist_ids:
+            try:
+                # Récupérer les informations de l'artiste via l'API REST
+                logger.info(f"[COVERS] Récupération infos artiste {artist_id} depuis {api_url}/api/artists/{artist_id}")
+                response = httpx.get(f"{api_url}/api/artists/{artist_id}", timeout=10)
+                logger.info(f"[COVERS] Status code réponse API pour artiste {artist_id}: {response.status_code}")
+                if response.status_code == 200:
+                    artist_data = response.json()
+                    logger.info(f"[COVERS] Données artiste {artist_id} récupérées: {artist_data.get('name')}")
+                    artist_infos.append(artist_data)
+                else:
+                    logger.warning(f"[COVERS] Impossible de récupérer les informations de l'artiste {artist_id} - Status: {response.status_code}")
+            except Exception as e:
+                logger.warning(f"[COVERS] Erreur lors de la récupération des infos de l'artiste {artist_id}: {str(e)}")
+                continue
+
+        logger.info(f"[COVERS] Informations récupérées pour {len(artist_infos)} artistes")
+
+        # Création des contextes de traitement
+        contexts = []
+        for artist_info in artist_infos:
+            artist_id = artist_info.get("id")
+            artist_name = artist_info.get("name")
+            
+            # Tentative de détermination du chemin de l'artiste (basé sur les tracks)
+            artist_path = None
+            try:
+                # Récupérer les tracks de l'artiste pour déterminer le chemin
+                tracks_response = httpx.get(f"{api_url}/api/artists/{artist_id}/tracks", timeout=10)
+                if tracks_response.status_code == 200:
+                    tracks = tracks_response.json()
+                    if tracks:
+                        from pathlib import Path
+                        track_path = tracks[0].get("path")
+                        if track_path:
+                            track_dir = Path(track_path).parent
+                            # Supposer structure: .../Artiste/Album/Track
+                            artist_path = str(track_dir.parent)
+                            logger.info(f"[COVERS] Chemin artiste déduit pour {artist_name}: {artist_path}")
+            except Exception as e:
+                logger.debug(f"[COVERS] Impossible de déterminer le chemin de l'artiste {artist_id}: {str(e)}")
+
+            context = CoverProcessingContext(
+                image_type=ImageType.ARTIST_IMAGE,
+                entity_id=artist_id,
+                entity_path=artist_path,
+                task_type=TaskType.BATCH_PROCESSING,
+                priority=priority,
+                metadata={
+                    "source": "batch_processing",
+                    "entity_type": "artist",
+                    "batch_size": len(artist_ids),
+                    "artist_name": artist_name,
+                    "musicbrainz_artistid": artist_info.get("musicbrainz_artistid")
+                }
+            )
+            contexts.append(context)
+
+        logger.info(f"[COVERS] Contextes créés: {len(contexts)}")
+
+        # Traitement via l'orchestrateur (utilise tous les services)
+        result = asyncio.run(cover_orchestrator_service.process_batch(contexts))
+
+        logger.info(f"[COVERS] Traitement images artistes terminé: {result}")
+        return {
+            "success": True,
+            "artists_processed": len(artist_ids),
+            "results": result,
+            "services_used": [
+                "CoverOrchestratorService",
+                "ImageProcessingService",
+                "ImagePriorityService",
+                "ImageCacheService",
+                "CoverArtService",
+                "ImageService"
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"[COVERS] Erreur traitement images artistes: {str(e)}")
+        return {"success": False, "error": str(e), "artists_processed": 0}
+
 
 
 # === TÂCHES DE MAINTENANCE ===
@@ -638,6 +1069,34 @@ def enrich_tracks_batch_task(self, track_ids: list[int]):
     Returns:
         Résultats de l'enrichissement
     """
+    # Vérifier le feature flag
+    if USE_TASKIQ_FOR_METADATA:
+        logger.info("[CELERY→TASKIQ] Délégation à TaskIQ pour enrich_tracks_batch_task")
+        
+        # Déléguer à TaskIQ
+        from backend_worker.taskiq_tasks.metadata import enrich_batch_task
+        import asyncio
+        
+        try:
+            # Obtenir ou créer une boucle d'événements
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Exécuter la tâche TaskIQ de manière synchrone
+            result = loop.run_until_complete(enrich_batch_task.kiq(entity_type="artist", entity_ids=track_ids))
+            
+            logger.info(f"[CELERY→TASKIQ] Résultat TaskIQ: {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"[CELERY→TASKIQ] Erreur délégation TaskIQ: {e}")
+            # Fallback vers Celery
+            logger.info("[CELERY→TASKIQ] Fallback vers Celery")
+    
+    # Code Celery existant (ne pas modifier)
     try:
         logger.info(f"[METADATA] Démarrage enrichissement batch: {len(track_ids)} tracks")
 

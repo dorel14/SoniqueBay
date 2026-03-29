@@ -560,16 +560,16 @@ if __name__ == "__main__":
     
     async def test_monitoring():
         """Test du monitoring des tags."""
-        print("=== TEST MONITORING TAGS ===")
+        logger.info("=== TEST MONITORING TAGS ===")
         
         # Test vérification unique
-        print("\n1. Test vérification unique...")
+        logger.info("\n1. Test vérification unique...")
         result = await check_tags_once()
-        print(f"Résultat: {result['status']}")
-        print(f"Message: {result['message']}")
+        logger.info(f"Résultat: {result['status']}")
+        logger.info(f"Message: {result['message']}")
         
         # Test service complet
-        print("\n2. Test service monitoring (30 secondes)...")
+        logger.info("\n2. Test service monitoring (30 secondes)...")
         service = TagMonitoringService()
         service.check_interval_minutes = 0.5  # 30 secondes pour test
         
@@ -585,7 +585,7 @@ if __name__ == "__main__":
             await service.stop_monitoring()
             monitoring_task.cancel()
         
-        print("\n=== TEST TERMINÉ ===")
+        logger.info("\n=== TEST TERMINÉ ===")
     
     # Exécuter les tests
     asyncio.run(test_monitoring())

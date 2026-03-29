@@ -5,7 +5,7 @@ replacing the previous Celery configuration.
 """
 
 import os
-from taskiq import TaskiqState
+from taskiq import TaskiqEvents
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 from backend.api.utils.logging import logger
 
@@ -19,11 +19,11 @@ result_backend = RedisAsyncResultBackend(
     redis_url=os.getenv('TASKIQ_RESULT_BACKEND', 'redis://redis:6379/1')
 )
 
-@broker.on_event(TaskiqState.EVENT_PRE_SEND)
+@broker.on_event(TaskiqEvents.CLIENT_STARTUP)
 async def pre_send_handler(task_name: str, **kwargs):
     logger.info(f"[TASKIQ] Sending task: {task_name}")
 
-@broker.on_event(TaskiqState.EVENT_POST_EXECUTE)
+@broker.on_event(TaskiqEvents.CLIENT_SHUTDOWN)
 async def post_execute_handler(task_name: str, result, **kwargs):
     logger.info(f"[TASKIQ] Task completed: {task_name}")
 
@@ -47,9 +47,9 @@ class CeleryAppCompatibility:
                 extract_embedded_task
             )
             if name == "covers.process_artist_images":
-                task_func = process_artist_images_task
+                task_func = process_artist_images
             elif name == "covers.process_album_covers":
-                task_func = process_album_covers_task
+                task_func = process_album_covers
             elif name == "covers.extract_embedded":
                 task_func = extract_embedded_task
             else:

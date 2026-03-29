@@ -16,12 +16,18 @@ import os
 import numpy as np
 from unittest.mock import Mock
 import soundfile as sf
+import logging
+import pytest
 
-from backend_worker.services.audio_features_service import AudioFeaturesService
-from backend_worker.services.scan_optimizer import ScanOptimizer
-from backend_worker.utils.logging import get_logger
+from backend_worker.services.audio_features_service import (
+    extract_audio_features,
+    analyze_audio_with_librosa,
+    _has_valid_audio_tags,
+    _extract_features_from_standard_tags,
+    _extract_features_from_acoustid_tags
+)
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def create_test_audio_file():
@@ -52,7 +58,8 @@ def create_test_audio_file():
     }
 
 
-def test_extract_audio_features_with_real_file():
+@pytest.mark.asyncio
+async def test_extract_audio_features_with_real_file():
     """Test de l'extraction de features sur un vrai fichier audio"""
     logger.info("=== Test 1: Extraction de features sur fichier réel ===")
     
@@ -63,12 +70,9 @@ def test_extract_audio_features_with_real_file():
         # Simuler des tags AcoustID vides (comme dans le problème original)
         tags = {}  # Tags vides, pas de clés AcoustID
         
-        # Initialiser le service
-        audio_service = AudioFeaturesService()
-        
         # Appeler extract_audio_features avec des tags vides
         logger.info("Appel de extract_audio_features avec tags vides...")
-        result = audio_service.extract_audio_features(audio_file, tags)
+        result = await extract_audio_features(None, tags, audio_file, 1)
         
         # Vérifier que les données sont extraites
         assert result is not None, "Le résultat ne doit pas être None"
@@ -108,7 +112,8 @@ def test_extract_audio_features_with_real_file():
             os.unlink(audio_file)
 
 
-def test_extract_audio_features_with_mock_data():
+@pytest.mark.asyncio
+async def test_extract_audio_features_with_mock_data():
     """Test avec des données simulées (tags AcoustID valides)"""
     logger.info("=== Test 2: Extraction avec tags AcoustID simulés ===")
     
@@ -128,12 +133,9 @@ def test_extract_audio_features_with_mock_data():
         
         logger.info(f"Tags AcoustID simulés: {tags}")
         
-        # Initialiser le service
-        audio_service = AudioFeaturesService()
-        
         # Appeler extract_audio_features
         logger.info("Appel de extract_audio_features avec tags AcoustID...")
-        result = audio_service.extract_audio_features(audio_file, tags)
+        result = await extract_audio_features(None, tags, audio_file, 1)
         
         assert result is not None, "Le résultat ne doit pas être None"
         assert isinstance(result, dict), "Le résultat doit être un dictionnaire"
@@ -159,27 +161,15 @@ def test_extract_audio_features_with_mock_data():
             os.unlink(audio_file)
 
 
-def test_scan_optimizer_integration():
-    """Test d'intégration avec ScanOptimizer"""
-    logger.info("=== Test 3: Intégration avec ScanOptimizer ===")
+@pytest.mark.asyncio
+async def test_extract_audio_features_integration():
+    """Test d'intégration de l'extraction de features"""
+    logger.info("=== Test 3: Intégration de l'extraction de features ===")
     
     # Créer un fichier de test
     audio_file, expected = create_test_audio_file()
     
     try:
-        # Créer un mock pour ScanOptimizer
-        scan_optimizer = Mock(spec=ScanOptimizer)
-        
-        # Configurer le mock pour retourner des données valides
-        scan_optimizer.process_audio_for_storage.return_value = {
-            'track_id': 'test_track_123',
-            'file_path': audio_file,
-            'tags': {}  # Tags vides pour tester le fallback Librosa
-        }
-        
-        # Initialiser le service audio
-        audio_service = AudioFeaturesService()
-        
         # Simuler le processus d'optimisation de scan
         logger.info("Simulation du processus de scan...")
         
@@ -191,13 +181,15 @@ def test_scan_optimizer_integration():
         }
         
         # Appeler l'extraction
-        result = audio_service.extract_audio_features(
-            scan_data['file_path'], 
-            scan_data['tags']
+        result = await extract_audio_features(
+            None, 
+            scan_data['tags'], 
+            scan_data['file_path'],
+            int(scan_data['track_id'].split('_')[-1]) if '_' in scan_data['track_id'] else 1
         )
         
         assert result is not None, "L'extraction ne doit pas échouer"
-        logger.info("✅ Intégration ScanOptimizer réussie!")
+        logger.info("✅ Intégration réussie!")
         logger.info(f"Résultat final: {result}")
         
         return True
@@ -211,22 +203,22 @@ def test_scan_optimizer_integration():
             os.unlink(audio_file)
 
 
-def run_pipeline_test():
+async def run_pipeline_test():
     """Lance tous les tests du pipeline"""
     logger.info("🚀 Démarrage du test du pipeline complet audio features")
     
     try:
         # Test 1: Fichier réel avec tags vides
         logger.info("🔄 Test 1: Fichier réel avec tags vides")
-        test_extract_audio_features_with_real_file()
+        await test_extract_audio_features_with_real_file()
         
         # Test 2: Fichier réel avec tags AcoustID
         logger.info("🔄 Test 2: Fichier réel avec tags AcoustID")
-        test_extract_audio_features_with_mock_data()
+        await test_extract_audio_features_with_mock_data()
         
         # Test 3: Intégration
-        logger.info("🔄 Test 3: Intégration avec ScanOptimizer")
-        test_scan_optimizer_integration()
+        logger.info("🔄 Test 3: Intégration de l'extraction de features")
+        await test_extract_audio_features_integration()
         
         logger.info("🎉 Tous les tests du pipeline sont passés avec succès!")
         

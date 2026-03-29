@@ -174,4 +174,4 @@ if __name__ == "__main__":
     genres = flatten_genre_hierarchy(str(yaml_path))
     save_genre_library(genres, str(json_path))
 
-    print(f"✅ Conversion terminée: {len(genres)} genres valides extraits")
+     logger.info(f"✅ Conversion terminée: {len(genres)} genres valides extraits")

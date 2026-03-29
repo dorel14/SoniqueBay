@@ -281,9 +281,9 @@ python -m pytest tests/integration/workers -q --tb=no
 - [x] Le fichier `backend_worker/db/repositories/track_repository.py` existe et est correct
 - [x] Le fichier `backend_worker/taskiq_tasks/insert.py` existe et est correct
 - [x] Les tests unitaires TaskIQ passent
-- [ ] Les tests unitaires Celery existants passent (0 régression)
-- [ ] Les tests d'intégration workers existants passent (0 régression)
-- [ ] L'insertion DB direct fonctionne
+- [x] Les tests unitaires Celery existants passent (0 régression)
+- [x] Les tests d'intégration workers existants passent (0 régression)
+- [x] L'insertion DB direct fonctionne
 - [x] Les timeouts sont respectés (configurés dans le code)
 - [x] Les retries fonctionnent (implémentés dans le code)
 

@@ -379,6 +379,7 @@ async def _insert_batch_direct_async(self, insertion_data: Dict[str, Any]):
                         logger.info(f"[INSERT] ✅ Albums insérés/récupérés: {len(album_map)}")
 
                         if album_map:
+                            album_ids = []
                             album_ids = [album.get('id') for album in album_map.values() if album.get('id')]
                             if album_ids:
                                 await on_albums_inserted_callback(album_ids)

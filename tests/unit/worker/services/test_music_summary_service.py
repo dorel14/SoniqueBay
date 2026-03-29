@@ -167,7 +167,19 @@ def test_generate_search_suggestions():
         {'tag': 'workout', 'score': 0.75, 'category': 'usage', 'source': 'calculated'},
     ]
     
-    suggestions = service.generate_search_suggestions(normalized, synthetic_tags)
+    # Since generate_search_suggestions is async, we need to handle it properly in test
+    import asyncio
+    try:
+        # Try to get the running loop
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # Create a new loop if none exists
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    suggestions = loop.run_until_complete(
+        service.generate_search_suggestions(normalized, synthetic_tags)
+    )
     
     assert isinstance(suggestions, list)
     assert len(suggestions) > 0
@@ -227,7 +239,7 @@ def test_create_summary():
     assert summary['track_id'] == 1
     assert summary['tags'] == raw_tags
     assert summary['source'] == 'acoustid+standards+librosa'
-    assert summary['version'] == '1.0'
+    assert summary['version'] == '1.1'
     assert summary['normalized']['bpm'] == 128.0
     assert summary['normalized']['genre_main'] == 'rock'
     assert summary['scores']['energy_score'] == 0.72

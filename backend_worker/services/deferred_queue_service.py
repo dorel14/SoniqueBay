@@ -4,6 +4,7 @@ Utilise Redis pour stocker les tâches en attente et Celery Beat pour les traite
 """
 
 import json
+import os
 import redis
 import time
 from typing import Dict, List, Any, Optional
@@ -19,6 +20,13 @@ class DeferredQueueService:
     """
 
     def __init__(self, redis_url: str = "redis://redis:6379/0"):
+        """Initialise le service avec Redis."""
+        # Skip Redis connection in testing mode
+        if os.environ.get("TESTING") == "true":
+            logger.info("[DEFERRED_QUEUE] TESTING mode enabled - skipping Redis connection")
+            self.redis = None
+            return
+            
         """Initialise le service avec Redis."""
         try:
             logger.info(f"[DEFERRED_QUEUE] Tentative de connexion à Redis: {redis_url}")
@@ -189,7 +197,7 @@ class DeferredQueueService:
             return None
 
     def complete_task(self, queue_name: str, task_id: str, success: bool = True,
-                     error_message: str = None) -> bool:
+                      error_message: Optional[str] = None) -> bool:
         """
         Marque une tâche comme terminée.
 
@@ -257,15 +265,15 @@ class DeferredQueueService:
     def get_queue_stats(self, queue_name: str) -> Dict[str, Any]:
         """
         Retourne les statistiques d'une queue.
-
+        
         Args:
             queue_name: Nom de la queue
-
+            
         Returns:
             Statistiques de la queue
         """
         if not self.redis:
-            return {"error": "Redis non disponible"}
+            return {"error": 1}
 
         try:
             queue_key = f"deferred_queue:{queue_name}"
@@ -309,18 +317,18 @@ class DeferredQueueService:
             logger.error(f"[DEFERRED_QUEUE] Erreur stats queue: {str(e)}")
             return {"error": str(e)}
 
-    def cleanup_expired_tasks(self, max_age_seconds: int = 86400) -> Dict[str, int]:
+    def cleanup_expired_tasks(self, max_age_seconds: int = 86400) -> Dict[str, Any]:
         """
         Nettoie les tâches expirées dans toutes les queues.
-
+        
         Args:
             max_age_seconds: Âge maximum en secondes (défaut: 24h)
-
+            
         Returns:
             Nombre de tâches nettoyées par queue
         """
         if not self.redis:
-            return {"error": "Redis non disponible"}
+            return {"error": 1}
 
         try:
             cleaned = {}

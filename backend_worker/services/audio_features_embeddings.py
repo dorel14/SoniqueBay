@@ -87,7 +87,7 @@ class AudioFeaturesEmbeddingService:
         >>> features = AudioFeaturesInput(bpm=120, key_index=0, mode=1, 
         ...                              danceability=0.8, energy=0.9)
         >>> vector = service.audio_features_to_vector(features)
-        >>> print(f"Vecteur shape: {vector.shape}")
+        >>> logger.info(f"Vecteur shape: {vector.shape}")
     """
     
     # Mapping des notes pour key_index

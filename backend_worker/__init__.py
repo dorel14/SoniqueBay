@@ -5,4 +5,7 @@ from .celery_app import celery as celery_app
 app = celery_app
 celery = celery_app
 
-__all__ = ['celery_app', 'app', 'celery']
+# Exposition des services
+from . import services
+
+__all__ = ['celery_app', 'app', 'celery', 'services']

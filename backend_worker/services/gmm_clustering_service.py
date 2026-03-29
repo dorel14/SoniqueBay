@@ -35,7 +35,7 @@ class GMMClusteringService:
         >>> service = GMMClusteringService(min_clusters=2, max_clusters=10)
         >>> embeddings = np.random.rand(100, 64).astype(np.float32)
         >>> result = service.fit(embeddings, n_components=5)
-        >>> print(f"Labels: {result['labels']}")
+        >>> logger.info(f"Labels: {result['labels']}")
     """
     
     # Configuration optimisée pour RPi4
