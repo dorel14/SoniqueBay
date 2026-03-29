@@ -4,6 +4,7 @@ redis>=4.2.0
 flower>=2.0.0
 eventlet>=0.33.0
 # TaskIQ - Migration progressive depuis Celery
+taskiq>=0.11.0
 taskiq-redis>=1.2.2
 taskiq-fastapi>=0.4.0
 taskiq-postgres>=0.7.0

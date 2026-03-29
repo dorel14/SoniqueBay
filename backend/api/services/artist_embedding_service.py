@@ -28,7 +28,7 @@ from backend.api.schemas.artist_embeddings_schema import (
     GMMTrainingResponse,
 )
 from backend.api.services.vector_search_service import VectorSearchService
-from backend.api.utils.celery_app import celery_app
+from backend.api.utils.taskiq_client import broker as celery_app
 from backend.api.utils.logging import logger
 
 
@@ -218,7 +218,7 @@ class ArtistEmbeddingService:
     # =========================================================================
 
     async def trigger_clustering(self, force_refresh: bool = False) -> str:
-        """Trigger GMM clustering via Celery worker.
+        """Trigger GMM clustering via TaskIQ worker.
 
         Delegates the GMM clustering computation to the backend_worker
         to avoid blocking the API and leverage distributed processing.
@@ -227,50 +227,48 @@ class ArtistEmbeddingService:
             force_refresh: Force reclustering even if recent
 
         Returns:
-            Celery task ID
+            TaskIQ task ID
         """
         try:
             logger.info(
                 f"[ARTIST_EMBEDDING] Triggering GMM clustering (force_refresh={force_refresh})"
             )
 
-            task = celery_app.send_task(
-                "gmm.cluster_all_artists",
-                args=[force_refresh],
-                queue="gmm",
-                priority=5,
-            )
-
-            logger.info(f"[ARTIST_EMBEDDING] Clustering task created: {task.id}")
-            return task.id
+            # Import the task dynamically to avoid circular imports
+            from backend_worker.taskiq_tasks.gmm import cluster_all_artists_task
+            
+            # Send task via TaskIQ
+            task_result = await cluster_all_artists_task.kiq(force_refresh=force_refresh)
+            
+            logger.info(f"[ARTIST_EMBEDDING] Clustering task sent via TaskIQ: {task_result.task_id}")
+            return task_result.task_id
 
         except Exception as e:
             logger.error(f"[ARTIST_EMBEDDING] Error triggering clustering: {e}")
             raise
 
     async def trigger_refresh_stale_clusters(self, max_age_hours: int = 24) -> str:
-        """Trigger refresh of stale clusters via Celery worker.
+        """Trigger refresh of stale clusters via TaskIQ worker.
 
         Args:
             max_age_hours: Maximum age in hours before refresh
 
         Returns:
-            Celery task ID
+            TaskIQ task ID
         """
         try:
             logger.info(
                 f"[ARTIST_EMBEDDING] Triggering stale clusters refresh (max_age={max_age_hours}h)"
             )
 
-            task = celery_app.send_task(
-                "gmm.refresh_stale_clusters",
-                args=[max_age_hours],
-                queue="gmm",
-                priority=3,
-            )
-
-            logger.info(f"[ARTIST_EMBEDDING] Refresh task created: {task.id}")
-            return task.id
+            # Import the task dynamically to avoid circular imports
+            from backend_worker.taskiq_tasks.gmm import refresh_stale_clusters_task
+            
+            # Send task via TaskIQ
+            task_result = await refresh_stale_clusters_task.kiq(max_age_hours=max_age_hours)
+            
+            logger.info(f"[ARTIST_EMBEDDING] Refresh task sent via TaskIQ: {task_result.task_id}")
+            return task_result.task_id
 
         except Exception as e:
             logger.error(f"[ARTIST_EMBEDDING] Error triggering refresh: {e}")

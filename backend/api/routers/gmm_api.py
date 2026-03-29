@@ -29,10 +29,10 @@ from backend.api.schemas.gmm_schema import (
 )
 
 from backend.api.utils.database import get_async_session
-from backend.api.utils.celery_app import celery_app
 from backend.api.utils.logging import logger
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.services.artist_service import ArtistService
+from backend_worker.taskiq_tasks.gmm import cluster_all_artists_task, refresh_stale_clusters_task
 
 
 # ============================================================================

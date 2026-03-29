@@ -1,64 +1,161 @@
-from celery import Celery
+"""TaskIQ configuration for SoniqueBay API.
+
+This module provides a TaskIQ broker instance for sending tasks from the API,
+replacing the previous Celery configuration.
+"""
+
 import os
+from taskiq import TaskiqState
+from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 from backend.api.utils.logging import logger
 
-# Configuration Celery pour l'API (envoi de tâches uniquement)
-# NOTE: L'API ne définit PAS de tâches, elle envoie seulement des tâches vers le worker
-# L'API utilise sa config locale, elle n'a pas besoin de lire depuis Redis
-
-
-def _normalize_redis_url(url: str) -> str:
-    """Normalise l'URL Redis pour éviter les erreurs de format."""
-    if not url:
-        return "redis://redis:6379/0"
-
-    # Corriger les URL malformées
-    if not url.startswith("redis://"):
-        url = "redis://" + url
-
-    # Corriger les doubles "redis://"
-    if "redis://redis://" in url:
-        url = url.replace("redis://redis://", "redis://", 1)
-
-    # Ajouter le port et database si manquants
-    if "redis://" in url and "://" in url:
-        scheme, rest = url.split("://", 1)
-        if ":" not in rest and "/" not in rest:
-            url = f"{scheme}://{rest}:6379/0"
-        elif ":" in rest and "/" not in rest:
-            url = f"{scheme}://{rest}/0"
-
-    return url
-
-
-celery_app = Celery(
-    "soniquebay_api",
-    broker=_normalize_redis_url(os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")),
-    backend=_normalize_redis_url(
-        os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
-    ),
-    # PAS de 'include' - l'API n'importe pas les tâches du worker
+# Broker Redis (same as worker)
+broker = ListQueueBroker(
+    url=os.getenv('TASKIQ_BROKER_URL', 'redis://redis:6379/1')  # DB différente
 )
 
-# L'API utilise sa config locale directement
-# Elle n'a pas besoin de task_routes/task_queues du worker
-celery_app.conf.update(
-    {
-        "task_serializer": "json",
-        "accept_content": ["json"],
-        "result_serializer": "json",
-        "result_accept_content": ["json"],
-        "timezone": "UTC",
-        "enable_utc": True,
-    }
+# Backend for the results
+result_backend = RedisAsyncResultBackend(
+    redis_url=os.getenv('TASKIQ_RESULT_BACKEND', 'redis://redis:6379/1')
 )
+
+@broker.on_event(TaskiqState.EVENT_PRE_SEND)
+async def pre_send_handler(task_name: str, **kwargs):
+    logger.info(f"[TASKIQ] Sending task: {task_name}")
+
+@broker.on_event(TaskiqState.EVENT_POST_EXECUTE)
+async def post_execute_handler(task_name: str, result, **kwargs):
+    logger.info(f"[TASKIQ] Task completed: {task_name}")
+
+# For backward compatibility with existing code that expects celery_app
+# We'll provide a minimal interface that delegates to TaskIQ
+class CeleryAppCompatibility:
+    """Compatibility layer to mimic Celery app interface for TaskIQ."""
+    
+    def send_task(self, name: str, args=None, kwargs=None, queue=None, priority=None):
+        """Send a task via TaskIQ, mimicking Celery's send_task interface."""
+        import asyncio
+        
+        # Import the task dynamically to avoid circular imports
+        if name.startswith("scan."):
+            from backend_worker.taskiq_tasks.scan import discovery_task
+            task_func = discovery_task
+        elif name.startswith("covers."):
+            from backend_worker.taskiq_tasks.covers import (
+                process_artist_images_task,
+                process_album_covers_task,
+                extract_embedded_task
+            )
+            if name == "covers.process_artist_images":
+                task_func = process_artist_images_task
+            elif name == "covers.process_album_covers":
+                task_func = process_album_covers_task
+            elif name == "covers.extract_embedded":
+                task_func = extract_embedded_task
+            else:
+                raise ValueError(f"Unknown covers task: {name}")
+        elif name.startswith("metadata."):
+            from backend_worker.taskiq_tasks.metadata import (
+                extract_batch_task,
+                enrich_batch_task
+            )
+            if name == "metadata.extract_batch":
+                task_func = extract_batch_task
+            elif name == "metadata.enrich_batch":
+                task_func = enrich_batch_task
+            else:
+                raise ValueError(f"Unknown metadata task: {name}")
+        elif name.startswith("batch."):
+            from backend_worker.taskiq_tasks.batch import process_entities_task
+            task_func = process_entities_task
+        elif name.startswith("insert."):
+            from backend_worker.taskiq_tasks.insert import insert_direct_batch_task
+            task_func = insert_direct_batch_task
+        elif name.startswith("vectorization."):
+            from backend_worker.taskiq_tasks.vectorization import (
+                calculate_task,
+                batch_task
+            )
+            if name == "vectorization.calculate":
+                task_func = calculate_task
+            elif name == "vectorization.batch":
+                task_func = batch_task
+            else:
+                raise ValueError(f"Unknown vectorization task: {name}")
+        elif name.startswith("maintenance."):
+            from backend_worker.taskiq_tasks.maintenance import cleanup_old_data_task
+            task_func = cleanup_old_data_task
+        elif name.startswith("gmm."):
+            from backend_worker.taskiq_tasks.gmm import (
+                cluster_all_artists_task,
+                cluster_artist_task,
+                refresh_stale_clusters_task,
+                cleanup_old_clusters_task
+            )
+            if name == "gmm.cluster_all_artists":
+                task_func = cluster_all_artists_task
+            elif name == "gmm.cluster_artist":
+                task_func = cluster_artist_task
+            elif name == "gmm.refresh_stale_clusters":
+                task_func = refresh_stale_clusters_task
+            elif name == "gmm.cleanup_old_clusters":
+                task_func = cleanup_old_clusters_task
+            else:
+                raise ValueError(f"Unknown GMM task: {name}")
+        elif name.startswith("synonym."):
+            from backend_worker.taskiq_tasks.synonym import (
+                generate_synonyms_for_tag_task,
+                generate_all_synonyms_task
+            )
+            if name == "synonym.generate_synonyms_for_tag":
+                task_func = generate_synonyms_for_tag_task
+            elif name == "synonym.generate_all_synonyms":
+                task_func = generate_all_synonyms_task
+            else:
+                raise ValueError(f"Unknown synonym task: {name}")
+        elif name.startswith("lastfm."):
+            from backend_worker.taskiq_tasks.lastfm import (
+                fetch_artist_lastfm_info_task,
+                fetch_similar_artists_task,
+                batch_fetch_lastfm_info_task
+            )
+            if name == "lastfm.fetch_artist_info":
+                task_func = fetch_artist_lastfm_info_task
+            elif name == "lastfm.fetch_similar_artists":
+                task_func = fetch_similar_artists_task
+            elif name == "lastfm.batch_fetch_info":
+                task_func = batch_fetch_lastfm_info_task
+            else:
+                raise ValueError(f"Unknown lastfm task: {name}")
+        else:
+            raise ValueError(f"Unknown task: {name}")
+        
+        # Execute the task via TaskIQ
+        try:
+            # Prepare arguments
+            task_args = args or []
+            task_kwargs = kwargs or {}
+            
+            # Send task via TaskIQ
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(
+                    task_func.kiq(*task_args, **task_kwargs)
+                )
+                return result
+            finally:
+                loop.close()
+        except Exception as e:
+            logger.error(f"Error sending task {name} via TaskIQ: {e}")
+            raise
+
+# Create a global instance for backward compatibility
+celery_app = CeleryAppCompatibility()
 
 logger.info(
-    "[CELERY_API] Configuration Celery configurée localement (pas de lecture Redis)"
+    "[TASKIQ_API] TaskIQ API configuration configured (replacing Celery)"
 )
 logger.info(
-    f"[CELERY_API] Broker: {os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')}"
-)
-logger.info(
-    "[CELERY_API] Note: Les task_routes et task_queues sont gérés par le worker, pas par l'API"
+    f"[TASKIQ_API] Broker: {os.getenv('TASKIQ_BROKER_URL', 'redis://redis:6379/1')}"
 )

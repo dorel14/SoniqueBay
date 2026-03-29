@@ -7,7 +7,11 @@ from backend.api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
 from backend.api.services.covers_service import CoverService
 from backend.api.models.covers_model import EntityCoverType
 from backend.api.utils.logging import logger
-from backend.api.utils.celery_app import celery_app
+from backend_worker.taskiq_tasks.covers import (
+    process_artist_images_task,
+    process_album_covers_task,
+    extract_embedded_task
+)
 import base64
 from pathlib import Path
 

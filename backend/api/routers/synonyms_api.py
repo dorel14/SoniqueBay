@@ -27,7 +27,7 @@ from backend.api.schemas.synonyms_schema import (
     TriggerTaskResponse,
 )
 from backend.api.services.mir_synonym_service import MIRSynonymService
-from backend.api.utils.celery_app import celery_app
+from backend.api.utils.taskiq_client import result_backend
 from backend.api.utils.database import AsyncSession, get_async_session
 from backend.api.utils.logging import logger
 
@@ -307,22 +307,20 @@ async def trigger_synonym_generation(
             f"(force={request.force})"
         )
 
-        # Envoyer la tâche Celery
-        task = celery_app.send_task(
-            "synonym.generate_synonyms_for_tag",
-            args=[
-                request.tag_type,
-                request.tag_value,
-            ],
-            kwargs={"force": request.force},
-            queue="synonym",
-            priority=5,
+        # Import the task dynamically to avoid circular imports
+        from backend_worker.taskiq_tasks.synonym import generate_synonyms_for_tag_task
+        
+        # Envoyer la tâche TaskIQ
+        task_result = await generate_synonyms_for_tag_task.kiq(
+            tag_type=request.tag_type,
+            tag_value=request.tag_value,
+            force=request.force
         )
 
-        logger.info(f"[SYNONYMS] Tâche Celery créée: {task.id}")
+        logger.info(f"[SYNONYMS] Tâche TaskIQ créée: {task_result.task_id}")
 
         return TriggerTaskResponse(
-            task_id=task.id,
+            task_id=task_result.task_id,
             message=f"Tâche de génération créée pour {request.tag_type}:{request.tag_value}",
         )
 
@@ -362,18 +360,16 @@ async def trigger_batch_synonym_generation(
     try:
         logger.info(f"[SYNONYMS] Trigger génération batch pour {tag_type}")
 
-        # Envoyer la tâche Celery
-        task = celery_app.send_task(
-            "synonym.generate_all_synonyms",
-            args=[tag_type],
-            queue="synonym",
-            priority=3,
-        )
+        # Import the task dynamically to avoid circular imports
+        from backend_worker.taskiq_tasks.synonym import generate_all_synonyms_task
+        
+        # Envoyer la tâche TaskIQ
+        task_result = await generate_all_synonyms_task.kiq(tag_type=tag_type)
 
-        logger.info(f"[SYNONYMS] Tâche batch créée: {task.id}")
+        logger.info(f"[SYNONYMS] Tâche TaskIQ batch créée: {task_result.task_id}")
 
         return TriggerTaskResponse(
-            task_id=task.id,
+            task_id=task_result.task_id,
             message=f"Tâche de génération batch créée pour {tag_type}",
         )
 
