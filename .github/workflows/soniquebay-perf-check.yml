@@ -43,5 +43,5 @@ jobs:
             
           # Paramètres de filtrage pour éviter le bruit
           thinking: "dynamic"
-          model: "gemini-1.5-pro"
+          model: "gemini-2.5-pro"
           review-title: 'Code Review by Gemini AI'
