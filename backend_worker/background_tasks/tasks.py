@@ -5,7 +5,7 @@ Ce fichier délègue aux nouveaux modules de la refactorisation.
 
 # Importations depuis les nouveaux modules
 from backend_worker.celery_app import celery
-from backend_worker.tasks.main_tasks import (
+from backend.tasks.main_tasks import (
     extract_metadata_batch_legacy,
     batch_entities_legacy,
     insert_batch_direct_legacy,

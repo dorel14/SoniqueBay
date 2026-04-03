@@ -360,7 +360,7 @@ async def rescan_artist_images(
         logger.info(f"Début rescan des images pour l'artiste {artist_id}")
 
         # Déclencher la tâche Celery pour traiter les images de l'artiste
-        from backend_worker.tasks.covers_tasks import process_artist_images
+        from backend.tasks.covers_tasks import process_artist_images
 
         task_result = process_artist_images.delay([artist_id], priority="normal")
 
@@ -390,7 +390,7 @@ async def rescan_album_covers(
         logger.info(f"Début rescan des covers pour l'album {album_id}")
 
         # Déclencher la tâche Celery pour traiter les covers de l'album
-        from backend_worker.tasks.covers_tasks import process_album_covers
+        from backend.tasks.covers_tasks import process_album_covers
 
         task_result = process_album_covers.delay([album_id], priority="normal")
 
@@ -429,7 +429,7 @@ async def rescan_track_embedded_cover(
             raise HTTPException(status_code=404, detail="Track non trouvée")
 
         # Déclencher la tâche Celery pour traiter la cover intégrée de la track
-        from backend_worker.tasks.covers_tasks import extract_embedded
+        from backend.tasks.covers_tasks import extract_embedded
 
         task_result = extract_embedded.delay([track.path])
 
