@@ -12,6 +12,25 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.api.utils.database import Base
 from backend.api.utils.database import TimestampMixin
+
+
+class User(Base):
+    """Modèle minimal User pour satisfaire les contraintes FK en tests/intégration."""
+
+    __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    conversations = relationship(
+        "ConversationModel", back_populates="user", lazy="select"
+    )
+
+
 class ConversationModel(Base, TimestampMixin):
     """Modèle de conversation pour le stockage persistant."""
 
