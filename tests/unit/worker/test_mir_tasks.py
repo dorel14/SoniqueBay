@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Tests unitaires pour les tâches Celery MIR.
+Tests unitaires pour les tâches MIR.
 
 Rôle:
-    Tests pour les tâches de traitement MIR dans Celery.
+    Tests pour les tâches de traitement MIR.
     Ces tests vérifient la structure et le comportement des tâches.
 
 Auteur: SoniqueBay Team
@@ -51,34 +51,6 @@ class TestMIRTaskNames:
         from backend_worker.tasks.mir_tasks import generate_synthetic_tags
         assert generate_synthetic_tags is not None
         assert generate_synthetic_tags.name == "mir.generate_synthetic_tags"
-
-
-class TestMIRTaskQueue:
-    """Tests pour la configuration des queues MIR."""
-
-    def test_mir_queue_configured(self) -> None:
-        """Vérifie que la queue 'mir' est configurée."""
-        from backend_worker.celery_config_source import get_unified_queues
-        queues = get_unified_queues()
-        assert 'mir' in queues
-
-    def test_mir_task_routes_configured(self) -> None:
-        """Vérifie que les routes MIR sont configurées."""
-        from backend_worker.celery_config_source import get_unified_task_routes
-        routes = get_unified_task_routes()
-
-        assert 'mir.process_track' in routes
-        assert 'mir.process_batch' in routes
-        assert 'mir.reprocess_track' in routes
-        assert 'mir.calculate_scores' in routes
-        assert 'mir.generate_synthetic_tags' in routes
-
-        # Vérifier que les routes pointent vers la queue 'mir'
-        assert routes['mir.process_track']['queue'] == 'mir'
-        assert routes['mir.process_batch']['queue'] == 'mir'
-        assert routes['mir.reprocess_track']['queue'] == 'mir'
-        assert routes['mir.calculate_scores']['queue'] == 'mir'
-        assert routes['mir.generate_synthetic_tags']['queue'] == 'mir'
 
 
 class TestMIRTaskParameters:

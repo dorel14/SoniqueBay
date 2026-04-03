@@ -70,75 +70,8 @@ def test_extract_artist_images_task_taskiq():
     import asyncio
     file_paths = ["/test/path/to/audio.mp3"]
     
-    # Mock the extract_artist_images function from music_scan (imported as async_extract_artist_images in covers.py) to return an empty list
     with patch('backend_worker.services.music_scan.extract_artist_images', return_value=[]):
         result = asyncio.run(extract_artist_images(file_paths=file_paths))
         assert result["success"] is True
         assert result["files_processed"] == 1
         assert result["artist_images_found"] == 0
-
-
-def test_extract_embedded_covers_celery_fallback():
-    """Test que le fallback Celery fonctionne pour extract_embedded."""
-    import os
-    os.environ['USE_TASKIQ_FOR_COVERS'] = 'false'
-    from backend_worker.celery_tasks import extract_embedded_covers
-
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = extract_embedded_covers(file_paths=["/test/path"])
-    assert result["success"] is True
-
-
-def test_extract_embedded_covers_taskiq_flag():
-    """Test que le feature flag utilise TaskIQ pour extract_embedded."""
-    import os
-    os.environ['USE_TASKIQ_FOR_COVERS'] = 'true'
-    from backend_worker.celery_tasks import extract_embedded_covers
-
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = extract_embedded_covers(["/test/path"])
-    assert result["success"] is True
-
-
-def test_process_artist_images_celery_fallback():
-    """Test que le fallback Celery fonctionne pour process_artist_images."""
-    import os
-    os.environ['USE_TASKIQ_FOR_PROCESS_ARTIST_IMAGES'] = 'false'
-    from backend_worker.celery_tasks import process_artist_images
-
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = process_artist_images([1, 2, 3], priority="normal")
-    assert result["success"] is True
-
-
-def test_process_artist_images_taskiq_flag():
-    """Test que le feature flag utilise TaskIQ pour process_artist_images."""
-    import os
-    os.environ['USE_TASKIQ_FOR_PROCESS_ARTIST_IMAGES'] = 'true'
-    from backend_worker.celery_tasks import process_artist_images
-
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = process_artist_images(artist_ids=[1, 2, 3], priority="normal")
-    assert result["success"] is True
-
-
-def test_process_album_covers_celery_fallback():
-    """Test que le fallback Celery fonctionne pour process_album_covers."""
-    import os
-    os.environ['USE_TASKIQ_FOR_PROCESS_ALBUM_COVERS'] = 'false'
-    from backend_worker.celery_tasks import process_album_covers
-    
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = process_album_covers(album_ids=[1, 2, 3], priority="normal")
-    assert result["success"] is True
-
-
-def test_process_album_covers_taskiq_flag():
-    """Test que le feature flag utilise TaskIQ pour process_album_covers."""
-    import os
-    os.environ['USE_TASKIQ_FOR_PROCESS_ALBUM_COVERS'] = 'true'
-    from backend_worker.celery_tasks import process_album_covers
-
-    # Test simple - juste vérifier que la fonction existe et retourne quelque chose
-    result = process_album_covers(album_ids=[1, 2, 3], priority="normal")
-    assert result["success"] is True

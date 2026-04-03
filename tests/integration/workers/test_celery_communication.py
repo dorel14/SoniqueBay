@@ -7,7 +7,7 @@ des tâches vers le worker sans erreur Kombu.
 import sys
 import time
 from pathlib import Path
-from backend.api.utils.celery_app import celery_app
+from backend.api.utils.taskiq_broker import taskiq_broker
 from backend.api.utils.logging import logger
 # Ajouter le répertoire racine au path Python
 project_root = Path(__file__).parent.parent
@@ -24,16 +24,16 @@ def test_celery_connection():
     
     # 1. Vérifier la configuration Celery
     logger.info("\n[1] Configuration Celery de l'API:")
-    logger.info(f"    App name: {celery_app.main}")
-    logger.info(f"    Broker URL: {celery_app.conf.broker_url}")
-    logger.info(f"    Backend URL: {celery_app.conf.result_backend}")
-    logger.info(f"    Task routes: {list(celery_app.conf.task_routes.keys())}")
-    logger.info(f"    Task queues: {[q.name for q in celery_app.conf.task_queues]}")
+    logger.info(f"    App name: {taskiq_broker.main}")
+    logger.info(f"    Broker URL: {taskiq_broker.conf.broker_url}")
+    logger.info(f"    Backend URL: {taskiq_broker.conf.result_backend}")
+    logger.info(f"    Task routes: {list(taskiq_broker.conf.task_routes.keys())}")
+    logger.info(f"    Task queues: {[q.name for q in taskiq_broker.conf.task_queues]}")
     
     # 2. Tester la connexion au broker
     logger.info("\n[2] Test de connexion au broker Redis...")
     try:
-        connection = celery_app.broker_connection()
+        connection = taskiq_broker.broker_connection()
         connection.ensure_connection(max_retries=3)
         logger.info("    ✓ Connexion au broker réussie")
     except Exception as e:
@@ -43,7 +43,7 @@ def test_celery_connection():
     # 3. Tester l'inspection des workers
     logger.info("\n[3] Test d'inspection des workers...")
     try:
-        inspect = celery_app.control.inspect()
+        inspect = taskiq_broker.control.inspect()
         active_workers = inspect.ping()
         
         if active_workers:
@@ -67,7 +67,7 @@ def test_celery_connection():
     try:
         # Envoyer une tâche de test (scan.discovery avec un répertoire vide)
         test_directory = "/tmp/test_scan"
-        result = celery_app.send_task(
+        result = taskiq_broker.send_task(
             'scan.discovery',
             args=[test_directory],
             queue='scan',

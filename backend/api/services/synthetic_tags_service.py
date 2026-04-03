@@ -481,3 +481,118 @@ class SyntheticTagsService:
         )
 
         return merged
+
+    def calculate_tag_explainability(self, tag_name: str, features: dict[str, Any], scores: dict[str, Any]) -> dict[str, Any]:
+        """
+        Calcule l'explicabilité d'un tag.
+
+        Args:
+            tag_name: Nom du tag
+            features: Caractéristiques normalisées
+            scores: Scores calculés
+
+        Returns:
+            Dictionnaire avec les facteurs d'explication
+        """
+        explainability = {
+            'tag': tag_name,
+            'factors': [],
+            'confidence': 0.0,
+            'source': 'inference'
+        }
+
+        # Map des tags vers les caractéristiques sources
+        tag_sources = {
+            'dark': ['mood_valence'],
+            'bright': ['mood_valence'],
+            'energetic': ['energy_score'],
+            'chill': ['energy_score'],
+            'aggressive': ['mood_aggressive'],
+            'dancefloor': ['dance_score', 'instrumental'],
+            'ambient': ['instrumental', 'acoustic'],
+            'workout': ['dance_score', 'energy_score', 'mood_valence'],
+            'party': ['mood_party'],
+            'focus': ['dance_score'],
+            'background': ['acoustic', 'energy_score'],
+        }
+
+        sources = tag_sources.get(tag_name, [])
+
+        for source in sources:
+            if source in scores:
+                explainability['factors'].append({
+                    'source': source,
+                    'value': scores[source],
+                    'weight': 1.0 / len(sources) if sources else 1.0
+                })
+            elif source in features:
+                explainability['factors'].append({
+                    'source': source,
+                    'value': features[source],
+                    'weight': 1.0 / len(sources) if sources else 1.0
+                })
+
+        if explainability['factors']:
+            explainability['confidence'] = sum(
+                f['value'] * f['weight'] for f in explainability['factors']
+            )
+            explainability['source'] = 'features_analysis'
+
+        return explainability
+
+    def generate_all_synthetic_tags(self, features: dict[str, Any], scores: dict[str, Any]) -> dict[str, Any]:
+        """
+        Génère tous les tags synthétiques avec explicabilité.
+
+        Args:
+            features: Caractéristiques normalisées
+            scores: Scores calculés
+
+        Returns:
+            Dictionnaire complet avec tous les tags par catégorie et explicabilité
+        """
+        logger.info("[SYNTHETIC_TAGS] Début de la génération des tags synthétiques")
+
+        result = {
+            'mood_tags': [],
+            'energy_tags': [],
+            'atmosphere_tags': [],
+            'usage_tags': [],
+            'all_tags': [],
+            'total_tags': 0,
+        }
+
+        # Générer les tags par catégorie
+        result['mood_tags'] = self.generate_mood_tags(features, scores)
+        result['energy_tags'] = self.generate_energy_tags(features, scores)
+        result['atmosphere_tags'] = self.generate_atmosphere_tags(features, scores)
+        result['usage_tags'] = self.generate_usage_tags(features, scores)
+
+        # Combiner tous les tags
+        all_tags = (
+            result['mood_tags'] +
+            result['energy_tags'] +
+            result['atmosphere_tags'] +
+            result['usage_tags']
+        )
+
+        # Trier par score décroissant
+        all_tags.sort(key=lambda x: x["score"], reverse=True)
+
+        # Ajouter l'explicabilité à chaque tag
+        for tag in all_tags:
+            tag['explainability'] = self.calculate_tag_explainability(
+                tag['tag'], features, scores
+            )
+
+        result['all_tags'] = all_tags
+        result['total_tags'] = len(all_tags)
+
+        # Logger les résultats
+        logger.info(f"[SYNTHETIC_TAGS] {result['total_tags']} tags générés:")
+        logger.info(f"  - Mood: {len(result['mood_tags'])}")
+        logger.info(f"  - Energy: {len(result['energy_tags'])}")
+        logger.info(f"  - Atmosphere: {len(result['atmosphere_tags'])}")
+        logger.info(f"  - Usage: {len(result['usage_tags'])}")
+
+        return result

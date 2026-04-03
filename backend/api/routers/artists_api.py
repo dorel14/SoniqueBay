@@ -373,7 +373,7 @@ async def fetch_artist_lastfm_info(
     """
     try:
         # Import the task dynamically to avoid circular imports
-        from backend_worker.taskiq_tasks.lastfm import fetch_artist_lastfm_info_task
+        from backend.tasks.lastfm import fetch_artist_lastfm_info_task
         
         # Trigger the worker task via TaskIQ
         task_result = await fetch_artist_lastfm_info_task.kiq(artist_id=artist_id)
@@ -460,7 +460,7 @@ async def fetch_similar_artists(
     """
     try:
         # Import the task dynamically to avoid circular imports
-        from backend_worker.taskiq_tasks.lastfm import fetch_similar_artists_task
+        from backend.tasks.lastfm import fetch_similar_artists_task
         
         # Trigger the worker task via TaskIQ
         task_result = await fetch_similar_artists_task.kiq(artist_id=artist_id, limit=limit)

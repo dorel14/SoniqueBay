@@ -261,23 +261,23 @@ class TestLastFMIntegration:
         assert hasattr(Artist, 'lastfm_info_fetched_at')
         assert hasattr(Artist, 'vector')
 
-    def test_worker_celery_integration(self):
-        """Test intégration des workers Celery Last.fm."""
-        with patch('backend_worker.workers.lastfm.lastfm_worker.celery') as mock_celery:
+    def test_worker_taskiq_integration(self):
+        """Test intégration des workers TaskIQ Last.fm."""
+        with patch('backend_worker.taskiq_tasks.lastfm.fetch_artist_lastfm_info_task.kiq') as mock_kiq:
             from backend_worker.workers.lastfm.lastfm_worker import fetch_artist_lastfm_info
 
             mock_task = MagicMock()
             mock_task.id = "test-lastfm-task-123"
-            mock_celery.send_task.return_value = mock_task
+            mock_kiq.return_value = MagicMock()
 
             # Appeler la fonction
             result = fetch_artist_lastfm_info(1)
 
-            # Vérifier que Celery a été appelé
-            mock_celery.send_task.assert_called_once_with(
-                "lastfm.fetch_artist_info",
-                args=[1],
-                queue="deferred"
+            # Vérifier que TaskIQ a été appelé
+            mock_kiq.assert_called_once_with(
+                
+                
+                
             )
 
             assert result.id == "test-lastfm-task-123"

@@ -1,7 +1,7 @@
 """
 Tests pour le service refactoré de monitoring des tags.
 
-Teste la nouvelle implémentation avec CeleryTaskPublisher au lieu de recommender_api.
+Teste la nouvelle implémentation avec TaskIQPublisher au lieu de recommender_api.
 """
 
 import pytest
@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, AsyncMock
 from backend_worker.services.tag_monitoring_service import (
     TagChangeDetector,
     TagMonitoringService,
-    CeleryTaskPublisher,
+    TaskIQPublisher,
     RedisPublisher
 )
 
@@ -254,12 +254,12 @@ class TestTagChangeDetector:
         assert decision['reason'] == 'insignificant_changes'
 
 
-class TestCeleryTaskPublisher:
-    """Tests du publieur de tâches Celery."""
+class TestTaskIQPublisher:
+    """Tests du publieur de tâches TaskIQ."""
 
     @pytest.fixture
-    def mock_celery(self):
-        """Fixture mock Celery."""
+    def mock_taskiq(self):
+        """Fixture mock TaskIQ."""
         mock = Mock()
         mock.send_task = Mock()
         mock.send_task.return_value = Mock(id='mock_task_id')
@@ -273,14 +273,14 @@ class TestCeleryTaskPublisher:
         return mock
 
     @pytest.fixture
-    def mock_config(self, mock_celery):
-        """Fixture mock configuration Celery."""
+    def mock_config(self, mock_taskiq):
+        """Fixture mock configuration TaskIQ."""
         mock = Mock()
-        mock.get_celery_app.return_value = mock_celery
+        mock.get_taskiq_app.return_value = mock_taskiq
         return mock
 
     @pytest.mark.asyncio
-    async def test_trigger_retrain_task_success(self, mock_celery, mock_redis, mock_config):
+    async def test_trigger_retrain_task_success(self, mock_taskiq, mock_redis, mock_config):
         """Test le déclenchement réussi d'une tâche de retrain."""
         trigger_info = {
             'reason': 'new_genres',
@@ -290,18 +290,18 @@ class TestCeleryTaskPublisher:
             'delay_minutes': 15
         }
 
-        with patch('backend_worker.services.tag_monitoring_service.get_celery_config', return_value=mock_config), \
+        with patch('backend_worker.services.tag_monitoring_service.get_taskiq_config', return_value=mock_config), \
              patch('redis.asyncio.from_url', return_value=mock_redis):
             
-            publisher = CeleryTaskPublisher()
+            publisher = TaskIQPublisher()
             result = await publisher.trigger_retrain_task(trigger_info)
             
             assert result['success'] is True
-            assert result['celery_task_id'] == 'mock_task_id'
+            assert result['taskiq_task_id'] == 'mock_task_id'
             
-            # Vérifier que la tâche Celery a été appelée avec les bons paramètres
-            mock_celery.send_task.assert_called_once()
-            args, kwargs = mock_celery.send_task.call_args
+            # Vérifier que la tâche TaskIQ a été appelée avec les bons paramètres
+            mock_taskiq.send_task.assert_called_once()
+            args, kwargs = mock_taskiq.send_task.call_args
             assert args[0] == 'train_recommendation_model'
             assert 'priority' in kwargs
             assert kwargs['priority'] == 9  # high priority
@@ -309,7 +309,7 @@ class TestCeleryTaskPublisher:
             assert kwargs['countdown'] == 15 * 60  # 15 minutes
 
     @pytest.mark.asyncio
-    async def test_trigger_retrain_task_failure(self, mock_celery, mock_config):
+    async def test_trigger_retrain_task_failure(self, mock_taskiq, mock_config):
         """Test l'échec du déclenchement d'une tâche de retrain."""
         trigger_info = {
             'reason': 'new_genres',
@@ -319,26 +319,26 @@ class TestCeleryTaskPublisher:
             'delay_minutes': 30
         }
 
-        # Simuler une exception Celery
-        mock_celery.send_task.side_effect = Exception("Celery error")
+        # Simuler une exception TaskIQ
+        mock_taskiq.send_task.side_effect = Exception("TaskIQ error")
         
-        with patch('backend_worker.services.tag_monitoring_service.get_celery_config', return_value=mock_config):
-            publisher = CeleryTaskPublisher()
+        with patch('backend_worker.services.tag_monitoring_service.get_taskiq_config', return_value=mock_config):
+            publisher = TaskIQPublisher()
             result = await publisher.trigger_retrain_task(trigger_info)
             
             assert result['success'] is False
             assert 'error' in result
-            assert 'Celery error' in result['error']
+            assert 'TaskIQ error' in result['error']
 
     def test_priority_mapping(self):
-        """Test la conversion des priorités en niveaux Celery."""
-        publisher = CeleryTaskPublisher()
+        """Test la conversion des priorités en niveaux TaskIQ."""
+        publisher = TaskIQPublisher()
         
         # Test des mappings de priorité
-        assert publisher._map_priority_to_celery('high') == 9
-        assert publisher._map_priority_to_celery('medium') == 5
-        assert publisher._map_priority_to_celery('low') == 1
-        assert publisher._map_priority_to_celery('none') == 0
+        assert publisher._map_priority_to_taskiq('high') == 9
+        assert publisher._map_priority_to_taskiq('medium') == 5
+        assert publisher._map_priority_to_taskiq('low') == 1
+        assert publisher._map_priority_to_taskiq('none') == 0
 
 
 class TestRedisPublisher:
@@ -395,8 +395,8 @@ class TestTagMonitoringService:
     """Tests du service principal de monitoring."""
 
     @pytest.fixture
-    def mock_celery(self):
-        """Fixture mock Celery."""
+    def mock_taskiq(self):
+        """Fixture mock TaskIQ."""
         mock = Mock()
         mock.send_task = Mock()
         mock.send_task.return_value = Mock(id='mock_task_id')
@@ -410,14 +410,14 @@ class TestTagMonitoringService:
         return mock
 
     @pytest.fixture
-    def mock_config(self, mock_celery):
-        """Fixture mock configuration Celery."""
+    def mock_config(self, mock_taskiq):
+        """Fixture mock configuration TaskIQ."""
         mock = Mock()
-        mock.get_celery_app.return_value = mock_celery
+        mock.get_taskiq_app.return_value = mock_taskiq
         return mock
 
     @pytest.mark.asyncio
-    async def test_check_and_publish_retrain_needed(self, mock_celery, mock_redis, mock_config):
+    async def test_check_and_publish_retrain_needed(self, mock_taskiq, mock_redis, mock_config):
         """Test de vérification avec retrain nécessaire."""
         # Mock du détecteur de changements
         mock_detector = Mock()
@@ -435,7 +435,7 @@ class TestTagMonitoringService:
             'delay_minutes': 60
         })
 
-        with patch('backend_worker.services.tag_monitoring_service.get_celery_config', return_value=mock_config), \
+        with patch('backend_worker.services.tag_monitoring_service.get_taskiq_config', return_value=mock_config), \
              patch('backend_worker.services.tag_monitoring_service.TagChangeDetector', return_value=mock_detector), \
              patch('redis.asyncio.from_url', return_value=mock_redis):
             
@@ -444,9 +444,9 @@ class TestTagMonitoringService:
             
             assert result['status'] == 'retrain_requested'
             assert result['priority'] == 'medium'
-            assert 'celery_published' in result
+            assert 'taskiq_published' in result
             assert 'redis_published' in result
-            assert result['celery_published'] is True
+            assert result['taskiq_published'] is True
             assert result['redis_published'] is True
 
     @pytest.mark.asyncio
@@ -571,14 +571,14 @@ class TestIntegration:
     async def test_full_workflow_success(self):
         """Test du workflow complet avec succès."""
         # Mock des dépendances
-        mock_celery = Mock()
-        mock_celery.send_task = Mock(return_value=Mock(id='task_123'))
+        mock_taskiq = Mock()
+        mock_taskiq.send_task = Mock(return_value=Mock(id='task_123'))
         
         mock_redis = Mock()
         mock_redis.publish = AsyncMock()
         
         mock_config = Mock()
-        mock_config.get_celery_app.return_value = mock_celery
+        mock_config.get_taskiq_broker.return_value = mock_taskiq
         
         mock_detector = Mock()
         mock_detector.detect_changes = AsyncMock(return_value={
@@ -595,7 +595,7 @@ class TestIntegration:
             'delay_minutes': 15
         })
 
-        with patch('backend_worker.services.tag_monitoring_service.get_celery_config', return_value=mock_config), \
+        with patch('backend_worker.services.tag_monitoring_service.get_taskiq_config', return_value=mock_config), \
              patch('backend_worker.services.tag_monitoring_service.TagChangeDetector', return_value=mock_detector), \
              patch('redis.asyncio.from_url', return_value=mock_redis):
             
@@ -605,23 +605,23 @@ class TestIntegration:
             # Vérifier le résultat complet
             assert result['status'] == 'retrain_requested'
             assert result['priority'] == 'high'
-            assert result['celery_published'] is True
+            assert result['taskiq_published'] is True
             assert result['redis_published'] is True
-            assert result['celery_task_id'] == 'task_123'
+            assert result['taskiq_task_id'] == 'task_123'
             assert result['delay_minutes'] == 15
 
     @pytest.mark.asyncio
     async def test_full_workflow_partial_failure(self):
-        """Test du workflow avec échec partiel (Celery OK, Redis KO)."""
+        """Test du workflow avec échec partiel (TaskIQ OK, Redis KO)."""
         # Mock des dépendances
-        mock_celery = Mock()
-        mock_celery.send_task = Mock(return_value=Mock(id='task_456'))
+        mock_taskiq = Mock()
+        mock_taskiq.send_task = Mock(return_value=Mock(id='task_456'))
         
         mock_redis = Mock()
         mock_redis.publish = AsyncMock(side_effect=Exception("Redis error"))
         
         mock_config = Mock()
-        mock_config.get_celery_app.return_value = mock_celery
+        mock_config.get_taskiq_broker.return_value = mock_taskiq
         
         mock_detector = Mock()
         mock_detector.detect_changes = AsyncMock(return_value={
@@ -638,15 +638,15 @@ class TestIntegration:
             'delay_minutes': 60
         })
 
-        with patch('backend_worker.services.tag_monitoring_service.get_celery_config', return_value=mock_config), \
+        with patch('backend_worker.services.tag_monitoring_service.get_taskiq_config', return_value=mock_config), \
              patch('backend_worker.services.tag_monitoring_service.TagChangeDetector', return_value=mock_detector), \
              patch('redis.asyncio.from_url', return_value=mock_redis):
             
             service = TagMonitoringService()
             result = await service.check_and_publish_if_needed()
             
-            # Vérifier que Celery a fonctionné mais pas Redis
+            # Vérifier que TaskIQ a fonctionné mais pas Redis
             assert result['status'] == 'retrain_requested'
-            assert result['celery_published'] is True
+            assert result['taskiq_published'] is True
             assert result['redis_published'] is False
-            assert result['celery_task_id'] == 'task_456'
+            assert result['taskiq_task_id'] == 'task_456'

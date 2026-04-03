@@ -1,0 +1,20 @@
+from __future__ import annotations
+
+from sqlalchemy import ForeignKey, Integer
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from backend.workers.models.base import Base, TimestampMixin
+
+
+class genre_links(TimestampMixin, Base):
+    __tablename__ = 'genre_links'
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    track_id: Mapped[int] = mapped_column(Integer, ForeignKey('tracks.id'))
+    genre_id: Mapped[int] = mapped_column(Integer, ForeignKey('genres.id'))
+
+    track: Mapped["Track"] = relationship("Track", back_populates="genre_links") # type: ignore # noqa: F821
+    genre: Mapped["Genre"] = relationship("Genre", back_populates="genre_links") # type: ignore # noqa: F821
+
+    def __repr__(self):
+        return f"<GenreLink(track_id='{self.track_id}', genre_id='{self.genre_id}')>"

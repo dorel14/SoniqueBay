@@ -28,7 +28,7 @@ from backend.api.schemas.artist_embeddings_schema import (
     GMMTrainingResponse,
 )
 from backend.api.services.vector_search_service import VectorSearchService
-from backend.api.utils.taskiq_client import broker as celery_app
+from backend.api.utils.taskiq_client import broker
 from backend.api.utils.logging import logger
 
 
@@ -235,7 +235,7 @@ class ArtistEmbeddingService:
             )
 
             # Import the task dynamically to avoid circular imports
-            from backend_worker.taskiq_tasks.gmm import cluster_all_artists_task
+            from backend.tasks.gmm import cluster_all_artists_task
             
             # Send task via TaskIQ
             task_result = await cluster_all_artists_task.kiq(force_refresh=force_refresh)
@@ -262,7 +262,7 @@ class ArtistEmbeddingService:
             )
 
             # Import the task dynamically to avoid circular imports
-            from backend_worker.taskiq_tasks.gmm import refresh_stale_clusters_task
+            from backend.tasks.gmm import refresh_stale_clusters_task
             
             # Send task via TaskIQ
             task_result = await refresh_stale_clusters_task.kiq(max_age_hours=max_age_hours)

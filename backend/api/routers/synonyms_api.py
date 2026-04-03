@@ -308,7 +308,7 @@ async def trigger_synonym_generation(
         )
 
         # Import the task dynamically to avoid circular imports
-        from backend_worker.taskiq_tasks.synonym import generate_synonyms_for_tag_task
+        from backend.tasks.synonym import generate_synonyms_for_tag_task
         
         # Envoyer la tâche TaskIQ
         task_result = await generate_synonyms_for_tag_task.kiq(
@@ -361,7 +361,7 @@ async def trigger_batch_synonym_generation(
         logger.info(f"[SYNONYMS] Trigger génération batch pour {tag_type}")
 
         # Import the task dynamically to avoid circular imports
-        from backend_worker.taskiq_tasks.synonym import generate_all_synonyms_task
+        from backend.tasks.synonym import generate_all_synonyms_task
         
         # Envoyer la tâche TaskIQ
         task_result = await generate_all_synonyms_task.kiq(tag_type=tag_type)

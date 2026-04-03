@@ -32,8 +32,10 @@ _old/
 ./ollama/*id_ed25519
 ollama/*.pub*
 ollama/models/
-.kilocode/*
+.kilocode/
 llm-service/models/
+.kilo/
+.vscode/
 
 # Database files
 *.db

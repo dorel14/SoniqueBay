@@ -30,9 +30,9 @@ from backend.api.schemas.gmm_schema import (
 
 from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
+from backend.api.utils.taskiq_broker import taskiq_broker
 from backend.api.services.artist_embedding_service import ArtistEmbeddingService
 from backend.api.services.artist_service import ArtistService
-from backend_worker.taskiq_tasks.gmm import cluster_all_artists_task, refresh_stale_clusters_task
 
 
 # ============================================================================
@@ -113,14 +113,14 @@ async def _get_artist_embedding_info(
     "/cluster",
     response_model=ClusteringTaskResponse,
     summary="Déclencher le clustering complet",
-    description="Lance le clustering GMM de tous les artistes via une tâche Celery.",
+    description="Lance le clustering GMM de tous les artistes via une tâche TaskIQ.",
 )
 async def trigger_full_clustering(
     force_refresh: bool = False,
 ) -> ClusteringTaskResponse:
     """Déclenche le clustering de tous les artistes.
 
-    Cette endpoint lance une tâche Celery asynchrone pour effectuer
+    Cette endpoint lance une tâche TaskIQ asynchrone pour effectuer
     le clustering GMM complet de tous les artistes de la bibliothèque.
 
     Args:
@@ -128,7 +128,7 @@ async def trigger_full_clustering(
         background_tasks: Tâches de fond FastAPI
 
     Returns:
-        Identifiant de la tâche Celery et message de confirmation
+        Identifiant de la tâche TaskIQ et message de confirmation
 
     Raises:
         HTTPException: Si l'envoi de la tâche échoue
@@ -138,15 +138,13 @@ async def trigger_full_clustering(
             f"[GMM] Déclenchement clustering complet (force_refresh={force_refresh})"
         )
 
-        # Envoyer la tâche Celery
-        task = celery_app.send_task(
+        # Envoyer la tâche TaskIQ
+        task = taskiq_broker.send_task(
             "gmm.cluster_all_artists",
             args=[force_refresh],
-            queue="gmm",
-            priority=5,
         )
 
-        logger.info(f"[GMM] Tâche Celery créée: {task.id}")
+        logger.info(f"[GMM] Tâche TaskIQ créée")
 
         return ClusteringTaskResponse(
             task_id=task.id,
@@ -421,7 +419,7 @@ async def refresh_stale_clusters(
 ) -> RefreshClustersResponse:
     """Rafraîchit les clusters trop anciens.
 
-    Lance une tâche Celery pour reclusteriser les artistes
+    Lance une tâche TaskIQ pour reclusteriser les artistes
     dont le cluster est plus ancien que max_age_hours.
 
     Args:
@@ -436,18 +434,18 @@ async def refresh_stale_clusters(
     try:
         logger.info(f"[GMM] Rafraîchissement clusters de plus de {max_age_hours}h")
 
-        # Envoyer la tâche Celery
-        task = celery_app.send_task(
+        # Envoyer la tâche TaskIQ
+        task = taskiq_broker.send_task(
             "gmm.refresh_stale_clusters",
             args=[max_age_hours],
-            queue="gmm",
-            priority=3,
+            
+            
         )
 
         logger.info(f"[GMM] Tâche de rafraîchissement créée: {task.id}")
 
         return RefreshClustersResponse(
-            refreshed_count=0,  # Sera mis à jour par la tâche Celery
+            refreshed_count=0,  # Sera mis à jour par la tâche TaskIQ
             message=f"Tâche de rafraîchissement créée (ID: {task.id})",
         )
 

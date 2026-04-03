@@ -247,10 +247,10 @@ class TestArtistGMMIntegration:
             assert artist_b_score >= artist_c_score  # Artist_B devrait être plus similaire
 
     @pytest.mark.asyncio
-    async def test_celery_worker_integration(self, db_session, sample_embeddings_data):
-        """Test d'intégration avec les workers Celery."""
-        # Ce test nécessite que les workers Celery soient disponibles
-        # Dans un environnement de test réel, on mockerait les appels Celery
+    async def test_taskiq_worker_integration(self, db_session, sample_embeddings_data):
+        """Test d'intégration avec les workers TaskIQ."""
+        # Ce test nécessite que les workers TaskIQ soient disponibles
+        # Dans un environnement de test réel, on mockerait les appels TaskIQ
 
         from backend_worker.workers.artist_gmm.artist_gmm_worker import (
             generate_artist_embeddings,
@@ -258,11 +258,11 @@ class TestArtistGMMIntegration:
             update_artist_clusters
         )
 
-        # Mock pour éviter les vraies dépendances Celery
-        with patch('backend_worker.workers.artist_gmm.artist_gmm_worker.celery') as mock_celery:
+        # Mock pour éviter les vraies dépendances TaskIQ
+        with patch('backend_worker.taskiq_tasks.gmm.cluster_all_artists_task.kiq') as mock_kiq:
             mock_task = MagicMock()
             mock_task.id = "test-task-id"
-            mock_celery.send_task.return_value = mock_task
+            mock_kiq.return_value = MagicMock()
 
             # Tester génération d'embeddings
             result = generate_artist_embeddings()

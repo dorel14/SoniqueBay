@@ -199,7 +199,7 @@ class ScanService:
             logger.info(f"[SCAN] Répertoire: {resolved_docker_directory}")
 
             # Import the task dynamically to avoid circular imports
-            from backend_worker.taskiq_tasks.scan import discovery_task
+            from backend.tasks.scan import discovery_task
             
             # Send task via TaskIQ
             task_result = await discovery_task.kiq(resolved_docker_directory)

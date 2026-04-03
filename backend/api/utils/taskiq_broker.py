@@ -29,7 +29,7 @@ async def post_execute_handler(task_name: str, result, **kwargs):
 
 # For backward compatibility with existing code that expects celery_app
 # We'll provide a minimal interface that delegates to TaskIQ
-class CeleryAppCompatibility:
+class TaskIQBrokerCompatibility:
     """Compatibility layer to mimic Celery app interface for TaskIQ."""
     
     def send_task(self, name: str, args=None, kwargs=None, queue=None, priority=None):
@@ -38,12 +38,12 @@ class CeleryAppCompatibility:
         
         # Import the task dynamically to avoid circular imports
         if name.startswith("scan."):
-            from backend_worker.taskiq_tasks.scan import discovery_task
+            from backend.tasks.scan import discovery_task
             task_func = discovery_task
         elif name.startswith("covers."):
-            from backend_worker.taskiq_tasks.covers import (
-                process_artist_images_task,
-                process_album_covers_task,
+            from backend.tasks.covers import (
+                process_artist_images,
+                process_album_covers,
                 extract_embedded_task
             )
             if name == "covers.process_artist_images":
@@ -55,38 +55,38 @@ class CeleryAppCompatibility:
             else:
                 raise ValueError(f"Unknown covers task: {name}")
         elif name.startswith("metadata."):
-            from backend_worker.taskiq_tasks.metadata import (
-                extract_batch_task,
+            from backend.tasks.metadata import (
+                extract_metadata_batch_task,
                 enrich_batch_task
             )
             if name == "metadata.extract_batch":
-                task_func = extract_batch_task
+                task_func = extract_metadata_batch_task
             elif name == "metadata.enrich_batch":
                 task_func = enrich_batch_task
             else:
                 raise ValueError(f"Unknown metadata task: {name}")
         elif name.startswith("batch."):
-            from backend_worker.taskiq_tasks.batch import process_entities_task
+            from backend.tasks.batch import process_entities_task
             task_func = process_entities_task
         elif name.startswith("insert."):
-            from backend_worker.taskiq_tasks.insert import insert_direct_batch_task
+            from backend.tasks.insert import insert_direct_batch_task
             task_func = insert_direct_batch_task
         elif name.startswith("vectorization."):
-            from backend_worker.taskiq_tasks.vectorization import (
-                calculate_task,
-                batch_task
+            from backend.tasks.vectorization import (
+                calculate_vector_task,
+                calculate_vector_batch_task
             )
             if name == "vectorization.calculate":
-                task_func = calculate_task
+                task_func = calculate_vector_task
             elif name == "vectorization.batch":
-                task_func = batch_task
+                task_func = calculate_vector_batch_task
             else:
                 raise ValueError(f"Unknown vectorization task: {name}")
         elif name.startswith("maintenance."):
-            from backend_worker.taskiq_tasks.maintenance import cleanup_old_data_task
+            from backend.tasks.maintenance import cleanup_old_data_task
             task_func = cleanup_old_data_task
         elif name.startswith("gmm."):
-            from backend_worker.taskiq_tasks.gmm import (
+            from backend.tasks.gmm import (
                 cluster_all_artists_task,
                 cluster_artist_task,
                 refresh_stale_clusters_task,
@@ -103,7 +103,7 @@ class CeleryAppCompatibility:
             else:
                 raise ValueError(f"Unknown GMM task: {name}")
         elif name.startswith("synonym."):
-            from backend_worker.taskiq_tasks.synonym import (
+            from backend.tasks.synonym import (
                 generate_synonyms_for_tag_task,
                 generate_all_synonyms_task
             )
@@ -114,7 +114,7 @@ class CeleryAppCompatibility:
             else:
                 raise ValueError(f"Unknown synonym task: {name}")
         elif name.startswith("lastfm."):
-            from backend_worker.taskiq_tasks.lastfm import (
+            from backend.tasks.lastfm import (
                 fetch_artist_lastfm_info_task,
                 fetch_similar_artists_task,
                 batch_fetch_lastfm_info_task
@@ -151,7 +151,7 @@ class CeleryAppCompatibility:
             raise
 
 # Create a global instance for backward compatibility
-celery_app = CeleryAppCompatibility()
+taskiq_broker = TaskIQBrokerCompatibility()
 
 logger.info(
     "[TASKIQ_API] TaskIQ API configuration configured (replacing Celery)"

@@ -30,8 +30,8 @@ grep -r "import celery" backend/api/utils/
 ```
 
 **Validation** :
-- [ ] Aucun import Celery trouvé
-- [ ] Les appels TaskIQ fonctionnent
+- [x] Aucun import Celery trouvé
+- [x] Les appels TaskIQ fonctionnent
 
 ---
 
@@ -53,8 +53,8 @@ rm backend_worker/celery_app.py
 ```
 
 **Validation** :
-- [ ] Aucun import trouvé
-- [ ] Le fichier est supprimé
+- [x] Aucun import trouvé
+- [x] Le fichier est supprimé
 
 ---
 
@@ -76,8 +76,8 @@ rm backend_worker/celery_tasks.py
 ```
 
 **Validation** :
-- [ ] Aucun import trouvé
-- [ ] Le fichier est supprimé
+- [x] Aucun import trouvé
+- [x] Le fichier est supprimé
 
 ---
 
