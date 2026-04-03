@@ -24,7 +24,9 @@ class OtherQueries:
         return GenreType.from_orm(genre) if genre else None
 
     @strawberry.field
-    def genres(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[GenreType]:
+    def genres(
+        self, info: strawberry.types.Info, skip: int = 0, limit: int = 100
+    ) -> list[GenreType]:
         db = info.context.session
         service = GenreService(db)
         genres = service.read_genres(skip, limit)

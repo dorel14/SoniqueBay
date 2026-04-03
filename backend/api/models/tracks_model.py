@@ -9,6 +9,7 @@ from backend.api.models.tags_model import GenreTag, MoodTag
 
 # Imports pour les relations vers les nouvelles tables
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from backend.api.models.track_audio_features_model import TrackAudioFeatures
     from backend.api.models.track_embeddings_model import TrackEmbeddings
@@ -22,19 +23,22 @@ if TYPE_CHECKING:
 class Track(Base, TimestampMixin):
     """
     Modèle SQLAlchemy pour la table tracks.
-    
+
     Note: Les caractéristiques audio et embeddings ont été migrés vers des tables dédiées:
         - TrackAudioFeatures: Caractéristiques audio (BPM, tonalité, mood, etc.)
         - TrackEmbeddings: Embeddings vectoriels
         - TrackMetadata: Métadonnées enrichies extensibles
-    
+
     Le champ `search` (TSVECTOR) est conservé pour la recherche FTS PostgreSQL.
     """
-    __tablename__ = 'tracks'
+
+    __tablename__ = "tracks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String, nullable=True)
-    album_id: Mapped[int] = mapped_column(Integer, ForeignKey('albums.id'), nullable=True)
+    album_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("albums.id"), nullable=True
+    )
     path: Mapped[str] = mapped_column(String, unique=True)
     duration: Mapped[int] = mapped_column(Integer, nullable=True)
     track_number: Mapped[str] = mapped_column(String, nullable=True)
@@ -51,24 +55,26 @@ class Track(Base, TimestampMixin):
     bitrate: Mapped[int] = mapped_column(Integer, nullable=True)
     file_mtime: Mapped[float] = mapped_column(Float, nullable=True)
     file_size: Mapped[int] = mapped_column(Integer, nullable=True)
-    track_artist_id: Mapped[int] = mapped_column(Integer, ForeignKey('artists.id', ondelete='CASCADE'), nullable=False)
+    track_artist_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("artists.id", ondelete="CASCADE"), nullable=False
+    )
     featured_artists: Mapped[str] = mapped_column(String, nullable=True)
 
     # Champ FTS PostgreSQL pour recherche textuelle (CONSERVÉ)
     search: Mapped[str] = mapped_column(postgresql.TSVECTOR, nullable=True)
 
     # Relations avec Artist/Album
-    artist: Mapped["Artist"] = relationship("Artist", back_populates="tracks") # type: ignore # noqa: F821
-    album: Mapped["Album"] = relationship("Album", back_populates="tracks") # type: ignore # noqa: F821
-    genres: Mapped[list["Genre"]] = relationship("Genre", secondary="track_genres", back_populates="tracks") # type: ignore # noqa: F821
-    mood_tags: Mapped[list["MoodTag"]] = relationship("MoodTag", secondary="track_mood_tags", back_populates="tracks", lazy="selectin") # type: ignore # noqa: F821
-    genre_tags: Mapped[list["GenreTag"]] = relationship("GenreTag", secondary="track_genre_tags", back_populates="tracks", lazy="selectin") # type: ignore # noqa: F821
+    artist: Mapped["Artist"] = relationship("Artist", back_populates="tracks")  # type: ignore # noqa: F821
+    album: Mapped["Album"] = relationship("Album", back_populates="tracks")  # type: ignore # noqa: F821
+    genres: Mapped[list["Genre"]] = relationship("Genre", secondary="track_genres", back_populates="tracks")  # type: ignore # noqa: F821
+    mood_tags: Mapped[list["MoodTag"]] = relationship("MoodTag", secondary="track_mood_tags", back_populates="tracks", lazy="selectin")  # type: ignore # noqa: F821
+    genre_tags: Mapped[list["GenreTag"]] = relationship("GenreTag", secondary="track_genre_tags", back_populates="tracks", lazy="selectin")  # type: ignore # noqa: F821
     covers: Mapped[list["Cover"]] = relationship(
         "Cover",
         primaryjoin="and_(Cover.entity_type=='track', Track.id==Cover.entity_id)",
         lazy="selectin",
         foreign_keys=[Cover.entity_id],
-        viewonly=True
+        viewonly=True,
     )
 
     # Nouvelles relations vers les tables dédiées (Plan d'évolution Track)
@@ -78,21 +84,21 @@ class Track(Base, TimestampMixin):
         back_populates="track",
         uselist=False,
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     # Relation 1:N avec TrackEmbeddings (plusieurs embeddings par piste)
     embeddings: Mapped[list["TrackEmbeddings"]] = relationship(
         "TrackEmbeddings",
         back_populates="track",
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     # Relation 1:N avec TrackMetadata (métadonnées extensibles)
     metadata_entries: Mapped[list["TrackMetadata"]] = relationship(
         "TrackMetadata",
         back_populates="track",
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     # Relations MIR (Phase 1 - Plan MIR)
@@ -102,7 +108,7 @@ class Track(Base, TimestampMixin):
         back_populates="track",
         uselist=False,
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     # Relation 1:1 avec TrackMIRNormalized (données MIR normalisées)
     mir_normalized: Mapped["TrackMIRNormalized"] = relationship(
@@ -110,7 +116,7 @@ class Track(Base, TimestampMixin):
         back_populates="track",
         uselist=False,
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     # Relation 1:1 avec TrackMIRScores (scores globaux calculés)
     mir_scores: Mapped["TrackMIRScores"] = relationship(
@@ -118,21 +124,21 @@ class Track(Base, TimestampMixin):
         back_populates="track",
         uselist=False,
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
     # Relation 1:N avec TrackMIRSyntheticTags (tags synthétiques)
     mir_synthetic_tags: Mapped[list["TrackMIRSyntheticTags"]] = relationship(
         "TrackMIRSyntheticTags",
         back_populates="track",
         lazy="selectin",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (
-        Index('idx_tracks_path', 'path'),
-        Index('idx_tracks_artist_album', 'track_artist_id', 'album_id'),
-        Index('idx_tracks_mb_id', 'musicbrainz_id'),
-        Index('idx_tracks_genre', 'genre'),
-        Index('idx_tracks_dates', 'date_added', 'date_modified'),
-        Index('idx_tracks_search', 'search', postgresql_using='gin'),
+        Index("idx_tracks_path", "path"),
+        Index("idx_tracks_artist_album", "track_artist_id", "album_id"),
+        Index("idx_tracks_mb_id", "musicbrainz_id"),
+        Index("idx_tracks_genre", "genre"),
+        Index("idx_tracks_dates", "date_added", "date_modified"),
+        Index("idx_tracks_search", "search", postgresql_using="gin"),
     )

@@ -3,7 +3,12 @@ from fastapi_cache.decorator import cache
 from pydantic import ValidationError
 from backend.api.schemas.pagination_schema import PaginatedAlbums
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.api.schemas.albums_schema import AlbumCreate, AlbumUpdate, Album, AlbumWithRelations
+from backend.api.schemas.albums_schema import (
+    AlbumCreate,
+    AlbumUpdate,
+    Album,
+    AlbumWithRelations,
+)
 from backend.api.schemas.tracks_schema import Track
 from typing import List, Optional
 from backend.api.utils.database import get_async_session
@@ -12,6 +17,7 @@ from backend.api.utils.validation_logger import log_validation_error
 from backend.api.services.album_service import AlbumService
 
 router = APIRouter(prefix="/albums", tags=["albums"])
+
 
 @router.get("/search", response_model=List[Album])
 @cache(expire=300)  # Cache for 5 minutes
@@ -22,15 +28,40 @@ async def search_albums(
     musicbrainz_albumartistid: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: Optional[int] = Query(None, ge=1, le=1000),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """Recherche des albums avec critères MusicBrainz."""
     service = AlbumService(db)
-    albums = await service.search_albums(title, artist_id, musicbrainz_albumid, musicbrainz_albumartistid, skip, limit)
+    albums = await service.search_albums(title or "", limit=limit or 20)
+
+    if artist_id is not None:
+        albums = [album for album in albums if album.album_artist_id == artist_id]
+    if musicbrainz_albumid is not None:
+        albums = [
+            album
+            for album in albums
+            if getattr(album, "musicbrainz_albumid", None) == musicbrainz_albumid
+        ]
+    if musicbrainz_albumartistid is not None:
+        albums = [
+            album
+            for album in albums
+            if str(getattr(album, "musicbrainz_albumartistid", ""))
+            == musicbrainz_albumartistid
+        ]
+
+    if skip > 0:
+        albums = albums[skip:]
+
     return [Album.model_validate(album) for album in albums]
 
+
 @router.post("/batch", response_model=List[AlbumWithRelations])
-async def create_albums_batch(albums: List[AlbumCreate], request: Request = None, db: AsyncSession = Depends(get_async_session)):
+async def create_albums_batch(
+    albums: List[AlbumCreate],
+    request: Request,
+    db: AsyncSession = Depends(get_async_session),
+):
     """Crée ou récupère plusieurs albums en une seule fois (batch)."""
     service = AlbumService(db)
     try:
@@ -41,20 +72,35 @@ async def create_albums_batch(albums: List[AlbumCreate], request: Request = None
         log_validation_error(
             endpoint="/api/albums/batch",
             method="POST",
-            request_data=[album.model_dump() for album in albums] if albums else [],
+            request_data={
+                "albums": [album.model_dump() for album in albums] if albums else []
+            },
             validation_error=e,
-            request=request
+            request=request,
         )
-        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
+        raise HTTPException(
+            status_code=422, detail=f"Erreur de validation des données: {e}"
+        )
     except Exception as e:
         logger.error(f"Erreur lors de la création en batch d'albums: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.post("/", response_model=Album, status_code=status.HTTP_201_CREATED)
-async def create_album(album: AlbumCreate, request: Request = None, db: AsyncSession = Depends(get_async_session)):
+async def create_album(
+    album: AlbumCreate,
+    request: Request,
+    db: AsyncSession = Depends(get_async_session),
+):
     service = AlbumService(db)
     try:
-        created_album = await service.create_album(album)
+        created_album = await service.create_album(
+            title=album.title,
+            artist_id=album.album_artist_id,
+            release_year=int(album.release_year) if album.release_year else None,
+            cover_url=None,
+            musicbrainz_albumid=album.musicbrainz_albumid,
+        )
         return Album.model_validate(created_album)
     except ValidationError as e:
         # Gestion spécifique des erreurs de validation Pydantic
@@ -63,21 +109,27 @@ async def create_album(album: AlbumCreate, request: Request = None, db: AsyncSes
             method="POST",
             request_data=album.model_dump() if album else {},
             validation_error=e,
-            request=request
+            request=request,
         )
-        raise HTTPException(status_code=422, detail=f"Erreur de validation des données: {e}")
+        raise HTTPException(
+            status_code=422, detail=f"Erreur de validation des données: {e}"
+        )
     except Exception as e:
         logger.error(f"Erreur lors de la création d'un album: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @router.get("/", response_model=PaginatedAlbums)
-async def read_albums(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)):
+async def read_albums(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)
+):
     service = AlbumService(db)
     albums = await service.read_albums(skip, limit)
     return {
         "count": len(albums),
-        "results": [Album.model_validate(album) for album in albums]
+        "results": [Album.model_validate(album) for album in albums],
     }
+
 
 @router.get("/{album_id}", response_model=AlbumWithRelations)
 async def read_album(album_id: int, db: AsyncSession = Depends(get_async_session)):
@@ -85,29 +137,73 @@ async def read_album(album_id: int, db: AsyncSession = Depends(get_async_session
     album = await service.read_album(album_id)
     if not album:
         raise HTTPException(status_code=404, detail="Album non trouvé")
+
+    if getattr(album, "release_year", None) is not None and not isinstance(
+        album.release_year, str
+    ):
+        album.release_year = str(album.release_year)
+
     return AlbumWithRelations.model_validate(album).model_dump()
 
+
 @router.get("/artists/{artist_id}", response_model=List[AlbumWithRelations])
-async def read_artist_albums(artist_id: int, db: AsyncSession = Depends(get_async_session)):
+async def read_artist_albums(
+    artist_id: int, db: AsyncSession = Depends(get_async_session)
+):
     service = AlbumService(db)
     albums = await service.read_artist_albums(artist_id)
     if not albums:
-        raise HTTPException(status_code=404, detail="Aucun album trouvé pour cet artiste")
+        raise HTTPException(
+            status_code=404, detail="Aucun album trouvé pour cet artiste"
+        )
     return [AlbumWithRelations.model_validate(album).model_dump() for album in albums]
 
+
 @router.put("/{album_id}", response_model=Album)
-async def update_album(album_id: int, album: AlbumUpdate, db: AsyncSession = Depends(get_async_session)):
+async def update_album(
+    album_id: int,
+    album: AlbumUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_async_session),
+):
     service = AlbumService(db)
-    updated_album = await service.update_album(album_id, album)
-    if not updated_album:
-        raise HTTPException(status_code=404, detail="Album non trouvé")
-    return Album.model_validate(updated_album)
+    try:
+        updated_album = await service.update_album(
+            album_id=album_id,
+            title=album.title,
+            release_year=int(album.release_year) if album.release_year else None,
+            cover_url=None,
+            musicbrainz_albumid=album.musicbrainz_albumid,
+        )
+        if not updated_album:
+            raise HTTPException(status_code=404, detail="Album non trouvé")
+        return Album.model_validate(updated_album)
+    except ValidationError as e:
+        log_validation_error(
+            endpoint=f"/api/albums/{album_id}",
+            method="PUT",
+            request_data=album.model_dump() if album else {},
+            validation_error=e,
+            request=request,
+        )
+        raise HTTPException(
+            status_code=422, detail=f"Erreur de validation des données: {e}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur lors de la mise à jour d'un album: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/{album_id}/tracks", response_model=List[Track])
-async def read_album_tracks(album_id: int, db: AsyncSession = Depends(get_async_session)):
+async def read_album_tracks(
+    album_id: int, db: AsyncSession = Depends(get_async_session)
+):
     service = AlbumService(db)
     tracks = await service.read_album_tracks(album_id)
     return tracks
+
 
 @router.delete("/{album_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_album(album_id: int, db: AsyncSession = Depends(get_async_session)):

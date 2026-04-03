@@ -16,14 +16,18 @@ Auteur: SoniqueBay Team
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union, cast
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from backend.api.models.track_metadata_model import TrackMetadata
 from backend.api.utils.logging import logger
+
+
+SessionType = Union[AsyncSession, Session]
 
 
 class TrackMetadataService:
@@ -43,7 +47,7 @@ class TrackMetadataService:
         ...     metadata = await service.get_by_track_id(1)
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: SessionType):
         """
         Initialise le service avec une session de base de données.
 
@@ -51,6 +55,48 @@ class TrackMetadataService:
             session: Session SQLAlchemy asynchrone
         """
         self.session = session
+
+    def _is_async_session(self) -> bool:
+        return isinstance(self.session, AsyncSession)
+
+    async def _execute(self, stmt):
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            return await async_session.execute(stmt)
+        sync_session = cast(Session, self.session)
+        return sync_session.execute(stmt)
+
+    async def _commit(self) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.commit()
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.commit()
+
+    async def _rollback(self) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.rollback()
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.rollback()
+
+    async def _refresh(self, instance) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.refresh(instance)
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.refresh(instance)
+
+    async def _delete(self, instance) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.delete(instance)
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.delete(instance)
 
     async def get_by_id(self, metadata_id: int) -> Optional[TrackMetadata]:
         """
@@ -62,7 +108,7 @@ class TrackMetadataService:
         Returns:
             La métadonnée ou None si non trouvée
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackMetadata).where(TrackMetadata.id == metadata_id)
         )
         return result.scalars().first()
@@ -71,7 +117,7 @@ class TrackMetadataService:
         self,
         track_id: int,
         metadata_key: Optional[str] = None,
-        metadata_source: Optional[str] = None
+        metadata_source: Optional[str] = None,
     ) -> List[TrackMetadata]:
         """
         Récupère les métadonnées d'une piste.
@@ -84,27 +130,19 @@ class TrackMetadataService:
         Returns:
             Liste des métadonnées de la piste
         """
-        query = select(TrackMetadata).where(
-            TrackMetadata.track_id == track_id
-        )
+        query = select(TrackMetadata).where(TrackMetadata.track_id == track_id)
 
         if metadata_key:
-            query = query.where(
-                TrackMetadata.metadata_key == metadata_key
-            )
+            query = query.where(TrackMetadata.metadata_key == metadata_key)
 
         if metadata_source:
-            query = query.where(
-                TrackMetadata.metadata_source == metadata_source
-            )
+            query = query.where(TrackMetadata.metadata_source == metadata_source)
 
-        result = await self.session.execute(query)
+        result = await self._execute(query)
         return list(result.scalars().all())
 
     async def get_by_track_ids(
-        self,
-        track_ids: List[int],
-        metadata_key: Optional[str] = None
+        self, track_ids: List[int], metadata_key: Optional[str] = None
     ) -> List[TrackMetadata]:
         """
         Récupère les métadonnées pour plusieurs pistes.
@@ -119,23 +157,16 @@ class TrackMetadataService:
         if not track_ids:
             return []
 
-        query = select(TrackMetadata).where(
-            TrackMetadata.track_id.in_(track_ids)
-        )
+        query = select(TrackMetadata).where(TrackMetadata.track_id.in_(track_ids))
 
         if metadata_key:
-            query = query.where(
-                TrackMetadata.metadata_key == metadata_key
-            )
+            query = query.where(TrackMetadata.metadata_key == metadata_key)
 
-        result = await self.session.execute(query)
+        result = await self._execute(query)
         return list(result.scalars().all())
 
     async def get_single_metadata(
-        self,
-        track_id: int,
-        metadata_key: str,
-        metadata_source: Optional[str] = None
+        self, track_id: int, metadata_key: str, metadata_source: Optional[str] = None
     ) -> Optional[TrackMetadata]:
         """
         Récupère une métadonnée spécifique d'une piste.
@@ -151,23 +182,18 @@ class TrackMetadataService:
         query = select(TrackMetadata).where(
             and_(
                 TrackMetadata.track_id == track_id,
-                TrackMetadata.metadata_key == metadata_key
+                TrackMetadata.metadata_key == metadata_key,
             )
         )
 
         if metadata_source:
-            query = query.where(
-                TrackMetadata.metadata_source == metadata_source
-            )
+            query = query.where(TrackMetadata.metadata_source == metadata_source)
 
-        result = await self.session.execute(query)
+        result = await self._execute(query)
         return result.scalars().first()
 
     async def get_metadata_value(
-        self,
-        track_id: int,
-        metadata_key: str,
-        default: Any = None
+        self, track_id: int, metadata_key: str, default: Any = None
     ) -> Any:
         """
         Récupère la valeur d'une métadonnée spécifique.
@@ -215,14 +241,12 @@ class TrackMetadataService:
 
         try:
             self.session.add(metadata)
-            await self.session.commit()
-            await self.session.refresh(metadata)
-            logger.info(
-                f"[METADATA] Créé pour track_id={track_id}, key={metadata_key}"
-            )
+            await self._commit()
+            await self._refresh(metadata)
+            logger.info(f"[METADATA] Créé pour track_id={track_id}, key={metadata_key}")
             return metadata
         except IntegrityError as e:
-            await self.session.rollback()
+            await self._rollback()
             logger.error(
                 f"[METADATA] Erreur création pour track_id={track_id}, "
                 f"key={metadata_key}: {e}"
@@ -253,12 +277,17 @@ class TrackMetadataService:
         )
 
         if existing:
-            return await self.update(
+            updated = await self.update(
                 track_id=track_id,
                 metadata_key=metadata_key,
                 metadata_value=metadata_value,
                 metadata_source=metadata_source,
             )
+            if updated is None:
+                raise ValueError(
+                    f"[METADATA] Incohérence: update retourné None pour track_id={track_id}, key={metadata_key}"
+                )
+            return updated
         else:
             return await self.create(
                 track_id=track_id,
@@ -306,8 +335,8 @@ class TrackMetadataService:
         metadata.created_at = datetime.utcnow()
         metadata.date_modified = func.now()
 
-        await self.session.commit()
-        await self.session.refresh(metadata)
+        await self._commit()
+        await self._refresh(metadata)
         logger.info(
             f"[METADATA] Mis à jour pour track_id={track_id}, key={metadata_key}"
         )
@@ -317,7 +346,7 @@ class TrackMetadataService:
         self,
         track_id: int,
         metadata_key: Optional[str] = None,
-        metadata_source: Optional[str] = None
+        metadata_source: Optional[str] = None,
     ) -> bool:
         """
         Supprime les métadonnées d'une piste.
@@ -330,30 +359,24 @@ class TrackMetadataService:
         Returns:
             True si supprimé, False si non trouvé
         """
-        query = select(TrackMetadata).where(
-            TrackMetadata.track_id == track_id
-        )
+        query = select(TrackMetadata).where(TrackMetadata.track_id == track_id)
 
         if metadata_key:
-            query = query.where(
-                TrackMetadata.metadata_key == metadata_key
-            )
+            query = query.where(TrackMetadata.metadata_key == metadata_key)
 
         if metadata_source:
-            query = query.where(
-                TrackMetadata.metadata_source == metadata_source
-            )
+            query = query.where(TrackMetadata.metadata_source == metadata_source)
 
-        result = await self.session.execute(query)
+        result = await self._execute(query)
         metadata_entries = result.scalars().all()
 
         if not metadata_entries:
             return False
 
         for metadata in metadata_entries:
-            await self.session.delete(metadata)
+            await self._delete(metadata)
 
-        await self.session.commit()
+        await self._commit()
         logger.info(
             f"[METADATA] Supprimés pour track_id={track_id}, "
             f"key={metadata_key or 'all'}, source={metadata_source or 'all'}"
@@ -374,15 +397,13 @@ class TrackMetadataService:
         if not metadata:
             return False
 
-        await self.session.delete(metadata)
-        await self.session.commit()
+        await self._delete(metadata)
+        await self._commit()
         logger.info(f"[METADATA] Supprimé id={metadata_id}")
         return True
 
     async def get_tracks_without_metadata(
-        self,
-        metadata_key: Optional[str] = None,
-        limit: int = 100
+        self, metadata_key: Optional[str] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         Récupère les IDs des pistes sans métadonnées (optionnellement par clé).
@@ -401,24 +422,17 @@ class TrackMetadataService:
         # Sous-requête pour les pistes ayant des métadonnées
         subquery = select(TrackMetadata.track_id)
         if metadata_key:
-            subquery = subquery.where(
-                TrackMetadata.metadata_key == metadata_key
-            )
+            subquery = subquery.where(TrackMetadata.metadata_key == metadata_key)
 
         # Requête principale pour les pistes sans métadonnées
-        result = await self.session.execute(
-            select(Track.id)
-            .where(~Track.id.in_(subquery))
-            .limit(limit)
+        result = await self._execute(
+            select(Track.id).where(~Track.id.in_(subquery)).limit(limit)
         )
 
-        return [{'track_id': row[0]} for row in result.all()]
+        return [{"track_id": row[0]} for row in result.all()]
 
     async def search_by_key(
-        self,
-        metadata_key: str,
-        skip: int = 0,
-        limit: int = 100
+        self, metadata_key: str, skip: int = 0, limit: int = 100
     ) -> List[TrackMetadata]:
         """
         Recherche les métadonnées par clé.
@@ -431,7 +445,7 @@ class TrackMetadataService:
         Returns:
             Liste des métadonnées correspondantes
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackMetadata)
             .where(TrackMetadata.metadata_key == metadata_key)
             .offset(skip)
@@ -440,10 +454,7 @@ class TrackMetadataService:
         return list(result.scalars().all())
 
     async def search_by_key_prefix(
-        self,
-        key_prefix: str,
-        skip: int = 0,
-        limit: int = 100
+        self, key_prefix: str, skip: int = 0, limit: int = 100
     ) -> List[TrackMetadata]:
         """
         Recherche les métadonnées dont la clé commence par un préfixe.
@@ -456,7 +467,7 @@ class TrackMetadataService:
         Returns:
             Liste des métadonnées correspondantes
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackMetadata)
             .where(TrackMetadata.metadata_key.ilike(f"{key_prefix}%"))
             .offset(skip)
@@ -469,7 +480,7 @@ class TrackMetadataService:
         metadata_value: str,
         exact_match: bool = False,
         skip: int = 0,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[TrackMetadata]:
         """
         Recherche les métadonnées par valeur.
@@ -488,19 +499,13 @@ class TrackMetadataService:
         else:
             condition = TrackMetadata.metadata_value.ilike(f"%{metadata_value}%")
 
-        result = await self.session.execute(
-            select(TrackMetadata)
-            .where(condition)
-            .offset(skip)
-            .limit(limit)
+        result = await self._execute(
+            select(TrackMetadata).where(condition).offset(skip).limit(limit)
         )
         return list(result.scalars().all())
 
     async def search_by_source(
-        self,
-        metadata_source: str,
-        skip: int = 0,
-        limit: int = 100
+        self, metadata_source: str, skip: int = 0, limit: int = 100
     ) -> List[TrackMetadata]:
         """
         Recherche les métadonnées par source.
@@ -513,7 +518,7 @@ class TrackMetadataService:
         Returns:
             Liste des métadonnées de cette source
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackMetadata)
             .where(TrackMetadata.metadata_source == metadata_source)
             .offset(skip)
@@ -522,9 +527,7 @@ class TrackMetadataService:
         return list(result.scalars().all())
 
     async def get_metadata_as_dict(
-        self,
-        track_id: int,
-        metadata_source: Optional[str] = None
+        self, track_id: int, metadata_source: Optional[str] = None
     ) -> Dict[str, str]:
         """
         Récupère toutes les métadonnées d'une piste sous forme de dictionnaire.
@@ -552,11 +555,10 @@ class TrackMetadataService:
         Returns:
             Dictionnaire {clé: count}
         """
-        result = await self.session.execute(
-            select(
-                TrackMetadata.metadata_key,
-                func.count(TrackMetadata.id)
-            ).group_by(TrackMetadata.metadata_key)
+        result = await self._execute(
+            select(TrackMetadata.metadata_key, func.count(TrackMetadata.id)).group_by(
+                TrackMetadata.metadata_key
+            )
         )
 
         return {row[0]: row[1] for row in result.all()}
@@ -568,17 +570,13 @@ class TrackMetadataService:
         Returns:
             Dictionnaire {source: count}
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(
-                TrackMetadata.metadata_source,
-                func.count(TrackMetadata.id)
+                TrackMetadata.metadata_source, func.count(TrackMetadata.id)
             ).group_by(TrackMetadata.metadata_source)
         )
 
-        return {
-            (row[0] or 'unknown'): row[1]
-            for row in result.all()
-        }
+        return {(row[0] or "unknown"): row[1] for row in result.all()}
 
     async def get_metadata_statistics(self) -> Dict[str, Any]:
         """
@@ -590,22 +588,20 @@ class TrackMetadataService:
         stats = {}
 
         # Nombre total de métadonnées
-        total_result = await self.session.execute(
-            select(func.count(TrackMetadata.id))
-        )
-        stats['total_entries'] = total_result.scalar() or 0
+        total_result = await self._execute(select(func.count(TrackMetadata.id)))
+        stats["total_entries"] = total_result.scalar() or 0
 
         # Nombre de pistes ayant des métadonnées
-        tracks_result = await self.session.execute(
+        tracks_result = await self._execute(
             select(func.count(func.distinct(TrackMetadata.track_id)))
         )
-        stats['tracks_with_metadata'] = tracks_result.scalar() or 0
+        stats["tracks_with_metadata"] = tracks_result.scalar() or 0
 
         # Par clé
-        stats['by_key'] = await self.get_metadata_keys_statistics()
+        stats["by_key"] = await self.get_metadata_keys_statistics()
 
         # Par source
-        stats['by_source'] = await self.get_source_statistics()
+        stats["by_source"] = await self.get_source_statistics()
 
         return stats
 
@@ -613,7 +609,7 @@ class TrackMetadataService:
         self,
         track_id: int,
         metadata_dict: Dict[str, str],
-        metadata_source: Optional[str] = None
+        metadata_source: Optional[str] = None,
     ) -> List[TrackMetadata]:
         """
         Crée plusieurs métadonnées pour une piste en une seule opération.

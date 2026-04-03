@@ -259,7 +259,9 @@ class TrackMIRService:
         await self.session.commit()
         await self.session.refresh(mir_norm)
 
-        logger.info(f"[MIR_SERVICE] Normalized créé/mis à jour pour track_id={track_id}")
+        logger.info(
+            f"[MIR_SERVICE] Normalized créé/mis à jour pour track_id={track_id}"
+        )
         return mir_norm
 
     async def delete_normalized(self, track_id: int) -> bool:
@@ -472,7 +474,9 @@ class TrackMIRService:
             await self.session.delete(tag)
 
         await self.session.commit()
-        logger.info(f"[MIR_SERVICE] {count} tags synthétiques supprimés pour track_id={track_id}")
+        logger.info(
+            f"[MIR_SERVICE] {count} tags synthétiques supprimés pour track_id={track_id}"
+        )
         return count
 
     async def delete_synthetic_tag_by_id(self, tag_id: int) -> bool:
@@ -530,7 +534,9 @@ class TrackMIRService:
         # Supprimer les données MIR brutes
         await self.delete_raw(track_id)
 
-        logger.info(f"[MIR_SERVICE] Toutes les données MIR supprimées pour track_id={track_id}")
+        logger.info(
+            f"[MIR_SERVICE] Toutes les données MIR supprimées pour track_id={track_id}"
+        )
         return True
 
     async def ensure_mir_entries(self, track_id: int) -> None:
@@ -735,17 +741,26 @@ class TrackMIRService:
         # Calculer la distance euclidienne simple
         def score_distance(scores: TrackMIRScores) -> float:
             if not scores:
-                return float('inf')
+                return float("inf")
             dist = 0.0
-            if source_scores.energy_score is not None and scores.energy_score is not None:
+            if (
+                source_scores.energy_score is not None
+                and scores.energy_score is not None
+            ):
                 dist += abs(source_scores.energy_score - scores.energy_score) ** 2
-            if source_scores.mood_valence is not None and scores.mood_valence is not None:
+            if (
+                source_scores.mood_valence is not None
+                and scores.mood_valence is not None
+            ):
                 dist += abs(source_scores.mood_valence - scores.mood_valence) ** 2
             if source_scores.dance_score is not None and scores.dance_score is not None:
                 dist += abs(source_scores.dance_score - scores.dance_score) ** 2
-            if source_scores.acousticness is not None and scores.acousticness is not None:
+            if (
+                source_scores.acousticness is not None
+                and scores.acousticness is not None
+            ):
                 dist += abs(source_scores.acousticness - scores.acousticness) ** 2
-            return dist ** 0.5
+            return dist**0.5
 
         # Trier par distance et limiter
         scored = [(s, score_distance(s)) for s in candidates if s]
@@ -761,9 +776,7 @@ class TrackMIRService:
             Dictionnaire des statistiques MIR
         """
         # Compter les pistes avec MIR
-        raw_count = await self.session.execute(
-            select(func.count(TrackMIRRaw.id))
-        )
+        raw_count = await self.session.execute(select(func.count(TrackMIRRaw.id)))
         total_tracks_with_mir = raw_count.scalar() or 0
 
         # Calculer la moyenne d'énergie
@@ -779,22 +792,20 @@ class TrackMIRService:
         average_bpm = bpm_result.scalar() or 0.0
 
         # Top moods (basé sur les scores moyens)
-        moods = ['happy', 'aggressive', 'party', 'relaxed']
+        moods = ["happy", "aggressive", "party", "relaxed"]
         top_moods = []
         for mood in moods:
             mood_column = getattr(TrackMIRNormalized, f"mood_{mood}")
-            result = await self.session.execute(
-                select(func.avg(mood_column))
-            )
+            result = await self.session.execute(select(func.avg(mood_column)))
             avg_score = result.scalar() or 0.0
-            top_moods.append({'mood': mood, 'average_score': float(avg_score)})
-        top_moods.sort(key=lambda x: x['average_score'], reverse=True)
+            top_moods.append({"mood": mood, "average_score": float(avg_score)})
+        top_moods.sort(key=lambda x: x["average_score"], reverse=True)
 
         # Top genres
         genre_result = await self.session.execute(
             select(
                 TrackMIRNormalized.genre_main,
-                func.count(TrackMIRNormalized.id).label('count')
+                func.count(TrackMIRNormalized.id).label("count"),
             )
             .where(TrackMIRNormalized.genre_main.isnot(None))
             .group_by(TrackMIRNormalized.genre_main)
@@ -802,14 +813,13 @@ class TrackMIRService:
             .limit(10)
         )
         top_genres = [
-            {'genre': row.genre_main, 'count': row.count}
-            for row in genre_result.all()
+            {"genre": row.genre_main, "count": row.count} for row in genre_result.all()
         ]
 
         return {
-            'total_tracks_with_mir': total_tracks_with_mir,
-            'average_energy': float(average_energy),
-            'average_bpm': float(average_bpm),
-            'top_moods': top_moods,
-            'top_genres': top_genres,
+            "total_tracks_with_mir": total_tracks_with_mir,
+            "average_energy": float(average_energy),
+            "average_bpm": float(average_bpm),
+            "top_moods": top_moods,
+            "top_genres": top_genres,
         }

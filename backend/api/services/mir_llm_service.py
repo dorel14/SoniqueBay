@@ -78,9 +78,7 @@ class MIRLLMService:
         self.synonym_service = synonym_service
         logger.info("[MIR_LLM] Service LLM MIR initialisé")
 
-    def _get_fallback_synonyms(
-        self, tag_type: str, tag_value: str
-    ) -> Dict[str, Any]:
+    def _get_fallback_synonyms(self, tag_type: str, tag_value: str) -> Dict[str, Any]:
         """
         Récupère les synonyms de fallback codés en dur.
 
@@ -156,13 +154,16 @@ class MIRLLMService:
                     )
                     return {
                         "search_terms": synonym_data.get(
-                            "search_terms", synonym_data.get("synonyms", {}).get("search_terms", [])
+                            "search_terms",
+                            synonym_data.get("synonyms", {}).get("search_terms", []),
                         ),
                         "related_tags": synonym_data.get(
-                            "related_tags", synonym_data.get("synonyms", {}).get("related_tags", [])
+                            "related_tags",
+                            synonym_data.get("synonyms", {}).get("related_tags", []),
                         ),
                         "usage_contexts": synonym_data.get(
-                            "usage_contexts", synonym_data.get("synonyms", {}).get("usage_contexts", [])
+                            "usage_contexts",
+                            synonym_data.get("synonyms", {}).get("usage_contexts", []),
                         ),
                         "translations": synonym_data.get("translations", {}),
                         "source": synonym_data.get("source", "dynamic"),
@@ -171,9 +172,7 @@ class MIRLLMService:
 
             # Fallback sur les synonyms codés
             fallback = self._get_fallback_synonyms(tag_type, tag_value)
-            logger.debug(
-                f"[MIR_LLM] Utilisation fallback pour {tag_type}:{tag_value}"
-            )
+            logger.debug(f"[MIR_LLM] Utilisation fallback pour {tag_type}:{tag_value}")
             return fallback
 
         except Exception as e:
@@ -196,7 +195,9 @@ class MIRLLMService:
             from backend.api.models.track_mir_raw_model import TrackMIRRaw
             from backend.api.models.track_mir_normalized_model import TrackMIRNormalized
             from backend.api.models.track_mir_scores_model import TrackMIRScores
-            from backend.api.models.track_mir_synthetic_tags_model import TrackMIRSyntheticTags
+            from backend.api.models.track_mir_synthetic_tags_model import (
+                TrackMIRSyntheticTags,
+            )
             from sqlalchemy import select
 
             # Récupérer les données MIR brutes
@@ -207,7 +208,9 @@ class MIRLLMService:
 
             # Récupérer les données normalisées
             normalized_result = await self.session.execute(
-                select(TrackMIRNormalized).where(TrackMIRNormalized.track_id == track_id)
+                select(TrackMIRNormalized).where(
+                    TrackMIRNormalized.track_id == track_id
+                )
             )
             normalized_data = normalized_result.scalars().first()
 
@@ -219,7 +222,9 @@ class MIRLLMService:
 
             # Récupérer les tags synthétiques
             tags_result = await self.session.execute(
-                select(TrackMIRSyntheticTags).where(TrackMIRSyntheticTags.track_id == track_id)
+                select(TrackMIRSyntheticTags).where(
+                    TrackMIRSyntheticTags.track_id == track_id
+                )
             )
             synthetic_tags = tags_result.scalars().all()
 
@@ -229,31 +234,71 @@ class MIRLLMService:
 
             return {
                 "raw": raw_data.features_raw if raw_data else None,
-                "normalized": {
-                    "bpm": normalized_data.bpm if normalized_data else None,
-                    "key": normalized_data.key if normalized_data else None,
-                    "scale": normalized_data.scale if normalized_data else None,
-                    "danceability": normalized_data.danceability if normalized_data else None,
-                    "mood_happy": normalized_data.mood_happy if normalized_data else None,
-                    "mood_aggressive": normalized_data.mood_aggressive if normalized_data else None,
-                    "mood_party": normalized_data.mood_party if normalized_data else None,
-                    "mood_relaxed": normalized_data.mood_relaxed if normalized_data else None,
-                    "instrumental": normalized_data.instrumental if normalized_data else None,
-                    "acoustic": normalized_data.acoustic if normalized_data else None,
-                    "tonal": normalized_data.tonal if normalized_data else None,
-                    "genre_main": normalized_data.genre_main if normalized_data else None,
-                    "camelot_key": normalized_data.camelot_key if normalized_data else None,
-                } if normalized_data else None,
-                "scores": {
-                    "energy_score": scores_data.energy_score if scores_data else None,
-                    "mood_valence": scores_data.mood_valence if scores_data else None,
-                    "dance_score": scores_data.dance_score if scores_data else None,
-                    "acousticness": scores_data.acousticness if scores_data else None,
-                    "complexity_score": scores_data.complexity_score if scores_data else None,
-                    "emotional_intensity": scores_data.emotional_intensity if scores_data else None,
-                } if scores_data else None,
+                "normalized": (
+                    {
+                        "bpm": normalized_data.bpm if normalized_data else None,
+                        "key": normalized_data.key if normalized_data else None,
+                        "scale": normalized_data.scale if normalized_data else None,
+                        "danceability": (
+                            normalized_data.danceability if normalized_data else None
+                        ),
+                        "mood_happy": (
+                            normalized_data.mood_happy if normalized_data else None
+                        ),
+                        "mood_aggressive": (
+                            normalized_data.mood_aggressive if normalized_data else None
+                        ),
+                        "mood_party": (
+                            normalized_data.mood_party if normalized_data else None
+                        ),
+                        "mood_relaxed": (
+                            normalized_data.mood_relaxed if normalized_data else None
+                        ),
+                        "instrumental": (
+                            normalized_data.instrumental if normalized_data else None
+                        ),
+                        "acoustic": (
+                            normalized_data.acoustic if normalized_data else None
+                        ),
+                        "tonal": normalized_data.tonal if normalized_data else None,
+                        "genre_main": (
+                            normalized_data.genre_main if normalized_data else None
+                        ),
+                        "camelot_key": (
+                            normalized_data.camelot_key if normalized_data else None
+                        ),
+                    }
+                    if normalized_data
+                    else None
+                ),
+                "scores": (
+                    {
+                        "energy_score": (
+                            scores_data.energy_score if scores_data else None
+                        ),
+                        "mood_valence": (
+                            scores_data.mood_valence if scores_data else None
+                        ),
+                        "dance_score": scores_data.dance_score if scores_data else None,
+                        "acousticness": (
+                            scores_data.acousticness if scores_data else None
+                        ),
+                        "complexity_score": (
+                            scores_data.complexity_score if scores_data else None
+                        ),
+                        "emotional_intensity": (
+                            scores_data.emotional_intensity if scores_data else None
+                        ),
+                    }
+                    if scores_data
+                    else None
+                ),
                 "synthetic_tags": [
-                    {"name": tag.tag_name, "score": tag.tag_score, "category": tag.tag_category}
+                    {
+                        "name": tag.tag_name,
+                        "score": tag.tag_score,
+                        "category": tag.tag_category,
+                    }
                     for tag in synthetic_tags
                 ],
                 "source": raw_data.mir_source if raw_data else None,
@@ -378,17 +423,23 @@ class MIRLLMService:
             summary_parts.append(f"(clé Camelot: {normalized['camelot_key']})")
 
         # Ajouter les tags synthétiques pertinents
-        top_tags = [t["name"] for t in sorted(tags, key=lambda x: x["score"], reverse=True)[:5]]
+        top_tags = [
+            t["name"] for t in sorted(tags, key=lambda x: x["score"], reverse=True)[:5]
+        ]
         if top_tags:
             summary_parts.append(f"Tags: {', '.join(top_tags)}")
 
         summary = " ".join(summary_parts)
 
-        logger.debug(f"[MIR_LLM] Résumé généré pour track_id={track_id}: {summary[:100]}...")
+        logger.debug(
+            f"[MIR_LLM] Résumé généré pour track_id={track_id}: {summary[:100]}..."
+        )
 
         return summary
 
-    def generate_mir_context(self, track_id: int, mir_data: Dict[str, Any]) -> Dict[str, Any]:
+    def generate_mir_context(
+        self, track_id: int, mir_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         Génère le contexte MIR structuré pour les prompts LLM.
 
@@ -419,7 +470,9 @@ class MIRLLMService:
         return context
 
     def generate_search_query_suggestions(
-        self, mir_data: Dict[str, Any], synonyms_context: Optional[Dict[str, Any]] = None
+        self,
+        mir_data: Dict[str, Any],
+        synonyms_context: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         Génère des suggestions de requêtes de recherche basées sur les données MIR
@@ -442,7 +495,11 @@ class MIRLLMService:
         genre = normalized.get("genre_main")
         if genre:
             suggestions.append(f"musique {genre}")
-            suggestions.append(f"{genre} pour danser" if normalized.get("danceability", 0) > 0.5 else f"{genre} chill")
+            suggestions.append(
+                f"{genre} pour danser"
+                if normalized.get("danceability", 0) > 0.5
+                else f"{genre} chill"
+            )
 
             # Enrichir avec les synonyms du genre
             if synonyms_context and "genre_synonyms" in synonyms_context:
@@ -493,7 +550,9 @@ class MIRLLMService:
         return suggestions[:10]  # Limiter à 10 suggestions
 
     def generate_playlist_prompts(
-        self, mir_data: Dict[str, Any], synonyms_context: Optional[Dict[str, Any]] = None
+        self,
+        mir_data: Dict[str, Any],
+        synonyms_context: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """
         Génère des prompts pour la création de playlists basées sur les données MIR
@@ -533,7 +592,9 @@ class MIRLLMService:
             prompts.append(f"Mix {genre} avec un bon beat pour faire la fête")
 
         # Prompt basé sur les tags
-        top_tags = [t["name"] for t in sorted(tags, key=lambda x: x["score"], reverse=True)[:3]]
+        top_tags = [
+            t["name"] for t in sorted(tags, key=lambda x: x["score"], reverse=True)[:3]
+        ]
         if top_tags:
             prompts.append(f"Playlist {genre} avec des vibes {', '.join(top_tags)}")
 
@@ -589,7 +650,9 @@ class MIRLLMService:
         genre_synonyms = context.get("genre_synonyms", {})
         search_terms_genre = genre_synonyms.get("search_terms", [])
         if search_terms_genre:
-            synonyms_parts.append(f"Genres/Tags associés: {', '.join(search_terms_genre)}")
+            synonyms_parts.append(
+                f"Genres/Tags associés: {', '.join(search_terms_genre)}"
+            )
 
         # Ajouter les search terms du mood
         mood_synonyms = context.get("mood_synonyms", {})
@@ -610,7 +673,11 @@ class MIRLLMService:
         else:
             # Fallback sur les combined_search_terms
             combined_terms = context.get("combined_search_terms", [])
-            synonyms_str = f"Termes de recherche: {', '.join(combined_terms)}" if combined_terms else ""
+            synonyms_str = (
+                f"Termes de recherche: {', '.join(combined_terms)}"
+                if combined_terms
+                else ""
+            )
 
         # Remplacer le placeholder
         enriched_prompt = prompt_template.replace(placeholder, synonyms_str)
@@ -690,7 +757,9 @@ class MIRLLMService:
         if include_synonyms and synonyms_context:
             combined_terms = synonyms_context.get("combined_search_terms", [])
             if combined_terms:
-                parts.append(f"Termes de recherche associés: {', '.join(combined_terms)}")
+                parts.append(
+                    f"Termes de recherche associés: {', '.join(combined_terms)}"
+                )
 
         description = " | ".join(parts)
 

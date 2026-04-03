@@ -1,0 +1,79 @@
+# Baseline Tests Unitaires Worker — SoniqueBay
+
+## 📋 Résumé
+
+**Date** : 2026-03-20  
+**Phase** : 0 (Audit et Préparation)  
+**Objectif** : Référence pour les tests de non-régression lors de la migration TaskIQ
+
+---
+
+## Tests Unitaires Worker Identifiés
+
+### Tests Celery Configuration
+- `test_celery_autoscale.py` — Tests d'autoscaling Celery
+- `test_celery_config_redis_sync.py` — Tests synchronisation config Redis
+- `test_celery_priority_configuration.py` — Tests configuration priorités
+- `test_celery_simple.py` — Tests basiques Celery
+- `test_celery_unified_config.py` — Tests config unifiée
+
+### Tests Workers
+- `test_artist_gmm_worker.py` — Tests worker GMM artistes
+- `test_artist_name_capitalization.py` — Tests capitalisation noms artistes
+- `test_audio_features_pipeline.py` — Tests pipeline features audio
+- `test_audio_features_service.py` — Tests service features audio
+- `test_cache_service.py` — Tests service cache
+- `test_cleanup.py` — Tests nettoyage
+- `test_entity_manager.py` — Tests gestionnaire entités
+- `test_genre_yaml_loader.py` — Tests chargeur genres YAML
+- `test_image_service.py` — Tests service images
+- `test_indexer.py` — Tests indexeur
+- `test_insert_batch_fixes.py` — Tests corrections insertion batch
+- `test_key_service.py` — Tests service clés
+- `test_lastfm_service.py` — Tests service Last.fm
+- `test_mir_tasks.py` — Tests tâches MIR
+- `test_music_scan.py` — Tests scan musique
+- `test_path_service.py` — Tests service chemins
+- `test_scan_optimizer.py` — Tests optimiseur scan
+- `test_scan_worker.py` — Tests worker scan
+- `test_scanner.py` — Tests scanner
+- `test_settings_service.py` — Tests service paramètres
+
+### Tests Services Worker
+- `test_artist_clustering_service.py` — Tests clustering artistes
+- `test_audio_features_embeddings.py` — Tests embeddings features audio
+- `test_audio_tags_extraction.py` — Tests extraction tags audio
+- `test_cover_extraction_simple.py` — Tests extraction covers
+- `test_gmm_clustering_service.py` — Tests service clustering GMM
+- `test_mir_pipeline_service.py` — Tests pipeline MIR
+- `test_music_summary_service.py` — Tests service résumé musique
+- `test_ollama_synonym_service.py` — Tests service synonymes Ollama
+- `test_vectorization_service.py` — Tests service vectorisation
+
+### Tests Tasks Worker
+- `test_insert_batch_worker.py` — Tests worker insertion batch
+
+---
+
+## Statistiques
+
+| Catégorie | Nombre de Tests |
+|-----------|-----------------|
+| Configuration Celery | 5 |
+| Workers | 16 |
+| Services | 9 |
+| Tasks | 1 |
+| **TOTAL** | **31** |
+
+---
+
+## Notes
+
+1. **Couverture** : Ces tests couvrent les fonctionnalités critiques du worker Celery.
+2. **Régression** : Tous ces tests doivent passer après chaque phase de migration.
+3. **Priorité** : Les tests de configuration Celery sont prioritaires car ils valident le runtime.
+
+---
+
+*Dernière mise à jour : 2026-03-20*
+*Phase : 0 (Audit et Préparation)*

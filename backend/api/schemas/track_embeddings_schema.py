@@ -42,14 +42,12 @@ class TrackEmbeddingsBase(BaseModel):
     vectorielle et les recommandations basées sur la similarité.
     """
 
-    track_id: int = Field(
-        ..., description="ID de la piste associée (relation N:1)"
-    )
+    track_id: int = Field(..., description="ID de la piste associée (relation N:1)")
 
     embedding_type: str = Field(
         default="semantic",
         max_length=50,
-        description="Type d'embedding: semantic, audio, text, combined"
+        description="Type d'embedding: semantic, audio, text, combined",
     )
 
     # Le vecteur est stocké comme liste de floats (512 dimensions)
@@ -57,13 +55,15 @@ class TrackEmbeddingsBase(BaseModel):
     # car les vecteurs sont générés côté serveur
 
     embedding_source: Optional[str] = Field(
-        None, max_length=100,
-        description="Source de vectorisation: ollama, huggingface, etc."
+        None,
+        max_length=100,
+        description="Source de vectorisation: ollama, huggingface, etc.",
     )
 
     embedding_model: Optional[str] = Field(
-        None, max_length=100,
-        description="Modèle utilisé: nomic-embed-text, all-MiniLM-L6-v2, etc."
+        None,
+        max_length=100,
+        description="Modèle utilisé: nomic-embed-text, all-MiniLM-L6-v2, etc.",
     )
 
     created_at: Optional[datetime] = Field(
@@ -82,26 +82,22 @@ class TrackEmbeddingsCreate(BaseModel):
     track_id: int = Field(..., description="ID de la piste associée")
 
     embedding_type: str = Field(
-        default="semantic",
-        max_length=50,
-        description="Type d'embedding"
+        default="semantic", max_length=50, description="Type d'embedding"
     )
 
     vector: List[float] = Field(
         ...,
         min_length=512,
         max_length=512,
-        description="Vecteur d'embedding (512 dimensions)"
+        description="Vecteur d'embedding (512 dimensions)",
     )
 
     embedding_source: Optional[str] = Field(
-        None, max_length=100,
-        description="Source de vectorisation"
+        None, max_length=100, description="Source de vectorisation"
     )
 
     embedding_model: Optional[str] = Field(
-        None, max_length=100,
-        description="Modèle utilisé"
+        None, max_length=100, description="Modèle utilisé"
     )
 
     created_at: Optional[datetime] = None
@@ -117,9 +113,7 @@ class TrackEmbeddingsUpdate(BaseModel):
 
     track_id: Optional[int] = Field(None, description="ID de la piste")
     embedding_type: Optional[str] = Field(None, max_length=50)
-    vector: Optional[List[float]] = Field(
-        None, min_length=512, max_length=512
-    )
+    vector: Optional[List[float]] = Field(None, min_length=512, max_length=512)
     embedding_source: Optional[str] = Field(None, max_length=100)
     embedding_model: Optional[str] = Field(None, max_length=100)
     created_at: Optional[datetime] = None
@@ -137,7 +131,7 @@ class TrackEmbeddings(TrackEmbeddingsBase, TimestampedSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator('created_at', mode='before')
+    @field_validator("created_at", mode="before")
     @classmethod
     def convert_created_at(cls, value):
         """Convertit les chaînes ISO en datetime si nécessaire."""
@@ -147,7 +141,7 @@ class TrackEmbeddings(TrackEmbeddingsBase, TimestampedSchema):
             return value
         if isinstance(value, str):
             try:
-                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
                 return None
         return None
@@ -162,8 +156,7 @@ class TrackEmbeddingsWithVector(TrackEmbeddings):
     """
 
     vector: List[float] = Field(
-        ...,
-        description="Vecteur d'embedding complet (512 dimensions)"
+        ..., description="Vecteur d'embedding complet (512 dimensions)"
     )
 
 
@@ -172,9 +165,7 @@ class TrackEmbeddingsWithTrack(TrackEmbeddings):
     Schéma de lecture avec la relation Track incluse.
     """
 
-    track: Optional["Track"] = Field(
-        None, description="Piste associée à cet embedding"
-    )
+    track: Optional["Track"] = Field(None, description="Piste associée à cet embedding")
 
 
 class TrackEmbeddingsVectorOnly(BaseModel):
@@ -203,10 +194,7 @@ class TrackSimilarityResult(BaseModel):
 
     track_id: int = Field(..., description="ID de la piste similaire")
     similarity_score: float = Field(
-        ...,
-        ge=0,
-        le=1,
-        description="Score de similarité (0-1, 1 = identique)"
+        ..., ge=0, le=1, description="Score de similarité (0-1, 1 = identique)"
     )
     embedding_type: str = Field(
         ..., description="Type d'embedding utilisé pour la comparaison"
@@ -231,22 +219,19 @@ class EmbeddingBatchRequest(BaseModel):
         ...,
         min_length=1,
         max_length=100,
-        description="Liste des IDs de pistes à vectoriser"
+        description="Liste des IDs de pistes à vectoriser",
     )
 
     embedding_type: str = Field(
-        default="semantic",
-        description="Type d'embedding à générer"
+        default="semantic", description="Type d'embedding à générer"
     )
 
     embedding_model: Optional[str] = Field(
-        None,
-        description="Modèle de vectorisation à utiliser"
+        None, description="Modèle de vectorisation à utiliser"
     )
 
     replace_existing: bool = Field(
-        default=False,
-        description="Remplacer les embeddings existants"
+        default=False, description="Remplacer les embeddings existants"
     )
 
 

@@ -20,7 +20,6 @@ from typing import Optional, List, Dict
 import strawberry
 
 
-
 @strawberry.type
 class TrackMetadataType:
     """

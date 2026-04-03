@@ -13,6 +13,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from strawberry import scalar
+
 
 from backend.api.models.artist_embeddings_model import (
     ArtistEmbedding,
@@ -33,7 +35,7 @@ from backend.api.utils.logging import logger
 class ArtistEmbeddingService:
     """Service for artist embeddings (Ollama 768D) with Celery-based GMM clustering."""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession) -> None:
         """Initialize the service with database session.
 
         Args:
@@ -78,7 +80,9 @@ class ArtistEmbeddingService:
 
             embedding = ArtistEmbedding(
                 artist_name=embedding_data.artist_name,
-                vector=json.dumps(embedding_data.vector),  # Keep JSON copy for compatibility
+                vector=json.dumps(
+                    embedding_data.vector
+                ),  # Keep JSON copy for compatibility
                 cluster=embedding_data.cluster,
                 cluster_probabilities=cluster_probs_json,
             )
@@ -92,10 +96,14 @@ class ArtistEmbeddingService:
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error creating embedding for {embedding_data.artist_name}: {e}")
+            logger.error(
+                f"Error creating embedding for {embedding_data.artist_name}: {e}"
+            )
             raise
 
-    async def get_embedding_by_artist(self, artist_name: str) -> Optional[ArtistEmbedding]:
+    async def get_embedding_by_artist(
+        self, artist_name: str
+    ) -> Optional[ArtistEmbedding]:
         """Get embedding by artist name.
 
         Args:
@@ -133,7 +141,9 @@ class ArtistEmbeddingService:
                 embedding.cluster = update_data.cluster
 
             if update_data.cluster_probabilities is not None:
-                embedding.cluster_probabilities = json.dumps(update_data.cluster_probabilities)
+                embedding.cluster_probabilities = json.dumps(
+                    update_data.cluster_probabilities
+                )
 
             await self.db.commit()
             await self.db.refresh(embedding)
@@ -161,8 +171,8 @@ class ArtistEmbeddingService:
         result = await self.db.execute(
             select(ArtistEmbedding).offset(skip).limit(limit)
         )
-        return result.scalars().all()
-
+        resultscalar = result.scalars().all()
+        return list(resultscalar)
     async def get_embeddings_by_cluster(self, cluster: int) -> List[ArtistEmbedding]:
         """Get all embeddings for a specific cluster.
 
@@ -175,7 +185,8 @@ class ArtistEmbeddingService:
         result = await self.db.execute(
             select(ArtistEmbedding).where(ArtistEmbedding.cluster == cluster)
         )
-        return result.scalars().all()
+        scalars = result.scalars().all()
+        return list(scalars)
 
     async def delete_embedding(self, artist_name: str) -> bool:
         """Delete an artist embedding.
@@ -230,18 +241,14 @@ class ArtistEmbeddingService:
                 priority=5,
             )
 
-            logger.info(
-                f"[ARTIST_EMBEDDING] Clustering task created: {task.id}"
-            )
+            logger.info(f"[ARTIST_EMBEDDING] Clustering task created: {task.id}")
             return task.id
 
         except Exception as e:
             logger.error(f"[ARTIST_EMBEDDING] Error triggering clustering: {e}")
             raise
 
-    async def trigger_refresh_stale_clusters(
-        self, max_age_hours: int = 24
-    ) -> str:
+    async def trigger_refresh_stale_clusters(self, max_age_hours: int = 24) -> str:
         """Trigger refresh of stale clusters via Celery worker.
 
         Args:
@@ -262,16 +269,16 @@ class ArtistEmbeddingService:
                 priority=3,
             )
 
-            logger.info(
-                f"[ARTIST_EMBEDDING] Refresh task created: {task.id}"
-            )
+            logger.info(f"[ARTIST_EMBEDDING] Refresh task created: {task.id}")
             return task.id
 
         except Exception as e:
             logger.error(f"[ARTIST_EMBEDDING] Error triggering refresh: {e}")
             raise
 
-    async def get_artist_cluster_info(self, artist_name: str) -> Optional[Dict[str, Any]]:
+    async def get_artist_cluster_info(
+        self, artist_name: str
+    ) -> Optional[Dict[str, Any]]:
         """Get cluster information for a specific artist.
 
         Retrieves cluster data from database without local GMM computation.
@@ -330,14 +337,20 @@ class ArtistEmbeddingService:
             embedding = await self.get_embedding_by_artist(artist_name)
             if not embedding:
                 return ArtistSimilarityRecommendation(
-                    artist_name=artist_name,
+                            artist_name=artist_name,
                     similar_artists=[],
                     cluster_based=False,
+                    cluster=None,
+                    similarity_score=None,
+                    distance=None,
+                    source="none",
                 )
 
             # If artist has a cluster, find other artists in same cluster
             if embedding.cluster is not None:
-                cluster_artists = await self.get_embeddings_by_cluster(embedding.cluster)
+                cluster_artists = await self.get_embeddings_by_cluster(
+                    embedding.cluster
+                )
 
                 similar_artists = []
                 source_probs = (
@@ -361,11 +374,13 @@ class ArtistEmbeddingService:
                         source_probs, other_probs
                     )
 
-                    similar_artists.append({
-                        "artist_name": other_embedding.artist_name,
-                        "cluster": other_embedding.cluster,
-                        "similarity_score": score,
-                    })
+                    similar_artists.append(
+                        {
+                            "artist_name": other_embedding.artist_name,
+                            "cluster": other_embedding.cluster,
+                            "similarity_score": score,
+                        }
+                    )
 
                 # Sort by similarity score and limit results
                 similar_artists.sort(key=lambda x: x["similarity_score"], reverse=True)
@@ -375,6 +390,12 @@ class ArtistEmbeddingService:
                     artist_name=artist_name,
                     similar_artists=similar_artists,
                     cluster_based=True,
+                    cluster=embedding.cluster,
+                    similarity_score=similar_artists[0]["similarity_score"]
+                    if similar_artists
+                    else None,
+                    distance=None,
+                    source="cluster",
                 )
 
             # Fallback: no cluster, return empty (or could use vector search)
@@ -382,6 +403,11 @@ class ArtistEmbeddingService:
                 artist_name=artist_name,
                 similar_artists=[],
                 cluster_based=False,
+                cluster=None,
+                similarity_score=None,
+                distance=None,
+                source="none",
+
             )
 
         except Exception as e:
@@ -390,6 +416,11 @@ class ArtistEmbeddingService:
                 artist_name=artist_name,
                 similar_artists=[],
                 cluster_based=False,
+                cluster=None,
+                similarity_score=None,
+                distance=None,
+                source="none",
+
             )
 
     def _calculate_cluster_similarity(
@@ -411,7 +442,9 @@ class ArtistEmbeddingService:
                 return 0.0
 
             # Simple dot product similarity
-            score = sum(probs1.get(c, 0.0) * probs2.get(c, 0.0) for c in common_clusters)
+            score = sum(
+                probs1.get(c, 0.0) * probs2.get(c, 0.0) for c in common_clusters
+            )
 
             # Normalize by maximum possible score
             max_score = sum(
@@ -444,7 +477,9 @@ class ArtistEmbeddingService:
             Generation results dictionary
         """
         try:
-            logger.info("[ARTIST EMBEDDING] Starting artist embedding generation from tracks")
+            logger.info(
+                "[ARTIST EMBEDDING] Starting artist embedding generation from tracks"
+            )
 
             # Import Track model from library_api
             from backend.api.models.artists_model import Artist as LibraryArtist
@@ -590,7 +625,8 @@ class ArtistEmbeddingService:
             except ImportError:
                 # Fallback: simple arithmetic mean without numpy
                 embedding_vector = [
-                    sum(v[i] for v in vectors) / len(vectors) for i in range(len(vectors[0]))
+                    sum(v[i] for v in vectors) / len(vectors)
+                    for i in range(len(vectors[0]))
                 ]
 
             logger.info(
@@ -759,6 +795,7 @@ class ArtistEmbeddingService:
                     distance=result["distance"],
                     cluster=embedding.cluster if embedding else None,
                     source="vector_similarity",
+                    cluster_based=False,
                 )
 
                 recommendations.append(recommendation)
@@ -807,15 +844,23 @@ class ArtistEmbeddingService:
                 "total_artists": len(embeddings),
                 "clusters": cluster_counts,
                 "n_clusters": len(cluster_counts),
-                "gmm_model": {
-                    "n_components": active_model.n_components if active_model else None,
-                    "trained_at": active_model.trained_at.isoformat()
+                "gmm_model": (
+                    {
+                        "n_components": (
+                            active_model.n_components if active_model else None
+                        ),
+                        "trained_at": (
+                            active_model.trained_at.isoformat()
+                            if active_model
+                            else None
+                        ),
+                        "log_likelihood": (
+                            active_model.log_likelihood if active_model else None
+                        ),
+                    }
                     if active_model
-                    else None,
-                    "log_likelihood": active_model.log_likelihood if active_model else None,
-                }
-                if active_model
-                else None,
+                    else None
+                ),
             }
 
         except Exception as e:

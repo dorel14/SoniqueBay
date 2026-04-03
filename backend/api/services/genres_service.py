@@ -4,6 +4,7 @@ Déplace toute la logique métier depuis genres_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.genres_model, backend.api.schemas.genres_schema
 """
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text, select
 from typing import List, Optional
@@ -17,17 +18,22 @@ class GenreService:
         self.session = db
 
     async def search_genres(
-        self, name: Optional[str] = None, skip: int = 0, limit: Optional[int] = None,
-        exact_match: bool = False
+        self,
+        name: Optional[str] = None,
+        skip: int = 0,
+        limit: Optional[int] = None,
+        exact_match: bool = False,
     ) -> List[dict]:
         if name:
             if exact_match:
-                sql = text("""
+                sql = text(
+                    """
                     SELECT id, name, date_added, date_modified
                     FROM genres
                     WHERE LOWER(name) = :name_pattern
                     LIMIT :limit OFFSET :skip
-                """)
+                """
+                )
                 result = await self.session.execute(
                     sql,
                     {
@@ -37,12 +43,14 @@ class GenreService:
                     },
                 )
             else:
-                sql = text("""
+                sql = text(
+                    """
                     SELECT id, name, date_added, date_modified
                     FROM genres
                     WHERE LOWER(name) LIKE :name_pattern
                     LIMIT :limit OFFSET :skip
-                """)
+                """
+                )
                 result = await self.session.execute(
                     sql,
                     {
@@ -68,12 +76,14 @@ class GenreService:
             genre_data = {
                 "id": row.id,
                 "name": row.name,
-                "date_added": row.date_added
-                if isinstance(row.date_added, datetime)
-                else None,
-                "date_modified": row.date_modified
-                if isinstance(row.date_modified, datetime)
-                else None,
+                "date_added": (
+                    row.date_added if isinstance(row.date_added, datetime) else None
+                ),
+                "date_modified": (
+                    row.date_modified
+                    if isinstance(row.date_modified, datetime)
+                    else None
+                ),
             }
             genres.append(genre_data)
 
@@ -96,12 +106,14 @@ class GenreService:
             genre_data = {
                 "id": row.id,
                 "name": row.name,
-                "date_added": row.date_added
-                if isinstance(row.date_added, datetime)
-                else None,
-                "date_modified": row.date_modified
-                if isinstance(row.date_modified, datetime)
-                else None,
+                "date_added": (
+                    row.date_added if isinstance(row.date_added, datetime) else None
+                ),
+                "date_modified": (
+                    row.date_modified
+                    if isinstance(row.date_modified, datetime)
+                    else None
+                ),
             }
             genres.append(genre_data)
         return genres
@@ -117,12 +129,12 @@ class GenreService:
         genre_data = {
             "id": row.id,
             "name": row.name,
-            "date_added": row.date_added
-            if isinstance(row.date_added, datetime)
-            else None,
-            "date_modified": row.date_modified
-            if isinstance(row.date_modified, datetime)
-            else None,
+            "date_added": (
+                row.date_added if isinstance(row.date_added, datetime) else None
+            ),
+            "date_modified": (
+                row.date_modified if isinstance(row.date_modified, datetime) else None
+            ),
             "tracks": [],
             "albums": [],
         }

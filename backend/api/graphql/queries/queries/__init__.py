@@ -22,6 +22,7 @@ from .track_queries import TrackQueries
 @strawberry.type
 class Query(ArtistQueries, AlbumQueries, TrackQueries, OtherQueries):
     """Main query class combining all entity queries."""
+
     pass
 
 

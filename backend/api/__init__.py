@@ -21,17 +21,29 @@ from backend.api.routers.settings_api import router as settings_router
 from backend.api.routers.tags_api import router as tags_router
 from backend.api.routers.tracks_api import router as tracks_router
 from backend.api.routers.sse_api import router as sse_router
-from backend.api.routers.artist_embeddings_api import router as artist_embeddings_router  # noqa: E402
+from backend.api.routers.artist_embeddings_api import (
+    router as artist_embeddings_router,
+)  # noqa: E402
 from backend.api.routers.ws_ai import router as ws_ai_router  # noqa: E402
-from backend.api.routers.track_audio_features_api import router as track_audio_features_router  # noqa: E402
-from backend.api.routers.track_embeddings_api import router as track_embeddings_router  # noqa: E402
-from backend.api.routers.track_metadata_api import router as track_metadata_router  # noqa: E402
-from backend.api.routers.track_vectors_api import router as track_vectors_router  # noqa: E402
+from backend.api.routers.track_audio_features_api import (
+    router as track_audio_features_router,
+)  # noqa: E402
+from backend.api.routers.track_embeddings_api import (
+    router as track_embeddings_router,
+)  # noqa: E402
+from backend.api.routers.track_metadata_api import (
+    router as track_metadata_router,
+)  # noqa: E402
+from backend.api.routers.track_vectors_api import (
+    router as track_vectors_router,
+)  # noqa: E402
 from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: E402
-from backend.api.routers.simple_chat_api import router as simple_chat_router  # noqa: E402
-from backend.api.routers.celery_admin_api import router as celery_admin_router  # noqa: E402
-
-
+from backend.api.routers.simple_chat_api import (
+    router as simple_chat_router,
+)  # noqa: E402
+from backend.api.routers.celery_admin_api import (
+    router as celery_admin_router,
+)  # noqa: E402
 
 
 # Créer le router principal
@@ -74,4 +86,4 @@ for router in ROUTERS:
     api_router.include_router(router)
 
 # Export uniquement du router principal
-__all__ = ['api_router']
+__all__ = ["api_router"]

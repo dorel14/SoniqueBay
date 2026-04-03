@@ -71,7 +71,9 @@ class MetadataBatchCreateRequest(BaseModel):
 )
 async def get_track_metadata(
     track_id: int,
-    metadata_key: Optional[str] = Query(None, description="Filtrer par clé de métadonnée"),
+    metadata_key: Optional[str] = Query(
+        None, description="Filtrer par clé de métadonnée"
+    ),
     metadata_source: Optional[str] = Query(None, description="Filtrer par source"),
     db: AsyncSession = Depends(get_async_session),
 ) -> List[TrackMetadataCompact]:
@@ -89,7 +91,9 @@ async def get_track_metadata(
     """
     service = TrackMetadataService(db)
     try:
-        metadata_list = await service.get_by_track_id(track_id, metadata_key, metadata_source)
+        metadata_list = await service.get_by_track_id(
+            track_id, metadata_key, metadata_source
+        )
         return [TrackMetadataCompact.model_validate(m) for m in metadata_list]
     except Exception as e:
         logger.error(f"Erreur récupération métadonnées pour track {track_id}: {e}")
@@ -138,7 +142,9 @@ async def get_track_metadata_by_key(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur récupération métadonnée '{key}' pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur récupération métadonnée '{key}' pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération de la métadonnée: {str(e)}",
@@ -255,7 +261,9 @@ async def update_track_metadata(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur mise à jour métadonnée '{key}' pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur mise à jour métadonnée '{key}' pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la mise à jour de la métadonnée: {str(e)}",
@@ -271,7 +279,9 @@ async def update_track_metadata(
 async def delete_track_metadata(
     track_id: int,
     key: str,
-    metadata_source: Optional[str] = Query(None, description="Source spécifique à supprimer"),
+    metadata_source: Optional[str] = Query(
+        None, description="Source spécifique à supprimer"
+    ),
     db: AsyncSession = Depends(get_async_session),
 ) -> None:
     """
@@ -297,7 +307,9 @@ async def delete_track_metadata(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Erreur suppression métadonnée '{key}' pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur suppression métadonnée '{key}' pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la suppression de la métadonnée: {str(e)}",
@@ -311,7 +323,9 @@ async def delete_track_metadata(
     description="Recherche des métadonnées par source, clé ou valeur.",
 )
 async def search_metadata(
-    source: Optional[str] = Query(None, description="Source des métadonnées (lastfm, listenbrainz, etc.)"),
+    source: Optional[str] = Query(
+        None, description="Source des métadonnées (lastfm, listenbrainz, etc.)"
+    ),
     key: Optional[str] = Query(None, description="Clé de métadonnée"),
     key_prefix: Optional[str] = Query(None, description="Préfixe de clé"),
     value: Optional[str] = Query(None, description="Valeur à rechercher"),
@@ -395,7 +409,9 @@ async def get_track_metadata_by_source(
             metadata=metadata_dict,
         )
     except Exception as e:
-        logger.error(f"Erreur récupération métadonnées par source pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur récupération métadonnées par source pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération: {str(e)}",
@@ -483,7 +499,9 @@ async def get_track_metadata_stats(
             keys_by_source=keys_by_source,
         )
     except Exception as e:
-        logger.error(f"Erreur récupération stats métadonnées pour track {track_id}: {e}")
+        logger.error(
+            f"Erreur récupération stats métadonnées pour track {track_id}: {e}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la récupération des statistiques: {str(e)}",

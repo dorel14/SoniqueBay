@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 
 import backend.api.utils.search
-from backend.api.utils.database import Base, get_db, get_session
+from backend.api.utils.database import Base, get_db, get_session, get_async_session
 from backend.api.api_app import create_api
 from backend.api.models.artists_model import Artist
 from backend.api.models.albums_model import Album
@@ -23,10 +23,10 @@ from backend.api.models.covers_model import Cover
 from backend.api.models.genres_model import Genre
 from backend.api.models.tags_model import GenreTag, MoodTag
 from backend.api.models.tracks_model import Track
-
-# Configuration pytest pour les tests asynchrones
-pytest_plugins = ("pytest_asyncio",)
-pytest_asyncio_default_mode = "auto"
+from backend.api.models.agent_score_model import AgentScore
+from sqlalchemy import Column, Integer, ForeignKey, String, Float
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import JSONB
 
 # Configuration pytest pour les tests asynchrones
 pytest_plugins = ("pytest_asyncio",)
@@ -65,9 +65,40 @@ def test_db_engine():
     db_url = f"sqlite:///{temp_db.name}"
     os.environ['DATABASE_URL'] = db_url
     engine = create_engine(db_url)
+
+    # Définition minimale des tables manquantes pour satisfaire les FK en tests SQLite
+    # (Lot B: éviter NoReferencedTableError sur conversations.user_id -> users.id)
+    if "users" not in Base.metadata.tables:
+        class _TestUser(Base):
+            __tablename__ = "users"
+            id = Column(Integer, primary_key=True)
+            username = Column(String, nullable=True)
+
+    if "conversations" not in Base.metadata.tables:
+        class _TestConversation(Base):
+            __tablename__ = "conversations"
+            id = Column(String(64), primary_key=True)
+            user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Compat types PostgreSQL -> SQLite pour les tests d'intégration
+    from sqlalchemy.ext.compiler import compiles
+    from pgvector.sqlalchemy import Vector
+
+    @compiles(postgresql.TSVECTOR, "sqlite")
+    def _compile_tsvector_sqlite(_type, _compiler, **_kw):
+        return "TEXT"
+
+    @compiles(Vector, "sqlite")
+    def _compile_vector_sqlite(_type, _compiler, **_kw):
+        return "TEXT"
+
+    @compiles(JSONB, "sqlite")
+    def _compile_jsonb_sqlite(_type, _compiler, **_kw):
+        return "JSON"
+
     Base.metadata.create_all(bind=engine)
 
-    # Create FTS tables for testing
+    # Create FTS tables for testing + agent_scores
     with engine.connect() as conn:
         conn.execute(text("""
         CREATE VIRTUAL TABLE IF NOT EXISTS tracks_fts USING fts5(
@@ -92,6 +123,18 @@ def test_db_engine():
         """))
         conn.execute(text("CREATE TABLE IF NOT EXISTS function_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, function_name TEXT, args TEXT, kwargs TEXT, result TEXT, timestamp TEXT)"))
         conn.execute(text("CREATE TABLE IF NOT EXISTS scan_sessions (id TEXT PRIMARY KEY, directory TEXT, status TEXT, last_processed_file TEXT, processed_files INTEGER, total_files INTEGER, task_id TEXT, started_at TEXT, updated_at TEXT)"))
+        # Table agent_scores pour tests API
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS agent_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_name TEXT NOT NULL,
+            intent TEXT NOT NULL,
+            score REAL DEFAULT 1.0,
+            usage_count INTEGER DEFAULT 0,
+            success_count INTEGER DEFAULT 0,
+            UNIQUE(agent_name, intent)
+        );
+        """))
         conn.commit()
     yield engine
     # Properly dispose of all connections before cleanup
@@ -317,20 +360,41 @@ def pytest_configure(config):
 @pytest.fixture(autouse=True)
 def setup_test_environment():
     """Configuration automatique de l'environnement de test."""
-    # Variables d'environnement de test
-    os.environ["API_URL"] = os.getenv("TEST_API_URL", "http://test-api:8001")
-    os.environ["REDIS_HOST"] = os.getenv("TEST_REDIS_HOST", "test-redis")
+    # Variables d'environnement de test (SQLite effectif + neutralisation host Docker `db`)
     os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    os.environ["TEST_DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite:///test.db")
+    os.environ["POSTGRES_HOST"] = os.getenv("TEST_POSTGRES_HOST", "localhost")
+    os.environ["POSTGRES_PORT"] = os.getenv("TEST_POSTGRES_PORT", "5432")
+    os.environ["POSTGRES_USER"] = os.getenv("TEST_POSTGRES_USER", "postgres")
+    os.environ["POSTGRES_PASSWORD"] = os.getenv("TEST_POSTGRES_PASSWORD", "postgres")
+    os.environ["POSTGRES_DB"] = os.getenv("TEST_POSTGRES_DB", "musicdb_test")
+    os.environ["SKIP_STARTUP_MIGRATIONS"] = "1"
+    os.environ["SKIP_STARTUP_REDIS_INIT"] = "1"
+    os.environ["SKIP_STARTUP_SEED_AGENTS"] = "1"
     os.environ["TESTING"] = "true"
-    
+
     # Configuration du logging pour les tests
     logging.getLogger("backend_worker").setLevel(logging.DEBUG)
     logging.getLogger("tests").setLevel(logging.DEBUG)
-    
+
     yield
-    
+
     # Cleanup après les tests
-    test_env_vars = ["API_URL", "REDIS_HOST", "DATABASE_URL", "TESTING"]
+    test_env_vars = [
+        "API_URL",
+        "REDIS_HOST",
+        "DATABASE_URL",
+        "TEST_DATABASE_URL",
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+        "POSTGRES_DB",
+        "TESTING",
+        "SKIP_STARTUP_MIGRATIONS",
+        "SKIP_STARTUP_REDIS_INIT",
+        "SKIP_STARTUP_SEED_AGENTS",
+    ]
     for var in test_env_vars:
         if var in os.environ:
             del os.environ[var]
@@ -388,11 +452,80 @@ def client(db_session):
         finally:
             pass
 
+    # Override async pour toutes les routes dépendant de get_async_session
+    async def override_get_async_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    # FIX: Override AsyncSessionLocal pour agent_services.py _get_session()
+    from backend.api.utils.database import get_async_session
+    
+    class MockAsyncSessionManager:
+        """Mock async context manager pour AsyncSessionLocal() dans tests."""
+        def __init__(self, session):
+            self.session = session
+        
+        async def __aenter__(self):
+            return self.session
+        
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+
+    def mock_async_session_local():
+        return MockAsyncSessionManager(db_session)
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_async_session] = override_get_async_session
 
-    with TestClient(app) as test_client:
+    app.dependency_overrides[get_async_session] = mock_async_session_local
+    
+    # PATCH get_async_session dans agent_services.py (import module-level)
+    from unittest.mock import patch, MagicMock
+    from backend.api.services.agent_services import get_async_session as original_get_session
+    
+    class MockGetSession:
+        """Async context manager mock pour get_async_session()."""
+        def __init__(self, session):
+            self.session = session
+        
+        async def __aenter__(self):
+            return self.session
+        
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return False
+    
+    def mock_get_session():
+        """Mock get_async_session retourne async context manager."""
+        return MockGetSession(db_session)
+    
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr('backend.api.services.agent_services.get_async_session', mock_get_session)
+
+
+    with TestClient(app, base_url="http://test") as test_client:
         yield test_client
+        monkeypatch.undo()
+
+
+
+@pytest.fixture
+def create_test_agent_score(db_session):
+    """Crée un agent score de test."""
+    def _create_agent_score(agent_name="test_agent", intent="test_intent", score=1.0, usage_count=0, success_count=0):
+        agent_score = AgentScore(
+            agent_name=agent_name,
+            intent=intent,
+            score=score,
+            usage_count=usage_count,
+            success_count=success_count
+        )
+        db_session.add(agent_score)
+        db_session.flush()
+        return agent_score
+    return _create_agent_score
 
 
 @pytest.fixture
@@ -415,10 +548,18 @@ def recommender_client(db_session):
         finally:
             pass
 
+    # Override async pour toutes les routes dépendant de get_async_session
+    async def override_get_async_session():
+        try:
+            yield db_session
+        finally:
+            pass
+
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_async_session] = override_get_async_session
 
-    with TestClient(app) as test_client:
+    with TestClient(app, base_url="http://test") as test_client:
         yield test_client
 
 # Fixtures pour créer des données de test
@@ -501,10 +642,7 @@ def create_test_track(db_session, create_test_artist):
             "track_artist_id": artist_id,
             "album_id": album_id,
             "genre": genre,
-            "bpm": bpm,
-            "key": key,
-            "scale": scale,
-            **kwargs
+            **kwargs,
         }
 
         track = Track(**track_data)
@@ -601,9 +739,6 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
             album_id=album.id,
             genre="Rock",
             year="2023",
-            bpm=120.5,
-            key="C",
-            scale="major"
         )
         db_session.add(track1)
         tracks.append(track1)
@@ -616,9 +751,6 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
             album_id=album.id,
             genre="Jazz",
             year="2022",
-            bpm=90.0,
-            key="D",
-            scale="minor"
         )
         db_session.add(track2)
         tracks.append(track2)
@@ -631,9 +763,6 @@ def create_test_tracks_with_metadata(db_session, create_test_artist, create_test
             album_id=album.id,
             genre="Electronic",
             year="2023",
-            bpm=128.0,
-            key="A",
-            scale="minor"
         )
         db_session.add(track3)
         tracks.append(track3)

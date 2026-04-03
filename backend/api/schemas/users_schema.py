@@ -10,8 +10,10 @@ class UserBase(BaseModel):
     password_hash: str
     is_active: bool = True
 
+
 class UserCreate(UserBase):
     pass
+
 
 class User(UserBase):
     id: int

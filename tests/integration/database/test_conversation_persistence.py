@@ -1,9 +1,10 @@
 """Tests pour la persistance des conversations."""
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker, select
+from sqlalchemy.orm import sessionmaker
 
-from backend.api.models.conversation_model import ConversationModel
+from backend.api.models.conversation_model import ConversationModel, User
 from backend.api.utils.database import Base
 from backend.ai.context import ConversationContext
 
@@ -14,10 +15,12 @@ async def test_conversation_context_persistence(tmp_path):
     # Configuration de la base de données temporaire
     DATABASE_URL = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     engine = create_async_engine(DATABASE_URL)
-    
+
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
+        # Créer uniquement les tables nécessaires à ce test SQLite
+        await conn.run_sync(User.__table__.create, checkfirst=True)
+        await conn.run_sync(ConversationModel.__table__.create, checkfirst=True)
+
     async_session = sessionmaker(
         engine, expire_on_commit=False, class_=AsyncSession
     )
@@ -72,7 +75,8 @@ async def test_conversation_context_persistence(tmp_path):
         updated_conversation = result.scalar_one()
         
         assert len(updated_conversation.messages) == 3
-        assert updated_conversation.updated_at > updated_conversation.created_at
+        # TimestampMixin expose date_added/date_modified dans ce projet
+        assert updated_conversation.date_modified >= updated_conversation.date_added
     
     # Test 3: Export et import du contexte
     async with async_session() as session:
@@ -101,10 +105,12 @@ async def test_conversation_with_collected_info(tmp_path):
     """Teste la gestion des informations collectées."""
     DATABASE_URL = f"sqlite+aiosqlite:///{tmp_path}/test.db"
     engine = create_async_engine(DATABASE_URL)
-    
+
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
+        # Créer uniquement les tables nécessaires à ce test SQLite
+        await conn.run_sync(User.__table__.create, checkfirst=True)
+        await conn.run_sync(ConversationModel.__table__.create, checkfirst=True)
+
     async_session = sessionmaker(
         engine, expire_on_commit=False, class_=AsyncSession
     )

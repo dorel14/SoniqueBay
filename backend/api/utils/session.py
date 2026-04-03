@@ -6,6 +6,7 @@ from typing import Callable, Any, Coroutine
 
 # -------- ASYNC SESSION --------
 
+
 @asynccontextmanager
 async def with_session():
     async with get_session() as session:
@@ -15,6 +16,7 @@ async def with_session():
         except Exception as e:
             await session.rollback()
             raise e
+
 
 async def run_in_session(func: Callable, *args, **kwargs) -> Any:
     async with get_session() as session:
@@ -29,6 +31,7 @@ async def run_in_session(func: Callable, *args, **kwargs) -> Any:
             await session.rollback()
             raise
 
+
 def transactional(func: Callable[..., Coroutine[Any, Any, Any]]):
     async def wrapper(*args, **kwargs):
         async with get_session() as session:
@@ -42,10 +45,12 @@ def transactional(func: Callable[..., Coroutine[Any, Any, Any]]):
             except Exception:
                 await session.rollback()
                 raise
+
     return wrapper
 
 
 # -------- SYNC SESSION --------
+
 
 @contextmanager
 def with_sync_session():
@@ -58,6 +63,7 @@ def with_sync_session():
         raise e
     finally:
         db.close()
+
 
 def run_in_sync_session(func: Callable, *args, **kwargs) -> Any:
     db = next(get_db())
@@ -74,6 +80,7 @@ def run_in_sync_session(func: Callable, *args, **kwargs) -> Any:
     finally:
         db.close()
 
+
 def transactional_sync(func: Callable):
     def wrapper(*args, **kwargs):
         db = next(get_db())
@@ -88,4 +95,5 @@ def transactional_sync(func: Callable):
             raise
         finally:
             db.close()
+
     return wrapper

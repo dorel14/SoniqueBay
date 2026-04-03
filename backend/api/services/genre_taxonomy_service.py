@@ -42,25 +42,25 @@ class GenreTaxonomyService:
 
     # Configuration des taxonomies
     TAXONOMY_CONFIG: dict[str, dict[str, Any]] = {
-        'gtzan': {
-            'prefix': 'ab:hi:genre_tzanetakis:',
-            'weight': 1.0,
+        "gtzan": {
+            "prefix": "ab:hi:genre_tzanetakis:",
+            "weight": 1.0,
         },
-        'rosamerica': {
-            'prefix': 'ab:hi:genre_rosamerica:',
-            'weight': 1.0,
+        "rosamerica": {
+            "prefix": "ab:hi:genre_rosamerica:",
+            "weight": 1.0,
         },
-        'dortmund': {
-            'prefix': 'ab:hi:genre_dortmund:',
-            'weight': 1.0,
+        "dortmund": {
+            "prefix": "ab:hi:genre_dortmund:",
+            "weight": 1.0,
         },
-        'electronic': {
-            'prefix': 'ab:hi:genre_electronic:',
-            'weight': 1.0,
+        "electronic": {
+            "prefix": "ab:hi:genre_electronic:",
+            "weight": 1.0,
         },
-        'standards': {
-            'prefix': 'genre',
-            'weight': 0.8,
+        "standards": {
+            "prefix": "genre",
+            "weight": 0.8,
         },
     }
 
@@ -94,19 +94,19 @@ class GenreTaxonomyService:
             >>> features = {'tags': ['ab:hi:genre_tzanetakis:rock', 'genre:pop']}
             >>> result = service.extract_genres_from_tags(features)
         """
-        tags = raw_features.get('tags', [])
+        tags = raw_features.get("tags", [])
         if not tags:
             logger.debug("[GENRE_TAXONOMY] Aucun tag trouvé dans les features")
             return self._empty_genre_votes()
 
         # Initialiser les votes par taxonomie
         genre_votes: dict[str, Any] = {
-            'gtzan': {},
-            'rosamerica': {},
-            'dortmund': {},
-            'electronic': {},
-            'standards': {},
-            'raw_tags': list(tags),
+            "gtzan": {},
+            "rosamerica": {},
+            "dortmund": {},
+            "electronic": {},
+            "standards": {},
+            "raw_tags": list(tags),
         }
 
         for tag in tags:
@@ -118,13 +118,13 @@ class GenreTaxonomyService:
 
             # Vérifier chaque taxonomie
             for taxonomy_name, config in self.TAXONOMY_CONFIG.items():
-                prefix = config['prefix']
-                weight = config['weight']
+                prefix = config["prefix"]
+                weight = config["weight"]
 
-                if taxonomy_name == 'standards':
+                if taxonomy_name == "standards":
                     # Pour standards, le format est 'genre:xxx'
-                    if normalized_tag.startswith(prefix + ':'):
-                        genre = normalized_tag[len(prefix) + 1:].strip()
+                    if normalized_tag.startswith(prefix + ":"):
+                        genre = normalized_tag[len(prefix) + 1 :].strip()
                         if genre:
                             if genre not in genre_votes[taxonomy_name]:
                                 genre_votes[taxonomy_name][genre] = 0.0
@@ -134,7 +134,7 @@ class GenreTaxonomyService:
                             )
                 elif normalized_tag.startswith(prefix):
                     # Pour les autres taxonomies (préfixe long avec ':')
-                    genre = normalized_tag[len(prefix):].strip()
+                    genre = normalized_tag[len(prefix) :].strip()
                     if genre:
                         if genre not in genre_votes[taxonomy_name]:
                             genre_votes[taxonomy_name][genre] = 0.0
@@ -144,8 +144,7 @@ class GenreTaxonomyService:
                         )
 
         # Loguer le résumé
-        active_taxonomies = [k for k, v in genre_votes.items()
-                           if k != 'raw_tags' and v]
+        active_taxonomies = [k for k, v in genre_votes.items() if k != "raw_tags" and v]
         logger.info(
             f"[GENRE_TAXONOMY] Genres extraits: taxonomies actives: {active_taxonomies}"
         )
@@ -175,10 +174,10 @@ class GenreTaxonomyService:
         genre_scores: dict[str, float] = {}
 
         for taxonomy_name, genres in genre_votes.items():
-            if taxonomy_name == 'raw_tags':
+            if taxonomy_name == "raw_tags":
                 continue
 
-            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get('weight', 1.0)
+            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get("weight", 1.0)
 
             for genre, score in genres.items():
                 if genre not in genre_scores:
@@ -187,7 +186,7 @@ class GenreTaxonomyService:
 
         if not genre_scores:
             logger.info("[GENRE_TAXONOMY] Aucun vote de genre, retour 'unknown'")
-            return 'unknown', 0.0
+            return "unknown", 0.0
 
         # Trouver le genre avec le score maximum
         main_genre = max(genre_scores, key=genre_scores.get)
@@ -222,10 +221,10 @@ class GenreTaxonomyService:
         genre_scores: dict[str, float] = {}
 
         for taxonomy_name, genres in genre_votes.items():
-            if taxonomy_name == 'raw_tags':
+            if taxonomy_name == "raw_tags":
                 continue
 
-            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get('weight', 1.0)
+            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get("weight", 1.0)
 
             for genre, score in genres.items():
                 if genre not in genre_scores:
@@ -242,14 +241,12 @@ class GenreTaxonomyService:
         sorted_genres = sorted(
             [(g, s) for g, s in genre_scores.items() if g != main_genre],
             key=lambda x: x[1],
-            reverse=True
+            reverse=True,
         )
 
         secondary_genres = [g for g, _ in sorted_genres[:3]]
 
-        logger.debug(
-            f"[GENRE_TAXONOMY] Genres secondaires: {secondary_genres}"
-        )
+        logger.debug(f"[GENRE_TAXONOMY] Genres secondaires: {secondary_genres}")
 
         return secondary_genres
 
@@ -272,7 +269,7 @@ class GenreTaxonomyService:
         # Collecter tous les scores
         all_scores: list[float] = []
         for taxonomy_name, genres in genre_votes.items():
-            if taxonomy_name == 'raw_tags':
+            if taxonomy_name == "raw_tags":
                 continue
             all_scores.extend(genres.values())
 
@@ -315,15 +312,17 @@ class GenreTaxonomyService:
             Dictionnaire avec taxonomies vides
         """
         return {
-            'gtzan': {},
-            'rosamerica': {},
-            'dortmund': {},
-            'electronic': {},
-            'standards': {},
-            'raw_tags': [],
+            "gtzan": {},
+            "rosamerica": {},
+            "dortmund": {},
+            "electronic": {},
+            "standards": {},
+            "raw_tags": [],
         }
 
-    def get_all_genres_with_scores(self, genre_votes: dict[str, Any]) -> list[dict[str, Any]]:
+    def get_all_genres_with_scores(
+        self, genre_votes: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """
         Retourne tous les genres avec leurs scores pondérés.
 
@@ -336,26 +335,24 @@ class GenreTaxonomyService:
         genre_data: dict[str, dict[str, Any]] = {}
 
         for taxonomy_name, genres in genre_votes.items():
-            if taxonomy_name == 'raw_tags':
+            if taxonomy_name == "raw_tags":
                 continue
 
-            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get('weight', 1.0)
+            weight = self.TAXONOMY_CONFIG.get(taxonomy_name, {}).get("weight", 1.0)
 
             for genre, score in genres.items():
                 if genre not in genre_data:
                     genre_data[genre] = {
-                        'genre': genre,
-                        'score': 0.0,
-                        'taxonomies': [],
+                        "genre": genre,
+                        "score": 0.0,
+                        "taxonomies": [],
                     }
-                genre_data[genre]['score'] += score * weight
-                genre_data[genre]['taxonomies'].append(taxonomy_name)
+                genre_data[genre]["score"] += score * weight
+                genre_data[genre]["taxonomies"].append(taxonomy_name)
 
         # Trier par score décroissant
         result = sorted(
-            list(genre_data.values()),
-            key=lambda x: x['score'],
-            reverse=True
+            list(genre_data.values()), key=lambda x: x["score"], reverse=True
         )
 
         return result
@@ -375,19 +372,19 @@ class GenreTaxonomyService:
             Genre normalisé
         """
         if not genre:
-            return 'unknown'
+            return "unknown"
 
         # Normalisation basique
         normalized = genre.lower().strip()
 
         # Corrections courantes
         corrections: dict[str, str] = {
-            'hip-hop': 'hiphop',
-            'hip hop': 'hiphop',
-            'r-n-b': 'rnb',
-            'r&b': 'rnb',
-            'electronic': 'electronic',
-            'electro': 'electronic',
+            "hip-hop": "hiphop",
+            "hip hop": "hiphop",
+            "r-n-b": "rnb",
+            "r&b": "rnb",
+            "electronic": "electronic",
+            "electro": "electronic",
         }
 
         for wrong, correct in corrections.items():
@@ -396,6 +393,7 @@ class GenreTaxonomyService:
 
         # Supprimer les caractères non-alphanumériques (sauf espaces et tirets)
         import re
-        normalized = re.sub(r'[^a-z0-9\s-]', '', normalized)
+
+        normalized = re.sub(r"[^a-z0-9\s-]", "", normalized)
 
         return normalized.strip()

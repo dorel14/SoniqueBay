@@ -1,10 +1,12 @@
 # Blackbox AI Rules — SoniqueBay (repo-aware)
 
 ## Contexte repo
+
 Ce projet correspond au dépôt GitHub SoniqueBay (structure avec `backend/` et `backend_worker/` ; `docker-compose.yml` définit `api-service`, `celery-worker`, `frontend`, `redis`, `postgres`). Voir le repo pour référence.
 (Seul l'API container doit accéder à PostgreSQL.) :contentReference[oaicite:3]{index=3}
 
 ------------------------------------------------------------
+
 PRINCIPES GÉNÉRAUX
 ------------------------------------------------------------
 
@@ -14,10 +16,12 @@ PRINCIPES GÉNÉRAUX
 - Tu t'astreins à toujours répoçndre en français
 
 ------------------------------------------------------------
+
 EXIGENCES TECHNIQUES (essentielles)
 ------------------------------------------------------------
 
 Stack (réalité du repo) :
+
 - Python 3.11+
 - FastAPI (backend dans `backend/`)
 - Workers Celery (code dans `backend_worker/`)
@@ -30,6 +34,7 @@ Stack (réalité du repo) :
 - Docker & docker-compose (fichiers présents dans la racine du repo)
 
 ------------------------------------------------------------
+
 RÈGLES CRITIQUES (NE PAS IGNORER)
 ------------------------------------------------------------
 
@@ -45,10 +50,12 @@ RÈGLES CRITIQUES (NE PAS IGNORER)
 10. **Resources** : limiter concurrence Celery (`--concurrency=1` par défaut sur Raspberry Pi), surveiller mémoire.
 
 ------------------------------------------------------------
+
 DIRECTIVES SPÉCIFIQUES POUR BLACKBOX AI
 ------------------------------------------------------------
 
 Quand Blackbox génère/modifie du code pour ce repo :
+
 - Règle #1 : respecter chemins existants (`backend/`, `backend_worker/`, `frontend/`).
 - Règle #2 : **ne pas** ajouter accès direct à Postgres hors `backend/`.
 - Règle #3 : utiliser variables d'env du `docker-compose.yml` du repo (ex : `API_URL`, `CELERY_BROKER_URL`) pour endpoints.
@@ -56,12 +63,12 @@ Quand Blackbox génère/modifie du code pour ce repo :
 - Règle #5 : fournir tests unitaires/pytest minimal pour chaque changement substantiel (regarder `tests/`).
 - Règle #6 : inclure commentaires TODO ciblés pour le développeur humain (ex: limites mémoire, fallback LLM).
 - Règle #7 : les tests doivent intégrés dans le dossier test
-- Règle #8 : les plans et TODO doivent être créés dans le dossier docs/plans 
+- Règle #8 : les plans et TODO doivent être créés dans le dossier docs/plans
 - Règle #9 : Chaque corrections fait l'objet d'un commit selon le format 'Conventional Commits'
-- Règle #10 : le développement se faisant sous windows ,  interdiction d'utiliser des commandes linux ,  uniquement powershell 
-
+- Règle #10 : le développement se faisant sous windows ,  interdiction d'utiliser des commandes linux ,  uniquement powershell
 
 ------------------------------------------------------------
+
 CONSIGNES POUR LES APPELS LLM (KoboldCpp)
 ------------------------------------------------------------
 
@@ -71,6 +78,7 @@ CONSIGNES POUR LES APPELS LLM (KoboldCpp)
 - LLM ne doit jamais écrire directement en DB : retourner un payload que l'API validera et appliquera.
 
 ------------------------------------------------------------
+
 CELERY / WORKER
 ------------------------------------------------------------
 
@@ -80,6 +88,7 @@ CELERY / WORKER
 - Concurrency faible par défaut sur RPi (1 ou 2).
 
 ------------------------------------------------------------
+
 CONSIGNES DEVOPS / DOCKER
 ------------------------------------------------------------
 
@@ -89,6 +98,7 @@ CONSIGNES DEVOPS / DOCKER
 - Swap off ou limiter mémoire si RPi.
 
 ------------------------------------------------------------
+
 PRIORITÉS D'OPTIMISATION
 ------------------------------------------------------------
 
@@ -98,45 +108,46 @@ PRIORITÉS D'OPTIMISATION
 4. Readability & tests
 
 ------------------------------------------------------------
+
 ## Règles de codage
 
 ### Python (FastAPI, Celery)
 
-* Respecter **PEP8** et utiliser un formateur (ex. `black` + `isort` + `ruff`) .
-* Utiliser des **annotations de type** (`typing`) systématiquement.
-* Ajouter des **docstrings** claires (module, classes, fonctions).
-* Préférer les **imports absolus** dans les modules internes.
-* Travailler dans une architecture MVC afin de séparer logique métier et api par exemple 
-* Bien séparer :
+- Respecter **PEP8** et utiliser un formateur (ex. `black` + `isort` + `ruff`) .
+- Utiliser des **annotations de type** (`typing`) systématiquement.
+- Ajouter des **docstrings** claires (module, classes, fonctions).
+- Préférer les **imports absolus** dans les modules internes.
+- Travailler dans une architecture MVC afin de séparer logique métier et api par exemple
+- Bien séparer :
 
-  * API (FastAPI/GraphQL),
-  * Workers Celery,
-  * Logique métier.
-* Gestion d’erreurs : lever des exceptions explicites, logs utiles, pas de `except: pass`.
-* Gestion des logs: dans chacun des dossiers principaux , il existe un sous dossier utils et une lib logging.py , elle doit être utilisée pour la gestion des logs ,  pas de print autorisé
+  - API (FastAPI/GraphQL),
+  - Workers Celery,
+  - Logique métier.
+- Gestion d’erreurs : lever des exceptions explicites, logs utiles, pas de `except: pass`.
+- Gestion des logs: dans chacun des dossiers principaux , il existe un sous dossier utils et une lib logging.py , elle doit être utilisée pour la gestion des logs ,  pas de print autorisé
 
 ### Frontend (NiceGUI)
 
-* Favoriser les **composants réutilisables**.
-* Maintenir une cohérence graphique (clair/sombre).
-* Commenter les parties complexes (animations, transitions, WebSocket).
-* Soigner les performances (latence, taille des listes, throttling des events).
-* On interroge le backend via l'api REST ou GraphQL ou websocket selon le niveau de performance et de mise àjour temps réel à  obtenir
+- Favoriser les **composants réutilisables**.
+- Maintenir une cohérence graphique (clair/sombre).
+- Commenter les parties complexes (animations, transitions, WebSocket).
+- Soigner les performances (latence, taille des listes, throttling des events).
+- On interroge le backend via l'api REST ou GraphQL ou websocket selon le niveau de performance et de mise àjour temps réel à  obtenir
 
 ### Base de données
 
-* Respecter le schéma SQLAlchemy existant.
-* Toute nouvelle table doit avoir :
+- Respecter le schéma SQLAlchemy existant.
+- Toute nouvelle table doit avoir :
 
-  * un identifiant unique (`id`),
-  * des index si nécessaire,
-  * une migration associée (si Alembic est utilisé).
+  - un identifiant unique (`id`),
+  - des index si nécessaire,
+  - une migration associée (si Alembic est utilisé).
 
-* Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets.
-
+- Seule l'API accède à la base de donnée , le worker et le frontend accès via l'api,  graphql ou les websockets.
 
 ------------------------------------------------------------
 
 Notes finales:
+
 - Ce fichier est adapté au repo SoniqueBay (structure réelle : `backend/`, `backend_worker/`, `frontend/`,`docker-compose.yml`). :contentReference[oaicite:4]{index=4}
 - Toujours valider les PRs Blackbox avec tests et revue manuelle.

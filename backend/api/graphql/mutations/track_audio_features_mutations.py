@@ -220,9 +220,7 @@ class TrackAudioFeaturesMutation:
             )
 
     @strawberry.mutation
-    async def delete_track_audio_features(
-        self, track_id: int
-    ) -> bool:
+    async def delete_track_audio_features(self, track_id: int) -> bool:
         """
         Supprime les caractéristiques audio d'une piste.
 
@@ -238,9 +236,7 @@ class TrackAudioFeaturesMutation:
             return result
 
     @strawberry.mutation
-    async def delete_track_audio_features_by_id(
-        self, features_id: int
-    ) -> bool:
+    async def delete_track_audio_features_by_id(self, features_id: int) -> bool:
         """
         Supprime les caractéristiques audio par leur ID.
 

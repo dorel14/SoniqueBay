@@ -4,6 +4,7 @@ Déplace toute la logique métier depuis tags_api.py ici.
 Auteur : GitHub Copilot
 Dépendances : backend.api.models.tags_model, backend.api.schemas.tags_schema
 """
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -25,15 +26,11 @@ class TagService:
         return result.scalars().all()
 
     async def get_genre_tag(self, id: int) -> Optional[GenreTag]:
-        result = await self.session.execute(
-            select(GenreTag).where(GenreTag.id == id)
-        )
+        result = await self.session.execute(select(GenreTag).where(GenreTag.id == id))
         return result.scalars().first()
 
     async def get_mood_tag(self, id: int) -> Optional[MoodTag]:
-        result = await self.session.execute(
-            select(MoodTag).where(MoodTag.id == id)
-        )
+        result = await self.session.execute(select(MoodTag).where(MoodTag.id == id))
         return result.scalars().first()
 
     async def create_genre_tag(self, tag: TagCreate):

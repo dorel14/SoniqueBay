@@ -42,25 +42,22 @@ class TrackMetadataBase(BaseModel):
     provenant de sources externes sans modifier le schéma de la DB.
     """
 
-    track_id: int = Field(
-        ..., description="ID de la piste associée (relation N:1)"
-    )
+    track_id: int = Field(..., description="ID de la piste associée (relation N:1)")
 
     metadata_key: str = Field(
         ...,
         max_length=255,
-        description="Clé de métadonnée (ex: lastfm_playcount, musicbrainz_rating)"
+        description="Clé de métadonnée (ex: lastfm_playcount, musicbrainz_rating)",
     )
 
     metadata_value: Optional[str] = Field(
-        None,
-        description="Valeur de la métadonnée (stockée comme texte, JSON possible)"
+        None, description="Valeur de la métadonnée (stockée comme texte, JSON possible)"
     )
 
     metadata_source: Optional[str] = Field(
         None,
         max_length=100,
-        description="Source: lastfm, listenbrainz, discogs, manual, etc."
+        description="Source: lastfm, listenbrainz, discogs, manual, etc.",
     )
 
     created_at: Optional[datetime] = Field(
@@ -75,6 +72,7 @@ class TrackMetadataCreate(TrackMetadataBase):
     Tous les champs de TrackMetadataBase sont requis sauf ceux
     explicitement optionnels.
     """
+
     pass
 
 
@@ -105,7 +103,7 @@ class TrackMetadata(TrackMetadataBase, TimestampedSchema):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator('created_at', mode='before')
+    @field_validator("created_at", mode="before")
     @classmethod
     def convert_created_at(cls, value):
         """Convertit les chaînes ISO en datetime si nécessaire."""
@@ -115,7 +113,7 @@ class TrackMetadata(TrackMetadataBase, TimestampedSchema):
             return value
         if isinstance(value, str):
             try:
-                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
                 return None
         return None
@@ -158,8 +156,7 @@ class TrackMetadataByKey(BaseModel):
 
     metadata_key: str = Field(..., description="Clé de métadonnée")
     values_by_source: Dict[str, Optional[str]] = Field(
-        default_factory=dict,
-        description="Valeurs regroupées par source"
+        default_factory=dict, description="Valeurs regroupées par source"
     )
 
     model_config = ConfigDict(from_attributes=True)
@@ -176,7 +173,7 @@ class TrackMetadataBySource(BaseModel):
     metadata_source: str = Field(..., description="Source des métadonnées")
     metadata: Dict[str, Optional[str]] = Field(
         default_factory=dict,
-        description="Métadonnées sous forme de dictionnaire clé-valeur"
+        description="Métadonnées sous forme de dictionnaire clé-valeur",
     )
 
     model_config = ConfigDict(from_attributes=True)
@@ -193,21 +190,16 @@ class TrackMetadataBatchCreate(BaseModel):
     track_id: int = Field(..., description="ID de la piste cible")
 
     metadata_items: List[Dict[str, Any]] = Field(
-        ...,
-        min_length=1,
-        max_length=100,
-        description="Liste des métadonnées à créer"
+        ..., min_length=1, max_length=100, description="Liste des métadonnées à créer"
     )
 
     metadata_source: str = Field(
-        ...,
-        max_length=100,
-        description="Source commune pour toutes les métadonnées"
+        ..., max_length=100, description="Source commune pour toutes les métadonnées"
     )
 
     replace_existing: bool = Field(
         default=False,
-        description="Remplacer les métadonnées existantes pour cette source"
+        description="Remplacer les métadonnées existantes pour cette source",
     )
 
 
@@ -249,12 +241,9 @@ class TrackMetadataStats(BaseModel):
 
     track_id: int = Field(..., description="ID de la piste")
     total_entries: int = Field(..., description="Nombre total d'entrées")
-    sources: List[str] = Field(
-        default=[], description="Liste des sources disponibles"
-    )
+    sources: List[str] = Field(default=[], description="Liste des sources disponibles")
     keys_by_source: Dict[str, List[str]] = Field(
-        default_factory=dict,
-        description="Clés regroupées par source"
+        default_factory=dict, description="Clés regroupées par source"
     )
 
     model_config = ConfigDict(from_attributes=True)

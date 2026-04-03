@@ -27,7 +27,9 @@ class RealtimeService:
         await pubsub.subscribe(*channels)
         return redis_client, pubsub
 
-    async def listen_to_channels(self, channels: list[str]) -> AsyncGenerator[str, None]:
+    async def listen_to_channels(
+        self, channels: list[str]
+    ) -> AsyncGenerator[str, None]:
         """
         Écoute les canaux Redis et yield les messages SSE.
 
@@ -44,11 +46,11 @@ class RealtimeService:
             redis_client, pubsub = await self.create_pubsub_connection(channels)
 
             async for message in pubsub.listen():
-                if message['type'] == 'message':
-                    data = message['data']
+                if message["type"] == "message":
+                    data = message["data"]
                     if isinstance(data, bytes):
                         try:
-                            event_data = data.decode('utf-8')
+                            event_data = data.decode("utf-8")
                             # Format SSE: data: <json>\n\n
                             yield f"data: {event_data}\n\n"
                         except Exception as e:

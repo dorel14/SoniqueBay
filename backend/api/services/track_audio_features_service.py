@@ -15,12 +15,13 @@ Dépendances:
 Auteur: SoniqueBay Team
 """
 
-from datetime import datetime
-from typing import List, Optional, Dict, Any
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from backend.api.models.track_audio_features_model import TrackAudioFeatures
 from backend.api.utils.logging import logger
@@ -42,7 +43,7 @@ class TrackAudioFeaturesService:
         ...     features = await service.get_by_track_id(1)
     """
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: Union[AsyncSession, Session]):
         """
         Initialise le service avec une session de base de données.
 
@@ -50,6 +51,48 @@ class TrackAudioFeaturesService:
             session: Session SQLAlchemy asynchrone
         """
         self.session = session
+
+    def _is_async_session(self) -> bool:
+        return isinstance(self.session, AsyncSession)
+
+    async def _execute(self, stmt):
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            return await async_session.execute(stmt)
+        sync_session = cast(Session, self.session)
+        return sync_session.execute(stmt)
+
+    async def _commit(self) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.commit()
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.commit()
+
+    async def _rollback(self) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.rollback()
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.rollback()
+
+    async def _refresh(self, instance) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.refresh(instance)
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.refresh(instance)
+
+    async def _delete(self, instance) -> None:
+        if self._is_async_session():
+            async_session = cast(AsyncSession, self.session)
+            await async_session.delete(instance)
+            return
+        sync_session = cast(Session, self.session)
+        sync_session.delete(instance)
 
     async def get_by_id(self, features_id: int) -> Optional[TrackAudioFeatures]:
         """
@@ -61,7 +104,7 @@ class TrackAudioFeaturesService:
         Returns:
             Les caractéristiques audio ou None si non trouvées
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackAudioFeatures).where(TrackAudioFeatures.id == features_id)
         )
         return result.scalars().first()
@@ -76,7 +119,7 @@ class TrackAudioFeaturesService:
         Returns:
             Les caractéristiques audio ou None si non trouvées
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackAudioFeatures).where(TrackAudioFeatures.track_id == track_id)
         )
         return result.scalars().first()
@@ -94,10 +137,8 @@ class TrackAudioFeaturesService:
         if not track_ids:
             return []
 
-        result = await self.session.execute(
-            select(TrackAudioFeatures).where(
-                TrackAudioFeatures.track_id.in_(track_ids)
-            )
+        result = await self._execute(
+            select(TrackAudioFeatures).where(TrackAudioFeatures.track_id.in_(track_ids))
         )
         return list(result.scalars().all())
 
@@ -161,17 +202,17 @@ class TrackAudioFeaturesService:
             genre_main=genre_main,
             camelot_key=camelot_key,
             analysis_source=analysis_source,
-            analyzed_at=datetime.utcnow(),
+            analyzed_at=datetime.now(timezone.utc),
         )
 
         try:
             self.session.add(features)
-            await self.session.commit()
-            await self.session.refresh(features)
+            await self._commit()
+            await self._refresh(features)
             logger.info(f"[AUDIO_FEATURES] Créées pour track_id={track_id}")
             return features
         except IntegrityError as e:
-            await self.session.rollback()
+            await self._rollback()
             logger.error(
                 f"[AUDIO_FEATURES] Erreur création pour track_id={track_id}: {e}"
             )
@@ -208,7 +249,7 @@ class TrackAudioFeaturesService:
         existing = await self.get_by_track_id(track_id)
 
         if existing:
-            return await self.update(
+            updated = await self.update(
                 track_id=track_id,
                 bpm=bpm,
                 key=key,
@@ -225,6 +266,11 @@ class TrackAudioFeaturesService:
                 camelot_key=camelot_key,
                 analysis_source=analysis_source,
             )
+            if updated is None:
+                raise ValueError(
+                    f"[AUDIO_FEATURES] Incohérence: update retourné None pour track_id={track_id}"
+                )
+            return updated
         else:
             return await self.create(
                 track_id=track_id,
@@ -281,31 +327,31 @@ class TrackAudioFeaturesService:
 
         # Mise à jour des champs non-None
         update_data = {
-            'bpm': bpm,
-            'key': key,
-            'scale': scale,
-            'danceability': danceability,
-            'mood_happy': mood_happy,
-            'mood_aggressive': mood_aggressive,
-            'mood_party': mood_party,
-            'mood_relaxed': mood_relaxed,
-            'instrumental': instrumental,
-            'acoustic': acoustic,
-            'tonal': tonal,
-            'genre_main': genre_main,
-            'camelot_key': camelot_key,
-            'analysis_source': analysis_source,
+            "bpm": bpm,
+            "key": key,
+            "scale": scale,
+            "danceability": danceability,
+            "mood_happy": mood_happy,
+            "mood_aggressive": mood_aggressive,
+            "mood_party": mood_party,
+            "mood_relaxed": mood_relaxed,
+            "instrumental": instrumental,
+            "acoustic": acoustic,
+            "tonal": tonal,
+            "genre_main": genre_main,
+            "camelot_key": camelot_key,
+            "analysis_source": analysis_source,
         }
 
         for field, value in update_data.items():
             if value is not None:
                 setattr(features, field, value)
 
-        features.analyzed_at = datetime.utcnow()
+        features.analyzed_at = datetime.now(timezone.utc)
         features.date_modified = func.now()
 
-        await self.session.commit()
-        await self.session.refresh(features)
+        await self._commit()
+        await self._refresh(features)
         logger.info(f"[AUDIO_FEATURES] Mises à jour pour track_id={track_id}")
         return features
 
@@ -323,8 +369,8 @@ class TrackAudioFeaturesService:
         if not features:
             return False
 
-        await self.session.delete(features)
-        await self.session.commit()
+        await self._delete(features)
+        await self._commit()
         logger.info(f"[AUDIO_FEATURES] Supprimées pour track_id={track_id}")
         return True
 
@@ -342,8 +388,8 @@ class TrackAudioFeaturesService:
         if not features:
             return False
 
-        await self.session.delete(features)
-        await self.session.commit()
+        await self._delete(features)
+        await self._commit()
         logger.info(f"[AUDIO_FEATURES] Supprimées id={features_id}")
         return True
 
@@ -363,23 +409,16 @@ class TrackAudioFeaturesService:
         """
         from backend.api.models.tracks_model import Track
 
-        result = await self.session.execute(
+        result = await self._execute(
             select(Track.id)
-            .outerjoin(
-                TrackAudioFeatures,
-                Track.id == TrackAudioFeatures.track_id
-            )
+            .outerjoin(TrackAudioFeatures, Track.id == TrackAudioFeatures.track_id)
             .where(TrackAudioFeatures.id.is_(None))
             .limit(limit)
         )
-        return [{'track_id': row[0]} for row in result.all()]
+        return [{"track_id": row[0]} for row in result.all()]
 
     async def search_by_bpm_range(
-        self,
-        min_bpm: float,
-        max_bpm: float,
-        skip: int = 0,
-        limit: int = 100
+        self, min_bpm: float, max_bpm: float, skip: int = 0, limit: int = 100
     ) -> List[TrackAudioFeatures]:
         """
         Recherche les pistes par plage de BPM.
@@ -393,12 +432,11 @@ class TrackAudioFeaturesService:
         Returns:
             Liste des caractéristiques audio dans la plage de BPM
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackAudioFeatures)
             .where(
                 and_(
-                    TrackAudioFeatures.bpm >= min_bpm,
-                    TrackAudioFeatures.bpm <= max_bpm
+                    TrackAudioFeatures.bpm >= min_bpm, TrackAudioFeatures.bpm <= max_bpm
                 )
             )
             .offset(skip)
@@ -408,11 +446,7 @@ class TrackAudioFeaturesService:
         return list(result.scalars().all())
 
     async def search_by_key(
-        self,
-        key: str,
-        scale: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 100
+        self, key: str, scale: Optional[str] = None, skip: int = 0, limit: int = 100
     ) -> List[TrackAudioFeatures]:
         """
         Recherche les pistes par tonalité.
@@ -426,16 +460,12 @@ class TrackAudioFeaturesService:
         Returns:
             Liste des caractéristiques audio correspondantes
         """
-        query = select(TrackAudioFeatures).where(
-            TrackAudioFeatures.key.ilike(key)
-        )
+        query = select(TrackAudioFeatures).where(TrackAudioFeatures.key.ilike(key))
 
         if scale:
             query = query.where(TrackAudioFeatures.scale.ilike(scale))
 
-        result = await self.session.execute(
-            query.offset(skip).limit(limit)
-        )
+        result = await self._execute(query.offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def search_by_camelot_key(
@@ -452,7 +482,7 @@ class TrackAudioFeaturesService:
         Returns:
             Liste des caractéristiques audio correspondantes
         """
-        result = await self.session.execute(
+        result = await self._execute(
             select(TrackAudioFeatures)
             .where(TrackAudioFeatures.camelot_key == camelot_key)
             .offset(skip)
@@ -467,7 +497,7 @@ class TrackAudioFeaturesService:
         party_min: Optional[float] = None,
         aggressive_max: Optional[float] = None,
         skip: int = 0,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[TrackAudioFeatures]:
         """
         Recherche les pistes par critères de mood.
@@ -498,9 +528,7 @@ class TrackAudioFeaturesService:
         if conditions:
             query = query.where(and_(*conditions))
 
-        result = await self.session.execute(
-            query.offset(skip).limit(limit)
-        )
+        result = await self._execute(query.offset(skip).limit(limit))
         return list(result.scalars().all())
 
     async def get_similar_by_bpm_and_key(
@@ -508,7 +536,7 @@ class TrackAudioFeaturesService:
         track_id: int,
         bpm_tolerance: float = 5.0,
         use_compatible_keys: bool = True,
-        limit: int = 20
+        limit: int = 20,
     ) -> List[TrackAudioFeatures]:
         """
         Trouve les pistes similaires par BPM et tonalité compatible.
@@ -534,7 +562,7 @@ class TrackAudioFeaturesService:
             and_(
                 TrackAudioFeatures.track_id != track_id,
                 TrackAudioFeatures.bpm >= min_bpm,
-                TrackAudioFeatures.bpm <= max_bpm
+                TrackAudioFeatures.bpm <= max_bpm,
             )
         )
 
@@ -554,13 +582,11 @@ class TrackAudioFeaturesService:
             relative_letter = "B" if camelot_letter == "A" else "A"
             compatible_keys.append(f"{camelot_num}{relative_letter}")
 
-            query = query.where(
-                TrackAudioFeatures.camelot_key.in_(compatible_keys)
-            )
+            query = query.where(TrackAudioFeatures.camelot_key.in_(compatible_keys))
         elif reference.key:
             query = query.where(TrackAudioFeatures.key == reference.key)
 
-        result = await self.session.execute(
+        result = await self._execute(
             query.limit(limit).order_by(
                 func.abs(TrackAudioFeatures.bpm - reference.bpm)
             )
@@ -574,9 +600,7 @@ class TrackAudioFeaturesService:
         Returns:
             Nombre de pistes analysées
         """
-        result = await self.session.execute(
-            select(func.count(TrackAudioFeatures.id))
-        )
+        result = await self._execute(select(func.count(TrackAudioFeatures.id)))
         return result.scalar() or 0
 
     async def get_analysis_statistics(self) -> Dict[str, Any]:
@@ -589,32 +613,39 @@ class TrackAudioFeaturesService:
         stats = {}
 
         # Nombre total
-        stats['total_analyzed'] = await self.count_analyzed_tracks()
+        stats["total_analyzed"] = await self.count_analyzed_tracks()
 
         # BPM moyen, min, max
-        bpm_stats = await self.session.execute(
+        bpm_stats = await self._execute(
             select(
                 func.avg(TrackAudioFeatures.bpm),
                 func.min(TrackAudioFeatures.bpm),
-                func.max(TrackAudioFeatures.bpm)
+                func.max(TrackAudioFeatures.bpm),
             ).where(TrackAudioFeatures.bpm.isnot(None))
         )
-        avg_bpm, min_bpm, max_bpm = bpm_stats.first()
-        stats['bpm'] = {
-            'average': round(avg_bpm, 2) if avg_bpm else None,
-            'min': min_bpm,
-            'max': max_bpm
+        bpm_row = bpm_stats.first()
+        if bpm_row is None:
+            avg_bpm, min_bpm, max_bpm = None, None, None
+        else:
+            typed_bpm_row = cast(
+                Tuple[Optional[float], Optional[float], Optional[float]], bpm_row
+            )
+            avg_bpm, min_bpm, max_bpm = typed_bpm_row
+
+        stats["bpm"] = {
+            "average": round(avg_bpm, 2) if avg_bpm else None,
+            "min": min_bpm,
+            "max": max_bpm,
         }
 
         # Répartition par source d'analyse
-        source_result = await self.session.execute(
+        source_result = await self._execute(
             select(
-                TrackAudioFeatures.analysis_source,
-                func.count(TrackAudioFeatures.id)
+                TrackAudioFeatures.analysis_source, func.count(TrackAudioFeatures.id)
             ).group_by(TrackAudioFeatures.analysis_source)
         )
-        stats['by_source'] = {
-            row[0] or 'unknown': row[1] for row in source_result.all()
+        stats["by_source"] = {
+            row[0] or "unknown": row[1] for row in source_result.all()
         }
 
         return stats
@@ -690,28 +721,24 @@ class TrackAudioFeaturesService:
             genre_main=genre_main,
             camelot_key=camelot_key,
             analysis_source=mir_source,
-            analyzed_at=datetime.utcnow(),
+            analyzed_at=datetime.now(timezone.utc),
         )
 
-        # Ajouter les champs MIR si fournis
-        if hasattr(features, 'mir_source'):
-            features.mir_source = mir_source
-        if hasattr(features, 'mir_version'):
-            features.mir_version = mir_version
-        if hasattr(features, 'confidence_score'):
-            features.confidence_score = confidence_score
+        # Les champs MIR ne sont pas dans le modèle TrackAudioFeatures
+        # Ignorer silencieusement (future migration DB possible)
+        pass
 
         try:
             self.session.add(features)
-            await self.session.commit()
-            await self.session.refresh(features)
+            await self._commit()
+            await self._refresh(features)
             logger.info(
                 f"[AUDIO_FEATURES] Créées avec MIR pour track_id={track_id}: "
                 f"source={mir_source}, confidence={confidence_score}"
             )
             return features
         except IntegrityError as e:
-            await self.session.rollback()
+            await self._rollback()
             logger.error(
                 f"[AUDIO_FEATURES] Erreur création MIR pour track_id={track_id}: {e}"
             )
@@ -759,39 +786,35 @@ class TrackAudioFeaturesService:
 
         # Mise à jour des champs non-None
         update_data = {
-            'bpm': bpm,
-            'key': key,
-            'scale': scale,
-            'danceability': danceability,
-            'mood_happy': mood_happy,
-            'mood_aggressive': mood_aggressive,
-            'mood_party': mood_party,
-            'mood_relaxed': mood_relaxed,
-            'instrumental': instrumental,
-            'acoustic': acoustic,
-            'tonal': tonal,
-            'genre_main': genre_main,
-            'camelot_key': camelot_key,
-            'analysis_source': mir_source,
+            "bpm": bpm,
+            "key": key,
+            "scale": scale,
+            "danceability": danceability,
+            "mood_happy": mood_happy,
+            "mood_aggressive": mood_aggressive,
+            "mood_party": mood_party,
+            "mood_relaxed": mood_relaxed,
+            "instrumental": instrumental,
+            "acoustic": acoustic,
+            "tonal": tonal,
+            "genre_main": genre_main,
+            "camelot_key": camelot_key,
+            "analysis_source": mir_source,
         }
 
         for field, value in update_data.items():
             if value is not None:
                 setattr(features, field, value)
 
-        # Mise à jour des champs MIR
-        if mir_source is not None and hasattr(features, 'mir_source'):
-            features.mir_source = mir_source
-        if mir_version is not None and hasattr(features, 'mir_version'):
-            features.mir_version = mir_version
-        if confidence_score is not None and hasattr(features, 'confidence_score'):
-            features.confidence_score = confidence_score
+        # TODO(soniquebay): Ajouter une migration DB + ORM si mir_version et
+        # confidence_score doivent être persistés dans TrackAudioFeatures.
+        # Pour l'instant, seul analysis_source (mappé depuis mir_source) est supporté.
 
-        features.analyzed_at = datetime.utcnow()
+        features.analyzed_at = datetime.now(timezone.utc)
         features.date_modified = func.now()
 
-        await self.session.commit()
-        await self.session.refresh(features)
+        await self._commit()
+        await self._refresh(features)
         logger.info(
             f"[AUDIO_FEATURES] Mises à jour avec MIR pour track_id={track_id}: "
             f"confidence={confidence_score}"

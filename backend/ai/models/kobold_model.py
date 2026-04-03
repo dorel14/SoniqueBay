@@ -16,6 +16,7 @@ Configuration Docker :
 Configuration locale :
     KOBOLDCPP_BASE_URL=http://localhost:5001
 """
+
 import json
 import os
 from contextlib import asynccontextmanager
@@ -131,12 +132,13 @@ class KoboldStreamedResponse(StreamedResponse):
 
                 # Vérifier si c'est la fin du stream (finish_reason)
                 finish_reason = data.get("finish_reason")
-                if finish_reason and finish_reason != "null":  # None/"null" → continue, other values → stop
+                if (
+                    finish_reason and finish_reason != "null"
+                ):  # None/"null" → continue, other values → stop
                     logger.debug(
                         f"[KoboldNative] Fin du flux SSE (finish_reason={finish_reason})"
                     )
                     return
-
 
             except json.JSONDecodeError:
                 logger.debug(
@@ -209,13 +211,10 @@ class KoboldNativeModel(Model):
 
         # Utiliser _base_url pour stocker la valeur, exposée via la propriété base_url
         self._base_url = (
-            base_url
-            or os.getenv("KOBOLDCPP_BASE_URL", "http://llm-service:5001")
+            base_url or os.getenv("KOBOLDCPP_BASE_URL", "http://llm-service:5001")
         ).rstrip("/")
 
-        self._model_name = model_name or os.getenv(
-            "AGENT_MODEL", "kobold-local"
-        )
+        self._model_name = model_name or os.getenv("AGENT_MODEL", "kobold-local")
 
         # Le client HTTP est maintenant géré par llm_http_client (singleton partagé)
         # pour maintenir une connexion persistante avec keep-alive
@@ -255,16 +254,16 @@ class KoboldNativeModel(Model):
 
         client = get_llm_http_client()
         try:
-            response = await client.post(f"{self._base_url}/api/v1/generate", json=payload)
+            response = await client.post(
+                f"{self._base_url}/api/v1/generate", json=payload
+            )
             response.raise_for_status()
             data = response.json()
 
             # L'API native KoboldCPP retourne {"results": [{"text": "..."}]}
             text = data["results"][0]["text"]
 
-            logger.debug(
-                f"[KoboldNative] Réponse reçue: {len(text)} chars"
-            )
+            logger.debug(f"[KoboldNative] Réponse reçue: {len(text)} chars")
 
             return ModelResponse(
                 parts=[TextPart(content=text)],
@@ -290,9 +289,7 @@ class KoboldNativeModel(Model):
                 f"[KoboldNative] Format de réponse inattendu: {e}. "
                 f"Réponse brute: {data if 'data' in locals() else 'N/A'}"
             )
-            raise ValueError(
-                f"Format de réponse KoboldCPP inattendu: {e}"
-            ) from e
+            raise ValueError(f"Format de réponse KoboldCPP inattendu: {e}") from e
 
     @asynccontextmanager
     async def request_stream(
@@ -327,9 +324,7 @@ class KoboldNativeModel(Model):
         prompt = self._format_messages(messages)
         payload = self._build_payload(prompt, model_settings)
 
-        logger.debug(
-            f"[KoboldNative] Requête streaming: {len(prompt)} chars de prompt"
-        )
+        logger.debug(f"[KoboldNative] Requête streaming: {len(prompt)} chars de prompt")
 
         client = get_llm_http_client()
         try:
@@ -463,9 +458,7 @@ class KoboldNativeModel(Model):
                     # SECURITY: Sanitisation du contenu tool pour prévenir
                     # les injections si le résultat contient des données utilisateur
                     content = self._sanitize_chatml_markers(str(content))
-                    parts.append(
-                        f"<|im_start|>tool\n[{tool_name}]: {content}</s>"
-                    )
+                    parts.append(f"<|im_start|>tool\n[{tool_name}]: {content}</s>")
 
                 elif part_kind == "retry-prompt":
                     # Message de retry (erreur de validation)
@@ -511,21 +504,19 @@ class KoboldNativeModel(Model):
             "max_length": max_tokens,
             # TODO(dev): Rendre max_context_length configurable via env var
             # Valeur actuelle : 2048 tokens (adapté RPi4 avec 4GB RAM)
-            "max_context_length": int(
-                os.getenv("KOBOLD_CTX_LENGTH", "2048")
-            ),
+            "max_context_length": int(os.getenv("KOBOLD_CTX_LENGTH", "2048")),
             "temperature": temperature,
             "top_p": top_p,
             "top_k": 100,
             # --- Paramètres natifs KoboldCPP (non disponibles via API OpenAI) ---
-            "tfs": 1.0,           # Tail-free sampling (1.0 = désactivé)
-            "top_a": 0.0,         # Top-A sampling (0.0 = désactivé)
-            "min_p": 0.05,        # Min-P sampling
-            "typical": 1.0,       # Typical sampling (1.0 = désactivé)
-            "rep_pen": 1.1,       # Repetition penalty
+            "tfs": 1.0,  # Tail-free sampling (1.0 = désactivé)
+            "top_a": 0.0,  # Top-A sampling (0.0 = désactivé)
+            "min_p": 0.05,  # Min-P sampling
+            "typical": 1.0,  # Typical sampling (1.0 = désactivé)
+            "rep_pen": 1.1,  # Repetition penalty
             "rep_pen_range": 1024,
             "rep_pen_slope": 0.7,
-            "quiet": True,        # Supprime les logs verbeux de KoboldCPP
+            "quiet": True,  # Supprime les logs verbeux de KoboldCPP
         }
 
     @property
@@ -551,4 +542,6 @@ class KoboldNativeModel(Model):
         Cette méthode est conservée pour compatibilité mais ne ferme plus
         le client (qui est géré globalement).
         """
-        logger.debug("[KoboldNative] aclose() appelé (client partagé, pas de fermeture)")
+        logger.debug(
+            "[KoboldNative] aclose() appelé (client partagé, pas de fermeture)"
+        )

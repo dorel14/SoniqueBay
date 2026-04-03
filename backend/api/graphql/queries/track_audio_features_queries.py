@@ -406,9 +406,7 @@ class TrackAudioFeaturesQuery:
             return stats
 
     @strawberry.field
-    async def tracks_without_audio_features(
-        self, limit: int = 100
-    ) -> List[dict]:
+    async def tracks_without_audio_features(self, limit: int = 100) -> List[dict]:
         """
         Récupère les IDs des pistes sans caractéristiques audio.
 

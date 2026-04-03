@@ -10,6 +10,7 @@ from .database import get_session, get_async_session
 from .logging import logger
 from .settings import Settings
 from .locked_session import LockedSession
+
 # from .suggestion import SuggestionEngine  # Temporairement commenté - classe manquante
 
 __all__ = [

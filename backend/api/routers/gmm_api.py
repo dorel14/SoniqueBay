@@ -46,9 +46,8 @@ router = APIRouter(prefix="/api/gmm", tags=["GMM Clustering"])
 # Helpers
 # ============================================================================
 
-async def _get_artist_by_id(
-    artist_id: int, db: AsyncSession
-) -> Optional[dict]:
+
+async def _get_artist_by_id(artist_id: int, db: AsyncSession) -> Optional[dict]:
     """Récupère les informations d'un artiste par son ID.
 
     Args:
@@ -109,6 +108,7 @@ async def _get_artist_embedding_info(
 # Endpoints
 # ============================================================================
 
+
 @router.post(
     "/cluster",
     response_model=ClusteringTaskResponse,
@@ -134,7 +134,9 @@ async def trigger_full_clustering(
         HTTPException: Si l'envoi de la tâche échoue
     """
     try:
-        logger.info(f"[GMM] Déclenchement clustering complet (force_refresh={force_refresh})")
+        logger.info(
+            f"[GMM] Déclenchement clustering complet (force_refresh={force_refresh})"
+        )
 
         # Envoyer la tâche Celery
         task = celery_app.send_task(
@@ -230,7 +232,9 @@ async def cluster_single_artist(
         else:
             # L'artiste n'a pas encore de cluster
             # On peut retourner une réponse partielle ou lancer le clustering
-            logger.info(f"[GMM] Artiste {artist_id} ({artist_info['name']}) - pas encore clusterisé")
+            logger.info(
+                f"[GMM] Artiste {artist_id} ({artist_info['name']}) - pas encore clusterisé"
+            )
 
             return ClusterResponse(
                 artist_id=artist_id,
@@ -349,7 +353,9 @@ async def get_similar_artists(
         HTTPException: Si l'artiste n'existe pas ou n'a pas de cluster
     """
     try:
-        logger.info(f"[GMM] Recherche artistes similaires à {artist_id} (limit={limit})")
+        logger.info(
+            f"[GMM] Recherche artistes similaires à {artist_id} (limit={limit})"
+        )
 
         # Vérifier que l'artiste existe
         artist_info = await _get_artist_by_id(artist_id, db)
@@ -376,11 +382,13 @@ async def get_similar_artists(
         # Formater la réponse
         similar_artists = []
         for rec in similar_recommendation.similar_artists:
-            similar_artists.append({
-                "artist_name": rec.get("artist_name", ""),
-                "cluster": rec.get("cluster"),
-                "similarity_score": rec.get("similarity_score", 0.0),
-            })
+            similar_artists.append(
+                {
+                    "artist_name": rec.get("artist_name", ""),
+                    "cluster": rec.get("cluster"),
+                    "similarity_score": rec.get("similarity_score", 0.0),
+                }
+            )
 
         cluster_id = embedding_info.get("cluster")
 

@@ -9,6 +9,7 @@ class OllamaStreamModel(Model):
     """
     Backend PydanticAI avec support streaming pour Ollama.
     """
+
     def __init__(self, model_name: str, api_url="http://localhost:11434/api/generate"):
         self.model_name = model_name
         self.api_url = api_url

@@ -12,10 +12,12 @@ class ArtistQueries:
     """Queries for artists."""
 
     @strawberry.field
-    async def artist(self, info: strawberry.types.Info, id: int) -> Optional[ArtistType]:
+    async def artist(
+        self, info: strawberry.types.Info, id: int
+    ) -> Optional[ArtistType]:
         from backend.api.utils.cache_utils import graphql_cache
 
-        cache_params = {'id': id}
+        cache_params = {"id": id}
         cached_data = graphql_cache.get("artist_v2", **cache_params)
         if cached_data is not None:
             return ArtistType(**cached_data)
@@ -30,24 +32,30 @@ class ArtistQueries:
 
             # Extract only the fields that exist in ArtistType
             data = {
-                'id': artist_data.get('id'),
-                'name': artist_data.get('name'),
-                'musicbrainz_artistid': artist_data.get('musicbrainz_artistid')
+                "id": artist_data.get("id"),
+                "name": artist_data.get("name"),
+                "musicbrainz_artistid": artist_data.get("musicbrainz_artistid"),
             }
 
             # Covers and albums will be resolved via GraphQL fields if requested
 
             graphql_cache.set("artist_v2", data, 300, **cache_params)
-            logger.info(f"Completed GraphQL query for artist id={id} in {time.time() - start_time:.4f}s")
+            logger.info(
+                f"Completed GraphQL query for artist id={id} in {time.time() - start_time:.4f}s"
+            )
             return ArtistType(**data)
-        logger.info(f"Completed GraphQL query for artist id={id} in {time.time() - start_time:.4f}s")
+        logger.info(
+            f"Completed GraphQL query for artist id={id} in {time.time() - start_time:.4f}s"
+        )
         return None
 
     @strawberry.field
-    async def artists(self, info: strawberry.types.Info, skip: int = 0, limit: int = 100) -> list[ArtistType]:
+    async def artists(
+        self, info: strawberry.types.Info, skip: int = 0, limit: int = 100
+    ) -> list[ArtistType]:
         from backend.api.utils.cache_utils import graphql_cache
 
-        cache_params = {'skip': skip, 'limit': limit}
+        cache_params = {"skip": skip, "limit": limit}
         cached_data = graphql_cache.get("artists", **cache_params)
         if cached_data is not None:
             return [ArtistType(**d) for d in cached_data]
@@ -56,11 +64,7 @@ class ArtistQueries:
         service = ArtistService(db)
         artists, _ = await service.get_artists_paginated(skip, limit)
         data_list = [
-            {
-                'id': a.id,
-                'name': a.name,
-                'musicbrainz_artistid': a.musicbrainz_artistid
-            }
+            {"id": a.id, "name": a.name, "musicbrainz_artistid": a.musicbrainz_artistid}
             for a in artists
         ]
         graphql_cache.set("artists", data_list, 60, **cache_params)

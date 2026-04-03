@@ -45,56 +45,48 @@ class TrackMIRRaw(Base, TimestampMixin):
         analyzed_at: Date de l'analyse MIR
     """
 
-    __tablename__ = 'track_mir_raw'
+    __tablename__ = "track_mir_raw"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
     # Clé étrangère vers Track avec contrainte UNIQUE (relation 1:1)
     track_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey('tracks.id', ondelete='CASCADE'),
+        ForeignKey("tracks.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True
+        unique=True,
     )
 
     # Données MIR brutes en JSON
     features_raw: Mapped[dict[str, Any]] = mapped_column(
-        JSON,
-        nullable=True,
-        doc="Tags MIR bruts en format JSON"
+        JSON, nullable=True, doc="Tags MIR bruts en format JSON"
     )
 
     # Traçabilité de la source MIR
     mir_source: Mapped[str] = mapped_column(
         String(50),
         nullable=True,
-        doc="Source MIR: acoustid, standards, librosa, essentia"
+        doc="Source MIR: acoustid, standards, librosa, essentia",
     )
     mir_version: Mapped[str] = mapped_column(
-        String(20),
-        nullable=True,
-        doc="Version du modèle/pipeline MIR"
+        String(20), nullable=True, doc="Version du modèle/pipeline MIR"
     )
     analyzed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-        doc="Date de l'analyse MIR"
+        DateTime(timezone=True), nullable=True, doc="Date de l'analyse MIR"
     )
 
     # Relations
     track: Mapped["Track"] = relationship(
-        "Track",
-        back_populates="mir_raw",
-        lazy="selectin"
+        "Track", back_populates="mir_raw", lazy="selectin"
     )
 
     __table_args__ = (
         # Index UNIQUE sur track_id
-        Index('idx_track_mir_raw_track_id', 'track_id', unique=True),
+        Index("idx_track_mir_raw_track_id", "track_id", unique=True),
         # Index pour les recherches par source MIR
-        Index('idx_track_mir_raw_source', 'mir_source'),
+        Index("idx_track_mir_raw_source", "mir_source"),
         # Index temporel pour les analyses
-        Index('idx_track_mir_raw_analyzed_at', 'analyzed_at'),
+        Index("idx_track_mir_raw_analyzed_at", "analyzed_at"),
     )
 
     def __repr__(self) -> str:
@@ -106,12 +98,14 @@ class TrackMIRRaw(Base, TimestampMixin):
     def to_dict(self) -> dict:
         """Convertit l'objet en dictionnaire pour sérialisation."""
         return {
-            'id': self.id,
-            'track_id': self.track_id,
-            'features_raw': self.features_raw,
-            'mir_source': self.mir_source,
-            'mir_version': self.mir_version,
-            'analyzed_at': self.analyzed_at.isoformat() if self.analyzed_at else None,
-            'date_added': self.date_added.isoformat() if self.date_added else None,
-            'date_modified': self.date_modified.isoformat() if self.date_modified else None,
+            "id": self.id,
+            "track_id": self.track_id,
+            "features_raw": self.features_raw,
+            "mir_source": self.mir_source,
+            "mir_version": self.mir_version,
+            "analyzed_at": self.analyzed_at.isoformat() if self.analyzed_at else None,
+            "date_added": self.date_added.isoformat() if self.date_added else None,
+            "date_modified": (
+                self.date_modified.isoformat() if self.date_modified else None
+            ),
         }

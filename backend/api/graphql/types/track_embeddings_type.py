@@ -20,7 +20,6 @@ from typing import Optional, List
 import strawberry
 
 
-
 @strawberry.type
 class TrackEmbeddingsType:
     """

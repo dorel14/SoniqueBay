@@ -12,8 +12,10 @@ class SettingBase(BaseModel):
     description: Optional[str] = None
     is_encrypted: bool = False
 
+
 class SettingCreate(SettingBase):
     pass
+
 
 class Setting(SettingBase, TimestampedSchema):
     id: int

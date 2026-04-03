@@ -84,7 +84,9 @@ class SettingsService:
         is_valid = PathVariables.validate_path_template(template)
         return {"is_valid": is_valid, "template": template}
 
-    async def create_setting(self, setting: SettingCreate, db: AsyncSession) -> SettingModel:
+    async def create_setting(
+        self, setting: SettingCreate, db: AsyncSession
+    ) -> SettingModel:
         """Crée un paramètre, chiffre la valeur si nécessaire."""
         value = encrypt_value(setting.value) if setting.is_encrypted else setting.value
         db_setting = SettingModel(
@@ -143,9 +145,7 @@ class SettingsService:
 
     async def read_setting(self, key: str, db: AsyncSession) -> Optional[SettingModel]:
         """Retourne un paramètre par clé, crée la valeur par défaut si besoin."""
-        result = await db.execute(
-            select(SettingModel).where(SettingModel.key == key)
-        )
+        result = await db.execute(select(SettingModel).where(SettingModel.key == key))
         db_setting = result.scalars().first()
 
         if not db_setting:
@@ -187,9 +187,7 @@ class SettingsService:
         self, key: str, setting: SettingCreate, db: AsyncSession
     ) -> Optional[SettingModel]:
         """Met à jour un paramètre existant, chiffre la valeur si besoin."""
-        result = await db.execute(
-            select(SettingModel).where(SettingModel.key == key)
-        )
+        result = await db.execute(select(SettingModel).where(SettingModel.key == key))
         db_setting = result.scalars().first()
 
         if not db_setting:

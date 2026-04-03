@@ -18,7 +18,9 @@ class MIRRawPayload(BaseModel):
     """Payload pour les données MIR brutes."""
 
     tags: List[str] = Field(default_factory=list, description="Tags MIR bruts")
-    source: str = Field(..., description="Source MIR (acoustid, standards, librosa, etc.)")
+    source: str = Field(
+        ..., description="Source MIR (acoustid, standards, librosa, etc.)"
+    )
     version: str = Field(default="1.0", description="Version du pipeline MIR")
     features_raw: Optional[Dict[str, Any]] = Field(
         default=None, description="Features brutes en JSON"
@@ -31,7 +33,9 @@ class MIRNormalizedPayload(BaseModel):
     bpm: Optional[float] = Field(default=None, description="Tempo en BPM")
     key: Optional[str] = Field(default=None, description="Tonalité (C, C#, etc.)")
     scale: Optional[str] = Field(default=None, description="Mode (major/minor)")
-    camelot_key: Optional[str] = Field(default=None, description="Clé Camelot (8B, 5A, etc.)")
+    camelot_key: Optional[str] = Field(
+        default=None, description="Clé Camelot (8B, 5A, etc.)"
+    )
     danceability: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     mood_happy: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     mood_aggressive: Optional[float] = Field(default=None, ge=0.0, le=1.0)
@@ -41,7 +45,9 @@ class MIRNormalizedPayload(BaseModel):
     acoustic: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     tonal: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     genre_main: Optional[str] = Field(default=None, description="Genre principal")
-    genre_secondary: List[str] = Field(default_factory=list, description="Genres secondaires")
+    genre_secondary: List[str] = Field(
+        default_factory=list, description="Genres secondaires"
+    )
     confidence_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 

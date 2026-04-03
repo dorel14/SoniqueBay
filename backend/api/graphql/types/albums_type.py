@@ -5,6 +5,7 @@ import strawberry
 from backend.api.graphql.types.covers_type import CoverType
 from backend.api.graphql.types.tracks_type import TrackType
 
+
 @strawberry.type
 class AlbumType:
     id: int
@@ -12,6 +13,7 @@ class AlbumType:
     album_artist_id: int
     release_year: str | None = strawberry.field(name="releaseYear")
     musicbrainz_albumid: str | None
+
     @strawberry.field
     async def covers(self, info: strawberry.types.Info) -> list[CoverType]:
         """Get all covers for this album."""

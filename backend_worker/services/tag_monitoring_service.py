@@ -427,6 +427,11 @@ class CeleryTaskPublisher:  # Alias pour compatibilité avec tests
 
 
 
+# Alias de compatibilité pour anciens tests/consommateurs.
+# TODO(taskiq-migration): supprimer cet alias après alignement complet des tests.
+RedisPublisher = CeleryTaskPublisher
+
+
 class TagMonitoringService:
     """Service principal de monitoring des tags."""
     

@@ -43,22 +43,19 @@ def validate_index_directory(index_dir: str) -> str:
         return str(resolved_path)
     else:
         # Pour les noms relatifs, vérifications de sécurité
-        if ('..' in normalized or
-            '/' in normalized or
-            '\\' in normalized or
-            normalized.startswith('.') or
-            normalized == '' or
-            len(normalized) > 100):  # Limite de longueur raisonnable
+        if (
+            ".." in normalized
+            or "/" in normalized
+            or "\\" in normalized
+            or normalized.startswith(".")
+            or normalized == ""
+            or len(normalized) > 100
+        ):  # Limite de longueur raisonnable
             logger.error(f"Invalid index directory name: {index_dir}")
             raise ValueError(f"Invalid index directory: {index_dir}")
 
         # Liste blanche des noms de répertoires autorisés
-        allowed_names = {
-            'search_index',
-            'music_index',
-            'test_index',
-            'temp_index'
-        }
+        allowed_names = {"search_index", "music_index", "test_index", "temp_index"}
 
         # Vérifier que le nom est dans la liste blanche
         if normalized not in allowed_names:
@@ -82,7 +79,9 @@ def get_or_create_index(index_dir: str, indexname: str = "music_index"):
     Stub pour compatibilité - retourne None car Whoosh n'est plus utilisé.
     La recherche se fait maintenant directement avec PostgreSQL.
     """
-    logger.warning("get_or_create_index appelé mais Whoosh n'est plus utilisé. Recherche via PostgreSQL.")
+    logger.warning(
+        "get_or_create_index appelé mais Whoosh n'est plus utilisé. Recherche via PostgreSQL."
+    )
     return None
 
 
@@ -91,7 +90,9 @@ def add_to_index(index, track):
     Stub pour compatibilité - ne fait rien car Whoosh n'est plus utilisé.
     L'indexation se fait maintenant avec PostgreSQL TSVECTOR.
     """
-    logger.warning("add_to_index appelé mais Whoosh n'est plus utilisé. Indexation via PostgreSQL.")
+    logger.warning(
+        "add_to_index appelé mais Whoosh n'est plus utilisé. Indexation via PostgreSQL."
+    )
 
 
 def search_index(index, query, use_cache=True):
@@ -99,7 +100,9 @@ def search_index(index, query, use_cache=True):
     Stub pour compatibilité - retourne résultats vides car Whoosh n'est plus utilisé.
     La recherche se fait maintenant avec PostgreSQL FTS + pgvector.
     """
-    logger.warning("search_index appelé mais Whoosh n'est plus utilisé. Recherche via PostgreSQL.")
+    logger.warning(
+        "search_index appelé mais Whoosh n'est plus utilisé. Recherche via PostgreSQL."
+    )
     return 0, [], [], [], []
 
 

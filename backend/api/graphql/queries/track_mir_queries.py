@@ -140,9 +140,7 @@ class TrackMIRQuery:
     """
 
     @strawberry.field
-    async def track_mir_raw(
-        self, track_id: int
-    ) -> Optional[TrackMIRRawType]:
+    async def track_mir_raw(self, track_id: int) -> Optional[TrackMIRRawType]:
         """
         Récupère les tags MIR bruts d'une piste par son ID.
 
@@ -180,9 +178,7 @@ class TrackMIRQuery:
             return _mir_normalized_to_type(mir_norm)
 
     @strawberry.field
-    async def track_mir_scores(
-        self, track_id: int
-    ) -> Optional[TrackMIRScoresType]:
+    async def track_mir_scores(self, track_id: int) -> Optional[TrackMIRScoresType]:
         """
         Récupère les scores MIR d'une piste par son ID.
 
@@ -212,7 +208,9 @@ class TrackMIRQuery:
         Returns:
             Liste des tags synthétiques
         """
-        logger.info(f"[MIR Query] Récupération tags synthétiques pour track_id={track_id}")
+        logger.info(
+            f"[MIR Query] Récupération tags synthétiques pour track_id={track_id}"
+        )
 
         async with get_async_session() as session:
             service = TrackMIRService(session)

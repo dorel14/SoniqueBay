@@ -9,7 +9,7 @@ from backend.api.schemas.artist_similar_schema import (
     ArtistSimilarCreate,
     ArtistSimilarUpdate,
     ArtistSimilarWithDetails,
-    ArtistSimilarListResponse
+    ArtistSimilarListResponse,
 )
 from backend.api.utils.database import get_async_session
 from backend.api.schemas.artists_schema import ArtistCreate, Artist, ArtistWithRelations
@@ -33,15 +33,19 @@ async def search_artists(
     genre: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: Optional[int] = Query(None, ge=1, le=1000),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     service = ArtistService(db)
-    artists = await service.search_artists(name, musicbrainz_artistid, genre, skip, limit)
+    artists = await service.search_artists(
+        name, musicbrainz_artistid, genre, skip, limit
+    )
     return [Artist.model_validate(a) for a in artists]
 
 
 @router.post("/batch", response_model=List[Artist])
-async def create_artists_batch(artists: List[ArtistCreate], db: AsyncSession = Depends(get_async_session)):
+async def create_artists_batch(
+    artists: List[ArtistCreate], db: AsyncSession = Depends(get_async_session)
+):
     service = ArtistService(db)
     try:
         result = await service.bulk_create_artists(artists)
@@ -51,7 +55,9 @@ async def create_artists_batch(artists: List[ArtistCreate], db: AsyncSession = D
 
 
 @router.post("/", response_model=Artist)
-async def create_artist(artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)):
+async def create_artist(
+    artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)
+):
     service = ArtistService(db)
     try:
         created = await service.create_artist(artist_data=artist)
@@ -76,12 +82,14 @@ async def get_artists_count(db: AsyncSession = Depends(get_async_session)):
 
 
 @router.get("/", response_model=PaginatedArtists)
-async def read_artists(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)):
+async def read_artists(
+    skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_async_session)
+):
     service = ArtistService(db)
     artists, total_count = await service.get_artists_paginated(skip, limit)
     return {
         "count": total_count,
-        "results": [Artist.model_validate(a) for a in artists]
+        "results": [Artist.model_validate(a) for a in artists],
     }
 
 
@@ -95,12 +103,14 @@ async def read_artist(artist_id: int, db: AsyncSession = Depends(get_async_sessi
 
 
 @router.put("/{artist_id}", response_model=Artist)
-async def update_artist(artist_id: int, artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)):
+async def update_artist(
+    artist_id: int, artist: ArtistCreate, db: AsyncSession = Depends(get_async_session)
+):
     service = ArtistService(db)
     updated = await service.update_artist(
         artist_id=artist_id,
         name=artist.name,
-        musicbrainz_artistid=artist.musicbrainz_artistid
+        musicbrainz_artistid=artist.musicbrainz_artistid,
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Artiste non trouvé")
@@ -117,10 +127,13 @@ async def delete_artist(artist_id: int, db: AsyncSession = Depends(get_async_ses
 
 
 @router.get("/{artist_id}/tracks", response_model=List[TrackWithRelations])
-async def read_artist_tracks(artist_id: int, db: AsyncSession = Depends(get_async_session)):
+async def read_artist_tracks(
+    artist_id: int, db: AsyncSession = Depends(get_async_session)
+):
     """Récupère toutes les pistes d'un artiste."""
     from backend.api.services.track_service import TrackService
     from backend.api.schemas.tracks_schema import TrackWithRelations
+
     service = TrackService(db)
     tracks = await service.get_artist_tracks(artist_id)
     return [TrackWithRelations.model_validate(t).model_dump() for t in tracks]
@@ -131,7 +144,7 @@ async def read_artist_tracks(artist_id: int, db: AsyncSession = Depends(get_asyn
 async def get_similar_artists(
     artist_id: int,
     limit: int = Query(10, ge=1, le=50),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Get similar artists for a specific artist.
@@ -145,7 +158,9 @@ async def get_similar_artists(
     """
     service = ArtistSimilarService(db)
     try:
-        similar_artists = await service.get_similar_artists_with_details(artist_id, limit)
+        similar_artists = await service.get_similar_artists_with_details(
+            artist_id, limit
+        )
         return similar_artists
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -155,7 +170,7 @@ async def get_similar_artists(
 async def create_similar_relationship(
     artist_id: int,
     similar_data: ArtistSimilarCreate,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Create a new artist similarity relationship.
@@ -174,11 +189,13 @@ async def create_similar_relationship(
             artist_id=artist_id,
             similar_artist_id=similar_data.similar_artist_id,
             weight=similar_data.weight,
-            source=similar_data.source
+            source=similar_data.source,
         )
 
         # Return with artist names
-        similar_with_details = await service.get_similar_artists_with_details(artist_id, 1)
+        similar_with_details = await service.get_similar_artists_with_details(
+            artist_id, 1
+        )
         if similar_with_details:
             return similar_with_details[0]
 
@@ -189,8 +206,14 @@ async def create_similar_relationship(
             "similar_artist_id": relationship.similar_artist_id,
             "weight": relationship.weight,
             "source": relationship.source,
-            "created_at": relationship.date_added.isoformat() if relationship.date_added else None,
-            "updated_at": relationship.date_modified.isoformat() if relationship.date_modified else None
+            "created_at": (
+                relationship.date_added.isoformat() if relationship.date_added else None
+            ),
+            "updated_at": (
+                relationship.date_modified.isoformat()
+                if relationship.date_modified
+                else None
+            ),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -200,7 +223,7 @@ async def create_similar_relationship(
 async def update_similar_relationship(
     relationship_id: int,
     update_data: ArtistSimilarUpdate,
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Update an existing artist similarity relationship.
@@ -218,14 +241,16 @@ async def update_similar_relationship(
         relationship = await service.update_similar_relationship(
             relationship_id=relationship_id,
             weight=update_data.weight,
-            source=update_data.source
+            source=update_data.source,
         )
 
         # Get the artist ID from the relationship
         artist_id = relationship.artist_id
 
         # Return with artist names
-        similar_with_details = await service.get_similar_artists_with_details(artist_id, 1)
+        similar_with_details = await service.get_similar_artists_with_details(
+            artist_id, 1
+        )
         if similar_with_details:
             return similar_with_details[0]
 
@@ -236,8 +261,14 @@ async def update_similar_relationship(
             "similar_artist_id": relationship.similar_artist_id,
             "weight": relationship.weight,
             "source": relationship.source,
-            "created_at": relationship.date_added.isoformat() if relationship.date_added else None,
-            "updated_at": relationship.date_modified.isoformat() if relationship.date_modified else None
+            "created_at": (
+                relationship.date_added.isoformat() if relationship.date_added else None
+            ),
+            "updated_at": (
+                relationship.date_modified.isoformat()
+                if relationship.date_modified
+                else None
+            ),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -245,8 +276,7 @@ async def update_similar_relationship(
 
 @router.delete("/similar/{relationship_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_similar_relationship(
-    relationship_id: int,
-    db: AsyncSession = Depends(get_async_session)
+    relationship_id: int, db: AsyncSession = Depends(get_async_session)
 ):
     """
     Delete an artist similarity relationship.
@@ -271,7 +301,7 @@ async def delete_similar_relationship(
 async def get_all_similar_relationships(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Get all artist similarity relationships with pagination.
@@ -285,7 +315,9 @@ async def get_all_similar_relationships(
     """
     service = ArtistSimilarService(db)
     try:
-        relationships, total_count = await service.get_all_relationships_paginated(skip, limit)
+        relationships, total_count = await service.get_all_relationships_paginated(
+            skip, limit
+        )
 
         # Convert to detailed format
         detailed_relationships = []
@@ -301,30 +333,34 @@ async def get_all_similar_relationships(
             )
             similar_artist = similar_artist_result.scalar_one_or_none()
 
-            detailed_relationships.append({
-                "id": rel.id,
-                "artist_id": rel.artist_id,
-                "artist_name": artist.name if artist else "Unknown",
-                "similar_artist_id": rel.similar_artist_id,
-                "similar_artist_name": similar_artist.name if similar_artist else "Unknown",
-                "weight": rel.weight,
-                "source": rel.source,
-                "created_at": rel.date_added.isoformat() if rel.date_added else None,
-                "updated_at": rel.date_modified.isoformat() if rel.date_modified else None
-            })
+            detailed_relationships.append(
+                {
+                    "id": rel.id,
+                    "artist_id": rel.artist_id,
+                    "artist_name": artist.name if artist else "Unknown",
+                    "similar_artist_id": rel.similar_artist_id,
+                    "similar_artist_name": (
+                        similar_artist.name if similar_artist else "Unknown"
+                    ),
+                    "weight": rel.weight,
+                    "source": rel.source,
+                    "created_at": (
+                        rel.date_added.isoformat() if rel.date_added else None
+                    ),
+                    "updated_at": (
+                        rel.date_modified.isoformat() if rel.date_modified else None
+                    ),
+                }
+            )
 
-        return {
-            "count": total_count,
-            "results": detailed_relationships
-        }
+        return {"count": total_count, "results": detailed_relationships}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{artist_id}/lastfm-info")
 async def fetch_artist_lastfm_info(
-    artist_id: int,
-    db: AsyncSession = Depends(get_async_session)
+    artist_id: int, db: AsyncSession = Depends(get_async_session)
 ):
     """
     Trigger Last.fm information fetch for an artist via worker.
@@ -336,12 +372,11 @@ async def fetch_artist_lastfm_info(
         Task ID
     """
     from backend.api.utils.celery_app import celery_app
+
     try:
         # Trigger the worker task
         task = celery_app.send_task(
-            'lastfm.fetch_artist_info',
-            args=[artist_id],
-            queue='deferred'
+            "lastfm.fetch_artist_info", args=[artist_id], queue="deferred"
         )
         return {"task_id": task.id, "message": "Last.fm info fetch triggered"}
     except Exception as e:
@@ -350,9 +385,7 @@ async def fetch_artist_lastfm_info(
 
 @router.put("/{artist_id}/lastfm-info")
 async def update_artist_lastfm_info(
-    artist_id: int,
-    info: dict,
-    db: AsyncSession = Depends(get_async_session)
+    artist_id: int, info: dict, db: AsyncSession = Depends(get_async_session)
 ):
     """
     Update artist with Last.fm information.
@@ -376,16 +409,22 @@ async def update_artist_lastfm_info(
         if not artist:
             raise HTTPException(status_code=404, detail="Artist not found")
 
-        logger.info(f"[API] Updating Last.fm info for artist {artist_id} ({artist.name})")
+        logger.info(
+            f"[API] Updating Last.fm info for artist {artist_id} ({artist.name})"
+        )
         logger.debug(f"[API] Last.fm info data: {info}")
 
         # Update artist with Last.fm info
         artist.lastfm_url = info.get("url")
         artist.lastfm_listeners = info.get("listeners")
         artist.lastfm_playcount = info.get("playcount")
-        artist.lastfm_tags = json.dumps(info.get("tags", [])) if info.get("tags") else None
+        artist.lastfm_tags = (
+            json.dumps(info.get("tags", [])) if info.get("tags") else None
+        )
         artist.lastfm_bio = info.get("bio")
-        artist.lastfm_images = json.dumps(info.get("images", [])) if info.get("images") else None
+        artist.lastfm_images = (
+            json.dumps(info.get("images", [])) if info.get("images") else None
+        )
         artist.lastfm_musicbrainz_id = info.get("musicbrainz_id")
         artist.lastfm_info_fetched_at = datetime.utcnow()
 
@@ -407,9 +446,7 @@ async def update_artist_lastfm_info(
 
 @router.post("/{artist_id}/fetch-similar")
 async def fetch_similar_artists(
-    artist_id: int,
-    limit: int = 10,
-    db: AsyncSession = Depends(get_async_session)
+    artist_id: int, limit: int = 10, db: AsyncSession = Depends(get_async_session)
 ):
     """
     Trigger similar artists fetch from Last.fm for an artist via worker.
@@ -422,12 +459,11 @@ async def fetch_similar_artists(
         Task ID
     """
     from backend.api.utils.celery_app import celery_app
+
     try:
         # Trigger the worker task
         task = celery_app.send_task(
-            'lastfm.fetch_similar_artists',
-            args=[artist_id, limit],
-            queue='deferred'
+            "lastfm.fetch_similar_artists", args=[artist_id, limit], queue="deferred"
         )
         return {"task_id": task.id, "message": "Similar artists fetch triggered"}
     except Exception as e:
@@ -438,7 +474,7 @@ async def fetch_similar_artists(
 async def update_artist_similar(
     artist_id: int,
     similar_data: List[dict],
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Update artist with similar artists data.
@@ -473,10 +509,7 @@ async def update_artist_similar(
             similar_artist = similar_result.scalar_one_or_none()
 
             if not similar_artist:
-                similar_artist = Artist(
-                    name=similar_name,
-                    date_added=datetime.utcnow()
-                )
+                similar_artist = Artist(name=similar_name, date_added=datetime.utcnow())
                 db.add(similar_artist)
                 await db.flush()
 
@@ -484,7 +517,7 @@ async def update_artist_similar(
             existing_result = await db.execute(
                 select(ArtistSimilar).where(
                     ArtistSimilar.artist_id == artist_id,
-                    ArtistSimilar.similar_artist_id == similar_artist.id
+                    ArtistSimilar.similar_artist_id == similar_artist.id,
                 )
             )
             existing = existing_result.scalar_one_or_none()
@@ -495,7 +528,7 @@ async def update_artist_similar(
                 relation = ArtistSimilar(
                     artist_id=artist_id,
                     similar_artist_id=similar_artist.id,
-                    weight=weight
+                    weight=weight,
                 )
                 db.add(relation)
 
@@ -513,7 +546,7 @@ async def update_artist_similar(
 async def search_similar_artists_by_name(
     artist_name: str = Query(..., min_length=1),
     limit: int = Query(10, ge=1, le=50),
-    db: AsyncSession = Depends(get_async_session)
+    db: AsyncSession = Depends(get_async_session),
 ):
     """
     Search for similar artists by artist name.

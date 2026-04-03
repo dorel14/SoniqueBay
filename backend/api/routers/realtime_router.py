@@ -21,7 +21,9 @@ async def global_ws(websocket: WebSocket):
     logger.info("WebSocket accepté avec succès")
 
     try:
-        async for event in realtime_service.listen_to_channels(["notifications", "progress"]):
+        async for event in realtime_service.listen_to_channels(
+            ["notifications", "progress"]
+        ):
             # Pour WebSocket, on envoie le message brut (sans format SSE)
             message_data = event.replace("data: ", "").replace("\n\n", "")
             try:

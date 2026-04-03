@@ -4,6 +4,7 @@ Utilise PostgreSQL full-text search avec TSVECTOR et recherche vectorielle hybri
 Auteur : Kilo Code
 Dépendances : backend.api.schemas.search_schema
 """
+
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, text
@@ -18,7 +19,9 @@ class SearchService:
     """Service de recherche hybride PostgreSQL + pgvector."""
 
     @staticmethod
-    async def search(query: SearchQuery, db: Optional[AsyncSession] = None) -> SearchResult:
+    async def search(
+        query: SearchQuery, db: Optional[AsyncSession] = None
+    ) -> SearchResult:
         """
         Recherche hybride combinant recherche textuelle et vectorielle avec cache Redis.
 
@@ -31,6 +34,7 @@ class SearchService:
         """
         if not db:
             from backend.api.utils.database import get_async_db
+
             db = await get_async_db().__anext__()
 
         if not query.query or not query.query.strip():
@@ -39,7 +43,7 @@ class SearchService:
                 items=[],
                 facets={"artists": [], "genres": [], "decades": []},
                 page=query.page,
-                total_pages=0
+                total_pages=0,
             )
 
         # Vérifier le cache Redis pour les résultats de recherche
@@ -48,14 +52,18 @@ class SearchService:
         )
 
         if cached_result:
-            logger.debug(f"[SEARCH CACHE] Hit pour requête: '{query.query}' page {query.page}")
+            logger.debug(
+                f"[SEARCH CACHE] Hit pour requête: '{query.query}' page {query.page}"
+            )
             # Vérifier si les facettes sont en cache
             cached_facets = redis_cache_service.get_cached_facets()
             if cached_facets:
                 cached_result["facets"] = cached_facets
             return SearchResult(**cached_result)
 
-        logger.debug(f"[SEARCH CACHE] Miss pour requête: '{query.query}' page {query.page}")
+        logger.debug(
+            f"[SEARCH CACHE] Miss pour requête: '{query.query}' page {query.page}"
+        )
 
         # Recherche textuelle avec TSVECTOR
         text_results = await SearchService._text_search(query, db)
@@ -64,11 +72,13 @@ class SearchService:
         vector_results = await SearchService._vector_search(query, db)
 
         # Fusionner et scorer hybride
-        combined_results = SearchService._combine_results(text_results, vector_results, query)
+        combined_results = SearchService._combine_results(
+            text_results, vector_results, query
+        )
 
         # Pagination
         offset = (query.page - 1) * query.page_size
-        paginated_items = combined_results[offset:offset + query.page_size]
+        paginated_items = combined_results[offset : offset + query.page_size]
 
         # Facettes
         facets = await SearchService._get_facets(query, db)
@@ -81,7 +91,7 @@ class SearchService:
             items=paginated_items,
             facets=facets,
             page=query.page,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
         # Mettre en cache le résultat (sauf si c'est une requête vide ou trop spécifique)
@@ -94,14 +104,17 @@ class SearchService:
         return result
 
     @staticmethod
-    async def _text_search(query: SearchQuery, db: AsyncSession) -> List[Dict[str, Any]]:
+    async def _text_search(
+        query: SearchQuery, db: AsyncSession
+    ) -> List[Dict[str, Any]]:
         """Recherche textuelle avec PostgreSQL TSVECTOR."""
         try:
             # Préparer la requête de recherche
-            search_terms = func.plainto_tsquery('english', query.query)
+            search_terms = func.plainto_tsquery("english", query.query)
 
             # Recherche dans tracks
-            track_query = text("""
+            track_query = text(
+                """
                 SELECT
                     t.id,
                     t.title,
@@ -117,13 +130,15 @@ class SearchService:
                 WHERE t.search @@ :search_terms
                 ORDER BY text_score DESC
                 LIMIT 100
-            """)
+            """
+            )
 
             track_result = await db.execute(track_query, {"search_terms": search_terms})
             track_results = track_result.fetchall()
 
             # Recherche dans artists
-            artist_query = text("""
+            artist_query = text(
+                """
                 SELECT
                     NULL as id,
                     a.name as title,
@@ -137,38 +152,45 @@ class SearchService:
                 WHERE a.search @@ :search_terms
                 ORDER BY text_score DESC
                 LIMIT 50
-            """)
+            """
+            )
 
-            artist_result = await db.execute(artist_query, {"search_terms": search_terms})
+            artist_result = await db.execute(
+                artist_query, {"search_terms": search_terms}
+            )
             artist_results = artist_result.fetchall()
 
             # Combiner et formater
             results = []
             for row in track_results:
-                results.append({
-                    "id": row.id,
-                    "title": row.title or "",
-                    "artist": row.artist or "",
-                    "album": row.album or "",
-                    "genre": row.genre or "",
-                    "path": row.path or "",
-                    "text_score": float(row.text_score),
-                    "vector_score": float(row.vector_score),
-                    "type": "track"
-                })
+                results.append(
+                    {
+                        "id": row.id,
+                        "title": row.title or "",
+                        "artist": row.artist or "",
+                        "album": row.album or "",
+                        "genre": row.genre or "",
+                        "path": row.path or "",
+                        "text_score": float(row.text_score),
+                        "vector_score": float(row.vector_score),
+                        "type": "track",
+                    }
+                )
 
             for row in artist_results:
-                results.append({
-                    "id": None,
-                    "title": row.title or "",
-                    "artist": row.artist or "",
-                    "album": "",
-                    "genre": "",
-                    "path": "",
-                    "text_score": float(row.text_score),
-                    "vector_score": float(row.vector_score),
-                    "type": "artist"
-                })
+                results.append(
+                    {
+                        "id": None,
+                        "title": row.title or "",
+                        "artist": row.artist or "",
+                        "album": "",
+                        "genre": "",
+                        "path": "",
+                        "text_score": float(row.text_score),
+                        "vector_score": float(row.vector_score),
+                        "type": "artist",
+                    }
+                )
 
             return results
 
@@ -177,30 +199,35 @@ class SearchService:
             return []
 
     @staticmethod
-    async def _vector_search(query: SearchQuery, db: AsyncSession) -> List[Dict[str, Any]]:
+    async def _vector_search(
+        query: SearchQuery, db: AsyncSession
+    ) -> List[Dict[str, Any]]:
         """
         Recherche vectorielle via TrackEmbeddings.
 
         Utilise TrackEmbeddingsService pour la recherche de similarité sémantique.
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             # Pour la recherche vectorielle, on génère un embedding des termes de recherche
             # En production, utiliser un modèle d'embedding réel (Ollama, etc.)
-            embedding_vector = await SearchService._generate_query_embedding(query.query, db)
+            embedding_vector = await SearchService._generate_query_embedding(
+                query.query, db
+            )
 
             if not embedding_vector:
-                logger.debug("[SEARCH] Pas d'embedding disponible pour la recherche vectorielle")
+                logger.debug(
+                    "[SEARCH] Pas d'embedding disponible pour la recherche vectorielle"
+                )
                 return []
 
             # Recherche via TrackEmbeddingsService
             service = TrackEmbeddingsService(db)
             results = await service.find_similar(
-                query_vector=embedding_vector,
-                embedding_type='semantic',
-                limit=100
+                query_vector=embedding_vector, embedding_type="semantic", limit=100
             )
 
             # Formater les résultats
@@ -210,19 +237,23 @@ class SearchService:
                 track_info = await SearchService._get_track_info(embedding.track_id, db)
 
                 if track_info:
-                    vector_results.append({
-                        "id": embedding.track_id,
-                        "title": track_info.get("title", ""),
-                        "artist": track_info.get("artist", ""),
-                        "album": track_info.get("album", ""),
-                        "genre": track_info.get("genre", ""),
-                        "path": track_info.get("path", ""),
-                        "text_score": 0.0,
-                        "vector_score": 1.0 / (1.0 + float(distance)),
-                        "type": "track"
-                    })
+                    vector_results.append(
+                        {
+                            "id": embedding.track_id,
+                            "title": track_info.get("title", ""),
+                            "artist": track_info.get("artist", ""),
+                            "album": track_info.get("album", ""),
+                            "genre": track_info.get("genre", ""),
+                            "path": track_info.get("path", ""),
+                            "text_score": 0.0,
+                            "vector_score": 1.0 / (1.0 + float(distance)),
+                            "type": "track",
+                        }
+                    )
 
-            logger.debug(f"[SEARCH] Recherche vectorielle: {len(vector_results)} résultats")
+            logger.debug(
+                f"[SEARCH] Recherche vectorielle: {len(vector_results)} résultats"
+            )
             return vector_results
 
         except ImportError as e:
@@ -233,7 +264,9 @@ class SearchService:
             return []
 
     @staticmethod
-    async def _generate_query_embedding(query_text: str, db: AsyncSession) -> Optional[List[float]]:
+    async def _generate_query_embedding(
+        query_text: str, db: AsyncSession
+    ) -> Optional[List[float]]:
         """
         Génère un embedding pour les termes de recherche.
 
@@ -275,10 +308,13 @@ class SearchService:
             return None
 
     @staticmethod
-    async def _get_track_info(track_id: int, db: AsyncSession) -> Optional[Dict[str, Any]]:
+    async def _get_track_info(
+        track_id: int, db: AsyncSession
+    ) -> Optional[Dict[str, Any]]:
         """Récupère les informations d'une track pour les résultats de recherche."""
         try:
-            track_query = text("""
+            track_query = text(
+                """
                 SELECT
                     t.id,
                     t.title,
@@ -291,7 +327,8 @@ class SearchService:
                 LEFT JOIN albums al ON t.album_id = al.id
                 WHERE t.id = :track_id
                 LIMIT 1
-            """)
+            """
+            )
 
             result = await db.execute(track_query, {"track_id": track_id})
             row = result.fetchone()
@@ -303,7 +340,7 @@ class SearchService:
                     "artist": row.artist or "",
                     "album": row.album or "",
                     "genre": row.genre or "",
-                    "path": row.path or ""
+                    "path": row.path or "",
                 }
 
             return None
@@ -313,7 +350,9 @@ class SearchService:
             return None
 
     @staticmethod
-    async def get_track_search_vector(track_id: int, db: AsyncSession) -> Optional[List[float]]:
+    async def get_track_search_vector(
+        track_id: int, db: AsyncSession
+    ) -> Optional[List[float]]:
         """
         Récupère le vecteur de recherche sémantique pour une track.
 
@@ -327,11 +366,12 @@ class SearchService:
             Vecteur d'embedding ou None
         """
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             service = TrackEmbeddingsService(db)
-            embedding = await service.get_single_by_track_id(track_id, 'semantic')
+            embedding = await service.get_single_by_track_id(track_id, "semantic")
 
             return embedding.vector if embedding else None
 
@@ -348,7 +388,7 @@ class SearchService:
         embedding: List[float],
         embedding_source: Optional[str] = None,
         embedding_model: Optional[str] = None,
-        db: Optional[AsyncSession] = None
+        db: Optional[AsyncSession] = None,
     ) -> bool:
         """
         Sauvegarde l'embedding de recherche sémantique pour une track.
@@ -367,19 +407,21 @@ class SearchService:
         """
         if not db:
             from backend.api.utils.database import get_async_db
+
             db = await get_async_db().__anext__()
 
         try:
-            from backend.api.services.track_embeddings_service import \
-                TrackEmbeddingsService
+            from backend.api.services.track_embeddings_service import (
+                TrackEmbeddingsService,
+            )
 
             service = TrackEmbeddingsService(db)
             await service.create_or_update(
                 track_id=track_id,
                 vector=embedding,
-                embedding_type='semantic',
+                embedding_type="semantic",
                 embedding_source=embedding_source,
-                embedding_model=embedding_model
+                embedding_model=embedding_model,
             )
 
             logger.debug(f"[SEARCH] Embedding sauvegardé pour track {track_id}")
@@ -393,7 +435,9 @@ class SearchService:
             return False
 
     @staticmethod
-    def _combine_results(text_results: List[Dict], vector_results: List[Dict], query: SearchQuery) -> List[Dict]:
+    def _combine_results(
+        text_results: List[Dict], vector_results: List[Dict], query: SearchQuery
+    ) -> List[Dict]:
         """Combiner résultats textuels et vectoriels avec scoring hybride."""
         # Pondération: 70% texte, 30% vecteur
         TEXT_WEIGHT = 0.7
@@ -404,26 +448,28 @@ class SearchService:
         # Ajouter résultats textuels
         for result in text_results:
             key = f"{result['type']}_{result['id'] or result['title']}"
-            result['hybrid_score'] = result['text_score'] * TEXT_WEIGHT
+            result["hybrid_score"] = result["text_score"] * TEXT_WEIGHT
             combined[key] = result
 
         # Ajouter résultats vectoriels
         for result in vector_results:
             key = f"{result['type']}_{result['id'] or result['title']}"
             if key in combined:
-                combined[key]['vector_score'] = result.get('vector_score', 0)
-                combined[key]['hybrid_score'] += result['vector_score'] * VECTOR_WEIGHT
+                combined[key]["vector_score"] = result.get("vector_score", 0)
+                combined[key]["hybrid_score"] += result["vector_score"] * VECTOR_WEIGHT
             else:
-                result['hybrid_score'] = result.get('vector_score', 0) * VECTOR_WEIGHT
+                result["hybrid_score"] = result.get("vector_score", 0) * VECTOR_WEIGHT
                 combined[key] = result
 
         # Trier par score hybride
-        sorted_results = sorted(combined.values(), key=lambda x: x['hybrid_score'], reverse=True)
+        sorted_results = sorted(
+            combined.values(), key=lambda x: x["hybrid_score"], reverse=True
+        )
 
         # Nettoyer les scores pour la réponse
         for result in sorted_results:
-            result.pop('text_score', None)
-            result.pop('vector_score', None)
+            result.pop("text_score", None)
+            result.pop("vector_score", None)
 
         return sorted_results
 
@@ -440,40 +486,50 @@ class SearchService:
 
         try:
             # Facette genres depuis vue matérialisée
-            genre_query = text("""
+            genre_query = text(
+                """
                 SELECT genre, count
                 FROM mv_genre_facets
                 WHERE rank <= 20
                 ORDER BY rank
-            """)
+            """
+            )
             genre_result = await db.execute(genre_query)
-            genres = [{"name": row[0], "count": row[1]} for row in genre_result.fetchall()]
+            genres = [
+                {"name": row[0], "count": row[1]} for row in genre_result.fetchall()
+            ]
 
             # Facette artistes depuis vue matérialisée
-            artist_query = text("""
+            artist_query = text(
+                """
                 SELECT artist_name, track_count
                 FROM mv_artist_facets
                 WHERE rank <= 20
                 ORDER BY rank
-            """)
+            """
+            )
             artist_result = await db.execute(artist_query)
-            artists = [{"name": row[0], "count": row[1]} for row in artist_result.fetchall()]
+            artists = [
+                {"name": row[0], "count": row[1]} for row in artist_result.fetchall()
+            ]
 
             # Facette décennies depuis vue matérialisée
-            decade_query = text("""
+            decade_query = text(
+                """
                 SELECT decade, count
                 FROM mv_decade_facets
                 WHERE rank <= 10
                 ORDER BY rank
-            """)
+            """
+            )
             decade_result = await db.execute(decade_query)
-            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in decade_result.fetchall() if row[0]]
+            decades = [
+                {"name": f"{row[0]}s", "count": row[1]}
+                for row in decade_result.fetchall()
+                if row[0]
+            ]
 
-            facets = {
-                "genres": genres,
-                "artists": artists,
-                "decades": decades
-            }
+            facets = {"genres": genres, "artists": artists, "decades": decades}
 
             # Mettre en cache les facettes
             redis_cache_service.cache_facets(facets)
@@ -489,35 +545,46 @@ class SearchService:
             return facets
 
     @staticmethod
-    async def _get_facets_fallback(query: SearchQuery, db: AsyncSession) -> Dict[str, List]:
+    async def _get_facets_fallback(
+        query: SearchQuery, db: AsyncSession
+    ) -> Dict[str, List]:
         """Fallback pour les facettes si vues matérialisées indisponibles."""
         try:
             # Facette genres
-            genre_query = text("""
+            genre_query = text(
+                """
                 SELECT genre, COUNT(*) as count
                 FROM tracks
                 WHERE genre IS NOT NULL AND genre != ''
                 GROUP BY genre
                 ORDER BY count DESC
                 LIMIT 20
-            """)
+            """
+            )
             genre_result = await db.execute(genre_query)
-            genres = [{"name": row[0], "count": row[1]} for row in genre_result.fetchall()]
+            genres = [
+                {"name": row[0], "count": row[1]} for row in genre_result.fetchall()
+            ]
 
             # Facette artistes
-            artist_query = text("""
+            artist_query = text(
+                """
                 SELECT a.name, COUNT(t.id) as count
                 FROM artists a
                 JOIN tracks t ON a.id = t.track_artist_id
                 GROUP BY a.id, a.name
                 ORDER BY count DESC
                 LIMIT 20
-            """)
+            """
+            )
             artist_result = await db.execute(artist_query)
-            artists = [{"name": row[0], "count": row[1]} for row in artist_result.fetchall()]
+            artists = [
+                {"name": row[0], "count": row[1]} for row in artist_result.fetchall()
+            ]
 
             # Facette décennies
-            decade_query = text("""
+            decade_query = text(
+                """
                 SELECT
                     CASE
                         WHEN year ~ '^\\d{4}$' THEN (CAST(year AS INTEGER) / 10) * 10
@@ -529,35 +596,40 @@ class SearchService:
                 GROUP BY decade
                 ORDER BY decade DESC
                 LIMIT 10
-            """)
+            """
+            )
             decade_result = await db.execute(decade_query)
-            decades = [{"name": f"{row[0]}s", "count": row[1]} for row in decade_result.fetchall() if row[0]]
+            decades = [
+                {"name": f"{row[0]}s", "count": row[1]}
+                for row in decade_result.fetchall()
+                if row[0]
+            ]
 
-            return {
-                "genres": genres,
-                "artists": artists,
-                "decades": decades
-            }
+            return {"genres": genres, "artists": artists, "decades": decades}
 
         except Exception as e:
             logger.error(f"Erreur génération facettes fallback: {e}")
             return {"artists": [], "genres": [], "decades": []}
 
     @staticmethod
-    async def typeahead_search(q: str, limit: int = 10, db: Optional[AsyncSession] = None) -> List[Dict[str, Any]]:
+    async def typeahead_search(
+        q: str, limit: int = 10, db: Optional[AsyncSession] = None
+    ) -> List[Dict[str, Any]]:
         """Recherche typeahead pour suggestions en temps réel."""
         if not db:
             from backend.api.utils.database import get_async_db
+
             db = await get_async_db().__anext__()
 
         if not q or not q.strip():
             return []
 
         try:
-            search_terms = func.plainto_tsquery('english', q)
+            search_terms = func.plainto_tsquery("english", q)
 
             # Recherche dans tracks
-            query = text("""
+            query = text(
+                """
                 SELECT
                     t.id,
                     t.title,
@@ -570,18 +642,24 @@ class SearchService:
                 WHERE t.search @@ :search_terms
                 ORDER BY rank DESC
                 LIMIT :limit
-            """)
+            """
+            )
 
-            result = await db.execute(query, {"search_terms": search_terms, "limit": limit})
+            result = await db.execute(
+                query, {"search_terms": search_terms, "limit": limit}
+            )
             results = result.fetchall()
 
-            return [{
-                "id": row.id,
-                "title": row.title or "",
-                "artist": row.artist or "",
-                "album": row.album or "",
-                "type": "track"
-            } for row in results]
+            return [
+                {
+                    "id": row.id,
+                    "title": row.title or "",
+                    "artist": row.artist or "",
+                    "album": row.album or "",
+                    "type": "track",
+                }
+                for row in results
+            ]
 
         except Exception as e:
             logger.error(f"Erreur recherche typeahead: {e}")

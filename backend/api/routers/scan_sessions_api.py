@@ -15,14 +15,14 @@ from backend.api.utils.database import get_async_session
 from backend.api.utils.logging import logger
 
 router = APIRouter(
-    prefix="/scan-sessions",
-    tags=["scan-sessions"],
-    redirect_slashes=False
+    prefix="/scan-sessions", tags=["scan-sessions"], redirect_slashes=False
 )
 
 
 @router.get("/", response_model=List[dict])
-async def list_scan_sessions(db: AsyncSession = Depends(get_async_session)) -> List[dict]:
+async def list_scan_sessions(
+    db: AsyncSession = Depends(get_async_session),
+) -> List[dict]:
     """Liste toutes les sessions de scan, ordonnées par date de début décroissante.
 
     Args:
@@ -49,14 +49,16 @@ async def list_scan_sessions(db: AsyncSession = Depends(get_async_session)) -> L
             "total_files": s.total_files,
             "task_id": s.task_id,
             "started_at": s.started_at,
-            "updated_at": s.updated_at
+            "updated_at": s.updated_at,
         }
         for s in sessions
     ]
 
 
 @router.get("/{session_id}")
-async def get_scan_session(session_id: str, db: AsyncSession = Depends(get_async_session)) -> dict:
+async def get_scan_session(
+    session_id: str, db: AsyncSession = Depends(get_async_session)
+) -> dict:
     """Récupère une session de scan par son identifiant.
 
     Args:
@@ -85,12 +87,14 @@ async def get_scan_session(session_id: str, db: AsyncSession = Depends(get_async
         "total_files": session.total_files,
         "task_id": session.task_id,
         "started_at": session.started_at,
-        "updated_at": session.updated_at
+        "updated_at": session.updated_at,
     }
 
 
 @router.delete("/{session_id}")
-async def delete_scan_session(session_id: str, db: AsyncSession = Depends(get_async_session)) -> dict:
+async def delete_scan_session(
+    session_id: str, db: AsyncSession = Depends(get_async_session)
+) -> dict:
     """Supprime une session de scan par son identifiant.
 
     Args:
@@ -118,9 +122,7 @@ async def delete_scan_session(session_id: str, db: AsyncSession = Depends(get_as
 
 @router.put("/{session_id}/progress")
 async def update_scan_progress(
-    session_id: str,
-    progress: dict,
-    db: AsyncSession = Depends(get_async_session)
+    session_id: str, progress: dict, db: AsyncSession = Depends(get_async_session)
 ) -> dict:
     """Met à jour la progression d'une session de scan.
 

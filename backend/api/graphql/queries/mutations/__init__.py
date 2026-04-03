@@ -10,6 +10,7 @@ from .track_mutations import TrackMutations
 @strawberry.type
 class Mutation(ArtistMutations, AlbumMutations, TrackMutations):
     """Main mutation class combining all entity mutations."""
+
     pass
 
 

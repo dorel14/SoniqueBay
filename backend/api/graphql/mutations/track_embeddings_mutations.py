@@ -180,9 +180,7 @@ class TrackEmbeddingsMutation:
             return result
 
     @strawberry.mutation
-    async def delete_track_embedding_by_id(
-        self, embedding_id: int
-    ) -> bool:
+    async def delete_track_embedding_by_id(self, embedding_id: int) -> bool:
         """
         Supprime un embedding par son ID.
 

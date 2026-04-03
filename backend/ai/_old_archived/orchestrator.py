@@ -17,7 +17,7 @@ from backend.ai.agents import (
     search_agent,
     playlist_agent,
     action_agent,
-    smalltalk_agent
+    smalltalk_agent,
 )
 
 BUILDERS = {
@@ -66,14 +66,18 @@ class Orchestrator:
 
         builder = BUILDERS.get(cfg.name)
         if not builder:
-            logger.warning(f"[Orchestrator] Pas de builder pour l'agent, utilisation générique: {cfg.name}")
-            def generic_builder(cfg): 
+            logger.warning(
+                f"[Orchestrator] Pas de builder pour l'agent, utilisation générique: {cfg.name}"
+            )
+
+            def generic_builder(cfg):
                 return Agent(
-                name=cfg.name,
-                model=cfg.model,
-                system_prompt=cfg.system_prompt,
-                response_format=cfg.response_schema
+                    name=cfg.name,
+                    model=cfg.model,
+                    system_prompt=cfg.system_prompt,
+                    response_format=cfg.response_schema,
                 )
+
             builder = generic_builder
 
         agent = builder(cfg)
@@ -112,7 +116,7 @@ class Orchestrator:
         intent = intent_res.get("intent")
         agent_name = intent_res.get("agent")
 
-        # Mémoriser contexte        
+        # Mémoriser contexte
         self.context.add_user_message(message)
         self.context.last_intent = intent
 

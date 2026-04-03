@@ -14,18 +14,22 @@ log_queue = multiprocessing.Queue(-1)
 date_format = "%Y%m%d"
 currentdir = os.path.dirname(os.path.realpath(__file__))
 parentdir = os.path.dirname(currentdir)
-logdir = os.path.join(parentdir, '/logs')
-logfiles = os.path.join(logdir, 'soniquebay - '+ datetime.today().strftime(date_format) +'.log')
+logdir = os.path.join(parentdir, "/logs")
+logfiles = os.path.join(
+    logdir, "soniquebay - " + datetime.today().strftime(date_format) + ".log"
+)
 
 # Détecter si on est en mode test (pytest)
-is_testing = 'pytest' in sys.modules or 'PYTEST_CURRENT_TEST' in os.environ
+is_testing = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
 
 
 class SafeFormatter(logging.Formatter):
     def format(self, record):
         # Nettoie le message pour remplacer les caractères invalides
         if isinstance(record.msg, str):
-            record.msg = record.msg.encode('utf-8', errors='replace').decode('utf-8', errors='replace')
+            record.msg = record.msg.encode("utf-8", errors="replace").decode(
+                "utf-8", errors="replace"
+            )
         return super().format(record)
 
 
@@ -41,38 +45,53 @@ except Exception as e:
 if not os.path.exists(logfiles):
     try:
         # Créer un fichier vide
-        with open(logfiles, 'a', encoding='utf-8') as f:
+        with open(logfiles, "a", encoding="utf-8") as f:
             pass
         # Définir les permissions du fichier (666 = rw-rw-rw-)
-        os.chmod(logfiles, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # équivalent à 0o666
+        os.chmod(
+            logfiles,
+            stat.S_IRUSR
+            | stat.S_IWUSR
+            | stat.S_IRGRP
+            | stat.S_IWGRP
+            | stat.S_IROTH
+            | stat.S_IWOTH,
+        )  # équivalent à 0o666
         print(f"Fichier {logfiles} créé avec les permissions appropriées")
     except Exception as e:
-        print(f"Impossible de créer ou de modifier les permissions du fichier {logfiles}: {e}")
+        print(
+            f"Impossible de créer ou de modifier les permissions du fichier {logfiles}: {e}"
+        )
 
 # création de l'objet logger qui va nous servir à écrire dans les logs
 logger = logging.getLogger()
 # on met le niveau du logger à DEBUG, comme ça il écrit tout
-log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
 logger.setLevel(getattr(logging, log_level))
 
 
 # création d'un formateur qui va ajouter le temps, le niveau
 # de chaque message quand on écrira un message dans le log
-safe_formatter = SafeFormatter('%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s')
+safe_formatter = SafeFormatter(
+    "%(asctime)s :: %(levelname)s :: %(filename)s:%(lineno)d - %(funcName)s() :: %(message)s"
+)
 
 # Création des handlers pour le QueueListener
 handlers = []
 
 # Ne pas ajouter le file_handler en mode test pour éviter les conflits de multiprocessing
 if not is_testing:
-    file_handler = RotatingFileHandler(filename=logfiles,
-                                        mode='a',
-                                        maxBytes=1000000,
-                                        backupCount=5,
-                                        encoding='utf-8',)
+    file_handler = RotatingFileHandler(
+        filename=logfiles,
+        mode="a",
+        maxBytes=1000000,
+        backupCount=5,
+        encoding="utf-8",
+    )
     file_handler.setLevel(getattr(logging, log_level))
     file_handler.setFormatter(safe_formatter)
     handlers.append(file_handler)
+
 
 # Handler console avec encodage utf-8
 class Utf8StreamHandler(logging.StreamHandler):
@@ -80,9 +99,14 @@ class Utf8StreamHandler(logging.StreamHandler):
         if stream is None:
             stream = sys.stdout
         # Force le stream en utf-8 si possible
-        if hasattr(stream, "encoding") and stream.encoding and stream.encoding.lower() != "utf-8":
-            stream = open(stream.fileno(), mode='w', encoding='utf-8', buffering=1)
+        if (
+            hasattr(stream, "encoding")
+            and stream.encoding
+            and stream.encoding.lower() != "utf-8"
+        ):
+            stream = open(stream.fileno(), mode="w", encoding="utf-8", buffering=1)
         super().__init__(stream)
+
 
 stream_handler = Utf8StreamHandler()
 stream_handler.setLevel(getattr(logging, log_level))
@@ -100,6 +124,7 @@ else:
 # Configurer le logger principal pour utiliser un QueueHandler
 queue_handler = QueueHandler(log_queue)
 logger.addHandler(queue_handler)
+
 
 # Fonction pour configurer le logging dans les processus enfants
 def configure_worker_logging():

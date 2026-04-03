@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Optional
+
 import strawberry
 
 from backend.api.graphql.types.covers_type import CoverType
@@ -14,6 +16,16 @@ from backend.api.graphql.types.track_mir_type import (
     TrackMIRScoresType,
     TrackMIRSyntheticTagType,
 )
+
+
+if TYPE_CHECKING:
+    TrackAudioFeatures = Any
+    TrackEmbeddings = Any
+    TrackMetadata = Any
+    TrackMIRNormalized = Any
+    TrackMIRRaw = Any
+    TrackMIRScores = Any
+    TrackMIRSyntheticTags = Any
 
 
 @strawberry.type
@@ -80,101 +92,119 @@ class TrackType:
     # Relations
     covers: list[CoverType] = strawberry.field(default_factory=list)
 
-    # Nouvelles relations (stockées dans l'instance SQLAlchemy)
-    # audio_features: Optional[TrackAudioFeaturesType] = None
-    # embeddings: list[TrackEmbeddingsType] = strawberry.field(default_factory=list)
-    # metadata_entries: list[TrackMetadataType] = strawberry.field(default_factory=list)
+    # Attributs internes injectés depuis les query resolvers
+    # (déclarés pour satisfaire l'analyse statique Pylance)
+    _audio_features: strawberry.Private[Optional[Any]] = None
+    _embeddings: strawberry.Private[Optional[list[Any]]] = None
+    _metadata_entries: strawberry.Private[Optional[list[Any]]] = None
+    _mir_raw: strawberry.Private[Optional[Any]] = None
+    _mir_normalized: strawberry.Private[Optional[Any]] = None
+    _mir_scores: strawberry.Private[Optional[Any]] = None
+    _mir_synthetic_tags: strawberry.Private[Optional[list[Any]]] = None
 
     # Propriétés calculées pour la rétrocompatibilité
     @strawberry.field
     def bpm(self) -> float | None:
         """Tempo en BPM (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.bpm
+        features = getattr(self, "_audio_features", None)
+        if features:
+            return features.bpm
         return None
 
     @strawberry.field
     def key(self) -> str | None:
         """Tonalité musicale (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.key
+        features = getattr(self, "_audio_features", None)
+        if features:
+            return features.key
         return None
 
     @strawberry.field
     def scale(self) -> str | None:
         """Mode (major/minor) (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.scale
+        features = getattr(self, "_audio_features", None)
+        if features:
+            return features.scale
         return None
 
     @strawberry.field
     def danceability(self) -> float | None:
         """Score de dansabilité (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.danceability
+        features = self._audio_features
+        if features:
+            return features.danceability
         return None
 
     @strawberry.field
     def mood_happy(self) -> float | None:
         """Score mood happy (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.mood_happy
+        features = self._audio_features
+        if features:
+            return features.mood_happy
         return None
 
     @strawberry.field
     def mood_aggressive(self) -> float | None:
         """Score mood aggressive (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.mood_aggressive
+        features = self._audio_features
+        if features:
+            return features.mood_aggressive
         return None
 
     @strawberry.field
     def mood_party(self) -> float | None:
         """Score mood party (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.mood_party
+        features = self._audio_features
+        if features:
+            return features.mood_party
         return None
 
     @strawberry.field
     def mood_relaxed(self) -> float | None:
         """Score mood relaxed (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.mood_relaxed
+        features = self._audio_features
+        if features:
+            return features.mood_relaxed
         return None
 
     @strawberry.field
     def instrumental(self) -> float | None:
         """Score instrumental (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.instrumental
+        features = self._audio_features
+        if features:
+            return features.instrumental
         return None
 
     @strawberry.field
     def acoustic(self) -> float | None:
         """Score acoustic (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.acoustic
+        features = self._audio_features
+        if features:
+            return features.acoustic
         return None
 
     @strawberry.field
     def tonal(self) -> float | None:
         """Score tonal (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.tonal
+        features = self._audio_features
+        if features:
+            return features.tonal
         return None
 
     @strawberry.field
     def camelot_key(self) -> str | None:
         """Clé Camelot pour DJ (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.camelot_key
+        features = self._audio_features
+        if features:
+            return features.camelot_key
         return None
 
     @strawberry.field
     def genre_main(self) -> str | None:
         """Genre principal détecté (depuis audio_features)."""
-        if hasattr(self, "audio_features") and self.audio_features:
-            return self.audio_features.genre_main
+        features = self._audio_features
+        if features:
+            return features.genre_main
         return None
 
     # Résolveurs pour les nouvelles relations
@@ -188,30 +218,29 @@ class TrackType:
         """
         # Le résolveur sera appelé avec l'instance SQLAlchemy
         # La relation est chargée via lazy='selectin' dans le modèle
-        if hasattr(self, "_audio_features"):
-            features = self._audio_features
-            if features:
-                return TrackAudioFeaturesType(
-                    id=features.id,
-                    track_id=features.track_id,
-                    bpm=features.bpm,
-                    key=features.key,
-                    scale=features.scale,
-                    danceability=features.danceability,
-                    mood_happy=features.mood_happy,
-                    mood_aggressive=features.mood_aggressive,
-                    mood_party=features.mood_party,
-                    mood_relaxed=features.mood_relaxed,
-                    instrumental=features.instrumental,
-                    acoustic=features.acoustic,
-                    tonal=features.tonal,
-                    genre_main=features.genre_main,
-                    camelot_key=features.camelot_key,
-                    analysis_source=features.analysis_source,
-                    analyzed_at=features.analyzed_at,
-                    date_added=features.date_added,
-                    date_modified=features.date_modified,
-                )
+        features = self._audio_features
+        if features:
+            return TrackAudioFeaturesType(
+                id=features.id,
+                track_id=features.track_id,
+                bpm=features.bpm,
+                key=features.key,
+                scale=features.scale,
+                danceability=features.danceability,
+                mood_happy=features.mood_happy,
+                mood_aggressive=features.mood_aggressive,
+                mood_party=features.mood_party,
+                mood_relaxed=features.mood_relaxed,
+                instrumental=features.instrumental,
+                acoustic=features.acoustic,
+                tonal=features.tonal,
+                genre_main=features.genre_main,
+                camelot_key=features.camelot_key,
+                analysis_source=features.analysis_source,
+                analyzed_at=features.analyzed_at,
+                date_added=features.date_added,
+                date_modified=features.date_modified,
+            )
         return None
 
     @strawberry.field
@@ -330,7 +359,9 @@ class TrackType:
                 acoustic=norm.acoustic,
                 tonal=norm.tonal,
                 genre_main=norm.genre_main,
-                genre_secondary=list(norm.genre_secondary) if norm.genre_secondary else [],
+                genre_secondary=(
+                    list(norm.genre_secondary) if norm.genre_secondary else []
+                ),
                 confidence_score=norm.confidence_score,
                 created_at=norm.created_at,
                 date_added=norm.date_added,

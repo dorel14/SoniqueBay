@@ -28,10 +28,10 @@ BASE_AGENTS = [
 - Pour création de playlists → agent: 'playlist_agent', intent: 'playlist'
 - Pour actions système → agent: 'action_agent', intent: 'scan'
 - Si l'intention est incertaine → agent: 'smalltalk_agent', intent: 'general'""",
-        "output_schema": "JSON strict: {\"intent\": \"search|playlist|scan|smalltalk|general\", \"agent\": \"search_agent|playlist_agent|action_agent|smalltalk_agent\", \"confidence\": 0.0-1.0}",
+        "output_schema": 'JSON strict: {"intent": "search|playlist|scan|smalltalk|general", "agent": "search_agent|playlist_agent|action_agent|smalltalk_agent", "confidence": 0.0-1.0}',
         "state_strategy": "Stateless",
         "enabled": True,
-        "tools": []
+        "tools": [],
     },
     {
         "name": "search_agent",
@@ -44,7 +44,7 @@ BASE_AGENTS = [
         "output_schema": "Liste formatée de résultats pertinents.",
         "state_strategy": "Stateless",
         "enabled": True,
-        "tools": ["search_tracks", "search_artists"]
+        "tools": ["search_tracks", "search_artists"],
     },
     {
         "name": "playlist_agent",
@@ -57,7 +57,7 @@ BASE_AGENTS = [
         "output_schema": "Playlist avec titre, description et liste de morceaux.",
         "state_strategy": "Stateful",
         "enabled": True,
-        "tools": ["create_playlist"]
+        "tools": ["create_playlist"],
     },
     {
         "name": "smalltalk_agent",
@@ -70,8 +70,8 @@ BASE_AGENTS = [
         "output_schema": "Réponse conversationnelle avec détection d'humeur optionnelle.",
         "state_strategy": "Stateful",
         "enabled": True,
-        "tools": []
-    }
+        "tools": [],
+    },
 ]
 
 
@@ -93,7 +93,7 @@ async def seed_default_agents(session: AsyncSession):
                 session.add(agent)
             else:
                 logger.info(f"Agent '{agent_data['name']}' déjà existant.")
-    
+
         await session.commit()
         logger.info("Agents par défaut insérés avec succès.")
     except Exception as e:

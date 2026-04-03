@@ -50,7 +50,9 @@ class ClusterStatusResponse(BaseModel):
     )
     total_artists_clustered: int = Field(0, description="Nombre d'artistes clusterisés")
     total_clusters: int = Field(0, description="Nombre total de clusters")
-    model_type: str = Field("unknown", description="Type de modèle (gmm ou kmeans_fallback)")
+    model_type: str = Field(
+        "unknown", description="Type de modèle (gmm ou kmeans_fallback)"
+    )
     n_components: Optional[int] = Field(
         None, description="Nombre de composants du modèle GMM"
     )
@@ -60,9 +62,9 @@ class ClusterStatusResponse(BaseModel):
 class ClusteringTaskResponse(BaseModel):
     """Réponse lors du déclenchement d'une tâche de clustering."""
 
-    task_id: str = Field(default='...', description="Identifiant de la tâche Celery")
-    message: str = Field('...', description="Message de confirmation")
-    status: str = Field('...', description="Statut de la tâche")
+    task_id: str = Field(default="...", description="Identifiant de la tâche Celery")
+    message: str = Field("...", description="Message de confirmation")
+    status: str = Field("...", description="Statut de la tâche")
 
 
 class RefreshClustersResponse(BaseModel):

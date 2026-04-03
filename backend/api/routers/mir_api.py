@@ -198,7 +198,9 @@ async def store_track_mir(
         # 4. Stocker les tags synthétiques (TrackMIRSyntheticTags)
         # Supprimer les anciens tags
         await db.execute(
-            delete(TrackMIRSyntheticTags).where(TrackMIRSyntheticTags.track_id == track_id)
+            delete(TrackMIRSyntheticTags).where(
+                TrackMIRSyntheticTags.track_id == track_id
+            )
         )
 
         # Ajouter les nouveaux tags
@@ -303,7 +305,9 @@ async def get_track_mir_summary(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"[MIR] Erreur génération résumé LLM pour track_id={track_id}: {e}")
+        logger.error(
+            f"[MIR] Erreur génération résumé LLM pour track_id={track_id}: {e}"
+        )
         raise HTTPException(
             status_code=500,
             detail=f"Erreur lors de la génération du résumé MIR: {str(e)}",
