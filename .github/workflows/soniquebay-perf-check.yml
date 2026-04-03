@@ -1,0 +1,47 @@
+name: "SoniqueBay Performance Reviewer (Gemini)"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # Optionnel : ne scanner que si des fichiers de code sont modifiés
+    paths:
+      - '**.py'
+
+jobs:
+  gemini_review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Nécessaire pour analyser le diff complet
+
+      - name: Gemini Code Review
+        # On utilise une action spécialisée pour Gemini (ex: google-gemini-review)
+        uses: sshnaidm/gemini-code-review-action@v2 # Note: Vérifie la version exacte sur le marketplace
+        with:
+          # Configuration de l'API (à placer dans tes secrets GitHub)
+          gemini-key: ${{ secrets.GEMINI_API_KEY }}
+          
+          # LE COEUR DU SYSTEME : TON PROMPT RTCROS
+          prompt: |
+            Tu es le Lead Dev de SoniqueBay Team. Ta mission est d'optimiser le code pour un Raspberry Pi 4 (ARM64).
+            
+            CONTRAINTES MATÉRIELLES :
+            - CPU : Broadcom BCM2711 (Throttling thermique rapide).
+            - RAM : 8 à 16 Go (Abondante).
+            
+            STRATÉGIE DE REVUE :
+            1. Analyse le diff de la PR. 
+            2. Si une fonction consomme trop de CPU, propose une version utilisant plus de RAM (cache/memoization).
+            3. Priorise les opérations asynchrones et la vectorisation (SIMD/ARM NEON).
+            4. Format de réponse : "💡 **Optimisation Pi 4** : [Explication] -> [Code]"
+            
+          # Paramètres de filtrage pour éviter le bruit
+          thinking: "dynamic"
+          model: "gemini-2.5-pro"
+          review-title: 'Code Review by Gemini AI'

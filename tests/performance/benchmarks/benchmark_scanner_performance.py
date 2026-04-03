@@ -86,7 +86,7 @@ class ScannerBenchmark:
                      patch('backend_worker.services.entity_manager.create_or_update_cover') as mock_cover, \
                      patch('backend_worker.services.entity_manager.process_artist_covers') as mock_artist_covers, \
                      patch('backend_worker.services.scanner.publish_event') as mock_publish, \
-                     patch('backend_worker.celery_app.celery.send_task') as mock_celery:
+                     patch('backend_worker.taskiq_tasks.scan.discovery_task') as mock_taskiq:
 
                     # Configurer les mocks
                     mock_get_setting.side_effect = lambda key: {
@@ -121,7 +121,7 @@ class ScannerBenchmark:
                     mock_cover.return_value = {"id": 1, "entity_type": "album"}
                     mock_artist_covers.return_value = None
                     mock_publish.return_value = None
-                    mock_celery.return_value = None
+                    mock_taskiq.return_value = None
 
                     # Patch scan_music_files et lancer le scan avec mocks
                     with patch('backend_worker.services.scanner.scan_music_files', side_effect=mock_scan_music_files), \

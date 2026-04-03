@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.api.utils.logging import logger
 from backend.api.models.scan_sessions_model import ScanSession
 from fastapi import HTTPException
+from backend.api.utils.taskiq_client import result_backend
 
 
 class ScanService:
@@ -191,62 +192,21 @@ class ScanService:
                     "resume": True,
                 }
 
-        # Test connectivité Redis
+        # Envoyer la nouvelle tâche scan.discovery via TaskIQ
         try:
-            from backend.api.utils.celery_app import celery_app
-
-            # Configuration Celery
-            logger.info(
-                f"[SCAN] Configuration Celery - Broker: {celery_app.conf.broker_url}"
-            )
-            backend_url = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
-            logger.info(f"[SCAN] Backend: {backend_url}")
-            celery_app.broker_connection().ensure_connection(max_retries=1)
-            inspect = celery_app.control.inspect()
-            active_workers = inspect.ping()
-            logger.info(f"[SCAN] Workers actifs: {active_workers}")
-        except Exception as redis_error:
-            logger.error(f"[SCAN] Erreur Redis: {redis_error}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erreur de connectivité Redis: {str(redis_error)}",
-            )
-
-        # Envoyer la nouvelle tâche scan.discovery
-        try:
-            logger.info("[SCAN] Envoi de la tâche scan.discovery vers Celery")
+            logger.info("[SCAN] Envoi de la tâche scan.discovery vers TaskIQ")
             logger.info("[SCAN] Queue cible: scan")
             logger.info(f"[SCAN] Répertoire: {resolved_docker_directory}")
 
-            result = celery_app.send_task(
-                "scan.discovery",  # Utilise la nouvelle tâche
-                args=[resolved_docker_directory],  # Plus de cleanup_deleted
-                queue="scan",
-            )
+            # Import the task dynamically to avoid circular imports
+            from backend.tasks.scan import discovery_task
+            
+            # Send task via TaskIQ
+            task_result = await discovery_task.kiq(resolved_docker_directory)
 
-            logger.info(f"[SCAN] Tâche envoyée - ID: {result.id}")
-            logger.info(f"[SCAN] Tâche envoyée - Status: {result.status}")
+            logger.info(f"[SCAN] Tâche envoyée - ID: {task_result.task_id}")
+            logger.info(f"[SCAN] Tâche envoyée - Status: {task_result.status}")
             logger.info("[SCAN] Tâche envoyée vers queue: scan")
-
-            # Vérification supplémentaire: inspecter les workers actifs
-            try:
-                inspect = celery_app.control.inspect()
-                active_queues = inspect.active_queues()
-                logger.info(f"[SCAN] Queues actives sur les workers: {active_queues}")
-
-                if active_queues:
-                    has_scan_queue = any(
-                        "scan" in str(queues) for queues in active_queues.values()
-                    )
-                    logger.info(f"[SCAN] Queue 'scan' disponible: {has_scan_queue}")
-                    if not has_scan_queue:
-                        logger.warning(
-                            "[SCAN] ATTENTION: Aucun worker n'écoute la queue 'scan'!"
-                        )
-            except Exception as inspect_error:
-                logger.warning(
-                    f"[SCAN] Impossible d'inspecter les queues: {inspect_error}"
-                )
 
             # Créer session de scan
             if db:
@@ -259,15 +219,15 @@ class ScanService:
                 logger.info(f"[SCAN] Session créée: {scan_session.id}")
 
                 # Mettre à jour avec task_id
-                scan_session.task_id = result.id
+                scan_session.task_id = task_result.task_id
                 await db.commit()
-                logger.info(f"[SCAN] Session mise à jour - task_id: {result.id}")
+                logger.info(f"[SCAN] Session mise à jour - task_id: {task_result.task_id}")
 
             duration = time.time() - start_time
             logger.info(f"[SCAN] Scan lancé avec succès en {duration:.2f}s")
 
             return {
-                "task_id": result.id,
+                "task_id": task_result.task_id,
                 "status": f"Scan lancé avec succès sur {resolved_docker_directory}",
                 "duration": duration,
                 "architecture": "nouvelle",

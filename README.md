@@ -88,7 +88,7 @@ Voir le [Guide de Migration](docs/migration/track_model_migration_guide.md) pour
 ├── 🔧 backend/library_api/   # API FastAPI + GraphQL
 │   ├── api_app.py           # Endpoint SSE /api/events
 │   └── services/            # Services métier
-├── ⚙️ backend_worker/        # Workers Celery optimisés
+├── ⚙️ backend_worker/        # Workers TaskIQ optimisés
 │   ├── optimized_scan.py    # Scan avec progression SSE
 │   └── background_tasks/    # Tâches avec publish_event
 ├── 🧪 tests/                # Tests d'intégration SSE
@@ -187,10 +187,10 @@ services:
     environment:
       - SSE_URL=http://library:8001/api/events
 
-  # Workers optimisés
-  scan_worker:
+  # Workers TaskIQ
+  taskiq-worker:
     image: soniquebay-worker:latest
-    command: celery -A backend_worker worker --queues=scan --concurrency=16
+    command: python -m backend_worker.taskiq_worker
 
   # Frontend avec client SSE
   frontend:

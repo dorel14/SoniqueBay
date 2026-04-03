@@ -7,7 +7,8 @@ from backend.api.schemas.covers_schema import CoverCreate, Cover as CoverSchema
 from backend.api.services.covers_service import CoverService
 from backend.api.models.covers_model import EntityCoverType
 from backend.api.utils.logging import logger
-from backend.api.utils.celery_app import celery_app
+from backend.api.utils.taskiq_broker import taskiq_broker
+import asyncio
 import base64
 from pathlib import Path
 
@@ -159,19 +160,18 @@ async def scan_artist_images(
     try:
         logger.info(f"[COVER API] Début scan images pour artiste {artist_id}")
 
-        # Appeler la tâche Celery pour traiter les images de l'artiste
-        task_result = celery_app.send_task(
-            "covers.process_artist_images", args=[[artist_id]], queue="deferred"
+        # Appeler la tâche TaskIQ pour traiter les images de l'artiste
+        task_result = taskiq_broker.send_task(
+            "covers.process_artist_images", args=[[artist_id]]
         )
 
         logger.info(
-            f"[COVER API] Tâche process_artist_images déclenchée avec ID: {task_result.id}"
+            f"[COVER API] Tâche process_artist_images déclenchée"
         )
 
         return {
             "status": "success",
             "message": f"Scan des images de l'artiste {artist_id} déclenché",
-            "task_id": task_result.id,
         }
 
     except Exception as e:
@@ -189,19 +189,18 @@ async def scan_album_images(
     try:
         logger.info(f"[COVER API] Début scan images pour album {album_id}")
 
-        # Appeler la tâche Celery pour traiter les images de l'album
-        task_result = celery_app.send_task(
-            "covers.process_album_covers", args=[[album_id]], queue="deferred"
+        # Appeler la tâche TaskIQ pour traiter les images de l'album
+        task_result = taskiq_broker.send_task(
+            "covers.process_album_covers", args=[[album_id]]
         )
 
         logger.info(
-            f"[COVER API] Tâche process_album_covers déclenchée avec ID: {task_result.id}"
+            f"[COVER API] Tâche process_album_covers déclenchée"
         )
 
         return {
             "status": "success",
             "message": f"Scan des images de l'album {album_id} déclenché",
-            "task_id": task_result.id,
         }
 
     except Exception as e:
@@ -226,19 +225,18 @@ async def scan_all_artist_images(db: AsyncSession = Depends(get_async_session)):
 
         logger.info(f"[COVER API] {len(artist_ids)} artistes à traiter")
 
-        # Appeler la tâche Celery pour traiter les images des artistes
-        task_result = celery_app.send_task(
-            "covers.process_artist_images", args=[artist_ids], queue="deferred"
+        # Appeler la tâche TaskIQ pour traiter les images des artistes
+        task_result = taskiq_broker.send_task(
+            "covers.process_artist_images", args=[artist_ids]
         )
 
         logger.info(
-            f"[COVER API] Tâche process_artist_images déclenchée avec ID: {task_result.id}"
+            f"[COVER API] Tâche process_artist_images déclenchée"
         )
 
         return {
             "status": "success",
             "message": f"Scan des images de {len(artist_ids)} artistes déclenché",
-            "task_id": task_result.id,
             "artists_count": len(artist_ids),
         }
 
@@ -264,19 +262,18 @@ async def scan_all_album_images(db: AsyncSession = Depends(get_async_session)):
 
         logger.info(f"[COVER API] {len(album_ids)} albums à traiter")
 
-        # Appeler la tâche Celery pour traiter les images des albums
-        task_result = celery_app.send_task(
-            "covers.process_album_covers", args=[album_ids], queue="deferred"
+        # Appeler la tâche TaskIQ pour traiter les images des albums
+        task_result = taskiq_broker.send_task(
+            "covers.process_album_covers", args=[album_ids]
         )
 
         logger.info(
-            f"[COVER API] Tâche process_album_covers déclenchée avec ID: {task_result.id}"
+            f"[COVER API] Tâche process_album_covers déclenchée"
         )
 
         return {
             "status": "success",
             "message": f"Scan des images de {len(album_ids)} albums déclenché",
-            "task_id": task_result.id,
             "albums_count": len(album_ids),
         }
 
@@ -318,19 +315,18 @@ async def scan_embedded_covers(
 
             logger.info(f"[COVER API] {len(file_paths)} fichiers musicaux à traiter")
 
-        # Appeler la tâche Celery pour extraire les covers intégrées
-        task_result = celery_app.send_task(
-            "covers.extract_embedded", args=[file_paths], queue="deferred"
+        # Appeler la tâche TaskIQ pour extraire les covers intégrées
+        task_result = taskiq_broker.send_task(
+            "covers.extract_embedded", args=[file_paths]
         )
 
         logger.info(
-            f"[COVER API] Tâche extract_embedded déclenchée avec ID: {task_result.id}"
+            f"[COVER API] Tâche extract_embedded déclenchée"
         )
 
         return {
             "status": "success",
             "message": f"Scan des covers intégrées dans {len(file_paths)} fichiers déclenché",
-            "task_id": task_result.id,
             "files_count": len(file_paths),
         }
 
@@ -359,19 +355,18 @@ async def rescan_artist_images(
     try:
         logger.info(f"Début rescan des images pour l'artiste {artist_id}")
 
-        # Déclencher la tâche Celery pour traiter les images de l'artiste
-        from backend_worker.tasks.covers_tasks import process_artist_images
-
-        task_result = process_artist_images.delay([artist_id], priority="normal")
+        # Déclencher la tâche TaskIQ pour traiter les images de l'artiste
+        task_result = taskiq_broker.send_task(
+            "covers.process_artist_images", args=[[artist_id]]
+        )
 
         logger.info(
-            f"Tâche de rescan des images de l'artiste {artist_id} déclenchée avec ID: {task_result.id}"
+            f"Tâche de rescan des images de l'artiste {artist_id} déclenchée"
         )
 
         return {
             "success": True,
             "message": f"Rescan des images de l'artiste {artist_id} initié",
-            "task_id": task_result.id,
         }
 
     except Exception as e:
@@ -389,19 +384,18 @@ async def rescan_album_covers(
     try:
         logger.info(f"Début rescan des covers pour l'album {album_id}")
 
-        # Déclencher la tâche Celery pour traiter les covers de l'album
-        from backend_worker.tasks.covers_tasks import process_album_covers
-
-        task_result = process_album_covers.delay([album_id], priority="normal")
+        # Déclencher la tâche TaskIQ pour traiter les covers de l'album
+        task_result = taskiq_broker.send_task(
+            "covers.process_album_covers", args=[[album_id]]
+        )
 
         logger.info(
-            f"Tâche de rescan des covers de l'album {album_id} déclenchée avec ID: {task_result.id}"
+            f"Tâche de rescan des covers de l'album {album_id} déclenchée"
         )
 
         return {
             "success": True,
             "message": f"Rescan des covers de l'album {album_id} initié",
-            "task_id": task_result.id,
         }
 
     except Exception as e:
@@ -428,19 +422,18 @@ async def rescan_track_embedded_cover(
         if not track:
             raise HTTPException(status_code=404, detail="Track non trouvée")
 
-        # Déclencher la tâche Celery pour traiter la cover intégrée de la track
-        from backend_worker.tasks.covers_tasks import extract_embedded
-
-        task_result = extract_embedded.delay([track.path])
+        # Déclencher la tâche TaskIQ pour traiter la cover intégrée de la track
+        task_result = taskiq_broker.send_task(
+            "covers.extract_embedded", args=[[track.path]]
+        )
 
         logger.info(
-            f"Tâche de rescan de la cover de la track {track_id} déclenchée avec ID: {task_result.id}"
+            f"Tâche de rescan de la cover de la track {track_id} déclenchée"
         )
 
         return {
             "success": True,
             "message": f"Rescan de la cover de la track {track_id} initié",
-            "task_id": task_result.id,
         }
 
     except Exception as e:

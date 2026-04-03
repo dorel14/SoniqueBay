@@ -135,8 +135,8 @@ USE_TASKIQ_FOR_<MODULE>=true python -m pytest tests/unit/worker/test_taskiq_<mod
 ### Liste des Tests à Créer par Lot
 
 #### Lot 1 : Maintenance
-- [ ] `tests/unit/worker/test_taskiq_maintenance.py`
-- [ ] `tests/integration/workers/test_taskiq_maintenance_integration.py`
+- [x] `tests/unit/worker/test_taskiq_maintenance.py`
+- [x] `tests/integration/workers/test_taskiq_maintenance_integration.py`
 
 #### Lot 2 : Covers
 - [ ] `tests/unit/worker/test_taskiq_covers.py`

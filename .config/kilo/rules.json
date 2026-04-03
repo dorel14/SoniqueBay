@@ -1,0 +1,16 @@
+[
+    {"permission":"bash","pattern":"git add *","action":"allow"},
+    {"permission":"bash","pattern":"git commit *","action":"allow"},
+    {"permission":"bash","pattern":"git merge *","action":"allow"},
+    {"permission":"bash","pattern":"git push *","action":"allow"},
+    {"permission":"bash","pattern":"git worktree *","action":"allow"},
+    {"permission":"bash","pattern":"git log *","action":"allow"},
+    {"permission":"bash","pattern":"git show *","action":"allow"},
+    {"permission":"bash","pattern":"git diff *","action":"allow"},
+    {"permission":"bash","pattern":"git status *","action":"allow"},
+    {"permission":"bash","pattern":"git branch *","action":"allow"},
+    {"permission":"bash","pattern":"git remote *","action":"allow"},
+    {"permission":"bash","pattern":"git checkout *","action":"allow"},
+    {"permission":"bash","pattern":"gh *","action":"ask"},
+    {"permission":"bash","pattern":"*","action":"allow"}
+]

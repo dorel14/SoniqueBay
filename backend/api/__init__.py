@@ -5,7 +5,7 @@ from backend.api.routers.agents_api import router as agents_router  # noqa: E402
 # Import des routers
 from backend.api.routers.albums_api import router as albums_router
 from backend.api.routers.artists_api import router as artists_router
-from backend.api.routers.celery_tasks_api import router as celery_tasks_router
+from backend.api.routers.taskiq_tasks_api import router as taskiq_tasks_router
 from backend.api.routers.covers_api import router as covers_router
 from backend.api.routers.genres_api import router as genres_router
 from backend.api.routers.gmm_api import router as gmm_router  # noqa: E402
@@ -41,8 +41,8 @@ from backend.api.routers.synonyms_api import router as synonyms_router  # noqa: 
 from backend.api.routers.simple_chat_api import (
     router as simple_chat_router,
 )  # noqa: E402
-from backend.api.routers.celery_admin_api import (
-    router as celery_admin_router,
+from backend.api.routers.taskiq_admin_api import (
+    router as taskiq_admin_router,
 )  # noqa: E402
 
 
@@ -67,7 +67,7 @@ ROUTERS = [
     playqueue_router,
     search_router,
     library_router,
-    celery_tasks_router,
+    taskiq_tasks_router,
     sse_router,
     realtime_router,
     ws_ai_router,
@@ -78,7 +78,7 @@ ROUTERS = [
     synonyms_router,
     track_vectors_router,
     simple_chat_router,
-    celery_admin_router,
+    taskiq_admin_router,
 ]
 
 # Inclure tous les routers

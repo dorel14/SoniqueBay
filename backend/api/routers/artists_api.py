@@ -364,21 +364,21 @@ async def fetch_artist_lastfm_info(
 ):
     """
     Trigger Last.fm information fetch for an artist via worker.
-
+    
     Args:
         artist_id: ID of the artist
-
+        
     Returns:
         Task ID
     """
-    from backend.api.utils.celery_app import celery_app
-
     try:
-        # Trigger the worker task
-        task = celery_app.send_task(
-            "lastfm.fetch_artist_info", args=[artist_id], queue="deferred"
-        )
-        return {"task_id": task.id, "message": "Last.fm info fetch triggered"}
+        # Import the task dynamically to avoid circular imports
+        from backend.tasks.lastfm import fetch_artist_lastfm_info_task
+        
+        # Trigger the worker task via TaskIQ
+        task_result = await fetch_artist_lastfm_info_task.kiq(artist_id=artist_id)
+        
+        return {"task_id": task_result.task_id, "message": "Last.fm info fetch triggered"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -450,22 +450,22 @@ async def fetch_similar_artists(
 ):
     """
     Trigger similar artists fetch from Last.fm for an artist via worker.
-
+    
     Args:
         artist_id: ID of the artist
         limit: Maximum number of similar artists to fetch
-
+        
     Returns:
         Task ID
     """
-    from backend.api.utils.celery_app import celery_app
-
     try:
-        # Trigger the worker task
-        task = celery_app.send_task(
-            "lastfm.fetch_similar_artists", args=[artist_id, limit], queue="deferred"
-        )
-        return {"task_id": task.id, "message": "Similar artists fetch triggered"}
+        # Import the task dynamically to avoid circular imports
+        from backend.tasks.lastfm import fetch_similar_artists_task
+        
+        # Trigger the worker task via TaskIQ
+        task_result = await fetch_similar_artists_task.kiq(artist_id=artist_id, limit=limit)
+        
+        return {"task_id": task_result.task_id, "message": "Similar artists fetch triggered"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

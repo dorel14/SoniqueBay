@@ -213,6 +213,11 @@ async def run_taskiq_async(task_func: Callable, *args, **kwargs) -> Any:
 - [ ] Les wrappers fonctionnent correctement
 - [ ] Les logs sont corrects
 
+> ⚠️ **Ce wrapper est un FALLBACK TEMPORAIRE**. Il sera remplacé par
+> la conversion directe des fonctions en `async def` dans les phases suivantes.
+> Ne pas créer de nouvelles fonctions sync qui utilisent ce wrapper.
+> Voir `docs/plans/Taskiq_migrations/PLAN_CONVERSION_ASYNC.md` pour la stratégie.
+
 ---
 
 ### T2.5 : Ajouter le logging différencié

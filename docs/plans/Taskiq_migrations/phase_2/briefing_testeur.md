@@ -194,7 +194,7 @@ ruff check backend_worker/taskiq_tasks/ backend_worker/taskiq_utils.py backend_w
 
 **Étape 1 : Exécuter les tests unitaires TaskIQ**
 ```bash
-python -m pytest tests/unit/worker/test_taskiq_maintenance.py -v
+C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/unit/worker/test_taskiq_maintenance.py -v
 ```
 
 **Attendu** :
@@ -204,7 +204,7 @@ python -m pytest tests/unit/worker/test_taskiq_maintenance.py -v
 
 **Étape 2 : Exécuter les tests unitaires Celery existants**
 ```bash
-python -m pytest tests/unit/worker -q --tb=no
+C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/unit/worker -q --tb=no
 ```
 
 **Attendu** :
@@ -213,7 +213,7 @@ python -m pytest tests/unit/worker -q --tb=no
 
 **Étape 3 : Exécuter les tests d'intégration workers**
 ```bash
-python -m pytest tests/integration/workers -q --tb=no
+C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/integration/workers -q --tb=no
 ```
 
 **Attendu** :
@@ -223,8 +223,8 @@ python -m pytest tests/integration/workers -q --tb=no
 **Étape 4 : Comparer avec la baseline**
 ```bash
 # Sauvegarder les résultats
-python -m pytest tests/unit/worker -q --tb=no > docs/plans/taskiq_migrations/phase_2/resultats_tests_unitaires.txt
-python -m pytest tests/integration/workers -q --tb=no > docs/plans/taskiq_migrations/phase_2/resultats_tests_integration.txt
+C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/unit/worker -q --tb=no > docs/plans/taskiq_migrations/phase_2/resultats_tests_unitaires.txt
+C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/integration/workers -q --tb=no > docs/plans/taskiq_migrations/phase_2/resultats_tests_integration.txt
 
 # Comparer avec la baseline
 diff docs/plans/taskiq_migrations/audit/baseline_tests_unitaires.txt docs/plans/taskiq_migrations/phase_2/resultats_tests_unitaires.txt
@@ -311,7 +311,7 @@ diff docs/plans/taskiq_migrations/audit/baseline_tests_integration.txt docs/plan
 
 1. **Identifier le test échoué**
    ```bash
-   python -m pytest tests/unit/worker/test_<nom_test>.py -v
+   C:/Users/david/Documents/devs/SoniqueBay-app/.venv/Scripts/python.exe -m pytest tests/unit/worker/test_<nom_test>.py -v
    ```
 
 2. **Analyser l'erreur**

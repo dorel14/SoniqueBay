@@ -89,7 +89,7 @@ services:
     api-service:
         build:
             context: .
-            dockerfile: backend/api/Dockerfile
+            dockerfile: backend/base.Dockerfile
         container_name: soniquebay-api
         restart: unless-stopped
         command: ["python3", "-m", "uvicorn", "backend.api.api_app:create_api", "--host", "0.0.0.0", "--port", "8001","--factory"]
@@ -109,8 +109,8 @@ services:
             - WAIT_TIMEOUT=300
             - WAIT_SLEEP_INTERVAL=30
             - WAIT_HOST_CONNECT_TIMEOUT=30
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - TASKIQ_BROKER_URL=redis://redis:6379/1
+            - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
             - REDIS_URL=redis://redis:6379/0
             - LLM_PROVIDER=koboldcpp
             - KOBOLDCPP_BASE_URL=http://llm-service:5001
@@ -195,101 +195,18 @@ services:
                     cpus: '0.25'
                     memory: 128M
 
-    # === CELERY WORKER UNIFIÉ ===
-    celery-worker:
-        build:
-            context: .
-            dockerfile: backend_worker/Dockerfile
-        container_name: soniquebay-celery-worker
-        restart: unless-stopped
-        command: >
-            celery -A backend_worker.celery_app worker
-            -E 
-            -Q scan,extract,batch,insert,covers,deferred_vectors,deferred_covers,deferred_enrichment,vectorization_monitoring,deferred,celery,maintenance,failed,audio_analysis,mir
-            --concurrency=1
-            --loglevel=INFO
-            --hostname=celery-worker@%h
-        volumes:
-            - ./backend_worker:/app/backend_worker
-            - music-share:/music:ro
-            - ./logs:/app/logs
-            - /etc/localtime:/etc/localtime:ro
-            - huggingface-cache:/root/.cache/huggingface
-            - api-data:/app/backend/data/
-        environment:
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - API_URL=http://library:8001
-            - HF_TOKEN=${HF_TOKEN}
-            - HF_HOME=/root/.cache/huggingface
-            - MUSIC_PATH=/music
-            - PLATFORM=docker
-            - NAS_USER=${NAS_USER:-""}
-            - NAS_PASS=${NAS_PASS:-""}
-        depends_on:
-            redis:
-                condition: service_healthy
-            timesync:
-                condition: service_started
-            api-service:
-                condition: service_healthy
-        networks:
-            default:
-                aliases:
-                    - celery-worker
-        deploy:
-            resources:
-                limits:
-                    cpus: '1.0'
-                    memory: 2G
-                reservations:
-                    cpus: '0.25'
-                    memory: 512M
 
-    celery_beat:
-        build:
-            context: .
-            dockerfile: backend_worker/Dockerfile
-        container_name: soniquebay-celery-beat
-        restart: unless-stopped
-        depends_on:
-            - redis
-        environment:
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - CELERY_BEAT_DB=/app/backend_worker/data/celery_beat_data/celerybeat-schedule.db
-        volumes:
-            - .:/app
-            - celery-beat-data:/app/backend_worker/data/celery_beat_data
-            - ./logs:/app/logs
-        command: ["celery", "-A", "backend_worker.celery_beat_config", "beat", "--loglevel=info"]
-        networks:
-            default:
-        healthcheck:
-            test: ["CMD", "pgrep", "-f", "celery.*beat"]
-            interval: 30s
-            timeout: 5s
-            retries: 5
-            start_period: 10s
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.25'
-                    memory: 256M
-                reservations:
-                    cpus: '0.1'
-                    memory: 128M
 
     # === TASKIQ WORKER (NOUVEAU - Migration progressive depuis Celery) ===
     taskiq-worker:
         build:
             context: .
-            dockerfile: backend_worker/Dockerfile
+            dockerfile: backend/base.Dockerfile
         container_name: soniquebay-taskiq-worker
         restart: unless-stopped
-        command: ["python", "-m", "backend_worker.taskiq_worker"]
+        command: ["python", "-m", "backend.workers.taskiq_worker"]
         volumes:
-            - ./backend_worker:/app/backend_worker
+            - ./backend:/app/backend
             - music-share:/music:ro
             - ./logs:/app/logs
             - /etc/localtime:/etc/localtime:ro
@@ -298,6 +215,11 @@ services:
         environment:
             - TASKIQ_BROKER_URL=redis://redis:6379/1
             - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+            - TASKIQ_DB_USER=${WORKER_DB_USER}
+            - TASKIQ_DB_PASSWORD=${WORKER_DB_PASSWORD}
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_HOST=db
+            - WORKER_DATABASE_URL=postgresql+asyncpg://${WORKER_DB_USER}:${WORKER_DB_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
             - API_URL=http://library:8001
             - HF_TOKEN=${HF_TOKEN}
             - HF_HOME=/root/.cache/huggingface
@@ -362,66 +284,7 @@ services:
             retries: 5
             start_period: 120s
 
-    # === CELERY INSIGHTS (MONITORING) ===
-    celery-insights:
-        image: ghcr.io/danyi1212/celery-insights:latest
-        container_name: soniquebay-celery-insights
-        env_file:
-            - .env
-        restart: unless-stopped
-        environment:
-            - BROKER_URL=redis://redis:6379/0
-            - RESULT_BACKEND=redis://redis:6379/0
-        ports:
-            - "8555:8555"
-        depends_on:
-            redis:
-                condition: service_healthy
-            celery-worker:
-                condition: service_started
 
-    # === FLOWER (CELERY MONITORING) ===
-    flower:
-        image: mher/flower:latest
-        container_name: soniquebay-flower
-        restart: unless-stopped
-        environment:
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - FLOWER_PORT=5555
-            - FLOWER_BASIC_AUTH=${FLOWER_BASIC_AUTH}
-            - FLOWER_MAX_TASKS=10000
-            - FLOWER_DB=/app/data/flower/flower.db
-            - CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP=true
-            - CELERY_BROKER_CONNECTION_MAX_RETRIES=10
-            - CELERY_BROKER_CONNECTION_RETRY_INTERVAL=5
-        ports:
-            - "5555:5555"
-        volumes:
-            - flower-data:/app/data/flower
-        depends_on:
-            redis:
-                condition: service_healthy
-            celery-worker:
-                condition: service_started
-        networks:
-            default:
-                aliases:
-                    - flower
-        healthcheck:
-            test: ["CMD-SHELL", "curl -f http://localhost:5555/healthcheck || exit 1"]
-            interval: 30s
-            timeout: 10s
-            retries: 5
-            start_period: 60s
-        deploy:
-            resources:
-                limits:
-                    cpus: '0.25'
-                    memory: 256M
-                reservations:
-                    cpus: '0.1'
-                    memory: 128M
 
     pgadmin:
         image: dpage/pgadmin4:latest
@@ -459,18 +322,6 @@ volumes:
             type: cifs
             device: //SRV_NAS/music
             o: username=${NAS_USER},password=${NAS_PASS},uid=1000,gid=1000,vers=2.0,iocharset=utf8,dir_mode=0755,file_mode=0644
-    celery-beat-data:
-        driver: local
-        driver_opts:
-            type: none
-            device: ${PWD}/data/celery_beat_data
-            o: bind
-    flower-data:
-        driver: local
-        driver_opts:
-            type: none
-            device: ${PWD}/data/flower_data
-            o: bind
     huggingface-cache:
         driver: local
         driver_opts:

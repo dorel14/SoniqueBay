@@ -75,10 +75,10 @@ class TestArtistEmbeddingsAPI:
 
     def test_generate_embeddings_endpoint(self, client):
         """Test endpoint de génération d'embeddings."""
-        with patch('backend.api.api.routers.artist_embeddings_api.celery_app') as mock_celery:
+        with patch('backend.api.api.routers.artist_embeddings_api.taskiq_broker') as mock_taskiq:
             mock_task = MagicMock()
             mock_task.id = "test-generate-task-123"
-            mock_celery.send_task.return_value = mock_task
+            mock_taskiq.send_task.return_value = mock_task
 
             response = client.post("/api/artist-embeddings/generate-embeddings")
 
@@ -89,10 +89,10 @@ class TestArtistEmbeddingsAPI:
 
     def test_generate_embeddings_with_specific_artists(self, client):
         """Test génération d'embeddings pour artistes spécifiques."""
-        with patch('backend.api.api.routers.artist_embeddings_api.celery_app') as mock_celery:
+        with patch('backend.api.api.routers.artist_embeddings_api.taskiq_broker') as mock_taskiq:
             mock_task = MagicMock()
             mock_task.id = "test-specific-generate-task-123"
-            mock_celery.send_task.return_value = mock_task
+            mock_taskiq.send_task.return_value = mock_task
 
             artist_names = ["Artist_1", "Artist_2"]
             response = client.post(
@@ -106,10 +106,10 @@ class TestArtistEmbeddingsAPI:
 
     def test_update_clusters_endpoint(self, client):
         """Test endpoint de mise à jour des clusters."""
-        with patch('backend.api.api.routers.artist_embeddings_api.celery_app') as mock_celery:
+        with patch('backend.api.api.routers.artist_embeddings_api.taskiq_broker') as mock_taskiq:
             mock_task = MagicMock()
             mock_task.id = "test-update-task-123"
-            mock_celery.send_task.return_value = mock_task
+            mock_taskiq.send_task.return_value = mock_task
 
             response = client.post("/api/artist-embeddings/update-clusters")
 
@@ -268,10 +268,10 @@ class TestArtistEmbeddingsAPI:
         )
         assert response.status_code == 422  # Validation error
 
-    def test_celery_task_error_handling(self, client):
-        """Test gestion d'erreurs des tâches Celery."""
-        with patch('backend.api.api.routers.artist_embeddings_api.celery_app') as mock_celery:
-            mock_celery.send_task.side_effect = Exception("Celery connection error")
+    def test_taskiq_task_error_handling(self, client):
+        """Test gestion d'erreurs des tâches TaskIQ."""
+        with patch('backend.api.api.routers.artist_embeddings_api.taskiq_broker') as mock_taskiq:
+            mock_taskiq.send_task.side_effect = Exception("TaskIQ connection error")
 
             response = client.post("/api/artist-embeddings/generate-embeddings")
 

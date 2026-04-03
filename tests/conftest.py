@@ -1,7 +1,10 @@
 # tests/conftest.py
+# Set TESTING environment variable as early as possible
+import os
+os.environ["TESTING"] = "true"
+
 import asyncio
 import logging
-import os
 import sys
 import tempfile
 import pytest
@@ -249,10 +252,10 @@ async def api_client():
 
 
 @pytest.fixture
-def mock_celery_task():
-    """Mock de tâche Celery."""
+def mock_taskiq_task():
+    """Mock de tâche TaskIQ."""
     task = MagicMock()
-    task.delay.return_value = MagicMock(id="test-task-id", status="PENDING")
+    task.kiq.return_value = MagicMock(task_id="test-task-id")
     return task
 
 

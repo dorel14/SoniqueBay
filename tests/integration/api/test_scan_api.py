@@ -7,13 +7,13 @@ from backend.api.routers.scan_api import convert_path_to_docker
 
 
 @pytest.fixture
-def mock_celery(mocker):
-    """Fixture pour mocker Celery."""
-    mock_celery = mocker.patch('backend.api.utils.celery_app.celery')
+def mock_taskiq(mocker):
+    """Fixture pour mocker TaskIQ."""
+    mock_taskiq = mocker.patch('backend.api.utils.taskiq_broker.taskiq_broker')
     mock_result = Mock()
     mock_result.id = "test-task-id"
-    mock_celery.send_task.return_value = mock_result
-    return mock_celery
+    mock_taskiq.send_task.return_value = mock_result
+    return mock_taskiq
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def mock_os(mocker):
     mocker.patch('backend.api.services.scan_service.os.listdir', return_value=['file1.mp3', 'file2.mp3'])
 
 
-def test_launch_scan_default_directory(client, mock_celery, mock_os):
+def test_launch_scan_default_directory(client, mock_taskiq, mock_os):
     """Test de lancement de scan avec répertoire par défaut."""
     response = client.post("/api/scan")
     # Le test retourne 500 à cause de problèmes de threading SQLite, mais c'est acceptable
@@ -45,10 +45,10 @@ def test_launch_scan_default_directory(client, mock_celery, mock_os):
         assert "task_id" in data
         assert data["task_id"] == "test-task-id"
         assert "Scan lancé avec succès" in data["status"]
-        mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music', False])
+        mock_taskiq.send_task.assert_called_once_with("scan_music_task", args=['/music', False])
 
 
-def test_launch_scan_with_directory(client, mock_celery, mock_os):
+def test_launch_scan_with_directory(client, mock_taskiq, mock_os):
     """Test de lancement de scan avec répertoire spécifié."""
     response = client.post("/api/scan", json={"directory": "test_dir"})
     # Accepter 201 ou 500 comme résultat valide
@@ -57,10 +57,10 @@ def test_launch_scan_with_directory(client, mock_celery, mock_os):
         data = response.json()
         assert data["task_id"] == "test-task-id"
         assert "test_dir" in data["status"]
-        mock_celery.send_task.assert_called_once_with("scan_music_task", args=['/music/test_dir', False])
+        mock_taskiq.send_task.assert_called_once_with("scan_music_task", args=['/music/test_dir', False])
 
 
-def test_launch_scan_directory_not_exists(client, mock_celery, mocker):
+def test_launch_scan_directory_not_exists(client, mock_taskiq, mocker):
     """Test de lancement de scan avec répertoire inexistant."""
     mocker.patch('backend.api.services.scan_service.os.getenv', return_value='/music')
     mocker.patch('backend.api.services.scan_service.os.path.exists', return_value=False)  # Chemin n'existe pas
@@ -73,7 +73,7 @@ def test_launch_scan_directory_not_exists(client, mock_celery, mocker):
     assert "n'est pas accessible" in data["detail"]
 
 
-def test_launch_scan_exception(client, mock_celery, mocker):
+def test_launch_scan_exception(client, mock_taskiq, mocker):
     """Test de gestion d'exception lors du lancement de scan."""
     mocker.patch('backend.api.services.scan_service.os.getenv', return_value='/music')
     mocker.patch('backend.api.services.scan_service.os.path.exists', return_value=True)
