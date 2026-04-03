@@ -215,6 +215,11 @@ services:
         environment:
             - TASKIQ_BROKER_URL=redis://redis:6379/1
             - TASKIQ_RESULT_BACKEND=redis://redis:6379/1
+            - TASKIQ_DB_USER=${WORKER_DB_USER}
+            - TASKIQ_DB_PASSWORD=${WORKER_DB_PASSWORD}
+            - POSTGRES_DB=${POSTGRES_DB}
+            - POSTGRES_HOST=db
+            - WORKER_DATABASE_URL=postgresql+asyncpg://${WORKER_DB_USER}:${WORKER_DB_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
             - API_URL=http://library:8001
             - HF_TOKEN=${HF_TOKEN}
             - HF_HOME=/root/.cache/huggingface
