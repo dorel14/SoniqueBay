@@ -10,7 +10,7 @@ httpx==0.28.1
 requests==2.32.4
 redis==6.2.0
 cryptography==46.0.5
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 
 strawchemy==0.18.0
 pydantic-ai==1.56.0
