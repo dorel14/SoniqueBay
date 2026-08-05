@@ -9,7 +9,7 @@ tinydb==4.7.0
 httpx==0.28.1
 requests==2.32.4
 redis==6.2.0
-cryptography==46.0.7
+cryptography==50.0.0
 python-dotenv==1.2.2
 
 strawchemy==0.18.0
